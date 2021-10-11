@@ -1,0 +1,38 @@
+#
+# DO NOT CHANGE UNLESS YOU KNOW WHAT YOU DO
+#
+# to upgrade all dependencies, run:
+#  pip-compile --upgrade --output-file=requirements.txt .\requirements.in
+#
+# see https://pypi.org/project/pip-tools/
+#
+
+# pip package upgrade tools
+pip-tools
+
+# scientific tools
+numpy
+scipy
+matplotlib
+
+# interface to VISA library
+pyvisa
+pyvisa-py
+
+# interface to locally (e.g. RS232, USB) attached instruments
+pyserial
+pyusb
+
+# read and write HDF (.h5) files
+h5py
+
+# collision avoidance of piezo stages
+collision
+
+# extra GUI widgets
+ttkwidgets
+
+# documentation generation
+mkdocs
+mkdocs-material
+mkdocstrings

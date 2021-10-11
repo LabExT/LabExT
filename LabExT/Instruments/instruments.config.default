@@ -1,0 +1,20 @@
+{
+"Visa Library Path" :
+    "@py",
+
+"Instruments" :
+    {
+        "Power Meter" :
+        [
+		    {"visa": "None", "class": "PowerMeterSimulator", "channels": [1, 2, 3, 4] }
+        ],
+        "Laser" :
+        [
+            {"visa": "None", "class": "LaserSimulator", "channels": [0, 1, 2, 3, 4] }
+        ],
+        "OSA" :
+        [
+            {"visa": "None", "class": "OpticalSpectrumAnalyzerSimulator", "channels": []}
+        ]
+    }
+}

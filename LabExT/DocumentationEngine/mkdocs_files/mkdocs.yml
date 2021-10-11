@@ -1,0 +1,3 @@
+site_name: LabExT Addon Documentation
+theme: readthedocs
+use_directory_urls: false

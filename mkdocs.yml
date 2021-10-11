@@ -1,0 +1,27 @@
+site_name: LabExT
+theme: material
+nav:
+  - "Home": index.md
+  - "GitHub Repo": https://github.com/LabExT/LabExT
+  - "Setup":
+    - installation.md
+    - settings_configuration.md
+  - "How to Measure":
+    - first_simple_measurement.md
+  - "How to Extend Code":
+    - code_API_overview.md
+    - code_new_meas_example.md
+    - code_data_dict.md
+    - code_new_instr_example.md
+    - code_standalone_meas.md
+  - "Code Reference":
+    - reference_InstrumentAPI.md
+    - reference_MeasAPI.md
+plugins:
+  - search
+  - mkdocstrings
+extra_css: [mkdocstrings.css]
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
