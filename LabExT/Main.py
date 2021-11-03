@@ -10,8 +10,9 @@ import sys
 import traceback
 from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
-from os.path import abspath, dirname
+from os.path import abspath, dirname, join
 from tkinter import Tk
+from PIL import ImageTk
 
 if __name__ == '__main__':
     # if we are running this file directly, i.e. without installing LabExT as a module,
@@ -88,6 +89,9 @@ def main():
 
     # write all uncaught exceptions in the log
     tk_root.report_callback_exception = log_except_hook
+
+    # load icon
+    tk_root.iconphoto(True, ImageTk.PhotoImage(file=join(dirname(__file__), 'icon.png')))
 
     # greet user and start logging
     logger.info('==============================================================================')
