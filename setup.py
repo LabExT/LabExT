@@ -11,13 +11,20 @@ setuptools.setup(
     version="2.1.0",
     author="Institute of Electromagnetic Fields (IEF) at ETH Zurich",
     author_email="ief@ief.ee.ethz.ch",
-    description="LaboratoryExperimentTool",
+    maintainer="Marco Eppenberger",
+    maintainer_email="marco.eppenberger@ief.ee.ethz.ch",
+    description="LabExT is a software environment for performing laboratory experiments on silicon-photonic devices.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://git.ee.ethz.ch/labext/LabExT",
+    url="https://github.com/labext/LabExT",
+    project_urls={
+        "Documentation": "https://labext.readthedocs.io",
+    },
     packages=setuptools.find_packages(),
     install_requires=requirements,
     classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
@@ -26,8 +33,5 @@ setuptools.setup(
         'console_scripts': [
             'LabExT = LabExT.Main:main',
         ],
-    },
-    package_data={
-        '': ['*.ini', '*.config']
     }
 )
