@@ -7,9 +7,7 @@
 astunparse==1.6.3
     # via pytkdocs
 click==8.0.3
-    # via
-    #   mkdocs
-    #   pip-tools
+    # via mkdocs
 collision==1.2.2
     # via -r .\requirements.in
 colorama==0.4.4
@@ -66,15 +64,11 @@ numpy==1.21.3
     #   scipy
 packaging==21.2
     # via mkdocs
-pep517==0.12.0
-    # via pip-tools
 pillow==8.4.0
     # via
     #   -r .\requirements.in
     #   matplotlib
     #   ttkwidgets
-pip-tools==6.4.0
-    # via -r .\requirements.in
 pygments==2.10.0
     # via mkdocs-material
 pymdown-extensions==9.0
@@ -113,8 +107,6 @@ six==1.16.0
     # via
     #   astunparse
     #   python-dateutil
-tomli==1.2.2
-    # via pep517
 ttkwidgets==0.12.1
     # via -r .\requirements.in
 typing-extensions==3.10.0.2
@@ -124,12 +116,6 @@ typing-extensions==3.10.0.2
 watchdog==2.1.6
     # via mkdocs
 wheel==0.37.0
-    # via
-    #   astunparse
-    #   pip-tools
+    # via astunparse
 zipp==3.6.0
     # via importlib-metadata
-
-# The following packages are considered to be unsafe in a requirements file:
-# pip
-# setuptools

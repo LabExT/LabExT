@@ -7,9 +7,6 @@
 # see https://pypi.org/project/pip-tools/
 #
 
-# pip package upgrade tools
-pip-tools
-
 # scientific tools
 numpy
 scipy
@@ -37,3 +34,8 @@ pillow
 mkdocs
 mkdocs-material
 mkdocstrings
+
+# tools for development
+# pip-tools
+# build
+# twine
