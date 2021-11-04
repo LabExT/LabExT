@@ -10,6 +10,7 @@ import logging
 import os.path
 import re
 import threading
+import pkg_resources
 from os import makedirs
 from os.path import join, dirname, abspath, exists, basename
 from pathlib import Path
@@ -30,16 +31,24 @@ def get_labext_version():
     short-ref of the last Git commit of the LabExT sourcecode
     """
 
-    # read version from setup.py
-    setup_py_path = join(dirname(dirname(__file__)), 'setup.py')
-    with open(setup_py_path, 'r') as fp:
-        content = fp.read()
+    # read version from python builtin methods
+    try:
+        version_str = pkg_resources.get_distribution("LabExT").version
+    except pkg_resources.DistributionNotFound:
+        # pkg_resources cannot find LabExT, lets manually try to parse from setup.py as stored in the Git repo
+        version_str = None
 
-    m = re.search(r"version=['\"][0-9]+\.[0-9]+\.[0-9]+['\"]", content)
-    if m is not None:
-        version_str = m[0].split('=')[1][1:-1]  # get the version numbers alone
-    else:
-        version_str = '-'
+    if version_str is None:
+        # read version from setup.py
+        setup_py_path = join(dirname(dirname(__file__)), 'setup.py')
+        with open(setup_py_path, 'r') as fp:
+            content = fp.read()
+
+        m = re.search(r"version=['\"][0-9]+\.[0-9]+\.[0-9]+['\"]", content)
+        if m is not None:
+            version_str = m[0].split('=')[1][1:-1]  # get the version numbers alone
+        else:
+            version_str = '-'
 
     # access git folder relative to this file
     git_folder_path = join(dirname(dirname(__file__)), '.git')
