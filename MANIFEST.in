@@ -1,0 +1,5 @@
+include README.md AUTHORS.md CHANGELOG.md LICENSE requirements.txt
+recursive-include LabExT *
+recursive-include docs *
+prune site
+global-exclude *.pyc *~ .DS_Store *__pycache__* *.pyo
