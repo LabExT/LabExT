@@ -33,5 +33,6 @@ setuptools.setup(
         'console_scripts': [
             'LabExT = LabExT.Main:main',
         ],
-    }
+    },
+    include_package_data=True
 )
