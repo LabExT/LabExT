@@ -1,7 +1,8 @@
 # LabExT - Laboratory Experiment Tool
 
 LabExT, short for Laboratory Experiment Tool, is a software environment for performing laboratory
-experiments on silicon-photonic devices and chips. The tool is free, written in Python 3.7 and uses the I/O API VISA through [pyvisa](https://github.com/pyvisa/pyvisa).
+experiments on silicon-photonic devices and chips. The tool is free, written in Python 3.8 and uses the I/O API VISA
+through [pyvisa](https://github.com/pyvisa/pyvisa).
 
 ## Highlights
 * Execute pre-defined measurement routines using laboratory instruments at any VISA address.

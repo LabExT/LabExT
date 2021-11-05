@@ -1,9 +1,51 @@
 # Installation Instructions
 
-It is recommended to work with [Python virtual environments](https://docs.python.org/3.7/library/venv.html#module-venv)
-or conda environments. In this installation example, we assume that we are working on a Windows machine
+It is recommended to work with [Python virtual environments](https://docs.python.org/3.8/library/venv.html#module-venv)
+or conda environments. In these installation examples, we assume that we are working on a Windows machine
 and you have a working [Anaconda3](https://www.anaconda.com/products/individual/) installation available.
-Also, make sure to have a version of [Git](https://git-scm.com) installed.
+
+If you just want to use LabExT and are not interested in code development, follow the
+[Installation for Usage](installation.md#installation-for-usage) instructions. If you plan to change code and do some
+development for LabExT, follow the [Installation for Development](installation.md#installation-for-development)
+instructions.
+
+After the installation of LabExT, we suggest to configure the available instruments, see
+[Configuration](./settings_configuration.md).
+
+## Installation for Usage
+We assume that you have Anaconda installed (or anything else that provide the conda environment manager). Open the 
+"Anaconda Prompt" console, then the installation for usage is straight forward via conda and pip:
+```
+conda create -n LabExT_env python=3.8
+conda activate LabExT_env
+pip install LabExT
+```
+
+The installation also works into a native Python venv. In any case, we heavily recommend the usage of any type of
+environment (conda, venv, ...) as LabExT installs quite a few dependencies.
+
+### Starting LabExT
+
+Once you installed LabExT and you wish to (re)start LabExT,
+its sufficient to simply activate the conda environment again and then start LabExT.
+So, open the "Anaconda Prompt" console via start menu, then type:
+```
+conda activate LabExT_env
+``` 
+Since LabExT is also a registered executable within this environment, the following is then sufficient to start it 
+again:
+```
+LabExT
+```
+
+## Installation for Development
+Follow these steps if you plan on developing LabExT or if you want to change code. Also, make sure to have a version
+of [Git](https://git-scm.com) installed.
+
+!!! note
+    Note that if you only want to add  instrument drivers or measurement algorithms, the usage installation above is
+    sufficient and you can use the addon system to load your additional classes. See the
+    [Configuration page](./settings_configuration.md#specify-addon-directories).
 
 ### Download
 
@@ -19,13 +61,13 @@ Take note where you cloned this repo to. Lets assume the repo is at `<labext-pat
 Open the "Anaconda Prompt" console via the start menu and create a separate Python environment for LabExT and activate
 it.
 ```
-conda create -n LabExT_env python=3.7
+conda create -n LabExT_env python=3.8
 conda activate LabExT_env
 ```
 We name this environment `LabExT_env`, but you may also choose your own name.
 
 !!! info
-    Make sure to create the conda environment with Python version 3.7!
+    LabExT is currently tested with Python 3.7 and 3.8. Make sure to specify one of those versions in your environment.
 
 ### Install LabExT
 
@@ -56,23 +98,3 @@ A highly recommended alternative to start LabExT is by using your favourite Pyth
     doing `from LabExT.Instruments.XXX import XXX` from any script executed in your Python environment.
     This can be very helpful for custom scripts which use part of LabExT (e.g. instrument driver classes, or
     Piezo Stage drivers) but are not integrated into LabExT.
-
-
-### Starting LabExT
-
-Once you installed LabExT according to the instructions above and you wish to (re)start LabExT,
-its sufficient to simply activate the anaconda environment again and then start LabExT.
-So, open the "Anaconda Prompt" console via start menu, then type:
-```
-conda activate LabExT_env
-``` 
-Since LabExT is also a registered executable within this environment, the following is then sufficient to start it 
-again:
-```
-LabExT
-```
-
-### Configuration
-
-After the installation of LabExT, we suggest to configure the available instruments, see
-[Configuration](./settings_configuration.md).
