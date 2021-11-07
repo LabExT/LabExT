@@ -110,8 +110,10 @@ class MainWindowControlFrame(Frame):
                       font='Helvetica 18 bold')
         title.grid(row=0, column=0, pady=(20, 0), sticky='we')
         version, gitref = get_labext_version()
-        version = Label(self,
-                        text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
+        if gitref != '-':
+            version = Label(self,text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
+        else:
+            version = Label(self, text='v' + str(version) + "\nPress F1 for help.")
         version.grid(row=1, column=0, pady=(0, 20), sticky='we')
 
         self.rowconfigure(2, weight=1)
