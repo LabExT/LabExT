@@ -18,7 +18,7 @@ We assume that you have Anaconda installed (or anything else that provide the co
 ```
 conda create -n LabExT_env python=3.8
 conda activate LabExT_env
-pip install LabExT
+pip install LabExT-pkg
 ```
 
 The installation also works into a native Python venv. In any case, we heavily recommend the usage of any type of
