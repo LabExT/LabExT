@@ -33,16 +33,21 @@ def get_labext_version():
 
     # read version from python builtin methods
     try:
-        version_str = pkg_resources.get_distribution("LabExT").version
+        version_str = pkg_resources.get_distribution("LabExT_pkg").version
     except pkg_resources.DistributionNotFound:
         # pkg_resources cannot find LabExT, lets manually try to parse from setup.py as stored in the Git repo
         version_str = None
 
     if version_str is None:
         # read version from setup.py
-        setup_py_path = join(dirname(dirname(__file__)), 'setup.py')
-        with open(setup_py_path, 'r') as fp:
-            content = fp.read()
+        try:
+            setup_py_path = join(dirname(dirname(__file__)), 'setup.py')
+            with open(setup_py_path, 'r') as fp:
+                content = fp.read()
+        except FileNotFoundError:
+            # if package is not installed and we cannot find the setup.py file, we
+            # effectively cannot find out our package version :/
+            content = ''
 
         m = re.search(r"version=['\"][0-9]+\.[0-9]+\.[0-9]+['\"]", content)
         if m is not None:
