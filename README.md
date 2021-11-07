@@ -25,9 +25,17 @@ Before losing too many words, check out the following video which demonstrates h
 ## Links
 Here are the three most important pieces of documentation you will need:
 
-* Full documentation incl. installation instructions and getting started guide: [labext.readthedocs.io](https://labext.readthedocs.io/en/latest/).
+* Full documentation incl. detailed installation instructions and getting started guide: [labext.readthedocs.io](https://labext.readthedocs.io/en/latest/).
 * Press F1 in the main window to open the addon documentation.
 * For guidelines on how to contribute to the LabExT codebase, see [the contribution guide](./CONTRIBUTING.md).
+
+## Installation
+Assuming you use conda as environment manager, installation is straight forward:
+```
+conda create -n LabExT_env python=3.8
+conda activate LabExT_env
+pip install LabExT-pkg
+```
 
 ## Acknowledgements & Reference
 LabExT is written in part by tireless folks at the
