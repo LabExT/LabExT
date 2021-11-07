@@ -1,3 +1,10 @@
+## Version 2.1.1
+Released 2021-11-07
+
+* feature: LabExt is now pip installable. Documentation is updated to reflect this.
+* community: added GitHub issue and PR templates
+* under-the-hood: LabExt is now Python 3.7 and 3.8 compatible. Suggested version is 3.8.
+
 ## Version 2.1.0
 Released 2021-09-06
 
