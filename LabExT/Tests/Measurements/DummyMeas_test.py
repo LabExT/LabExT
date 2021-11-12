@@ -13,7 +13,7 @@ from LabExT.Measurements.DummyMeas import DummyMeas
 from LabExT.Measurements.MeasAPI import Measurement
 
 
-class Test_DummyMeas(unittest.TestCase):
+class DummyMeas_Test(unittest.TestCase):
     """
     Test for the DummyMeas measurement.
 

@@ -10,15 +10,15 @@ import unittest
 import numpy as np
 
 from LabExT.Movement.PiezoStage import PiezoStage
-from LabExT.Tests.Utils import ask_user_yes_no
+from LabExT.tests.Utils import ask_user_yes_no
 
-
-class Test_PiezoStage(unittest.TestCase):
+class PiezoStage_Test(unittest.TestCase):
 
     user_input_required = True
     z_axis_direction = -1
 
     @classmethod
+    @unittest.skip
     def setUpClass(cls) -> None:
         # This method gets executed ONCE before ALL test cases.
         address = b'usb:id:276053211'
@@ -27,7 +27,7 @@ class Test_PiezoStage(unittest.TestCase):
     #
     # test cases
     #
-
+    @unittest.skip
     def test_set_get_xy_speed(self):
         # get speeds to reset later
         xy_speed = self.stage.get_speed_xy()
@@ -41,6 +41,7 @@ class Test_PiezoStage(unittest.TestCase):
         # reset stage speed
         self.stage.set_speed_xy(xy_speed)
 
+    @unittest.skip
     def test_set_get_z_speed(self):
         z_speed = self.stage.get_speed_z()
         z_speeds = [5, 20, 50, 1500]
@@ -51,6 +52,7 @@ class Test_PiezoStage(unittest.TestCase):
         # reset stage speed
         self.stage.set_speed_xy(z_speed)
 
+    @unittest.skip
     def test_set_get_xy_acc(self):
         # get speeds to reset later
         xy_acc = self.stage.get_acceleration_xy()
@@ -64,6 +66,7 @@ class Test_PiezoStage(unittest.TestCase):
         # reset stage speed
         self.stage.set_acceleration_xy(xy_acc)
 
+    @unittest.skip
     def test_params(self):
         # z-axis direction
         self.stage.z_axis_direction = 1
@@ -72,6 +75,7 @@ class Test_PiezoStage(unittest.TestCase):
         self.stage.z_axis_direction = -1
         self.assertEqual(-1, self.stage.z_axis_direction)
 
+    @unittest.skip
     def test_current_position(self):
 
         pos = self.stage.get_current_position()
@@ -80,6 +84,7 @@ class Test_PiezoStage(unittest.TestCase):
         if self.user_input_required:
             self.assertTrue(ask_user_yes_no(f"Is the Piezo-Stage at position {pos}?", default_answer=True))
 
+    @unittest.skip
     def test_move_relative(self):
 
         # move 1mm in x and y
@@ -88,6 +93,7 @@ class Test_PiezoStage(unittest.TestCase):
         if self.user_input_required:
             self.assertTrue(ask_user_yes_no("Has the Piezo-Stage moved +1mm in x and y?", default_answer=True))
 
+    @unittest.skip
     def test_move_absolute(self):
 
         positions = np.array([[0, 0],
@@ -99,7 +105,8 @@ class Test_PiezoStage(unittest.TestCase):
             if self.user_input_required:
                 self.assertTrue(ask_user_yes_no(f"Has the Piezo-Stage moved to absolute position {positions[i, :] * 1e3}?",
                                                 default_answer=True))
-
+    
+    @unittest.skip
     def test_lower_lift_stage(self):
 
         pos0 = self.stage.get_current_position()
@@ -119,6 +126,7 @@ class Test_PiezoStage(unittest.TestCase):
         if self.user_input_required:
             self.assertTrue(ask_user_yes_no(f"Has the stage lowered down by {lift}um"))
 
+    @unittest.skip
     def test_wiggle_z_axis_positioner(self):
 
         self.stage.wiggle_z_axis_positioner()

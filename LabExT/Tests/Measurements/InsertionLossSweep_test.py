@@ -32,7 +32,7 @@ def check_ILsweep_data_output(test_inst, data_dict, params_dict):
                                params_dict['wavelength stop'].value))
 
 
-class Test_InsertionLossSweep(unittest.TestCase):
+class InsertionLossSweep_Test(unittest.TestCase):
     """
     Test for the InsertionLossSweep measurement.
 

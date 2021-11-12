@@ -14,7 +14,7 @@ from LabExT.Measurements.MeasAPI import Measurement
 from LabExT.Measurements.ReadOSA import ReadOSA
 
 
-class Test_ReadOSA(unittest.TestCase):
+class ReadOSA_Test(unittest.TestCase):
     """
     Test for the ReadOSA measurement.
     required lab setup:
@@ -31,7 +31,7 @@ class Test_ReadOSA(unittest.TestCase):
     #
     # setup and teardown methods
     #
-
+    @unittest.skip
     def setUp(self) -> None:
         #
         # Initialize desired instruments here!
@@ -52,7 +52,7 @@ class Test_ReadOSA(unittest.TestCase):
     #
     # test cases
     #
-
+    @unittest.skip
     def test_default_parameters(self):
 
         #
@@ -88,6 +88,7 @@ class Test_ReadOSA(unittest.TestCase):
         self.assertFalse(np.any(np.isnan(data['values']['transmission [dBm]'])))
         self.assertFalse(np.any(np.isnan(data['values']['wavelength [nm]'])))
 
+    @unittest.skip
     def test_parameters(self):
         data = Measurement.setup_return_dict()
 
