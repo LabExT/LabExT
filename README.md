@@ -58,5 +58,5 @@ integrated optics design and the testing thereof we gratefully acknowledge.
 
 If you use LabExT and believe that it helps you in your research as much as it helped us, consider citing us as follows:
 ```
-M. Eppenberger, A. Messner, P. Wintermeyer, B. Baeuerle and J. Leuthold, "LabExT - Laboratory Experiment Tool," available on github.com/LabExT/LabExT, 2021.
+M. Eppenberger, A. Messner, P. Wintermeyer, B. Baeuerle and J. Leuthold, "LabExT," available on github.com/LabExT/LabExT, 2021, doi:10.5905/ethz-1007-433.
 ```
