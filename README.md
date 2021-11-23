@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Documentation Status](https://readthedocs.org/projects/labext/badge/?version=latest)](https://labext.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/LabExT-pkg.svg)](https://badge.fury.io/py/LabExT-pkg)
+![LabExT CI](https://github.com/LabExT/LabExT/actions/workflows/labext-ci.yml/badge.svg?branch=main)
 
 LabExT, short for Laboratory Experiment Tool, is a software environment for performing laboratory
 experiments on silicon-photonic devices and chips. The tool is free, written in Python 3.8 and uses the I/O API VISA
