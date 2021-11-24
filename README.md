@@ -48,6 +48,7 @@ pip install LabExT-pkg
 ```
 
 For a detailed installation and configuration guide, please consult the [online installation guide](https://labext.readthedocs.io/en/latest/installation/).
+If you plan on developing for LabExT, see the [development setup guide](https://labext.readthedocs.io/en/latest/setup_dev_env/).
 
 ## Acknowledgements & Reference
 LabExT is written in part by tireless folks at the
