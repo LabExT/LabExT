@@ -95,7 +95,7 @@ class Stage3DSmarAct(Stage):
             MCSC.SA_CALIBRATING_STATUS: 'SA_CALIBRATING_STATUS',
             MCSC.SA_FINDING_REF_STATUS: 'SA_FINDING_REF_STATUS',
             MCSC.SA_OPENING_STATUS: 'SA_OPENING_STATUS'
-        }
+        } if MCS_LOADED else {}
 
         LINEAR_SENSORS = [
             MCSC.SA_S_SENSOR_TYPE,
@@ -106,7 +106,7 @@ class Stage3DSmarAct(Stage):
             MCSC.SA_SC500_SENSOR_TYPE,
             MCSC.SA_SCD_SENSOR_TYPE,
             MCSC.SA_MD_SENSOR_TYPE
-        ]
+        ] if MCS_LOADED else []
 
         def __init__(self, stage, index, name='Channel') -> None:
             """Constructs all necessary attributes of the channel object.
