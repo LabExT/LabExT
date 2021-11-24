@@ -24,10 +24,9 @@ class ChannelTest(SmarActTestCase):
         expected_status = 2
         self.mcsc_mock.SA_GetStatus_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_ulong(expected_status)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_ulong(expected_status)
+            }))
 
         actual_status = self.channel.status
 
@@ -40,10 +39,9 @@ class ChannelTest(SmarActTestCase):
         expected_status_string = 'MY_CUSTOM_STATUS'
         self.mcsc_mock.SA_GetStatus_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_ulong(expected_status)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_ulong(expected_status)
+            }))
 
         with patch.object(Stage3DSmarAct._Channel, 'STATUS_CODES', {
             expected_status: expected_status_string
@@ -59,10 +57,9 @@ class ChannelTest(SmarActTestCase):
         expected_status_string = "Unknown status code: " + str(expected_status)
         self.mcsc_mock.SA_GetStatus_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_ulong(expected_status)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_ulong(expected_status)
+            }))
 
         with patch.object(Stage3DSmarAct._Channel, 'STATUS_CODES', {}):
             actual_status = self.channel.humanized_status
@@ -77,10 +74,9 @@ class ChannelTest(SmarActTestCase):
         expected_sensor = 1
         self.mcsc_mock.SA_GetSensorType_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_ulong(expected_sensor)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_ulong(expected_sensor)
+            }))
 
         actual_sensor = self.channel.sensor
 
@@ -92,10 +88,9 @@ class ChannelTest(SmarActTestCase):
         expected_sensor = 1
         self.mcsc_mock.SA_GetSensorType_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_ulong(expected_sensor)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_ulong(expected_sensor)
+            }))
 
         with patch.object(Stage3DSmarAct._Channel, 'LINEAR_SENSORS', [1]):
             self.assertTrue(self.channel.is_sensor_linear)
@@ -110,10 +105,9 @@ class ChannelTest(SmarActTestCase):
 
         self.mcsc_mock.SA_GetPosition_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(self._to_nanometer(expected_position)))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(self._to_nanometer(expected_position)))
+            }))
 
         actual_position = self.channel.position
 
@@ -128,10 +122,9 @@ class ChannelTest(SmarActTestCase):
         self.channel._position = stored_position
         self.mcsc_mock.SA_GetPosition_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(self._to_nanometer(system_position)))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(self._to_nanometer(system_position)))
+            }))
 
         actual_position = self.channel.position
 
@@ -147,10 +140,9 @@ class ChannelTest(SmarActTestCase):
 
         self.mcsc_mock.SA_GetClosedLoopMoveSpeed_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(self._to_nanometer(expected_speed)))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(self._to_nanometer(expected_speed)))
+            }))
 
         actual_speed = self.channel.speed
 
@@ -165,10 +157,9 @@ class ChannelTest(SmarActTestCase):
         self.channel._speed = stored_speed
         self.mcsc_mock.SA_GetClosedLoopMoveSpeed_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(self._to_nanometer(system_speed)))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(self._to_nanometer(system_speed)))
+            }))
 
         actual_speed = self.channel.speed
 
@@ -181,10 +172,9 @@ class ChannelTest(SmarActTestCase):
 
         self.mcsc_mock.SA_SetClosedLoopMoveSpeed_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(self._to_nanometer(new_speed)))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(self._to_nanometer(new_speed)))
+            }))
 
         self.channel.speed = new_speed
 
@@ -201,10 +191,9 @@ class ChannelTest(SmarActTestCase):
         self.channel._speed = current_speed
         self.mcsc_mock.SA_SetClosedLoopMoveSpeed_S = Mock(
             return_value=self.MCSC_STATUS_ERR,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(self._to_nanometer(new_speed)))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(self._to_nanometer(new_speed)))
+            }))
 
         with self.assertRaises(StageError):
             self.channel.speed = new_speed
@@ -220,10 +209,9 @@ class ChannelTest(SmarActTestCase):
 
         self.mcsc_mock.SA_GetClosedLoopMoveAcceleration_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(expected_acceleration)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(expected_acceleration)
+            }))
 
         actual_acceleration = self.channel.acceleration
 
@@ -238,10 +226,9 @@ class ChannelTest(SmarActTestCase):
         self.channel._acceleration = stored_acceleration
         self.mcsc_mock.SA_GetClosedLoopMoveAcceleration_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(system_acceleration)
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(system_acceleration)
+            }))
 
         actual_acceleration = self.channel.acceleration
 
@@ -254,10 +241,9 @@ class ChannelTest(SmarActTestCase):
 
         self.mcsc_mock.SA_SetClosedLoopMoveAcceleration_S = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(new_acceleration))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(new_acceleration))
+            }))
 
         self.channel.acceleration = new_acceleration
 
@@ -274,10 +260,9 @@ class ChannelTest(SmarActTestCase):
         self.channel._acceleration = current_acceleration
         self.mcsc_mock.SA_SetClosedLoopMoveAcceleration_S = Mock(
             return_value=self.MCSC_STATUS_ERR,
-            side_effect=self.update_by_reference(
-                arg_no=2,
-                c_type=ct.c_int(int(current_acceleration))
-            ))
+            side_effect=self.update_by_reference({
+                2: ct.c_int(int(current_acceleration))
+            }))
 
         with self.assertRaises(StageError):
             self.channel.acceleration = new_acceleration

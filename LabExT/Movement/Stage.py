@@ -14,11 +14,16 @@ class StageError(RuntimeError):
 
 
 class Stage(ABC):
+    _logger = logging.getLogger()
+
+    @classmethod
+    def find_stages(cls):
+        raise NotImplementedError
+
     @abstractmethod
     def __init__(self, address):
         self.address = address
         self.connected = False
-        self.logger = logging.getLogger()
 
     def __del__(self):
         self.disconnect()

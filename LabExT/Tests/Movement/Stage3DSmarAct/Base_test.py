@@ -16,6 +16,36 @@ class BaseTest(SmarActTestCase):
     def tearDown(self) -> None:
         self.mcsc_mock.SA_CloseSystem = Mock(return_value=self.MCSC_STATUS_OK)
 
+    def test_find_stages_successfully(self):
+        expected_stages = ['usb:id:000000001', 'usb:id:000000002']
+        stages_char_array = ct.create_string_buffer(bytes("\n".join(expected_stages), "utf-8"))
+        expected_size = ct.sizeof(stages_char_array)
+
+        self.mcsc_mock.SA_FindSystems = Mock(
+            return_value=self.MCSC_STATUS_OK,
+            side_effect=self.update_by_reference({
+                1: stages_char_array,
+                2: ct.c_ulong(expected_size)
+            })
+        )
+
+        stages = Stage3DSmarAct.find_stages()
+
+        self.mcsc_mock.SA_FindSystems.assert_called_once()
+        self.assertEqual(stages, expected_stages)
+
+
+    def test_find_stages_when_empty_buffer(self):
+        self.mcsc_mock.SA_FindSystems = Mock(
+            return_value=self.MCSC_STATUS_OK,
+            side_effect=self.update_by_reference({
+                2: ct.c_ulong(0)
+            })
+        )
+
+        self.assertEqual([], Stage3DSmarAct.find_stages())
+        self.mcsc_mock.SA_FindSystems.assert_called_once()
+
     def test_connect_if_open_system_fails(self):
         self.mcsc_mock.SA_OpenSystem = Mock(return_value=self.MCSC_STATUS_ERR)
 
@@ -33,10 +63,9 @@ class BaseTest(SmarActTestCase):
 
         self.mcsc_mock.SA_OpenSystem = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=0,
-                c_type=ct.c_ulong(expected_handle)
-            ))
+            side_effect=self.update_by_reference({
+                0: ct.c_ulong(expected_handle)
+            }))
 
         with patch.object(Stage3DSmarAct._Channel, 'is_sensor_linear', True):
             self.assertTrue(self.stage.connect())
@@ -52,10 +81,9 @@ class BaseTest(SmarActTestCase):
 
         self.mcsc_mock.SA_OpenSystem = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=0,
-                c_type=ct.c_ulong(expected_handle)
-            ))
+            side_effect=self.update_by_reference({
+                0: ct.c_ulong(expected_handle)
+            }))
 
         with patch.object(Stage3DSmarAct._Channel, 'is_sensor_linear', False):
             with self.assertRaises(StageError) as error:
@@ -97,10 +125,9 @@ class BaseTest(SmarActTestCase):
 
         self.mcsc_mock.SA_OpenSystem = Mock(
             return_value=self.MCSC_STATUS_OK,
-            side_effect=self.update_by_reference(
-                arg_no=0,
-                c_type=ct.c_ulong(expected_handle)
-            ))
+            side_effect=self.update_by_reference({
+                0: ct.c_ulong(expected_handle)
+            }))
 
         with patch.object(Stage3DSmarAct._Channel, 'is_sensor_linear', True):
             # First invocation should succeed

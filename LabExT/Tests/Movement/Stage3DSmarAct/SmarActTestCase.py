@@ -52,9 +52,10 @@ class SmarActTestCase(unittest.TestCase):
         self.channel = Stage3DSmarAct._Channel(self.stage, self.channel_index)
         return super().setUp()
 
-    def update_by_reference(self, arg_no: int, c_type: ct):
+    def update_by_reference(self, mapping):
         def inner(*args):
-            args[arg_no].value = c_type.value
+            for arg_no, c_type in mapping.items():
+                args[arg_no].value = c_type.value
             return DEFAULT
         return inner
 
