@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 from LabExT.Tests.Movement.Stage3DSmarAct.SmarActTestCase import SmarActTestCase, Stage3DSmarAct
 from LabExT.Movement.Stage3DSmarAct import MovementType
+from LabExT.Movement.Stage import StageError
 
 
 class ChannelTest(SmarActTestCase):
@@ -205,7 +206,8 @@ class ChannelTest(SmarActTestCase):
                 c_type=ct.c_int(int(self._to_nanometer(new_speed)))
             ))
 
-        self.channel.speed = new_speed
+        with self.assertRaises(StageError):
+            self.channel.speed = new_speed
 
         self.mcsc_mock.SA_SetClosedLoopMoveSpeed_S.assert_called_once()
         self.assertEqual(self.channel._speed, current_speed)
@@ -277,7 +279,8 @@ class ChannelTest(SmarActTestCase):
                 c_type=ct.c_int(int(current_acceleration))
             ))
 
-        self.channel.acceleration = new_acceleration
+        with self.assertRaises(StageError):
+            self.channel.acceleration = new_acceleration
 
         self.mcsc_mock.SA_SetClosedLoopMoveAcceleration_S.assert_called_once()
         self.assertEqual(self.channel._acceleration, current_acceleration)
@@ -342,7 +345,10 @@ class ChannelTest(SmarActTestCase):
         self.mcsc_mock.SA_GotoPositionAbsolute_S = Mock(
             return_value=self.MCSC_STATUS_OK)
 
-        self.channel.move(diff=requested_diff, mode=MovementType.ABSOLUTE, wait_for_stopping=False)
+        self.channel.move(
+            diff=requested_diff,
+            mode=MovementType.ABSOLUTE,
+            wait_for_stopping=False)
 
         self.mcsc_mock.SA_GotoPositionRelative_S.assert_not_called()
         self.mcsc_mock.SA_GotoPositionAbsolute_S.assert_called_once()

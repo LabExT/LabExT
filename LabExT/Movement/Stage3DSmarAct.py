@@ -10,7 +10,7 @@ import time
 import ctypes as ct
 from enum import Enum
 
-from LabExT.Movement.Stage import Stage
+from LabExT.Movement.Stage import Stage, StageError
 from LabExT.Utils import get_configuration_file_path
 
 sys_path_changed = False
@@ -253,7 +253,11 @@ class Stage3DSmarAct(Stage):
 
         # Movement
 
-        def move(self, diff: float, mode=MovementType.RELATIVE, wait_for_stopping=True) -> None:
+        def move(
+                self,
+                diff: float,
+                mode=MovementType.RELATIVE,
+                wait_for_stopping=True) -> None:
             """Moves the channel with the specified movement type by the value diff
 
             Parameters
@@ -290,7 +294,8 @@ class Stage3DSmarAct(Stage):
                     ct.c_int(int(self._to_nanometer(diff))),
                     0
                 ))
-            if wait_for_stopping: self._wait_for_stopping()
+            if wait_for_stopping:
+                self._wait_for_stopping()
 
         def _move_absolute(self, pos: float, wait_for_stopping: bool):
             self._stage._exit_if_error(
@@ -300,7 +305,8 @@ class Stage3DSmarAct(Stage):
                     ct.c_int(int(self._to_nanometer(pos))),
                     0
                 ))
-            if wait_for_stopping: self._wait_for_stopping()
+            if wait_for_stopping:
+                self._wait_for_stopping()
 
         def _humanize_status(self, status_code: int) -> str:
             if(status_code in self.STATUS_CODES):
@@ -598,7 +604,7 @@ class Stage3DSmarAct(Stage):
     def _raise_if_sensor_non_linear(self) -> None:
         for index, channel in self.channels.items():
             if not channel.is_sensor_linear:
-                raise RuntimeError(
+                raise StageError(
                     'Channel {} of stage {} has no supported linear sensor!'.format(
                         index.name, self.address))
         self.logger.debug("Linear x, y and z sensor present")
@@ -607,14 +613,13 @@ class Stage3DSmarAct(Stage):
         if(status == MCSC.SA_OK):
             return True
 
-        error_msg = ct.c_char_p()
-        MCSC.SA_GetStatusInfo(status, error_msg)
+        error_message = ct.c_char_p()
+        MCSC.SA_GetStatusInfo(status, error_message)
 
-        if(error_msg):
-            self.logger.error(
-                'MCS error: {}'.format(
-                    error_msg.value[:].decode('utf-8')))
+        if error_message:
+            error_message = 'MCSControl Error: {}'.format(
+                error_message.value[:].decode('utf-8'))
         else:
-            self.logger.error('MCS error: undefined error occurred.')
+            error_message = 'MCSControl Error: Undefined error occurred.'
 
-        return False
+        raise StageError(error_message)

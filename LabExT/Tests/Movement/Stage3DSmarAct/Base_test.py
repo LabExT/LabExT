@@ -9,17 +9,25 @@ import ctypes as ct
 from unittest.mock import Mock, patch
 
 from LabExT.Tests.Movement.Stage3DSmarAct.SmarActTestCase import SmarActTestCase, Stage3DSmarAct
+from LabExT.Movement.Stage import StageError
 
 
 class BaseTest(SmarActTestCase):
+    def tearDown(self) -> None:
+        self.mcsc_mock.SA_CloseSystem = Mock(return_value=self.MCSC_STATUS_OK)
+
     def test_connect_if_open_system_fails(self):
         self.mcsc_mock.SA_OpenSystem = Mock(return_value=self.MCSC_STATUS_ERR)
 
-        self.assertFalse(self.stage.connect())
+        with self.assertRaises(StageError):
+            self.assertFalse(self.stage.connect())
+
         self.mcsc_mock.SA_OpenSystem.assert_called_once()
         self.assertFalse(self.stage.connected)
         self.assertIsNone(self.stage.handle)
 
+    @patch.object(Stage3DSmarAct._Channel, "speed", None)
+    @patch.object(Stage3DSmarAct._Channel, "acceleration", None)
     def test_connect_if_open_system_succeed(self):
         expected_handle = 42
 
@@ -50,7 +58,7 @@ class BaseTest(SmarActTestCase):
             ))
 
         with patch.object(Stage3DSmarAct._Channel, 'is_sensor_linear', False):
-            with self.assertRaises(RuntimeError) as error:
+            with self.assertRaises(StageError) as error:
                 self.stage.connect()
 
         self.mcsc_mock.SA_OpenSystem.assert_called_once()
@@ -75,12 +83,15 @@ class BaseTest(SmarActTestCase):
 
         self.mcsc_mock.SA_CloseSystem = Mock(return_value=self.MCSC_STATUS_ERR)
 
-        self.stage.disconnect()
+        with self.assertRaises(StageError):
+            self.stage.disconnect()
 
         self.mcsc_mock.SA_CloseSystem.assert_called_once_with(
             self.stage.handle)
         self.assertTrue(self.stage.connected)
 
+    @patch.object(Stage3DSmarAct._Channel, "speed", None)
+    @patch.object(Stage3DSmarAct._Channel, "acceleration", None)
     def test_connect_double_invocation(self):
         expected_handle = 42
 

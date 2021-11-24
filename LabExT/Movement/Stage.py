@@ -9,6 +9,10 @@ import logging
 from abc import ABC, abstractmethod
 
 
+class StageError(RuntimeError):
+    pass
+
+
 class Stage(ABC):
     @abstractmethod
     def __init__(self, address):
