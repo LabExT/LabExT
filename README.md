@@ -2,7 +2,7 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Documentation Status](https://readthedocs.org/projects/labext/badge/?version=latest)](https://labext.readthedocs.io/en/latest/?badge=latest)
-[![PyPI version](https://badge.fury.io/py/LabExT-pkg.svg)](https://badge.fury.io/py/LabExT-pkg)
+[![PyPI version](https://badge.fury.io/py/LabExT-pkg.svg)](https://pypi.org/project/LabExT-pkg/)
 ![LabExT CI](https://github.com/LabExT/LabExT/actions/workflows/labext-ci.yml/badge.svg?branch=main)
 
 LabExT, short for Laboratory Experiment Tool, is a software environment for performing laboratory
@@ -48,34 +48,6 @@ pip install LabExT-pkg
 ```
 
 For a detailed installation and configuration guide, please consult the [online installation guide](https://labext.readthedocs.io/en/latest/installation/).
-
-## Development
-
-### Running tests
-#### 1. Install LabExT
-Make sure LabExT is installed correctly and the environment is activated with conda. See [Installation](https://github.com/LabExT/LabExT#installation) for more information.
-#### 2. Install testing tools 
-Install `pytest` and `tox`:
-```
-pip install pytest tox --upgrade
-```
-#### 3. Run tests
-Test LabExT with Python version 3.8:
-```
-tox
-```
-
-### Run GitHub Actions locally
-You can use [act](https://github.com/nektos/act) to simulate Github Actions on your local machine. Make sure that docker is installed.
-
-To run the CI workflow, use:
-```
-act push
-```
-or 
-```
-act pull_request
-```
 
 ## Acknowledgements & Reference
 LabExT is written in part by tireless folks at the
