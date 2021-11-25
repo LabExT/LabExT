@@ -251,6 +251,16 @@ class Stage3DSmarAct(Stage):
                 raise ValueError("Invalid movement mode {}".format(str(mode)))
             self._movement_mode = mode
 
+        # Channel control
+
+        def stop(self) -> None:
+            """Stops all movement of this channel"""
+            self._stage._exit_if_error(
+                MCSC.SA_Stop_S(
+                    self._stage.handle,
+                    self._handle
+                ))
+
         # Movement
 
         def move(
@@ -588,6 +598,12 @@ class Stage3DSmarAct(Stage):
             diff=pos[0], mode=MovementType.ABSOLUTE)
         self.channels[Axis.Y].move(
             diff=pos[1], mode=MovementType.ABSOLUTE)
+
+    # Stage control
+
+    def stop(self):
+        for channel in self.channels.values():
+            channel.stop()
 
     # Helper methods
 
