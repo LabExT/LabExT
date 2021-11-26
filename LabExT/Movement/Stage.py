@@ -15,6 +15,7 @@ class StageError(RuntimeError):
 
 class Stage(ABC):
     _logger = logging.getLogger()
+    driver_loaded = False
 
     @classmethod
     def find_stages(cls):

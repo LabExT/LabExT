@@ -336,18 +336,17 @@ class Stage3DSmarAct(Stage):
         def _to_micrometer(self, nm: int) -> float:
             return nm * 1e-3
 
+    driver_loaded = MCS_LOADED
+
     # Find SmarAct system
     @classmethod
     def find_stages(cls):
         out_buffer = ct.create_string_buffer(4096) 
         buffer_size = ct.c_ulong(4096)
         if cls._exit_if_error(MCSC.SA_FindSystems('', out_buffer, buffer_size)):
-            if buffer_size == ct.c_ulong(0):
-                cls._logger.error('Could not find any stages connected to the computer.')
-                return []
-            return out_buffer.value.decode().split()
-        else:
-            return []
+            if buffer_size != ct.c_ulong(0):
+                return out_buffer.value.decode().split()
+        return []
 
     # Setup and initialization
 
@@ -358,7 +357,6 @@ class Stage3DSmarAct(Stage):
         """
         self.handle = None
         self.channels = {}
-        self.driver_loaded = MCS_LOADED
 
         # LEGACY: stage lift
         self._z_lift = 20
