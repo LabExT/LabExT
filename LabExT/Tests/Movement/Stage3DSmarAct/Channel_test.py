@@ -367,3 +367,15 @@ class ChannelTest(SmarActTestCase):
 
         self.mcsc_mock.SA_FindReferenceMark_S.assert_called_once_with(
             self.stage.handle, self.channel._handle, 1, 0, 1)
+
+    # Testing channel control
+
+    def test_channel_stop(self):
+        self.mcsc_mock.SA_Stop_S = Mock(return_value=self.MCSC_STATUS_OK)
+
+        self.channel.stop()
+
+        self.mcsc_mock.SA_Stop_S.assert_called_once_with(
+            self.stage.handle,
+            self.channel._handle
+        )
