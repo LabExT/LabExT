@@ -176,7 +176,7 @@ class Stage3DSmarAct(Stage):
                     self._stage.handle,
                     self._handle,
                     system_position)):
-                self._position = self._to_mircometer(system_position.value)
+                self._position = self._to_micrometer(system_position.value)
 
             return self._position
 
@@ -189,7 +189,7 @@ class Stage3DSmarAct(Stage):
                     self._stage.handle,
                     self._handle,
                     system_speed)):
-                self._speed = self._to_mircometer(system_speed.value)
+                self._speed = self._to_micrometer(system_speed.value)
 
             return self._speed
 
@@ -256,7 +256,7 @@ class Stage3DSmarAct(Stage):
         def move(
                 self,
                 diff: float,
-                mode=MovementType.RELATIVE,
+                mode: MovementType,
                 wait_for_stopping=True) -> None:
             """Moves the channel with the specified movement type by the value diff
 
@@ -320,10 +320,10 @@ class Stage3DSmarAct(Stage):
                 if self.status == MCSC.SA_STOPPED_STATUS:
                     break
 
-        def _to_nanometer(self, um: int) -> int:
+        def _to_nanometer(self, um: float) -> int:
             return um * 1e3
 
-        def _to_mircometer(self, nm: int) -> int:
+        def _to_micrometer(self, nm: int) -> float:
             return nm * 1e-3
 
     # Setup and initialization
