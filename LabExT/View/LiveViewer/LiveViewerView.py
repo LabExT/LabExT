@@ -225,7 +225,8 @@ class PlotWidget (PlotControl):
                              add_toolbar=True,
                              figsize=(12, 6),
                              autoscale_axis=True,
-                             no_x_autoscale=True
+                             no_x_autoscale=True,
+                             min_y_axis_span=None
                              )
 
         self.parent = parent
@@ -237,9 +238,11 @@ class PlotWidget (PlotControl):
         self.show_grid = True
         self.data_source = self.model.plot_collection
 
-        self.ax.set_xlim([0, 99])
+        current_nopk = self.model.general_settings['number of points kept'].value
+        current_y_min = self.model.general_settings['minimum y-axis span'].value
 
-        self.model.live_plot = self
+        self.ax.set_xlim([0, current_nopk])
+        self.min_y_axis_span = current_y_min
 
     def destroy(self):
         # this is a workaround for the LiveViewer thread
