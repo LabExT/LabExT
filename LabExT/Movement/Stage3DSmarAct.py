@@ -336,6 +336,19 @@ class Stage3DSmarAct(Stage):
         def _to_micrometer(self, nm: int) -> float:
             return nm * 1e-3
 
+    # Find SmarAct system
+    @classmethod
+    def find_stages(cls):
+        out_buffer = ct.create_string_buffer(4096) 
+        buffer_size = ct.c_ulong(4096)
+        if cls._exit_if_error(MCSC.SA_FindSystems('', out_buffer, buffer_size)):
+            if buffer_size == ct.c_ulong(0):
+                cls._logger.error('Could not find any stages connected to the computer.')
+                return []
+            return out_buffer.value.decode().split()
+        else:
+            return []
+
     # Setup and initialization
 
     def __init__(self, address):
@@ -359,7 +372,7 @@ class Stage3DSmarAct(Stage):
         Sets channel default values.
         """
         if self.connected:
-            self.logger.debug('Stage is already connected.')
+            self._logger.debug('Stage is already connected.')
             return True
 
         self.handle = self._open_system()
@@ -374,7 +387,7 @@ class Stage3DSmarAct(Stage):
             self.set_speed_z(20)
             self.set_acceleration_xy(0)
 
-            self.logger.info(
+            self._logger.info(
                 'PiezoStage at {} initialised successfully.'.format(
                     self.address))
         else:
@@ -435,7 +448,7 @@ class Stage3DSmarAct(Stage):
         y_speed = self.channels[Axis.Y].speed
 
         if(x_speed != y_speed):
-            self.logger.info(
+            self._logger.info(
                 "Speed settings of x and y channel are not equal.")
 
         return x_speed
@@ -461,7 +474,7 @@ class Stage3DSmarAct(Stage):
         y_acceleration = self.channels[Axis.Y].acceleration
 
         if(x_acceleration != y_acceleration):
-            self.logger.info(
+            self._logger.info(
                 'Acceleration settings of x and y channel are not equal.')
 
         return x_acceleration
@@ -507,7 +520,7 @@ class Stage3DSmarAct(Stage):
         """Lifts the stage up in the z direction by the amount defined in self._z_lift
         """
         if self._stage_lifted_up:
-            self.logger.warning("Stage already lifted up. Not executing lift.")
+            self._logger.warning("Stage already lifted up. Not executing lift.")
             return
 
         self.channels[Axis.Z].move(
@@ -521,7 +534,7 @@ class Stage3DSmarAct(Stage):
         """Lowers the stage in the z direction by the amount defined by self._z_lift
         """
         if not self._stage_lifted_up:
-            self.logger.warning(
+            self._logger.warning(
                 "Stage already lowered down. Not executing lowering.")
             return
 
@@ -571,7 +584,7 @@ class Stage3DSmarAct(Stage):
         y : int
             Movement in y direction by y measured in um.
         """
-        self.logger.debug(
+        self._logger.debug(
             'Want to relative move %s to x = %s um and y = %s um',
             self.address,
             x,
@@ -588,7 +601,7 @@ class Stage3DSmarAct(Stage):
         position : list
             Position in [x,y] format measured in um
         """
-        self.logger.debug(
+        self._logger.debug(
             'Want to absolute move %s to x = %s um and y = %s um',
             self.address,
             pos[0],
@@ -607,6 +620,22 @@ class Stage3DSmarAct(Stage):
 
     # Helper methods
 
+    @classmethod
+    def _exit_if_error(self, status: int) -> bool:
+        if(status == MCSC.SA_OK):
+            return True
+
+        error_message = ct.c_char_p()
+        MCSC.SA_GetStatusInfo(status, error_message)
+
+        if error_message:
+            error_message = 'MCSControl Error: {}'.format(
+                error_message.value[:].decode('utf-8'))
+        else:
+            error_message = 'MCSControl Error: Undefined error occurred.'
+
+        raise StageError(error_message)
+
     def _open_system(self):
         handle = ct.c_ulong()
         if self._exit_if_error(
@@ -623,19 +652,4 @@ class Stage3DSmarAct(Stage):
                 raise StageError(
                     'Channel {} of stage {} has no supported linear sensor!'.format(
                         index.name, self.address))
-        self.logger.debug("Linear x, y and z sensor present")
-
-    def _exit_if_error(self, status: int) -> bool:
-        if(status == MCSC.SA_OK):
-            return True
-
-        error_message = ct.c_char_p()
-        MCSC.SA_GetStatusInfo(status, error_message)
-
-        if error_message:
-            error_message = 'MCSControl Error: {}'.format(
-                error_message.value[:].decode('utf-8'))
-        else:
-            error_message = 'MCSControl Error: Undefined error occurred.'
-
-        raise StageError(error_message)
+        self._logger.debug("Linear x, y and z sensor present")
