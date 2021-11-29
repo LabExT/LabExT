@@ -180,6 +180,25 @@ class PlotControl(Frame):
         self._axis_limit_margin_fraction = h
         self.__handle_scaling__()
 
+    @property
+    def min_y_axis_span(self):
+        """ Gets the current setting of the minimum y-axis span. (Only used if autoscale is enabled, overrides
+        axis_limit_margin_fraction property). """
+        return self._min_y_axis_span
+
+    @min_y_axis_span.setter
+    @execute_in_plotting_thread
+    def min_y_axis_span(self, ydiff):
+        """ Sets the current setting of the minimum y-axis span. (Only used if autoscale is enabled, overrides
+        axis_limit_margin_fraction property)."""
+        if ydiff is None:
+            self._min_y_axis_span = None
+        elif float(ydiff) > 0:
+            self._min_y_axis_span = float(ydiff)
+        else:
+            raise ValueError("Minimum y axis span must be greater than 0 or None!")
+        self.__handle_scaling__()
+
     _data_source = None
 
     @property
@@ -234,7 +253,8 @@ class PlotControl(Frame):
                  add_legend=False,
                  polling_time_s=None,
                  onclick=None,
-                 no_x_autoscale=False):
+                 no_x_autoscale=False,
+                 min_y_axis_span=None):
         """
         PlotControl: creates a frame with a plotting area in a Tkinter GUI environment.
 
@@ -269,6 +289,9 @@ class PlotControl(Frame):
             (optional) function reference to callback to be executed on click onto plot
         no_x_autoscale
             (optional) defines whether the x axis should be autoscaled as well
+        min_y_axis_span
+            (optional) if given, the y-axis will never shrink below this span (this setting overrides the
+            axis_limit_margin_fraction property). Must be positive float or None. Only applies to linear y-scales.
         """
 
         super(PlotControl, self).__init__(parent)  # call the parent controls constructor
@@ -282,6 +305,7 @@ class PlotControl(Frame):
         self._enable_legend = add_legend  # should legend be added or not?
         self._onclick_cb = onclick  # Function that gets called when plot is clicked
         self._no_x_autoscale = no_x_autoscale
+        self._min_y_axis_span = min_y_axis_span
 
         # set automatic updating time
         self._polling = (polling_time_s is not None)  # should the plot update on every change or poll for changes?
@@ -565,6 +589,13 @@ class PlotControl(Frame):
                 dy = 1 / self._axis_limit_margin_fraction  # if span is zero set it to a small margin
             y_min -= dy * self._axis_limit_margin_fraction  # add margin to y axis minimum
             y_max += dy * self._axis_limit_margin_fraction  # add margin to y axis maximum
+            # ensure the minimum span is adhered to:
+            if self.min_y_axis_span is not None:
+                dy_scaled = y_max - y_min
+                if dy_scaled < self.min_y_axis_span:
+                    incr_by = self.min_y_axis_span - dy_scaled
+                    y_min -= incr_by / 2
+                    y_max += incr_by / 2
         elif y_scale == 'log':
             y_min = np.fabs(y_min * (1.0 - self._axis_limit_margin_fraction))
             y_max = np.fabs(y_max * (1.0 + self._axis_limit_margin_fraction))

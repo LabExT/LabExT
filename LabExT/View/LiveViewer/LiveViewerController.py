@@ -154,6 +154,11 @@ class LiveViewerController:
         parameters :
             List of new parameters
         """
+
+        #
+        # update x axis length
+        #
+
         # load the number of points kept
         nopk = parameters['number of points kept'].value
         # find the difference in plot size
@@ -182,6 +187,14 @@ class LiveViewerController:
 
         # set the number of point kepts in the model structure
         self.model.plot_size = nopk
+
+        #
+        # update min y span
+        #
+
+        min_y = parameters['minimum y-axis span'].value
+        self.model.live_plot.min_y_axis_span = min_y
+        self.model.min_y_span = min_y
 
     def remove_card(self, index):
         """ Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
