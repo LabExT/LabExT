@@ -6,11 +6,33 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+from functools import wraps
 from abc import ABC, abstractmethod
 
 
 class StageError(RuntimeError):
     pass
+
+
+def assert_stage_connected(func):
+    """
+    Use this decorator to assert that any method of a stage is only executed
+    when the stage is connected and all drivers are loaded.
+    """
+
+    @wraps(func)
+    def wrapper(stage, *args, **kwargs):
+        if not stage.driver_loaded:
+            raise StageError(
+                "Stage driver not loaded: Function {} requires previously loaded drivers.".format(
+                    func.__name__))
+        if not stage.connected:
+            raise StageError(
+                "Stage not connected: Function {} requires an active stage connection. Make sure that you have called connect() before.".format(
+                    func.__name__))
+
+        return func(stage, *args, **kwargs)
+    return wrapper
 
 
 class Stage(ABC):

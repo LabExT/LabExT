@@ -13,12 +13,10 @@ from LabExT.Movement.Stage import StageError
 
 
 class BaseTest(SmarActTestCase):
-    def tearDown(self) -> None:
-        self.mcsc_mock.SA_CloseSystem = Mock(return_value=self.MCSC_STATUS_OK)
-
     def test_find_stages_successfully(self):
         expected_stages = ['usb:id:000000001', 'usb:id:000000002']
-        stages_char_array = ct.create_string_buffer(bytes("\n".join(expected_stages), "utf-8"))
+        stages_char_array = ct.create_string_buffer(
+            bytes("\n".join(expected_stages), "utf-8"))
         expected_size = ct.sizeof(stages_char_array)
 
         self.mcsc_mock.SA_FindSystems = Mock(
@@ -34,7 +32,6 @@ class BaseTest(SmarActTestCase):
         self.mcsc_mock.SA_FindSystems.assert_called_once()
         self.assertEqual(stages, expected_stages)
 
-
     def test_find_stages_when_empty_buffer(self):
         self.mcsc_mock.SA_FindSystems = Mock(
             return_value=self.MCSC_STATUS_OK,
@@ -45,6 +42,11 @@ class BaseTest(SmarActTestCase):
 
         self.assertEqual([], Stage3DSmarAct.find_stages())
         self.mcsc_mock.SA_FindSystems.assert_called_once()
+
+    def test_connect_if_driver_not_loaded(self):
+        with patch.object(Stage3DSmarAct, 'driver_loaded', False):
+            with self.assertRaises(StageError):
+                self.stage.connect()
 
     def test_connect_if_open_system_fails(self):
         self.mcsc_mock.SA_OpenSystem = Mock(return_value=self.MCSC_STATUS_ERR)
@@ -98,6 +100,7 @@ class BaseTest(SmarActTestCase):
         self.assertEqual(len(self.stage.channels), 3)
 
     def test_disconnect_successfully(self):
+        self.stage.connected = True
         self.mcsc_mock.SA_CloseSystem = Mock(return_value=self.MCSC_STATUS_OK)
 
         self.stage.disconnect()
