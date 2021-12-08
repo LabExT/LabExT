@@ -6,10 +6,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from tkinter import Button, Toplevel, Label,  DISABLED, NORMAL
-from typing import Type, List
 from functools import partial
 
-from LabExT.Movement.Stage import Stage
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.ApplicationView import ApplicationView

@@ -55,6 +55,16 @@ class Stage(ABC):
             stages += stage_class.find_stages()
         return stages
 
+    _META_DESCRIPTION = ''
+    _META_CONNECTION_TYPE = ''
+
+    @classmethod
+    def discovery(cls):
+        stages = []
+        for stage_class in cls.__subclasses__():
+            stages += stage_class.find_stages()
+        return stages
+
     @classmethod
     def find_stages(cls):
         raise NotImplementedError
