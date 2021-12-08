@@ -39,6 +39,16 @@ class Stage(ABC):
     _logger = logging.getLogger()
     driver_loaded = False
 
+    _META_DESCRIPTION = ''
+    _META_CONNECTION_TYPE = ''
+
+    @classmethod
+    def discovery(cls):
+        stages = []
+        for stage_class in cls.__subclasses__():
+            stages += stage_class.find_stages()
+        return stages
+
     @classmethod
     def find_stages(cls):
         raise NotImplementedError
@@ -49,7 +59,8 @@ class Stage(ABC):
         self.connected = False
 
     def __del__(self):
-        self.disconnect()
+        if self.connected:
+            self.disconnect()
 
     @abstractmethod
     def connect(self) -> bool:

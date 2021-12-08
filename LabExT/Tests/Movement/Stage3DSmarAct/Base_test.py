@@ -9,10 +9,31 @@ import ctypes as ct
 from unittest.mock import Mock, patch
 
 from LabExT.Tests.Movement.Stage3DSmarAct.SmarActTestCase import SmarActTestCase, Stage3DSmarAct
-from LabExT.Movement.Stage import StageError
+from LabExT.Movement.Stage import Stage, StageError
 
 
 class BaseTest(SmarActTestCase):
+    def test_if_found_in_stage_discovery(self):
+        expected_stages = ['usb:id:000000001', 'usb:id:000000002']
+        stages_char_array = ct.create_string_buffer(
+            bytes("\n".join(expected_stages), "utf-8"))
+
+        self.mcsc_mock.SA_FindSystems = Mock(
+            return_value=self.MCSC_STATUS_OK,
+            side_effect=self.update_by_reference({
+                1: stages_char_array,
+                2: ct.c_ulong(ct.sizeof(stages_char_array))
+            })
+        )
+
+        for stage in list(
+            filter(
+                lambda s: isinstance(
+                    s,
+                    Stage3DSmarAct),
+                Stage.discovery())):
+            self.assertIn(stage.address.decode('utf-8'), expected_stages)
+
     def test_find_stages_successfully(self):
         expected_stages = ['usb:id:000000001', 'usb:id:000000002']
         stages_char_array = ct.create_string_buffer(
@@ -30,7 +51,14 @@ class BaseTest(SmarActTestCase):
         stages = Stage3DSmarAct.find_stages()
 
         self.mcsc_mock.SA_FindSystems.assert_called_once()
-        self.assertEqual(stages, expected_stages)
+
+        for stage in stages:
+            self.assertIn(stage.address.decode('utf-8'), expected_stages)
+            self.assertIsInstance(stage, Stage3DSmarAct)
+
+    def test_find_stages_when_driver_not_loaded(self):
+        with patch.object(Stage3DSmarAct, 'driver_loaded', False):
+            self.assertEqual(Stage3DSmarAct.find_stages(), [])
 
     def test_find_stages_when_empty_buffer(self):
         self.mcsc_mock.SA_FindSystems = Mock(

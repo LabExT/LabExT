@@ -8,6 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import ctypes as ct
 import json
 import unittest
+from importlib import reload
 from unittest.mock import Mock, patch, DEFAULT, mock_open
 
 from LabExT.Utils import get_configuration_file_path

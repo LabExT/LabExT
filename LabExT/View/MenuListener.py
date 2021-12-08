@@ -23,6 +23,7 @@ from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
+from LabExT.View.MovementWizard.MovementWizardController import MovementWizardController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
@@ -190,6 +191,10 @@ class MListener:
         new_window = Toplevel(self._root)
         new_window.lift()
         ConfigureStageWindow(new_window, self._experiment_manager)
+
+    def client_movement_wizard(self):
+        self._movement_wizard = MovementWizardController(self._root, self._experiment_manager)
+        self._movement_wizard.new()
 
     def client_move_stages(self):
         """Called when the user wants to move the stages manually.

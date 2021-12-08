@@ -31,12 +31,14 @@ class MainWindowContextMenu(Menu):
         Menu.__init__(self, self.parent)
         self._file = Menu(self, tearoff=0)
         self._movement = Menu(self, tearoff=0)
+        self._movement_new = Menu(self, tearoff=0)
         self._view = Menu(self, tearoff=0)
         self._settings = Menu(self, tearoff=0)
         self._help = Menu(self, tearoff=0)
 
         self.add_cascade(label="File", menu=self._file)
         self.add_cascade(label="Movement", menu=self._movement)
+        self.add_cascade(label="Movement [Beta]", menu=self._movement_new)
         self.add_cascade(label="View", menu=self._view)
         self.add_cascade(label="Settings", menu=self._settings)
         self.add_cascade(label="Help", menu=self._help)
@@ -71,6 +73,10 @@ class MainWindowContextMenu(Menu):
         self._movement.add_command(
             label="Search for Peak",
             command=self._menu_listener.client_search_for_peak)
+
+        self._movement_new.add_command(
+            label="Open Stage Configuration",
+            command=self._menu_listener.client_movement_wizard)
 
         self._view.add_command(
             label="Open Extra Plots",

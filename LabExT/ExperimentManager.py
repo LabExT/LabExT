@@ -18,6 +18,7 @@ from LabExT.Experiments.StandardExperiment import StandardExperiment
 from LabExT.Instruments.InstrumentAPI import InstrumentAPI
 from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
 from LabExT.Movement.Mover import Mover
+from LabExT.Movement.MoverNew import MoverNew
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
 from LabExT.View.Controls.KeyboardShortcutButtonPress import callback_if_btn_enabled
@@ -65,6 +66,7 @@ class ExperimentManager:
         self.addon_settings = None
         self.chip = chip
         self.mover = Mover(self)
+        self.mover_new = MoverNew(self)
         self.peak_searcher = PeakSearcher(None, self, mover=self.mover, parent=self.root)
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
