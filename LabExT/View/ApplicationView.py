@@ -27,3 +27,11 @@ class ApplicationView:
     @info.setter
     def info(self, message):
         messagebox.showinfo(title="Information", message=message)
+
+    @property
+    def warning(self):
+        pass
+
+    @warning.setter
+    def warning(self, message):
+        messagebox.showwarning(title="Warning", message=message)

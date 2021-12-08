@@ -76,7 +76,6 @@ class DriverPathDialog:
             width=30,
             height=1
         ).grid(row=2, column=0, padx=5, pady=5, sticky='sw')
-
         Button(
             self.dialog,
             text="Save and Close",
@@ -88,7 +87,6 @@ class DriverPathDialog:
     def save_and_close(self, *_):
         user_given_path = str(self._driver_path_entry.get())
         self.settings_path = str(Path(user_given_path.strip()))
-
         messagebox.showinfo(
             parent=self.parent,
             title='Success',

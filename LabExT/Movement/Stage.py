@@ -73,6 +73,10 @@ class Stage(ABC):
             self.disconnect()
 
     @abstractmethod
+    def __str__(self) -> str:
+        pass
+
+    @abstractmethod
     def connect(self) -> bool:
         pass
 
@@ -118,6 +122,14 @@ class Stage(ABC):
 
     @abstractmethod
     def lower_stage(self):
+        pass
+
+    @abstractmethod
+    def set_lift_distance(self, um: float):
+        pass
+
+    @abstractmethod
+    def get_lift_distance(self) -> float:
         pass
 
     @abstractmethod

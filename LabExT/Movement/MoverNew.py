@@ -92,6 +92,30 @@ class MoverNew:
     #   Connectivity methods
     #
 
+    @property
+    def disconnected_stages(self):
+        return list(filter(lambda s: not s.connected, self.stages))
+
+    @property
+    def all_connected(self):
+        if len(self.stages) == 0:
+            return False
+        return len(self.connected_stages) == len(self.stages)
+
+    @property
+    def all_disconnected(self):
+        if len(self.stages) == 0:
+            return True
+        return len(self.disconnected_stages) == len(self.stages)
+
+    @property
+    def available_stage_classes(self):
+        return self._available_stage_classes
+
+    #
+    #   Connectivity methods
+    #
+
     def connect(self):
         if not self.stages:
             raise MoverError(
@@ -118,3 +142,71 @@ class MoverNew:
             return
 
         self.stages[stage_idx].disconnect()
+
+    #
+    #   Settings methods
+    #
+
+    @property
+    @assert_connected_stages
+    def speed_xy(self) -> float:
+        """Returns the speed of x and y axis for all stages"""
+        speed_vector = [s.get_speed_xy() for s in self.connected_stages]
+        if not all(self._speed_xy == speed for speed in speed_vector):
+            self.logger.info("Not all stages have same speed. " +
+                             "Setting stage to stored one")
+            self.speed_xy = self._speed_xy
+
+        return self._speed_xy
+
+    @speed_xy.setter
+    @assert_connected_stages
+    def speed_xy(self, umps: float):
+        """Sets speed for x and y axis for all connected stages"""
+        for stage in self.connected_stages:
+            stage.set_speed_xy(umps)
+
+        self._speed_xy = umps
+
+    @property
+    @assert_connected_stages
+    def speed_z(self) -> float:
+        speed_vector = [s.get_speed_z() for s in self.connected_stages]
+        if not all(self._speed_z == speed for speed in speed_vector):
+            self.logger.info("Not all stages have same speed. " +
+                             "Setting stage to stored one")
+            self.speed_z = self._speed_z
+
+        return self._speed_z
+
+    @speed_z.setter
+    @assert_connected_stages
+    def speed_z(self, umps: float):
+        for stage in self.connected_stages:
+            stage.set_speed_z(umps)
+
+        self._speed_z = umps
+
+    @property
+    @assert_connected_stages
+    def z_lift(self) -> float:
+        z_lift_vector = [s.get_lift_distance() for s in self.connected_stages]
+        if not all(self._z_lift == speed for speed in z_lift_vector):
+            self.logger.info("Not all stages have same speed. " +
+                             "Setting stage to stored one")
+            self.z_lift = self._z_lift
+
+        return self._z_lift
+
+    @z_lift.setter
+    @assert_connected_stages
+    def z_lift(self, um: float):
+        for stage in self.connected_stages:
+            stage.set_lift_distance(um)
+
+        self._z_lift = um
+
+    def set_default_settings(self):
+        self.speed_xy = self.DEFAULT_SPEED_XY
+        self.speed_z = self.DEFAULT_SPPED_Z
+        self.z_lift = self.DEFAULT_SPPED_Z

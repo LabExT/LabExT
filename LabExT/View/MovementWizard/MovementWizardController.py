@@ -33,6 +33,52 @@ class MovementWizardController(ApplicationController):
         self.view.driver_frame()
         self.view.connection_frame()
 
+        if not self.mover.all_disconnected:
+            self.view.configuration_frame()
+
+    def save_mover(
+        self,
+        speed_xy=None,
+        speed_z=None,
+        z_lift=None
+    ):
+        """
+        Saves mover configuration
+        """
+        if speed_xy == 0:
+            self.view.warning = "Setting a xy speed of 0 will turn the speed control OFF! \n" \
+                                "The stage will now move as fast as possible. Set a different speed if " \
+                                "this is not intended."
+        if speed_z == 0:
+            self.view.warning = "Setting a z speed of 0 will turn the speed control OFF! \n" \
+                                "The stage will now move as fast as possible. Set a different speed if " \
+                                "this is not intended."
+        try:
+            self.mover.speed_xy = speed_xy
+        except StageError as exce:
+            self.view.error = "Error during stage configuration, xy speed not set: \n {}".format(
+                exce)
+
+        try:
+            self.mover.speed_z = speed_z
+        except StageError as exce:
+            self.view.error = "Error during stage configuration, z speed not set: \n {}".format(
+                exce)
+
+        self.mover.z_lift = z_lift
+
+        self.new()
+
+    def save_stage(
+        self,
+        stage,
+        invert_z=None
+    ):
+        """
+        Saves stage configurtion
+        """
+        pass
+
     #
     # Driver Management methods
     #

@@ -369,8 +369,12 @@ class Stage3DSmarAct(Stage):
         return stages
 
     # Load SmarAct system driver
+
     @classmethod
     def load_driver(cls, parent=None) -> bool:
+        """
+        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the MovementWizardController.
+        """
         driver_path_dialog = DriverPathDialog(
             parent,
             title="Stage Driver Settings",
@@ -386,7 +390,7 @@ class Stage3DSmarAct(Stage):
     # Setup and initialization
 
     def __init__(self, address):
-        """Constructs all necessary attributes of the Stage3DSmarAct object.
+        """Constructs all necessary attributes of the Stage3DSmarAct object. Do not open a connection here, use the connect() method instead.
 
         Calls stage super class to complete initialization.
         """
@@ -398,6 +402,9 @@ class Stage3DSmarAct(Stage):
         self._stage_lifted_up = False
         self._z_axis_direction = 1
         super().__init__(address)
+
+    def __str__(self) -> str:
+        return "SmarAct Piezo-Stage at {}".format(str(self.address))
 
     def connect(self) -> bool:
         """Connects to stage by calling SA_OpenSystem and initializes a system handle.
@@ -444,11 +451,18 @@ class Stage3DSmarAct(Stage):
     def z_axis_direction(self):
         return self._z_axis_direction
 
+    @property
+    def z_axis_inverted(self):
+        return self.z_axis_direction == -1
+
     @z_axis_direction.setter
     def z_axis_direction(self, newdir):
         if newdir not in [-1, 1]:
             raise ValueError("Z axis direction can only be 1 or -1.")
         self._z_axis_direction = newdir
+
+    def toggle_z_axis_direction(self):
+        self.z_axis_direction *= -1
 
     @property
     def stage_lifted_up(self):
