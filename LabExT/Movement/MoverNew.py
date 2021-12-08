@@ -50,6 +50,7 @@ class MoverNew:
         self.logger = logging.getLogger()
 
         self._stages: List[Type[Stage]] = Stage.discovery()
+        self._stage_classes: List[Stage] = Stage.get_all_stage_classes()
 
         self._speed_xy = self.DEFAULT_SPEED_XY
         self._speed_z = self.DEFAULT_SPPED_Z
@@ -58,6 +59,10 @@ class MoverNew:
     def __del__(self):
         """Collects all settings and stores them in a file"""
         pass
+
+    @property
+    def stage_classes(self):
+        return self._stage_classes
 
     @property
     def stages(self):

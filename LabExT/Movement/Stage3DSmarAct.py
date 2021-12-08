@@ -4,14 +4,17 @@
 LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+
 import sys
 import json
 import time
 import ctypes as ct
 from enum import Enum
+from typing import Type, List
 
 from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected
 from LabExT.Utils import get_configuration_file_path
+from LabExT.View.DriverPathDialog import DriverPathDialog
 
 sys_path_changed = False
 try:
@@ -52,6 +55,9 @@ class Stage3DSmarAct(Stage):
     channels : dict
         Dict of channel objects
     """
+
+    _META_DESCRIPTION = 'SmarAct Modular Control System'
+    _META_CONNECTION_TYPE = 'USB'
 
     class _Channel:
         """Implementation of one SmarAct synchronous channel. One channel represents one axis.
@@ -360,6 +366,21 @@ class Stage3DSmarAct(Stage):
                 ]
 
         return stages
+
+    # Load SmarAct system driver
+    @classmethod
+    def load_driver(cls, parent=None) -> bool:
+        driver_path_dialog = DriverPathDialog(
+            parent,
+            title="Stage Driver Settings",
+            label="SmarAct MCSControl driver module path",
+            hint="Specify the directory where the module MCSControl_PythonWrapper is found.\nThis is external software,"
+            "provided by SmarAct GmbH and is available from them. See https://smaract.com.")
+        driver_path_dialog.settings_path_file = 'mcsc_module_path.txt'
+        driver_path_dialog.show()
+
+        parent.wait_window(driver_path_dialog.dialog)
+        return driver_path_dialog.path_has_changed
 
     # Setup and initialization
 

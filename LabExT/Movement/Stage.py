@@ -43,14 +43,22 @@ class Stage(ABC):
     _META_CONNECTION_TYPE = ''
 
     @classmethod
+    def get_all_stage_classes(cls):
+        return cls.__subclasses__()
+
+    @classmethod
     def discovery(cls):
         stages = []
-        for stage_class in cls.__subclasses__():
+        for stage_class in cls.get_all_stage_classes():
             stages += stage_class.find_stages()
         return stages
 
     @classmethod
     def find_stages(cls):
+        raise NotImplementedError
+
+    @classmethod
+    def load_driver(cls):
         raise NotImplementedError
 
     @abstractmethod

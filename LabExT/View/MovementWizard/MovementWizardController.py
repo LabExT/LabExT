@@ -5,6 +5,8 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import importlib
+import sys
 from typing import Type
 from tkinter import Tk
 
@@ -28,7 +30,17 @@ class MovementWizardController(ApplicationController):
         """
         Creates View to configure stages
         """
+        self.view.driver_frame()
         self.view.connection_frame()
+
+    #
+    # Driver Management methods
+    #
+
+    def load_driver_and_reload(self, stage_class: Type[Stage]):
+        if stage_class.load_driver(parent=self.parent):
+            importlib.reload(sys.modules.get(stage_class.__module__))
+        self.new()
 
     #
     # Stage Management methods

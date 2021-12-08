@@ -5,8 +5,11 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from tkinter import Button, Toplevel, DISABLED, NORMAL
+from tkinter import Button, Toplevel, Label,  DISABLED, NORMAL
+from typing import Type, List
+from functools import partial
 
+from LabExT.Movement.Stage import Stage
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.ApplicationView import ApplicationView
@@ -24,6 +27,30 @@ class MovementWizardView(ApplicationView):
         self.main_window.focus_force()
 
         self._selection_table = None
+
+    def driver_frame(self, row=0):
+        driver_frame = CustomFrame(self.main_window)
+        driver_frame.title = "Stage Driver Settings"
+        driver_frame.grid(row=row, column=0, columnspan=3, padx=5, pady=5, sticky='nswe')
+        driver_frame.columnconfigure(0, weight=1)
+
+        Label(
+            driver_frame,
+            text="Are not all connected stages displayed? Check if all drivers are loaded and reload."
+        ).grid(row=0, column=0, columnspan=3, padx=5, pady=5, sticky='nswe')
+
+        for stage_class in self.mover.stage_classes:
+            Label(driver_frame, text=stage_class._META_DESCRIPTION, font='Helvetica 12 bold').grid(row=1, column=0, padx=5, pady=5, sticky='w')
+            Label(
+                driver_frame,
+                text="Loaded" if stage_class.driver_loaded else "Not Loaded",
+                foreground='#4BB543' if stage_class.driver_loaded else "#FF3333",
+            ).grid(row=1, column=1, padx=5, pady=5)
+            Button(
+                driver_frame,
+                text="Change driver path",
+                command=partial(self.controller.load_driver_and_reload, stage_class)
+            ).grid(row=1, column=2, padx=5, pady=5, sticky='w')
 
     def connection_frame(self, row=1) -> None:
         connection_frame = CustomFrame(self.main_window)

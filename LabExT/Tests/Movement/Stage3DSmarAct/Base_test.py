@@ -13,6 +13,9 @@ from LabExT.Movement.Stage import Stage, StageError
 
 
 class BaseTest(SmarActTestCase):
+    def test_if_found_inall_stage_classes(self):
+        self.assertIn(Stage3DSmarAct, Stage.get_all_stage_classes())
+
     def test_if_found_in_stage_discovery(self):
         expected_stages = ['usb:id:000000001', 'usb:id:000000002']
         stages_char_array = ct.create_string_buffer(
