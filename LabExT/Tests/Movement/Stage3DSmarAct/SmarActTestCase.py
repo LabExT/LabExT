@@ -52,6 +52,10 @@ class SmarActTestCase(unittest.TestCase):
         self.channel = Stage3DSmarAct._Channel(self.stage, self.channel_index)
         return super().setUp()
 
+    def tearDown(self) -> None:
+        self.stage.connected = True
+        self.mcsc_mock.SA_CloseSystem = Mock(return_value=self.MCSC_STATUS_OK)
+
     def update_by_reference(self, mapping):
         def inner(*args):
             for arg_no, c_type in mapping.items():
