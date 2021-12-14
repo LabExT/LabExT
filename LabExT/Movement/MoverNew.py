@@ -108,10 +108,6 @@ class MoverNew:
             return True
         return len(self.disconnected_stages) == len(self.stages)
 
-    @property
-    def available_stage_classes(self):
-        return self._available_stage_classes
-
     #
     #   Connectivity methods
     #
@@ -165,7 +161,6 @@ class MoverNew:
         """Sets speed for x and y axis for all connected stages"""
         for stage in self.connected_stages:
             stage.set_speed_xy(umps)
-
         self._speed_xy = umps
 
     @property

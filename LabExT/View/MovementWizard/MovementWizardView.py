@@ -40,13 +40,13 @@ class MovementWizardView(ApplicationView):
             text="Are not all connected stages displayed? Check if all drivers are loaded and reload."
         ).grid(row=0, column=0, columnspan=3, padx=5, pady=5, sticky='nswe')
 
-        for stage_class in self.mover.stage_classes:
-            Label(driver_frame, text=stage_class._META_DESCRIPTION, font='Helvetica 12 bold').grid(row=1, column=0, padx=5, pady=5, sticky='w')
+        for id, stage_class in enumerate(self.mover.stage_classes):
+            Label(driver_frame, text=stage_class._META_DESCRIPTION, font='Helvetica 12 bold').grid(row=id+1, column=0, padx=5, pady=5, sticky='w')
             Label(
                 driver_frame,
                 text="Loaded" if stage_class.driver_loaded else "Not Loaded",
                 foreground='#4BB543' if stage_class.driver_loaded else "#FF3333",
-            ).grid(row=1, column=1, padx=5, pady=5)
+            ).grid(row=id+1, column=1, padx=5, pady=5)
 
             if stage_class.driver_specifiable:
                 Button(
@@ -137,7 +137,7 @@ class MovementWizardView(ApplicationView):
         stage_properties_frame.title = "Speed and Movement Settings"
         stage_properties_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=5, sticky='nswe')     
 
-        entry_z_movement = self._build_entry_with_label(
+        self._entry_z_movement = self._build_entry_with_label(
             stage_properties_frame,
             row=0,
             label="Z channel up-movement during xy movement:",
@@ -145,7 +145,7 @@ class MovementWizardView(ApplicationView):
             value=self.mover.z_lift
         )
 
-        entry_xy_speed = self._build_entry_with_label(
+        self._entry_xy_speed = self._build_entry_with_label(
             stage_properties_frame,
             row=1,
             label="Movement speed xy direction (valid range: 0...1e5um/s):",
@@ -153,7 +153,7 @@ class MovementWizardView(ApplicationView):
             value=self.mover.speed_xy
         )
 
-        entry_z_speed = self._build_entry_with_label(
+        self._entry_z_speed = self._build_entry_with_label(
             stage_properties_frame,
             row=2,
             label="Movement speed z direction (valid range: 0...1e5um/s):",
@@ -164,11 +164,7 @@ class MovementWizardView(ApplicationView):
         Button(
             stage_properties_frame,
             text='Save settings',
-            command=self.controller.save_mover(
-                speed_xy=float(entry_xy_speed.get()),
-                speed_z=float(entry_z_speed.get()),
-                z_lift=float(entry_z_movement.get())
-            )
+            command=self._on_save_settings
         ).grid(row=3, column=0, padx=5, pady=5, sticky='w')
 
         z_axis_frame = CustomFrame(configuration_frame)
@@ -203,6 +199,13 @@ class MovementWizardView(ApplicationView):
                 text="Wiggle Z-Axis",
                 command=partial(self._on_stage_wiggle, stage)
             ).grid(row=idx, column=2)
+
+    def _on_save_settings(self):
+        self.controller.save_mover(
+            speed_xy=float(self._entry_xy_speed.get()),
+            speed_z=float(self._entry_z_speed.get()),
+            z_lift=float(self._entry_z_movement.get())
+        )
 
     #
     # Callbacks

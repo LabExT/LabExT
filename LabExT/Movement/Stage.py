@@ -9,7 +9,6 @@ import logging
 from functools import wraps
 from abc import ABC, abstractmethod
 
-
 class StageError(RuntimeError):
     pass
 
