@@ -38,12 +38,14 @@ def assert_stage_connected(func):
 class Stage(ABC):
     _logger = logging.getLogger()
     driver_loaded = False
+    driver_specifiable = False
 
     _META_DESCRIPTION = ''
     _META_CONNECTION_TYPE = ''
 
     @classmethod
     def get_all_stage_classes(cls):
+        import LabExT.Movement.Stages
         return cls.__subclasses__()
 
     @classmethod

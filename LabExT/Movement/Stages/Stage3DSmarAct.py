@@ -343,6 +343,7 @@ class Stage3DSmarAct(Stage):
             return nm * 1e-3
 
     driver_loaded = MCS_LOADED
+    driver_specifiable = True
 
     # Find SmarAct system
     @classmethod

@@ -15,7 +15,7 @@ from tkinter import Toplevel, messagebox
 
 import numpy as np
 
-from LabExT.Movement.Stage3DSmarAct import Stage3DSmarAct
+from LabExT.Movement.Stages.Stage3DSmarAct import Stage3DSmarAct
 from LabExT.Movement.StageTrajectory import StageTrajectory
 from LabExT.Utils import run_with_wait_window, get_configuration_file_path
 from LabExT.View.ChooseStageWindow import ChooseStageWindow

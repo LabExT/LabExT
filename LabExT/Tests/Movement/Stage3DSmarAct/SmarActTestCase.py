@@ -35,7 +35,7 @@ def import_mock(name, *args):
 
 with patch('builtins.open', side_effect=open_mock):
     with patch('builtins.__import__', side_effect=import_mock):
-        from LabExT.Movement.Stage3DSmarAct import Stage3DSmarAct
+        from LabExT.Movement.Stages.Stage3DSmarAct import Stage3DSmarAct
 
 
 class SmarActTestCase(unittest.TestCase):

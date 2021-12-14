@@ -10,7 +10,7 @@ from enum import Enum
 from unittest.mock import Mock, patch
 
 from LabExT.Tests.Movement.Stage3DSmarAct.SmarActTestCase import SmarActTestCase, Stage3DSmarAct
-from LabExT.Movement.Stage3DSmarAct import MovementType
+from LabExT.Movement.Stages.Stage3DSmarAct import MovementType
 from LabExT.Movement.Stage import StageError
 
 

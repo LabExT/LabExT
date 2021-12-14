@@ -46,11 +46,13 @@ class MovementWizardView(ApplicationView):
                 text="Loaded" if stage_class.driver_loaded else "Not Loaded",
                 foreground='#4BB543' if stage_class.driver_loaded else "#FF3333",
             ).grid(row=1, column=1, padx=5, pady=5)
-            Button(
-                driver_frame,
-                text="Change driver path",
-                command=partial(self.controller.load_driver_and_reload, stage_class)
-            ).grid(row=1, column=2, padx=5, pady=5, sticky='w')
+
+            if stage_class.driver_specifiable:
+                Button(
+                    driver_frame,
+                    text="Change driver path",
+                    command=partial(self._on_driver_change, stage_class)
+                ).grid(row=1, column=2, padx=5, pady=5, sticky='w')
 
     def connection_frame(self, row=1) -> None:
         connection_frame = CustomFrame(self.main_window)
@@ -122,6 +124,13 @@ class MovementWizardView(ApplicationView):
     def _on_selected_disconnect(self):
         for iid in self._get_selected_stage():
             self.controller.disconnect_to_single_stage_by_poll_index(int(self._selection_table.get_tree().set(iid, 0)))
+
+    def _on_driver_change(self, stage_class):
+         if not stage_class.driver_specifiable:
+             return
+
+         if stage_class.load_driver(parent=self.main_window):
+             self.controller.load_driver_and_reload(stage_class)
 
     #
     # Helpers

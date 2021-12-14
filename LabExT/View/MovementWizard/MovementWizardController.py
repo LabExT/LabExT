@@ -38,8 +38,7 @@ class MovementWizardController(ApplicationController):
     #
 
     def load_driver_and_reload(self, stage_class: Type[Stage]):
-        if stage_class.load_driver(parent=self.parent):
-            importlib.reload(sys.modules.get(stage_class.__module__))
+        importlib.reload(sys.modules.get(stage_class.__module__))
         self.new()
 
     #
