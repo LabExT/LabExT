@@ -1,5 +1,6 @@
 from LabExT.Movement.Stage import Stage
 
+
 class DummyStage(Stage):
     driver_loaded = True
 
@@ -59,7 +60,7 @@ class DummyStage(Stage):
 
     def set_speed_xy(self, umps: float):
         self._speed_xy = umps
-    
+
     def set_speed_z(self, umps: float):
         self._speed_z = umps
 
@@ -94,7 +95,7 @@ class DummyStage(Stage):
         return self._z_lift
 
     def get_current_position(self):
-        return [0,0]
+        return [0, 0]
 
     def move_relative(self, x, y):
         pass

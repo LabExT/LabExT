@@ -201,7 +201,3 @@ class MoverNew:
 
         self._z_lift = um
 
-    def set_default_settings(self):
-        self.speed_xy = self.DEFAULT_SPEED_XY
-        self.speed_z = self.DEFAULT_SPPED_Z
-        self.z_lift = self.DEFAULT_SPPED_Z

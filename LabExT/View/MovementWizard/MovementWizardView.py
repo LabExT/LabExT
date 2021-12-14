@@ -53,7 +53,7 @@ class MovementWizardView(ApplicationView):
                     driver_frame,
                     text="Change driver path",
                     command=partial(self._on_driver_change, stage_class)
-                ).grid(row=1, column=2, padx=5, pady=5, sticky='w')
+                ).grid(row=id+1, column=2, padx=5, pady=5, sticky='w')
 
 
     def connection_frame(self, row=1) -> None:
@@ -167,12 +167,6 @@ class MovementWizardView(ApplicationView):
             command=self._on_save_settings
         ).grid(row=3, column=0, padx=5, pady=5, sticky='w')
 
-        z_axis_frame = CustomFrame(configuration_frame)
-        z_axis_frame.title = "Z-Axis Settings"
-        z_axis_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky='nswe')
-
-        self._z_axis_invert_list(z_axis_frame, self.mover.connected_stages)
-
 
     #
     # Frame Parts
@@ -186,26 +180,6 @@ class MovementWizardView(ApplicationView):
                 text="Find Reference Mark",
                 command=partial(self._on_stage_reference, stage)
             ).grid(row=idx, column=1)
-
-    def _z_axis_invert_list(self, parent, stages):
-        for idx, stage in enumerate(stages):
-            Label(parent, text="Invert Z-Axis for {}".format(str(stage))).grid(row=idx, column=0, sticky='W') 
-            checkbox = Checkbutton(parent, command=stage.toggle_z_axis_direction)
-            checkbox.grid(row=idx, column=1, sticky='W', padx=(30, 0))
-            if stage.z_axis_inverted:
-                checkbox.select()
-            Button(
-                parent,
-                text="Wiggle Z-Axis",
-                command=partial(self._on_stage_wiggle, stage)
-            ).grid(row=idx, column=2)
-
-    def _on_save_settings(self):
-        self.controller.save_mover(
-            speed_xy=float(self._entry_xy_speed.get()),
-            speed_z=float(self._entry_z_speed.get()),
-            z_lift=float(self._entry_z_movement.get())
-        )
 
     #
     # Callbacks
@@ -226,20 +200,6 @@ class MovementWizardView(ApplicationView):
          if stage_class.load_driver(parent=self.main_window):
              self.controller.load_driver_and_reload(stage_class)
 
-    def _on_stage_wiggle(self, stage):
-        message = """By proceeding this button will move {} along the z direction. \n\n
-                     Please make sure it has enough travel range(+-5mm) to avoid collision. \n\n
-                     For correct operation the stage should: \n
-                     First: Move upward \n
-                     Second: Move downwards \n\n
-                     If not, please invert the z-axis of the stage.\n Do you want to proceed with calibration?
-                  """.format(str(stage))
-        if messagebox.askokcancel("Warning", message):
-            try:
-                stage.wiggle_z_axis_positioner()
-            except Exception as exc:
-                self.error = "Could not wiggle stage: {}".format(exc)
-
     def _on_stage_reference(self, stage):
         message = "Make sure the stage has enough space to move, while searching for the reference mark." \
                   " The whole travel range needs to be clear of obstacles. Do you want to proceed?"
@@ -248,6 +208,13 @@ class MovementWizardView(ApplicationView):
                 stage.find_reference_mark()
             except Exception as exc:
                 self.error = "Could not find reference mark: {}".format(exc)
+
+    def _on_save_settings(self):
+        self.controller.save_mover(
+            speed_xy=float(self._entry_xy_speed.get()),
+            speed_z=float(self._entry_z_speed.get()),
+            z_lift=float(self._entry_z_movement.get())
+        )
 
 
     #
