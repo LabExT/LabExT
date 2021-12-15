@@ -90,7 +90,7 @@ class Mover:
             self.logger.error(msg)
             raise RuntimeError(msg)
 
-        stages = Stage3DSmarAct.find_stages()
+        stages = Stage3DSmarAct.find_stage_addresses()
         if not stages:
             msg = 'Could not find any stages connected to the computer.'
             self.logger.error(msg)

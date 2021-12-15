@@ -348,10 +348,16 @@ class Stage3DSmarAct(Stage):
     # Find SmarAct system
     @classmethod
     def find_stages(cls):
-        stages = []
+        return [
+            Stage3DSmarAct(address.encode('utf-8'))
+            for address in cls.find_stage_addresses()
+        ]
 
+
+    @classmethod
+    def find_stage_addresses(cls):
         if not cls.driver_loaded:
-            return stages
+            return []
 
         out_buffer = ct.create_string_buffer(4096)
         buffer_size = ct.c_ulong(4096)
@@ -361,12 +367,9 @@ class Stage3DSmarAct(Stage):
                 out_buffer,
                 buffer_size)):
             if buffer_size != ct.c_ulong(0):
-                stages += [
-                    Stage3DSmarAct(address.encode('utf-8'))
-                    for address in out_buffer.value.decode().split()
-                ]
+                return out_buffer.value.decode().split()
 
-        return stages
+        return []
 
     # Load SmarAct system driver
 
