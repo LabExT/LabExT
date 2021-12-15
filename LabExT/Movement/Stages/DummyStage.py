@@ -29,6 +29,10 @@ class DummyStage(Stage):
     def __str__(self) -> str:
         return "Dummy Stage"
 
+    @property
+    def address_string(self) -> str:
+        return self.address
+
     def connect(self) -> bool:
         self.connected = True
         return True

@@ -406,6 +406,10 @@ class Stage3DSmarAct(Stage):
     def __str__(self) -> str:
         return "SmarAct Piezo-Stage at {}".format(str(self.address))
 
+    @property
+    def address_string(self) -> str:
+        return self.address.decode('utf-8')
+
     def connect(self) -> bool:
         """Connects to stage by calling SA_OpenSystem and initializes a system handle.
         Creates Channel objects for X, Y and Z axis and checks if each sensor is linear. Raise error otherwise.

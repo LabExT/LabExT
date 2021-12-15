@@ -76,7 +76,7 @@ class MovementWizardView(ApplicationView):
                 s.__class__._META_DESCRIPTION,
                 s.__class__.__name__,
                 s.__class__._META_CONNECTION_TYPE,
-                s.address.encode('utf-8'),
+                s.address_string,
                 s.connected,
                 s.get_status() if s.connected else '-- NO STATUS --'
             ) for id, s in enumerate(self.mover.stages)],
