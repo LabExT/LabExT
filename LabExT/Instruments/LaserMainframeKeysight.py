@@ -43,7 +43,7 @@ class LaserMainframeKeysight(Instrument):
 
     """
 
-    ignored_SCPI_error_numbers = [0, -420, -231]
+    ignored_SCPI_error_numbers = [0, -420, -231, -261]
 
     def __init__(self, *args, **kwargs):
         # call Instrument constructor, creates VISA instrument
