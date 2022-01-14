@@ -93,6 +93,8 @@ class DummyMeas(Measurement):
                 self.plot.x.append(x)
                 self.plot.y.append(y)
                 sleep(ptime)
+        else:
+            sleep(tot_time)
 
         # convert numpy float32/float64 to python float
         data['values']['point indices'] = [x.item() for x in xvec]
