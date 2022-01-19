@@ -15,33 +15,12 @@ from tkinter import Toplevel, messagebox
 
 import numpy as np
 
-from LabExT.Movement.PiezoStage import PiezoStage
+from LabExT.Movement.Stage3DSmarAct import Stage3DSmarAct
 from LabExT.Movement.StageTrajectory import StageTrajectory
 from LabExT.Utils import run_with_wait_window, get_configuration_file_path
 from LabExT.View.ChooseStageWindow import ChooseStageWindow
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
 from LabExT.transformations import Transformation2D
-
-#
-# import the MCSControl software, separately provided by SmarAct GmbH
-# currently, the path to this external module must be saved as JSON string
-# in the settings file 'mcsc_module_path.txt'
-#
-sys_path_changed = False
-try:
-    settings_path = get_configuration_file_path('mcsc_module_path.txt')
-    with open(settings_path, 'r') as fp:
-        module_path = json.load(fp)
-    sys.path.insert(0, module_path)
-    sys_path_changed = True
-    import MCSControl_PythonWrapper.MCSControl_PythonWrapper as MCSC
-    MCS_LOADED = True
-except (ImportError, OSError, FileNotFoundError):
-    MCS_LOADED = False
-finally:
-    if sys_path_changed:
-        del sys.path[0]
-
 
 class Mover:
     """Handles everything related to the movement of the stages.
@@ -72,7 +51,7 @@ class Mover:
         experiment_manager : ExperimentManager
             Current instance of ExperimentManager.
         """
-        self.mover_enabled = MCS_LOADED
+        self.mover_enabled = Stage3DSmarAct.driver_loaded
         self.trafo_enabled = False
 
         self._experiment_manager = experiment_manager
@@ -111,27 +90,12 @@ class Mover:
             self.logger.error(msg)
             raise RuntimeError(msg)
 
-        address_buffer = MCSC.ct.create_string_buffer(50)  # buffer in which addresses will be saved
-        io_buffer_size = MCSC.ct.c_ulong(50)  # size of the buffer
-
-        # query for available stages
-        status = MCSC.SA_FindSystems('', address_buffer, io_buffer_size)
-        # catch Piezo Driver errors
-        if status != MCSC.SA_OK:
-            error_msg = MCSC.ct.c_char_p()
-            MCSC.SA_GetStatusInfo(status, error_msg)
-            # will report a 'MCS error: query-buffer size' if address_buffer
-            # or io_buffer_size is to small
-            msg = 'MCS error: {}'.format(error_msg.value[:].decode('utf-8'))
-            self.logger.error(msg)
-            raise RuntimeError(msg)
-
-        if io_buffer_size == MCSC.ct.c_ulong(0):
+        stages = Stage3DSmarAct.find_stages()
+        if not stages:
             msg = 'Could not find any stages connected to the computer.'
             self.logger.error(msg)
             raise RuntimeError(msg)
 
-        stages = address_buffer.value.decode().split()
         self.logger.info('Found stages: %s', stages)
 
         # make the user choose which stage is left and which is right
@@ -152,9 +116,11 @@ class Mover:
         right_stage_address = stage_window.right_choice
 
         def create_stages():
-            self.left_stage = PiezoStage(left_stage_address.encode('utf-8'))
+            self.left_stage = Stage3DSmarAct(left_stage_address.encode('utf-8'))
+            self.left_stage.connect()
             if self.num_stages == 2:
-                self.right_stage = PiezoStage(right_stage_address.encode('utf-8'))
+                self.right_stage = Stage3DSmarAct(right_stage_address.encode('utf-8'))
+                self.right_stage.connect()
             new_window.destroy()
 
         run_with_wait_window(self._experiment_manager.root,

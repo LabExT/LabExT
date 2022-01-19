@@ -40,7 +40,7 @@ class PowerMeterGenericKeysight(Instrument):
 
     """
 
-    ignored_SCPI_error_numbers = [0, -410, -420, -231, -213]
+    ignored_SCPI_error_numbers = [0, -410, -420, -231, -213, -261]
 
     def __init__(self, *args, **kwargs):
         """

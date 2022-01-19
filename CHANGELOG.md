@@ -1,3 +1,11 @@
+## Version 2.1.2
+Released 2022-01-19
+
+* feature: live viewer has minimum y-axis span option
+* bugfix: sometimes old Keysight PMs reported a stat-calc-error on very low recorded powers, these can safely be ignored
+* under-the-hood: refactored the SmarAct 3D Piezo Stage driver class as preparation for complete mover overhaul
+* under-the-hood: update of dependencies due to safety reasons
+
 ## Version 2.1.1
 Released 2021-11-07
 
