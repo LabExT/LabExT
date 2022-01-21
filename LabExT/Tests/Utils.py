@@ -5,6 +5,24 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import _tkinter
+import tkinter
+from unittest import TestCase
+
+class TKinterTestCase(TestCase):
+    def setUp(self):
+        self.root=tkinter.Tk()
+        self.pump_events()
+
+    def tearDown(self):
+        if self.root:
+            self.root.destroy()
+            self.pump_events()
+
+    def pump_events(self):
+        while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
+            pass
+
 
 import _tkinter
 import tkinter
