@@ -6,6 +6,26 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 
+import _tkinter
+import tkinter
+from unittest import TestCase
+
+
+class TKinterTestCase(TestCase):
+    def setUp(self):
+        self.root = tkinter.Tk()
+        self.pump_events()
+
+    def tearDown(self):
+        if self.root:
+            self.root.destroy()
+            self.pump_events()
+
+    def pump_events(self):
+        while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
+            pass
+
+
 def ask_user_yes_no(ask_string="Is one kg of feathers lighter than one kg of iron?", default_answer=True):
     """ Ask the user a yes/no question:
      * Returns True on yes
