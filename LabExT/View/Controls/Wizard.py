@@ -144,8 +144,8 @@ class Wizard(Toplevel):
             height=480,
             on_cancel=None,
             on_finish=None,
-            withSidebar=True,
-            withError=True,
+            with_sidebar=True,
+            with_error=True,
             next_button_label="Next Step",
             previous_button_label="Previous Step",
             cancel_button_label="Cancel",
@@ -166,7 +166,7 @@ class Wizard(Toplevel):
         self.on_finish = on_finish
 
         # Build Wizard
-        if withSidebar:
+        if with_sidebar:
             self._sidebar_frame = CustomFrame(self, width=self.SIDEBAR_WIDTH)
             self._sidebar_frame.pack(side=LEFT, fill=BOTH, anchor='nw')
         else:
@@ -181,7 +181,7 @@ class Wizard(Toplevel):
             relief=FLAT)
         self._main_frame.pack(side=TOP, fill=BOTH, expand=True)
 
-        if withError:
+        if with_error:
             self._error_frame = Frame(
                 self._content_frame, borderwidth=0, relief=FLAT)
             self._error_frame.pack(side=TOP, fill=X, padx=10, expand=0)
@@ -235,7 +235,7 @@ class Wizard(Toplevel):
             side=RIGHT, fill=Y, expand=0, padx=5, pady=10)
 
         self.wm_geometry("{width:d}x{height:d}".format(
-            width=width + self.SIDEBAR_WIDTH if withSidebar else width,
+            width=width + self.SIDEBAR_WIDTH if with_sidebar else width,
             height=height))
         self.protocol('WM_DELETE_WINDOW', self._cancel)
 
