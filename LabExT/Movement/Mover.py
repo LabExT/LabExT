@@ -15,7 +15,7 @@ from tkinter import Toplevel, messagebox
 
 import numpy as np
 
-from LabExT.Movement.Stage3DSmarAct import Stage3DSmarAct
+from LabExT.Movement.Stages.Stage3DSmarAct import Stage3DSmarAct
 from LabExT.Movement.StageTrajectory import StageTrajectory
 from LabExT.Utils import run_with_wait_window, get_configuration_file_path
 from LabExT.View.ChooseStageWindow import ChooseStageWindow
@@ -90,7 +90,7 @@ class Mover:
             self.logger.error(msg)
             raise RuntimeError(msg)
 
-        stages = Stage3DSmarAct.find_stages()
+        stages = Stage3DSmarAct.find_stage_addresses()
         if not stages:
             msg = 'Could not find any stages connected to the computer.'
             self.logger.error(msg)
@@ -116,10 +116,10 @@ class Mover:
         right_stage_address = stage_window.right_choice
 
         def create_stages():
-            self.left_stage = Stage3DSmarAct(left_stage_address.encode('utf-8'))
+            self.left_stage = Stage3DSmarAct(left_stage_address)
             self.left_stage.connect()
             if self.num_stages == 2:
-                self.right_stage = Stage3DSmarAct(right_stage_address.encode('utf-8'))
+                self.right_stage = Stage3DSmarAct(right_stage_address)
                 self.right_stage.connect()
             new_window.destroy()
 

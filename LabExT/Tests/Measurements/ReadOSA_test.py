@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
+from LabExT.Tests.Utils import mark_as_laboratory_test
 
 import numpy as np
 
@@ -13,8 +14,8 @@ from LabExT.Instruments.OpticalSpectrumAnalyzerAQ6370C import OpticalSpectrumAna
 from LabExT.Measurements.MeasAPI import Measurement
 from LabExT.Measurements.ReadOSA import ReadOSA
 
-
-class Test_ReadOSA(unittest.TestCase):
+@mark_as_laboratory_test
+class ReadOSATest(unittest.TestCase):
     """
     Test for the ReadOSA measurement.
     required lab setup:
@@ -122,6 +123,3 @@ class Test_ReadOSA(unittest.TestCase):
         self.assertAlmostEqual(no_points, instr_parameter['n_points'], places=4)
         self.assertAlmostEqual(resolution, instr_parameter['sweepresolution'], places=4)
 
-
-if __name__ == '__main__':
-    unittest.main()
