@@ -13,10 +13,10 @@ import unittest
 import numpy as np
 
 from LabExT.Instruments.OpticalSpectrumAnalyzerAQ6370C import OpticalSpectrumAnalyzerAQ6370C
-from LabExT.Tests.Utils import ask_user_yes_no
+from LabExT.Tests.Utils import ask_user_yes_no, mark_as_laboratory_test
 
-
-class Test_OpticalSpectrumAnalyzerAQ6370C(unittest.TestCase):
+@mark_as_laboratory_test
+class OpticalSpectrumAnalyzerAQ6370CTest(unittest.TestCase):
     #
     # test case constants
     #
@@ -138,7 +138,3 @@ class Test_OpticalSpectrumAnalyzerAQ6370C(unittest.TestCase):
     #     with self.assertRaises(ValueError):
     #         self.instr.marker_search_mode = 'asdf'
 
-
-
-if __name__ == '__main__':
-    unittest.main()

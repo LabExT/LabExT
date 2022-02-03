@@ -9,9 +9,11 @@ import json
 import time
 import ctypes as ct
 from enum import Enum
+from typing import List
 
-from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected
+from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
 from LabExT.Utils import get_configuration_file_path
+from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
 sys_path_changed = False
 try:
@@ -23,6 +25,7 @@ try:
     import MCSControl_PythonWrapper.MCSControl_PythonWrapper as MCSC
     MCS_LOADED = True
 except (ImportError, OSError, FileNotFoundError):
+    MCSC = object()
     MCS_LOADED = False
 finally:
     if sys_path_changed:
@@ -52,6 +55,46 @@ class Stage3DSmarAct(Stage):
     channels : dict
         Dict of channel objects
     """
+
+    description = 'SmarAct Modular Control System'
+    connection_type = 'USB'
+    driver_loaded = MCS_LOADED
+    driver_specifiable = True
+
+    @classmethod
+    def load_driver(cls, parent) -> bool:
+        """
+        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the MovementWizardController.
+        """
+        driver_path_dialog = DriverPathDialog(
+            parent,
+            settings_file_path="mcsc_module_path.txt",
+            title="Stage Driver Settings",
+            label="SmarAct MCSControl driver module path",
+            hint="Specify the directory where the module MCSControl_PythonWrapper is found.\nThis is external software,"
+            "provided by SmarAct GmbH and is available from them. See https://smaract.com.")
+        parent.wait_window(driver_path_dialog)
+
+        return driver_path_dialog.path_has_changed
+
+    @classmethod
+    @assert_driver_loaded
+    def find_stage_addresses(cls) -> List[str]:
+        """
+        Returns a list of SmarAct stage addresses
+        """
+        out_buffer = ct.create_string_buffer(4096)
+        buffer_size = ct.c_ulong(4096)
+        if cls._exit_if_error(
+            MCSC.SA_FindSystems(
+                '',
+                out_buffer,
+                buffer_size)):
+            if buffer_size != ct.c_ulong(0):
+                return out_buffer.value.decode().split()
+
+        return []
+        
 
     class _Channel:
         """Implementation of one SmarAct synchronous channel. One channel represents one axis.
@@ -148,7 +191,8 @@ class Stage3DSmarAct(Stage):
         @property
         def humanized_status(self) -> str:
             """Translates current status to string"""
-            return self._humanize_status(self.status)
+            status_code = self.status
+            return self.STATUS_CODES.get(status_code, "Unknown status code: " + str(status_code))
 
         @property
         def sensor(self) -> int:
@@ -318,12 +362,6 @@ class Stage3DSmarAct(Stage):
             if wait_for_stopping:
                 self._wait_for_stopping()
 
-        def _humanize_status(self, status_code: int) -> str:
-            if(status_code in self.STATUS_CODES):
-                return self.STATUS_CODES[status_code]
-
-            return "Unknown status code: " + str(status_code)
-
         def _wait_for_stopping(self):
             while True:
                 time.sleep(0.05)
@@ -335,22 +373,6 @@ class Stage3DSmarAct(Stage):
 
         def _to_micrometer(self, nm: int) -> float:
             return nm * 1e-3
-
-    driver_loaded = MCS_LOADED
-
-    # Find SmarAct system
-    @classmethod
-    def find_stages(cls):
-        out_buffer = ct.create_string_buffer(4096)
-        buffer_size = ct.c_ulong(4096)
-        if cls._exit_if_error(
-            MCSC.SA_FindSystems(
-                '',
-                out_buffer,
-                buffer_size)):
-            if buffer_size != ct.c_ulong(0):
-                return out_buffer.value.decode().split()
-        return []
 
     # Setup and initialization
 
@@ -366,17 +388,21 @@ class Stage3DSmarAct(Stage):
         self._z_lift = 20
         self._stage_lifted_up = False
         self._z_axis_direction = 1
-        super().__init__(address)
+        super().__init__(address.encode('utf-8'))
 
+    def __str__(self) -> str:
+        return "SmarAct Piezo-Stage at {}".format(str(self.address_string))
+
+    @property
+    def address_string(self) -> str:
+        return self.address.decode('utf-8')
+
+    @assert_driver_loaded
     def connect(self) -> bool:
         """Connects to stage by calling SA_OpenSystem and initializes a system handle.
         Creates Channel objects for X, Y and Z axis and checks if each sensor is linear. Raise error otherwise.
         Sets channel default values.
         """
-        if not self.driver_loaded:
-            raise StageError(
-                "Stage driver not loaded: Function connect requires previously loaded drivers.")
-
         if self.connected:
             self._logger.debug('Stage is already connected.')
             return True
@@ -386,26 +412,37 @@ class Stage3DSmarAct(Stage):
             for ch in Axis:
                 self.channels[ch] = self._Channel(self, ch.value, ch.name)
 
-            self._raise_if_sensor_non_linear()
-            self.connected = True
+            try:
+                self._raise_if_sensor_non_linear()
 
-            self.set_speed_xy(300)
-            self.set_speed_z(20)
-            self.set_acceleration_xy(0)
+                self.connected = True
 
-            self._logger.info(
-                'PiezoStage at {} initialised successfully.'.format(
-                    self.address))
+                self.set_speed_xy(300)
+                self.set_speed_z(20)
+                self.set_acceleration_xy(0)
+
+                self._logger.info(
+                    'PiezoStage at {} initialised successfully.'.format(
+                        self.address))
+            except Exception as e:
+                self.connected = False
+                self.handle = None
+                self.channels = {}
+
+                raise e
+            
         else:
             self.connected = False
 
         return self.connected
 
+    @assert_driver_loaded
     @assert_stage_connected
     def disconnect(self) -> bool:
         """Disconnects stage by calling SA_CloseSystem"""
         if self._exit_if_error(MCSC.SA_CloseSystem(self.handle)):
             self.connected = False
+            self.handle = None
 
     # Properties
 
