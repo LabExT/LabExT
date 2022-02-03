@@ -10,11 +10,15 @@ import sys
 import pytest
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the LabExT test suite.",
-                                     usage='python -m LabExT.Tests.runtests ...')  
-    parser.add_argument('--laboratory_tests', action='store_true', default=False,
-                        help='Tests functionality that requires laboratory equipment.')
-    
+    parser = argparse.ArgumentParser(
+        description="Run the LabExT test suite.",
+        usage='python -m LabExT.Tests.runtests ...')
+    parser.add_argument(
+        '--laboratory_tests',
+        action='store_true',
+        default=False,
+        help='Tests functionality that requires laboratory equipment.')
+
     options = parser.parse_args()
 
     pytest.run_laboratory_tests = options.laboratory_tests

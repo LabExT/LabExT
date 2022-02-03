@@ -56,10 +56,7 @@ class Stage3DSmarAct(Stage):
         Dict of channel objects
     """
 
-    description = 'SmarAct Modular Control System'
-    connection_type = 'USB'
     driver_loaded = MCS_LOADED
-    driver_specifiable = True
 
     @classmethod
     def load_driver(cls, parent) -> bool:
@@ -94,7 +91,6 @@ class Stage3DSmarAct(Stage):
                 return out_buffer.value.decode().split()
 
         return []
-        
 
     class _Channel:
         """Implementation of one SmarAct synchronous channel. One channel represents one axis.
@@ -192,7 +188,8 @@ class Stage3DSmarAct(Stage):
         def humanized_status(self) -> str:
             """Translates current status to string"""
             status_code = self.status
-            return self.STATUS_CODES.get(status_code, "Unknown status code: " + str(status_code))
+            return self.STATUS_CODES.get(
+                status_code, "Unknown status code: " + str(status_code))
 
         @property
         def sensor(self) -> int:
@@ -430,7 +427,7 @@ class Stage3DSmarAct(Stage):
                 self.channels = {}
 
                 raise e
-            
+
         else:
             self.connected = False
 
@@ -461,11 +458,13 @@ class Stage3DSmarAct(Stage):
         return self._stage_lifted_up
 
     # Stage settings method
+    @assert_driver_loaded
     @assert_stage_connected
     def find_reference_mark(self):
         for channel in self.channels.values():
             channel.find_reference_mark()
 
+    @assert_driver_loaded
     @assert_stage_connected
     def set_speed_xy(self, umps: float):
         """Sets the xy speed of a stage.
@@ -478,6 +477,7 @@ class Stage3DSmarAct(Stage):
         self.channels[Axis.X].speed = umps
         self.channels[Axis.Y].speed = umps
 
+    @assert_driver_loaded
     @assert_stage_connected
     def set_speed_z(self, umps: float):
         """Sets the z speed of a stage.
@@ -489,6 +489,7 @@ class Stage3DSmarAct(Stage):
         """
         self.channels[Axis.Z].speed = umps
 
+    @assert_driver_loaded
     @assert_stage_connected
     def get_speed_xy(self) -> float:
         """Returns the speed set at the stage for x and y direction in um/s."""
@@ -501,11 +502,13 @@ class Stage3DSmarAct(Stage):
 
         return x_speed
 
+    @assert_driver_loaded
     @assert_stage_connected
     def get_speed_z(self):
         """Returns the speed set at the stage for z direction in um/s."""
         return self.channels[Axis.Z].speed
 
+    @assert_driver_loaded
     @assert_stage_connected
     def set_acceleration_xy(self, umps2):
         """Set the acceleration at the stage for the x and y direction.
@@ -518,6 +521,7 @@ class Stage3DSmarAct(Stage):
         self.channels[Axis.X].acceleration = umps2
         self.channels[Axis.Y].acceleration = umps2
 
+    @assert_driver_loaded
     @assert_stage_connected
     def get_acceleration_xy(self) -> float:
         """Returns the acceleration set at the stage for x and y direction in um/s^2."""
@@ -530,6 +534,7 @@ class Stage3DSmarAct(Stage):
 
         return x_acceleration
 
+    @assert_driver_loaded
     @assert_stage_connected
     def get_status(self) -> tuple:
         """Returns the channel status codes translated to strings as tuple for each channel. """
@@ -543,6 +548,7 @@ class Stage3DSmarAct(Stage):
 
     # Movement methods
 
+    @assert_driver_loaded
     @assert_stage_connected
     def wiggle_z_axis_positioner(self):
         """
@@ -569,6 +575,7 @@ class Stage3DSmarAct(Stage):
 
         self.set_speed_z(previous_speed)
 
+    @assert_driver_loaded
     @assert_stage_connected
     def lift_stage(self):
         """Lifts the stage up in the z direction by the amount defined in self._z_lift
@@ -585,6 +592,7 @@ class Stage3DSmarAct(Stage):
 
         self._stage_lifted_up = True
 
+    @assert_driver_loaded
     @assert_stage_connected
     def lower_stage(self):
         """Lowers the stage in the z direction by the amount defined by self._z_lift
@@ -617,6 +625,7 @@ class Stage3DSmarAct(Stage):
         assert height >= 0.0, "Lift distance must be non-negative."
         self._z_lift = height
 
+    @assert_driver_loaded
     @assert_stage_connected
     def get_current_position(self) -> list:
         """Get current position of the stages in micrometers.
@@ -631,6 +640,7 @@ class Stage3DSmarAct(Stage):
             self.channels[Axis.Y].position
         ]
 
+    @assert_driver_loaded
     @assert_stage_connected
     def move_relative(self, x, y):
         """Performs a relative movement by x and y. Specified in units of micrometers.
@@ -651,6 +661,7 @@ class Stage3DSmarAct(Stage):
         self.channels[Axis.X].move(diff=x, mode=MovementType.RELATIVE)
         self.channels[Axis.Y].move(diff=y, mode=MovementType.RELATIVE)
 
+    @assert_driver_loaded
     @assert_stage_connected
     def move_absolute(self, pos):
         """Performs an absolute movement to the specified position in units of micrometers.
@@ -673,6 +684,7 @@ class Stage3DSmarAct(Stage):
 
     # Stage control
 
+    @assert_driver_loaded
     @assert_stage_connected
     def stop(self):
         for channel in self.channels.values():

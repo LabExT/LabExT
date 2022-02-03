@@ -11,6 +11,7 @@ from unittest import TestCase
 from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
 from LabExT.Movement.Stages.DummyStage import DummyStage
 
+
 class StageTest(TestCase):
     def setUp(self) -> None:
         self.stage = Mock()
@@ -37,4 +38,3 @@ class StageTest(TestCase):
             assert_stage_connected(func)(self.stage)
 
         func.assert_not_called()
-

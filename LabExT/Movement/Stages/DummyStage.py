@@ -12,15 +12,12 @@ class DummyStage(Stage):
     """
     Simple Stage implementation for testing purposes.
     """
-    
+
     #
     #   Class description and properties
     #
 
-    description = 'Dummy Stage Vendor'
-    connection_type = 'TCP'
     driver_loaded = True
-    driver_specifiable = False
 
     @classmethod
     def find_stage_addresses(cls):

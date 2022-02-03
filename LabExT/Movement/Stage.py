@@ -12,6 +12,7 @@ from os.path import dirname, join
 
 from LabExT.PluginLoader import PluginLoader
 
+
 class StageError(RuntimeError):
     pass
 
@@ -49,17 +50,13 @@ def assert_driver_loaded(func):
         return func(stage, *args, **kwargs)
     return wrapper
 
+
 class Stage(ABC):
     _logger = logging.getLogger()
     driver_loaded = False
 
-    description = None
-    connection_type = None
-    driver_loaded = False
-    driver_specifiable = False
-
     @classmethod
-    def find_stage_classes(cls, subdir = "Stages") -> list:
+    def find_stage_classes(cls, subdir="Stages") -> list:
         """
         Returns a list of all classes which inherit from this class.
 
@@ -67,9 +64,8 @@ class Stage(ABC):
         """
         search_path = join(dirname(__file__), subdir)
         plugin_loader = PluginLoader()
-        
-        return [*plugin_loader.load_plugins(search_path, cls).values()]
 
+        return [*plugin_loader.load_plugins(search_path, cls).values()]
 
     @classmethod
     def find_available_stages(cls):
@@ -111,9 +107,6 @@ class Stage(ABC):
     def __init__(self, address):
         self.address = address
         self.connected = False
-
-    # def __del__(self):
-    #     self.disconnect()
 
     @abstractmethod
     def __str__(self) -> str:
