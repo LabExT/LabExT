@@ -10,6 +10,7 @@ import numpy as np
 from typing import Type
 from enum import Enum, auto
 
+from LabExT.Movement.Transformations import SinglePointFixation
 from LabExT.Movement.Stage import StageError
 
 
@@ -145,6 +146,7 @@ class Calibration:
         self._device_port = device_port
 
         self._axes_rotation = None
+        self._single_point_fixation = None
 
     #
     #   Representation
@@ -215,6 +217,18 @@ class Calibration:
 
         self._axes_rotation = axes_rotation
         self._state = State.COORDINATE_SYSTEM_FIXED
+
+        return True
+
+    def fix_single_point(
+            self,
+            single_point_fixation: Type[SinglePointFixation]):
+        if not single_point_fixation.is_valid:
+            raise CalibrationError(
+                "The given fixation is no valid. ")
+
+        self._single_point_fixation = single_point_fixation
+        self._state = State.SINGLE_POINT_FIXED
 
         return True
 
