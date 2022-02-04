@@ -12,7 +12,7 @@ from enum import Enum
 from tkinter import TclError
 from typing import List
 
-from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
+from LabExT.Movement.Stage import Stage, StageMeta, StageError, assert_stage_connected, assert_driver_loaded
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
@@ -59,6 +59,10 @@ class Stage3DSmarAct(Stage):
 
     driver_loaded = MCS_LOADED
     driver_path_dialog = None
+    meta = StageMeta(
+        description='SmarAct Modular Control System',
+        driver_specifiable=True
+    )
 
     @classmethod
     def load_driver(cls, parent) -> bool:

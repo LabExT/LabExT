@@ -10,11 +10,12 @@ import logging
 import os.path
 import re
 import threading
+from typing import Type
 import pkg_resources
 from os import makedirs
 from os.path import join, dirname, abspath, exists, basename
 from pathlib import Path
-from tkinter import Toplevel, ttk, Label
+from tkinter import Entry, TclError, Toplevel, ttk, Label
 
 import unicodedata
 
@@ -265,3 +266,15 @@ def run_with_wait_window(tk_root, description: str, function):
 
     threading.Thread(target=async_exec_func, name="wait window: " + str(description)).start()
     tk_root.wait_window(new_window)
+
+def try_to_lift_window(window):
+    if window is None:
+        return False
+    
+    try:
+        window.deiconify()
+        window.lift()
+        window.focus_set()
+        return True
+    except TclError:
+        return False

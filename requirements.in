@@ -35,6 +35,9 @@ mkdocs
 mkdocs-material
 mkdocstrings
 
+# auxiliary data structures
+bidict
+
 # tools for development
 # pip-tools
 # build
