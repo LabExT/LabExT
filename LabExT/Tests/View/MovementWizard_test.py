@@ -9,7 +9,7 @@ import unittest
 
 from tkinter import DISABLED, NORMAL
 from unittest.mock import Mock, patch
-from LabExT.Tests.Utils import TKinterTestCase
+from LabExT.Tests.Utils import TKinterTestCase, with_stage_discovery_patch
 from LabExT.Movement.Calibration import DevicePort, Orientation
 from LabExT.Movement.MoverNew import MoverError, MoverNew
 from LabExT.Movement.Stages.DummyStage import DummyStage
@@ -18,23 +18,21 @@ from LabExT.View.MovementWizard.MovementWizardController import MovementWizardCo
 
 
 class MovementWizardAssignmentStepTest(TKinterTestCase):
-    def setUp(self):
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         super().setUp()
         self.experiment_manager = Mock()
 
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:987654321')
 
-        self.stage_classes = [DummyStage]
-        self.available_stages = [self.stage, self.stage2]
+        stage_classes_mock.return_value = [DummyStage]
+        available_stages_mock.return_value = [self.stage, self.stage2]
 
-        # Create Mover instance without stage discovery
-        with patch.object(Stage, "find_available_stages", return_value=self.available_stages):
-            with patch.object(Stage, "find_stage_classes", return_value=self.stage_classes):
-                self.mover = MoverNew(self.experiment_manager)
-                self.controller = MovementWizardController(
-                    self.experiment_manager, self.mover, self.root)
-                self.view = self.controller.view
+        self.mover = MoverNew(self.experiment_manager)
+        self.controller = MovementWizardController(
+            self.experiment_manager, self.mover, self.root)
+        self.view = self.controller.view
 
         # Start Wizard at assignment step
         self.view.current_step = self.view.assign_stages_step
@@ -158,16 +156,17 @@ class MovementWizardAssignmentStepTest(TKinterTestCase):
 
 
 class MovementWizardControllerTest(unittest.TestCase):
-    def setUp(self) -> None:
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         super().setUp()
         self.experiment_manager = Mock()
 
-        # Create Mover instance without stage discovery
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value=[]):
-                self.mover = MoverNew(self.experiment_manager)
-                self.controller = MovementWizardController(
-                    self.experiment_manager, self.mover)
+        available_stages_mock.return_value = []
+        stage_classes_mock.return_value = []
+       
+        self.mover = MoverNew(self.experiment_manager)
+        self.controller = MovementWizardController(
+            self.experiment_manager, self.mover)
 
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:987654321')
@@ -258,8 +257,7 @@ class MovementWizardIntegrationTest(TKinterTestCase):
         super().setUp()
         self.experiment_manager = Mock()
 
-    @patch.object(Stage, "find_available_stages")
-    @patch.object(Stage, "find_stage_classes")
+    @with_stage_discovery_patch
     def test_with_empty_stages(
             self,
             available_stages_mock,
@@ -286,8 +284,7 @@ class MovementWizardIntegrationTest(TKinterTestCase):
             wizard._error_label["text"],
             "Please assign at least one to proceed.")
 
-    @patch.object(Stage, "find_available_stages")
-    @patch.object(Stage, "find_stage_classes")
+    @with_stage_discovery_patch
     def test_setup_of_two_stages(
             self,
             available_stages_mock,
@@ -298,8 +295,8 @@ class MovementWizardIntegrationTest(TKinterTestCase):
         stage = DummyStage('usb:123456789')
         stage2 = DummyStage('usb:987654321')
 
-        stage_classes_mock.return_value = [stage, stage2]
-        available_stages_mock.return_value = [DummyStage]
+        available_stages_mock.return_value = [stage, stage2]
+        stage_classes_mock.return_value = [DummyStage]
 
         self.mover = MoverNew(self.experiment_manager)
         self.controller = MovementWizardController(

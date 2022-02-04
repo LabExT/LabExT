@@ -283,7 +283,7 @@ class StageCalibrationView(Wizard):
         """
         try:
             self.controller.save_single_point_fixation(
-                self._current_single_point_fixations)
+                self._check_single_point_fixations)
         except CalibrationError as exec:
             messagebox.showerror("Error", str(exec))
             return False
