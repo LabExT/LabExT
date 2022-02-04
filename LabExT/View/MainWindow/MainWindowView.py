@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from platform import system
-from tkinter import Frame, Menu, Checkbutton, \
+from tkinter import DISABLED, NORMAL, Frame, Menu, Checkbutton, \
     Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
@@ -61,6 +61,9 @@ class MainWindowContextMenu(Menu):
         self._movement_new.add_command(
             label="Configure Stages...",
             command=self._menu_listener.client_configure_mover)
+        self._movement_new.add_command(
+            label="Calibrate Stages...",
+            command=self._menu_listener.client_calibrate_mover)
 
         self._movement.add_command(
             label="Configure Stages",
