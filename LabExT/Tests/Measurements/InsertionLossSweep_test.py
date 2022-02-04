@@ -6,7 +6,6 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
-from LabExT.Tests.Utils import mark_as_laboratory_test
 
 import numpy as np
 
