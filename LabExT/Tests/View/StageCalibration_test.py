@@ -6,28 +6,18 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
+from LabExT.Movement.Transformations import CoordinatePairing, SinglePointFixation
+from LabExT.Wafer.Device import Device
 import numpy as np
 from tkinter import DISABLED, NORMAL
 from unittest.mock import Mock, patch
-from LabExT.Tests.Utils import TKinterTestCase
+from LabExT.Tests.Utils import TKinterTestCase, with_stage_discovery_patch
 from LabExT.Movement.Calibration import CalibrationError, AxesRotation, Axis, DevicePort, Direction, Orientation, State
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Stage import Stage
 
 from LabExT.View.StageCalibration.StageCalibrationController import StageCalibrationController
-
-
-def with_stage_discovery_patch(func):
-    """
-    Patches the Stage classmethods `find_available_stages` and `find_stage_classes`.
-    Reason: When the mover is initialized, it automatically searches for all stage classes and for all attached stages.
-    The search for stages requires loaded drivers, which we do not want to call in test mode.
-    """
-    patch_stage_class_search = patch.object(Stage, "find_stage_classes")
-    patch_stage_discovery = patch.object(Stage, "find_available_stages")
-
-    return patch_stage_class_search(patch_stage_discovery(func))
 
 
 class StageCalibrationControllerTest(unittest.TestCase):
@@ -111,12 +101,79 @@ class StageCalibrationControllerTest(unittest.TestCase):
         controller = StageCalibrationController(
             self.experiment_manager, self.mover)
 
-        with self.assertRaises(CalibrationError) as error:
+        with self.assertRaises(CalibrationError):
             controller.save_coordinate_system(
                 {calibration_1: invalid_rotation, calibration_2: valid_rotation})
 
         self.assertIsNone(calibration_1._axes_rotation)
         self.assertEqual(calibration_2._axes_rotation, valid_rotation)
+
+    def test_save_single_point_fixation_empty(self):
+        calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration.connect_to_stage()
+
+        controller = StageCalibrationController(
+            self.experiment_manager, self.mover)
+        result = controller.save_single_point_fixation({})
+
+        self.assertTrue(result)
+        self.assertTrue(
+            all(c._single_point_fixation is None for c in self.mover.calibrations.values()))
+
+    def test_save_single_point_fixation_stores_fixation(self):
+        calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration.connect_to_stage()
+
+        translation = SinglePointFixation()
+        translation.update(
+            CoordinatePairing(
+                calibration, [
+                    1, 2], None, [
+                    3, 4]))
+
+        controller = StageCalibrationController(
+            self.experiment_manager, self.mover)
+        result = controller.save_single_point_fixation(
+            {calibration: translation})
+
+        self.assertTrue(result)
+        self.assertEqual(calibration._single_point_fixation, translation)
+        self.assertEqual(calibration.state, State.SINGLE_POINT_FIXED)
+
+    def test_save_single_point_fixation_with_invalid_fixation(self):
+        calibration_1 = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration_1.connect_to_stage()
+
+        calibration_2 = self.mover.add_stage_calibration(
+            self.stage_2, Orientation.RIGHT, DevicePort.OUTPUT)
+        calibration_2.connect_to_stage()
+
+        invalid_translation = SinglePointFixation()
+
+        valid_translation = SinglePointFixation()
+        valid_translation.update(
+            CoordinatePairing(
+                calibration_2, [
+                    1, 2], None, [
+                    3, 4]))
+
+        self.assertFalse(invalid_translation.is_valid)
+        self.assertTrue(valid_translation.is_valid)
+
+        controller = StageCalibrationController(
+            self.experiment_manager, self.mover)
+
+        with self.assertRaises(CalibrationError):
+            controller.save_single_point_fixation(
+                {calibration_1: invalid_translation, calibration_2: valid_translation})
+
+        self.assertIsNone(calibration_1._single_point_fixation)
+        self.assertEqual(
+            calibration_2._single_point_fixation,
+            valid_translation)
 
 
 class AxesCalibrationStepTest(TKinterTestCase):

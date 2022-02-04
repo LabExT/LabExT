@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from LabExT.View.StageCalibration.StageCalibrationView import StageCalibrationView
-from LabExT.Movement.Calibration import CalibrationError
+from LabExT.Movement.Calibration import CalibrationError, DevicePort, Orientation
 
 
 class StageCalibrationController:
@@ -30,6 +30,26 @@ class StageCalibrationController:
         for calibration, axes_rotation in axes_rotations.items():
             try:
                 calibration.fix_coordinate_system(axes_rotation)
+            except CalibrationError as e:
+                errors.update({calibration: e})
+
+        if errors:
+            raise CalibrationError(errors)
+
+        if self.experiment_manager:
+            self.experiment_manager.main_window.refresh_context_menu()
+
+        return True
+
+    def save_single_point_fixation(self, fixations):
+        """
+        Saves for each calibration the single point fixation.
+        """
+        errors = {}
+
+        for calibration, fixation in fixations.items():
+            try:
+                calibration.fix_single_point(fixation)
             except CalibrationError as e:
                 errors.update({calibration: e})
 
