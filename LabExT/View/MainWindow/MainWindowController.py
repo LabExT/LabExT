@@ -92,6 +92,12 @@ class MainWindowController:
         self.root.config(cursor='')
         self.logger.debug('Done updating tables')
 
+    def refresh_context_menu(self):
+        """
+        Refreshes context menu.
+        """
+        self.view.set_up_context_menu() 
+
     def set_selec_plot_title(self, title):
         """ set the title of the selected measurements plot """
         self.view.frame.selec_plot.title = title
