@@ -9,10 +9,10 @@ import unittest
 
 import numpy as np
 
-from LabExT.Movement.PiezoStage import PiezoStage
-from LabExT.Tests.Utils import ask_user_yes_no
+from LabExT.Movement.Stages import Stage3DSmarAct
+from LabExT.Tests.Utils import ask_user_yes_no, mark_as_laboratory_test
 
-
+@mark_as_laboratory_test
 class Test_PiezoStage(unittest.TestCase):
 
     user_input_required = True
@@ -22,7 +22,7 @@ class Test_PiezoStage(unittest.TestCase):
     def setUpClass(cls) -> None:
         # This method gets executed ONCE before ALL test cases.
         address = b'usb:id:276053211'
-        cls.stage = PiezoStage(address)
+        cls.stage = Stage3DSmarAct(address)
 
     #
     # test cases
