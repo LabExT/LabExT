@@ -101,4 +101,4 @@ class SinglePointFixation(Transformation):
         if not self.is_valid:
             raise RuntimeError("Cannot translate with invalid fixation. ")
 
-        return np.array(stage_coordinate) - self._offset
+        return np.array(stage_coordinate) + self._offset

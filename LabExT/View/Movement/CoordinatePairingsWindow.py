@@ -6,13 +6,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from tkinter import Frame, Toplevel, Button, Label, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y
-from LabExT.View.Controls.CoordinateWidget import CoordinateWidget
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.DeviceTable import DeviceTable
 
 from LabExT.Movement.Stage import StageError
 import LabExT.Movement.Transformations as Transformations
-from LabExT.View.Movement.StagePositionWidget import StagePositionWidget
 
 
 class CoordinatePairingsWindow(Toplevel):
@@ -236,32 +234,25 @@ class CoordinatePairingsWindow(Toplevel):
         pairing_frame.title = calibration.short_str
         pairing_frame.pack(side=TOP, fill=X, pady=5)
 
+        Label(
+            pairing_frame,
+            text="Paired with chip coordinate:"
+        ).pack(side=LEFT, fill=X)
+
         if self._device:
             Label(
                 pairing_frame,
-                text="Chip coordinate:"
-            ).pack(side=LEFT)
-
-            CoordinateWidget(
-                pairing_frame,
-                coordinate=self._device._in_position if calibration.is_input_stage else self._device._out_position
-            ).pack(side=LEFT)
-
-            Label(
-                pairing_frame,
-                text="will be paired with Stage coordinate:"
-            ).pack(side=LEFT)
-
-            StagePositionWidget(
-                pairing_frame,
-                stage=calibration.stage
-            ).pack(side=LEFT)
+                text=self._device._in_position if calibration.is_input_stage else self._device._out_position,
+                borderwidth=2,
+                relief='sunken').pack(
+                side=LEFT,
+                padx=5)
         else:
             Label(
                 pairing_frame,
                 text="No device selected",
                 foreground="#FF3333"
-            ).pack(side=LEFT)
+            ).pack(side=LEFT, padx=5)
 
         return pairing_frame
 
