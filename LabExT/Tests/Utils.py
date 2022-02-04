@@ -8,6 +8,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import _tkinter
 import tkinter
+from unittest.mock import patch
+from LabExT.Movement.Stage import Stage
 import pytest
 from unittest import TestCase
 
@@ -26,6 +28,16 @@ class TKinterTestCase(TestCase):
         while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
             pass
 
+def with_stage_discovery_patch(func):
+    """
+    Patches the Stage classmethods `find_available_stages` and `find_stage_classes`.
+    Reason: When the mover is initialized, it automatically searches for all stage classes and for all attached stages.
+    The search for stages requires loaded drivers, which we do not want to call in test mode.
+    """
+    patch_stage_class_search = patch.object(Stage, "find_stage_classes")
+    patch_stage_discovery = patch.object(Stage, "find_available_stages")
+
+    return patch_stage_class_search(patch_stage_discovery(func))
 
 def mark_as_laboratory_test(cls):
     """

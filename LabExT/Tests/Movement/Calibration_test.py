@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import call, patch
 import numpy as np
 
+from LabExT.Movement.Transformations import CoordinatePairing, SinglePointFixation
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Stages.DummyStage import DummyStage
@@ -199,3 +200,25 @@ class CalibrationTest(unittest.TestCase):
         self.assertEqual(
             self.calibration._state,
             State.COORDINATE_SYSTEM_FIXED)
+
+    def test_fix_single_point_accepts_only_valid_fixations(self):
+        fixation = SinglePointFixation()
+
+        with self.assertRaises(CalibrationError):
+            self.calibration.fix_single_point(fixation)
+
+    def test_fix_single_point_accepts_saves_fixations(self):
+        fixation = SinglePointFixation()
+        fixation.update(CoordinatePairing(
+            calibration=None,
+            stage_coordinate=[0, 0],
+            device=None,
+            chip_coordinate=[1, 1]
+        ))
+
+        self.calibration.fix_single_point(fixation)
+
+        self.assertEqual(self.calibration._single_point_fixation, fixation)
+        self.assertEqual(
+            self.calibration._state,
+            State.SINGLE_POINT_FIXED)
