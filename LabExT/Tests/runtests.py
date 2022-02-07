@@ -25,4 +25,4 @@ if __name__ == "__main__":
     if options.laboratory_tests:
         sys.argv.remove('--laboratory_tests')
 
-    pytest.main()
+    sys.exit(pytest.main())
