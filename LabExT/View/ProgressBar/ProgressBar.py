@@ -5,22 +5,14 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import _tkinter
 from tkinter import Toplevel, ttk, Label, StringVar
 
 
-class ProgressBar (Toplevel):
+class ProgressBar(Toplevel):
     def __init__(self, root, text):
         self.root = root
         Toplevel.__init__(self, self.root)
-
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-
-        size = tuple(int(_) for _ in self.geometry().split('+')[0].split('x'))
-        x = screen_width / 2 - size[0] / 2
-        y = screen_height / 2 - size[1] / 2
-        self.geometry("+%d+%d" % (x, y))
-        self.overrideredirect(1)
 
         self.attributes('-topmost', 'true')
         self.title("LabExT")
@@ -34,3 +26,19 @@ class ProgressBar (Toplevel):
         lbl = Label(master=self,
                     textvariable=self.text)
         lbl.grid(row=0, column=0)
+
+        # don't show classical window bar for progress bar
+        self.overrideredirect(True)
+
+        # this lets the window manager draw all windows, which is necessary as
+        while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
+            pass
+
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        size = tuple(int(_) for _ in self.geometry().split('+')[0].split('x'))
+        x = screen_width / 2 - size[0] / 2
+        y = screen_height / 2 - size[1] / 2
+        self.geometry("+%d+%d" % (x, y))
+
