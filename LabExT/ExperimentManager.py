@@ -20,7 +20,6 @@ from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
 from LabExT.Movement.Mover import Mover
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
-from LabExT.View.Controls.KeyboardShortcutButtonPress import callback_if_btn_enabled
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
@@ -125,24 +124,6 @@ class ExperimentManager:
         self.main_window.model.status_mover_driver_enabled.set(self.mover.mover_enabled)
         self.main_window.model.status_transformation_enabled.set(self.mover.trafo_enabled)
         self.main_window.model.status_sfp_initialized.set(self.peak_searcher.initialized)
-
-        # Keyboard Shortcuts
-        self.root.bind("<F1>", self.show_documentation)
-        self.root.bind("<F5>",
-                       callback_if_btn_enabled(lambda event: self.main_window.start(),
-                                               self.main_window.model.commands[0].button_handle))
-        self.root.bind("<Escape>",
-                       callback_if_btn_enabled(lambda event: self.main_window.stop(),
-                                               self.main_window.model.commands[1].button_handle))
-        self.root.bind("<Control-r>",
-                       callback_if_btn_enabled(lambda event: self.main_window.repeat_last_exec_measurement(),
-                                               self.main_window.view.frame.buttons_frame.repeat_meas_button))
-        self.root.bind("<Control-n>",
-                       callback_if_btn_enabled(lambda event: self.main_window.new_single_measurement(),
-                                               self.main_window.view.frame.buttons_frame.new_meas_button))
-        self.root.bind("<Delete>",
-                       callback_if_btn_enabled(lambda event: self.main_window.todo_delete(),
-                                               self.main_window.view.frame.to_do_frame.delete_todo_meas))
 
         # inform user about mover status
         if not self.mover.mover_enabled:
