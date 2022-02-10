@@ -480,7 +480,7 @@ class MainWindowController:
     def offer_chip_reload_possibility(self):
         chip_name = self.model.chip_parameters['Chip name'].value
         chip_path = self.model.chip_parameters['Chip path'].value
-        # chip_path is is only set if the user did the "load chip" functionality
+        # chip_path is only set if the user did the "load chip" functionality
         # so to offer to re-load the same chip, its sufficient to check if chip_path was set to anything
         if not chip_path:
             # there was no chip loaded on last use of LabExT, do not offer reloading
@@ -492,6 +492,14 @@ class MainWindowController:
         if not user_wants_chip_reload:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
+
+    def open_live_viewer(self):
+        """ opens live-viewer window by calling appropriate menu listener function """
+        self.view.menu_listener.client_live_view()
+
+    def open_peak_searcher(self):
+        """ opens search for peak window by calling appropriate menu listener function """
+        self.view.menu_listener.client_search_for_peak()
 
     def start(self):
         """Calls the experiment handler to start the experiment.
