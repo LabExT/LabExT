@@ -69,14 +69,14 @@ class MainWindowContextMenu(Menu):
             label="Move Stages to Device",
             command=self._menu_listener.client_move_device)
         self._movement.add_command(
-            label="Search for Peak",
+            label="Search for Peak (Ctrl+S)",
             command=self._menu_listener.client_search_for_peak)
 
         self._view.add_command(
             label="Open Extra Plots",
             command=self._menu_listener.client_extra_plots)
         self._view.add_command(
-            label="Start Live Instrument View",
+            label="Start Live Instrument View (Ctrl+L)",
             command=self._menu_listener.client_live_view)
 
         self._settings.add_command(
@@ -138,8 +138,8 @@ class MainWindowControlPanel(ControlPanel):
         # control buttons
         #
         self.logger.debug('Adding control buttons..')
-        self.grid(row=4, column=0, sticky='we')
-        self.title = 'Experiment Control'
+        self.grid(row=5, column=0, sticky='we')
+        self.title = 'Execute ToDos'
         self.button_width = 15
         self.command_source = self.model.commands
 
@@ -180,6 +180,30 @@ class MainWindowControlPanel(ControlPanel):
         self.columnconfigure(2, weight=1)
 
 
+class MainWindowCouplingTools(LabelFrame):
+    """
+    Buttons for quick-accessing the auxiliary tools.
+    """
+
+    def __init__(self, parent, controller):
+        self.parent = parent
+        self.controller = controller
+        LabelFrame.__init__(self, self.parent, text='Couple Light to SiP Chip')
+        self.grid(row=3, column=0, sticky='we')
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        self.live_viewer_btn = Button(self,
+                                      text='Open Live Viewer (Ctrl+L)',
+                                      command=self.controller.open_live_viewer)
+        self.live_viewer_btn.grid(row=0, column=0, sticky='we', padx=5, pady=5)
+        self.peak_searcher_btn = Button(self,
+                                        text='Peak Searcher (Ctrl+S)',
+                                        command=self.controller.open_peak_searcher)
+        self.peak_searcher_btn.grid(row=1, column=0, sticky='we', padx=5, pady=5)
+
+
 class MainWindowButtonsFrame(LabelFrame):
     """
     The buttons frame. Has buttons to add measurements.
@@ -188,8 +212,8 @@ class MainWindowButtonsFrame(LabelFrame):
         self.main_frame = main_frame
         self.parent = parent
         self.controller = controller
-        LabelFrame.__init__(self, self.parent, text='Start New Experiment')
-        self.grid(row=3, column=0, sticky='we')
+        LabelFrame.__init__(self, self.parent, text='Create new ToDos')
+        self.grid(row=4, column=0, sticky='we')
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
@@ -254,9 +278,9 @@ class MainWindowAxesFrame(LabelFrame):
         self.parent = parent
         self.root = root
         self.controller = controller
-        LabelFrame.__init__(self, self.parent)
+        LabelFrame.__init__(self, self.parent, text='Choose Axes to Display')
 
-        self.grid(row=5, column=0, sticky='we')
+        self.grid(row=6, column=0, sticky='we')
         self.rowconfigure(2, weight=1)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -439,6 +463,7 @@ class MainWindowFrame(Frame):
         self.control_frame = None
         self.parameter_frame = None
         self.buttons_frame = None
+        self.coupling_tools_panel = None
         self.control_panel = None
 
         self.selec_plot = None
@@ -467,6 +492,7 @@ class MainWindowFrame(Frame):
         self.parameter_frame = MainWindowParameterFrame(self.control_frame, self.model)
         self.buttons_frame = MainWindowButtonsFrame(self.control_frame, self, self.controller)
         self.control_panel = MainWindowControlPanel(self.control_frame, self.model)
+        self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
         self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
         self.selec_plot = PlotControl(self, add_toolbar=True, figsize=(5, 5), add_legend=True,

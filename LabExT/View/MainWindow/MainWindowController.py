@@ -16,6 +16,7 @@ from LabExT.View.EditMeasurementWizard.EditMeasurementWizardController import Ed
 from LabExT.View.MainWindow.MainWindowModel import MainWindowModel
 from LabExT.View.MainWindow.MainWindowView import MainWindowView
 from LabExT.View.SettingsWindow import SettingsWindow
+from LabExT.View.Controls.KeyboardShortcutButtonPress import callback_if_btn_enabled
 
 
 class MainWindowController:
@@ -59,6 +60,8 @@ class MainWindowController:
         self.view.set_up_main_window()  # setup the main window content
 
         self._axis_being_changed = False
+
+        self._register_keyboard_shortcuts()
 
     def on_window_close(self):
         """Called when user closes the application. Save experiment
@@ -480,7 +483,7 @@ class MainWindowController:
     def offer_chip_reload_possibility(self):
         chip_name = self.model.chip_parameters['Chip name'].value
         chip_path = self.model.chip_parameters['Chip path'].value
-        # chip_path is is only set if the user did the "load chip" functionality
+        # chip_path is only set if the user did the "load chip" functionality
         # so to offer to re-load the same chip, its sufficient to check if chip_path was set to anything
         if not chip_path:
             # there was no chip loaded on last use of LabExT, do not offer reloading
@@ -492,6 +495,14 @@ class MainWindowController:
         if not user_wants_chip_reload:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
+
+    def open_live_viewer(self):
+        """ opens live-viewer window by calling appropriate menu listener function """
+        self.view.menu_listener.client_live_view()
+
+    def open_peak_searcher(self):
+        """ opens search for peak window by calling appropriate menu listener function """
+        self.view.menu_listener.client_search_for_peak()
 
     def start(self):
         """Calls the experiment handler to start the experiment.
@@ -531,3 +542,28 @@ class MainWindowController:
         self.experiment_manager.docu.cleanup()
 
         self.root.destroy()
+
+    def _register_keyboard_shortcuts(self):
+        self.root.bind("<F1>",
+                       self.experiment_manager.show_documentation)
+        self.root.bind("<F5>",
+                       callback_if_btn_enabled(lambda event: self.start(),
+                                               self.model.commands[0].button_handle))
+        self.root.bind("<Escape>",
+                       callback_if_btn_enabled(lambda event: self.stop(),
+                                               self.model.commands[1].button_handle))
+        self.root.bind("<Control-r>",
+                       callback_if_btn_enabled(lambda event: self.repeat_last_exec_measurement(),
+                                               self.view.frame.buttons_frame.repeat_meas_button))
+        self.root.bind("<Control-n>",
+                       callback_if_btn_enabled(lambda event: self.new_single_measurement(),
+                                               self.view.frame.buttons_frame.new_meas_button))
+        self.root.bind("<Delete>",
+                       callback_if_btn_enabled(lambda event: self.todo_delete(),
+                                               self.view.frame.to_do_frame.delete_todo_meas))
+        self.root.bind("<Control-l>",
+                       callback_if_btn_enabled(lambda event: self.open_live_viewer(),
+                                               self.view.frame.coupling_tools_panel.live_viewer_btn))
+        self.root.bind("<Control-s>",
+                       callback_if_btn_enabled(lambda event: self.open_peak_searcher(),
+                                               self.view.frame.coupling_tools_panel.peak_searcher_btn))

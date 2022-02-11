@@ -117,17 +117,23 @@ class ControlPanel(CustomFrame):
         if self._command_source is None:
             return
 
-        r = 0
-        for command in self._command_source:
+        for cidx, command in enumerate(self._command_source):
+
+            # only x-pad first and last button
+            if cidx == 0:
+                padx = (5, 0)
+            elif cidx == len(self._command_source) - 1:
+                padx = (0, 5)
+            else:
+                padx = (0, 0)
+
             command.button_handle = self.add_widget(
                 Button(
                     self, textvariable=command.name, command=command.command),
-                column=r,
-                row=0, sticky='nswe')
+                column=cidx,
+                row=0, sticky='nswe', padx=padx, pady=5)
 
             if self._button_width is not None:
                 command.button_handle.config(width=self._button_width)
                 command.button_handle.rowconfigure(0, weight=1)
-                command.button_handle.columnconfigure(r, weight=1)
-
-            r += 1
+                command.button_handle.columnconfigure(cidx, weight=1)
