@@ -477,12 +477,12 @@ class MainWindowFrame(Frame):
         self.to_do_frame = None
         self.finished_meas_frame = None
 
-    def set_up_menu(self, menu_listener):
+    def set_up_menu(self):
         """
         Sets up the menu bar up top.
         """
-        self.menu_listener = menu_listener
-        self.menu = MainWindowContextMenu(self, menu_listener)
+        self.menu_listener = MListener(self.experiment_manager, self.root)
+        self.menu = MainWindowContextMenu(self, self.menu_listener)
 
     def set_up_control_frame(self):
         """
@@ -543,7 +543,6 @@ class MainWindowView:
         self.logger = logging.getLogger()
 
         self.frame = None
-        self.menu_listener = None
 
     def set_up_root_window(self):
         """
@@ -571,21 +570,23 @@ class MainWindowView:
         """
         Setup main window
         """
-        self.menu_listener = MListener(self.experiment_manager, self.root)
-
         #
         # add menu bar
         #
-        self.frame.set_up_menu(self.menu_listener)
-
-        self.logger.debug('Adding menu bar..')
-        self.root.config(menu=self.frame.menu)
+        self.set_up_context_menu()
 
         self.frame.set_up_control_frame()
-
+        
         self.frame.set_up_logging_frame()
         #
         # active and finished measurement tables
         #
 
         self.frame.set_up_auxiliary_tables()
+
+    def set_up_context_menu(self):
+        """
+        Setup main window context menu and menu listener
+        """
+        self.frame.set_up_menu()
+        self.root.config(menu=self.frame.menu)
