@@ -9,12 +9,18 @@ import logging
 from functools import wraps
 from abc import ABC, abstractmethod
 from os.path import dirname, join
+from typing import NamedTuple
 
 from LabExT.PluginLoader import PluginLoader
 
 
 class StageError(RuntimeError):
     pass
+
+
+class StageMeta(NamedTuple):
+     description: str
+     driver_specifiable: str
 
 
 def assert_stage_connected(func):
@@ -54,6 +60,7 @@ def assert_driver_loaded(func):
 class Stage(ABC):
     _logger = logging.getLogger()
     driver_loaded = False
+    meta = StageMeta("", False)
 
     @classmethod
     def find_stage_classes(cls, subdir="Stages") -> list:

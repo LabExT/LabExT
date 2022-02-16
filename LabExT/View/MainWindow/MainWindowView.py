@@ -31,12 +31,14 @@ class MainWindowContextMenu(Menu):
         Menu.__init__(self, self.parent)
         self._file = Menu(self, tearoff=0)
         self._movement = Menu(self, tearoff=0)
+        self._movement_new = Menu(self, tearoff=0)
         self._view = Menu(self, tearoff=0)
         self._settings = Menu(self, tearoff=0)
         self._help = Menu(self, tearoff=0)
 
         self.add_cascade(label="File", menu=self._file)
         self.add_cascade(label="Movement", menu=self._movement)
+        self.add_cascade(label="Movement [Beta]", menu=self._movement_new)
         self.add_cascade(label="View", menu=self._view)
         self.add_cascade(label="Settings", menu=self._settings)
         self.add_cascade(label="Help", menu=self._help)
@@ -55,6 +57,10 @@ class MainWindowContextMenu(Menu):
         self._file.add_command(
             label="Quit",
             command=self._menu_listener.client_quit)
+
+        self._movement_new.add_command(
+            label="Configure Stages...",
+            command=self._menu_listener.client_configure_mover)
 
         self._movement.add_command(
             label="Configure Stages",
