@@ -13,7 +13,7 @@ import webbrowser
 from threading import Thread
 from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, Button, TclError, font
 
-from LabExT.Utils import run_with_wait_window, get_author_list
+from LabExT.Utils import run_with_wait_window, get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
 from LabExT.View.ConfigureStageWindow import ConfigureStageWindow
 from LabExT.View.Controls.ParameterTable import ParameterTable, ConfigParameter
@@ -23,6 +23,7 @@ from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
+from LabExT.View.MovementWizard.MovementWizardController import MovementWizardController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
@@ -49,28 +50,27 @@ class MListener:
 
         # toplevel tracking to simply raise window if already opened once instead of opening a new one
         self.swept_exp_wizard_toplevel = None
+        self.exporter_toplevel = None
+        self.stage_configure_toplevel = None
+        self.stage_movement_toplevel = None
+        self.stage_device_toplevel = None
         self.sfpp_toplevel = None
         self.extra_plots_toplevel = None
         self.live_viewer_toplevel = None
         self.instrument_conn_debuger_toplevel = None
         self.addon_settings_dialog_toplevel = None
         self.stage_driver_settings_dialog_toplevel = None
+        self.about_toplevel = None
         self.pgb = None
         self.import_done = False
+        self.movement_wizard_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
         ExperimentWizard.
         """
-        if self.swept_exp_wizard_toplevel is not None:
-            try:
-                self.swept_exp_wizard_toplevel.deiconify()
-                self.swept_exp_wizard_toplevel.lift()
-                self.swept_exp_wizard_toplevel.focus_set()
-                self.logger.debug('Raising existing device sweep wizard window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.swept_exp_wizard_toplevel):
+            return
 
         # start the measurement wizard
         self.logger.debug('Opening new device sweep wizard window.')
@@ -174,8 +174,12 @@ class MListener:
     def client_export_data(self):
         """Called when user wants to export data. Starts the Exporter.
         """
+        if try_to_lift_window(self.exporter_toplevel):
+            return
+
         self.logger.debug('Client wants to export data')
-        Exporter(self._root, self._experiment_manager)
+        exporter = Exporter(self._root, self._experiment_manager)
+        self.exporter_toplevel = exporter._meas_window
 
     def client_quit(self):
         """
@@ -183,38 +187,55 @@ class MListener:
         """
         sys.exit(0)
 
+    def client_configure_mover(self):
+        """
+        Open wizard to configure the Mover.
+        """
+        if try_to_lift_window(self.movement_wizard_toplevel):
+            return
+        
+        movement_wizard = MovementWizardController(
+            self._experiment_manager, self._experiment_manager.mover_new, parent=self._root)
+        self.movement_wizard_toplevel = movement_wizard.view
+
     def client_configure_stages(self):
         """
         Open stage info and configuration window.
         """
-        new_window = Toplevel(self._root)
-        new_window.lift()
-        ConfigureStageWindow(new_window, self._experiment_manager)
+        if try_to_lift_window(self.stage_configure_toplevel):
+            return
+        
+        self.stage_configure_toplevel = Toplevel(self._root)
+        self.stage_configure_toplevel.lift()
+        ConfigureStageWindow(self.stage_configure_toplevel, self._experiment_manager)
 
     def client_move_stages(self):
         """Called when the user wants to move the stages manually.
         Opens a window with parameters for relative movement.
         """
+        if try_to_lift_window(self.stage_movement_toplevel):
+            return
+
         self.logger.debug('Client wants to move stages manually')
 
         # create new window
-        new_window = Toplevel(self._root)
-        new_window.attributes('-topmost', 'true')
+        self.stage_movement_toplevel = Toplevel(self._root)
+        self.stage_movement_toplevel.attributes('-topmost', 'true')
 
         self._params = {}
         for dim_name in self._experiment_manager.mover.dimension_names:
-            self._params[dim_name] = ConfigParameter(new_window, unit='um', parameter_type='number_float')
+            self._params[dim_name] = ConfigParameter(self.stage_movement_toplevel, unit='um', parameter_type='number_float')
 
-        param_table = ParameterTable(new_window)
+        param_table = ParameterTable(self.stage_movement_toplevel)
         param_table.grid(row=0, column=0, padx=5, pady=50)
         param_table.title = 'Relative movement of stages'
         param_table.parameter_source = self._params
 
         if len(self._params) == 0:
-            lbl = Label(new_window, text='Mover not initialized yet.')
+            lbl = Label(self.stage_movement_toplevel, text='Mover not initialized yet.')
             lbl.grid(row=0, column=0)
         else:
-            ok_button = Button(new_window, text='Move stages', command=self._move_relative)
+            ok_button = Button(self.stage_movement_toplevel, text='Move stages', command=self._move_relative)
             ok_button.grid(row=1, column=0, sticky='e')
 
     def _move_relative(self):
@@ -252,13 +273,16 @@ class MListener:
             self.logger.error(msg)
             return
 
+        if try_to_lift_window(self.stage_device_toplevel):
+            return
+
         # open a new window
-        new_window = Toplevel(self._root)
+        self.stage_device_toplevel = Toplevel(self._root)
         # place the table inside
-        dev_window = MoveDeviceWindow(new_window,
+        dev_window = MoveDeviceWindow(self.stage_device_toplevel,
                                       self._experiment_manager,
                                       'Please select the device to which you would like to move')
-        self._root.wait_window(new_window)
+        self._root.wait_window(self.stage_device_toplevel)
 
         # get the selected device
         device = dev_window.selection
@@ -306,15 +330,8 @@ class MListener:
 
     def client_search_for_peak(self):
         """Called when user wants to open plotting window for search for peak observation."""
-        if self.sfpp_toplevel is not None:
-            try:
-                self.sfpp_toplevel.deiconify()
-                self.sfpp_toplevel.lift()
-                self.sfpp_toplevel.focus_set()
-                self.logger.debug('Raising existing search for peak window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.sfpp_toplevel):
+            return
 
         self.logger.debug('Opening new search for peak window.')
         sfpp = SearchForPeakPlotsWindow(parent=self._root,
@@ -323,16 +340,9 @@ class MListener:
 
     def client_extra_plots(self):
         """ Called when user wants to open extra plots. """
-        if self.extra_plots_toplevel is not None:
-            try:
-                self.extra_plots_toplevel.deiconify()
-                self.extra_plots_toplevel.lift()
-                self.extra_plots_toplevel.focus_set()
-                self.logger.debug('Raising existing extra plots window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
-
+        if try_to_lift_window(self.extra_plots_toplevel):
+            return
+        
         main_window = self._experiment_manager.main_window
         meas_table = main_window.view.frame.measurement_table
         self.logger.debug('Opening new extra plots window.')
@@ -347,15 +357,8 @@ class MListener:
         Creates a new instance of LiveViewer, which takes care of
         settings, instruments and plotting.
         """
-        if self.live_viewer_toplevel is not None:
-            try:
-                self.live_viewer_toplevel.deiconify()
-                self.live_viewer_toplevel.lift()
-                self.live_viewer_toplevel.focus_set()
-                self.logger.debug('Raising existing live viewer window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.live_viewer_toplevel):
+            return
 
         self.logger.debug('Opening new live viewer window.')
         lv = LiveViewerController(self._root, self._experiment_manager)  # blocking call until all settings have been made
@@ -363,45 +366,24 @@ class MListener:
 
     def client_instrument_connection_debugger(self):
         """ opens the instrument connection debugger """
-        if self.instrument_conn_debuger_toplevel is not None:
-            try:
-                self.instrument_conn_debuger_toplevel.deiconify()
-                self.instrument_conn_debuger_toplevel.lift()
-                self.instrument_conn_debuger_toplevel.focus_set()
-                self.logger.debug('Raising existing instrument connection debugger window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.instrument_conn_debuger_toplevel):
+            return
 
         icd = InstrumentConnectionDebugger(self._root, self._experiment_manager)
         self.instrument_conn_debuger_toplevel = icd.wizard_window
 
     def client_addon_settings(self):
         """ opens the addon settings dialog """
-        if self.addon_settings_dialog_toplevel is not None:
-            try:
-                self.addon_settings_dialog_toplevel.deiconify()
-                self.addon_settings_dialog_toplevel.lift()
-                self.addon_settings_dialog_toplevel.focus_set()
-                self.logger.debug('Raising existing addon settings dialog window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.addon_settings_dialog_toplevel):
+            return
 
         asd = AddonSettingsDialog(self._root, self._experiment_manager)
         self.addon_settings_dialog_toplevel = asd.wizard_window
 
     def client_stage_driver_settings(self):
         """ opens the stage driver settings dialog """
-        if self.stage_driver_settings_dialog_toplevel is not None:
-            try:
-                self.stage_driver_settings_dialog_toplevel.deiconify()
-                self.stage_driver_settings_dialog_toplevel.lift()
-                self.stage_driver_settings_dialog_toplevel.focus_set()
-                self.logger.debug('Raising existing addon settings dialog window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.stage_driver_settings_dialog_toplevel):
+            return
 
         sdd = StageDriverSettingsDialog(self._root)
         self.stage_driver_settings_dialog_toplevel = sdd.wizard_window
@@ -418,10 +400,13 @@ class MListener:
     def client_load_about(self):
         """Opens an About window.
         """
+        if try_to_lift_window(self.about_toplevel):
+            return
+
         self.logger.debug('Client opens about window')
-        new_window = Toplevel(self._root)
-        new_window.attributes('-topmost', 'true')
-        about_window = Frame(new_window)
+        self.about_toplevel = Toplevel(self._root)
+        self.about_toplevel.attributes('-topmost', 'true')
+        about_window = Frame(self.about_toplevel)
         about_window.grid(row=0, column=0)
 
         font_title = font.Font(size=12, weight='bold')
