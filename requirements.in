@@ -39,6 +39,9 @@ mkdocstrings-python
 # auxiliary data structures
 bidict
 
+# auxiliary data structures
+bidict
+
 # tools for development
 # pip-tools
 # build
