@@ -653,7 +653,7 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x, y):
+    def move_relative(self, x, y, z=0):
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
@@ -662,15 +662,19 @@ class Stage3DSmarAct(Stage):
             Movement in x direction by x measured in um.
         y : int
             Movement in y direction by y measured in um.
+        z : int
+            Movement in z direction by z measured in um.
         """
         self._logger.debug(
-            'Want to relative move %s to x = %s um and y = %s um',
+            'Want to relative move %s to x = %s um, y = %s um and z = %s um',
             self.address,
             x,
-            y)
+            y,
+            z)
 
         self.channels[Axis.X].move(diff=x, mode=MovementType.RELATIVE)
         self.channels[Axis.Y].move(diff=y, mode=MovementType.RELATIVE)
+        self.channels[Axis.Y].move(diff=z, mode=MovementType.RELATIVE)
 
     @assert_driver_loaded
     @assert_stage_connected

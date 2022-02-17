@@ -11,7 +11,7 @@ from itertools import product
 from bidict import bidict
 from typing import Type
 
-from LabExT.Movement.Calibration import AxesRotation, Calibration, Axis, Direction
+from LabExT.Movement.Calibration import AxesRotation, Calibration, Axis, CalibrationError, Direction
 from LabExT.Utils import run_with_wait_window
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.Wizard import Wizard
@@ -19,7 +19,8 @@ from LabExT.View.Controls.Wizard import Wizard
 
 class StageCalibrationView(Wizard):
 
-    STAGE_AXIS_OPTIONS = bidict({ o: " ".join(map(str, o)) for o in product(Direction, Axis)})
+    STAGE_AXIS_OPTIONS = bidict({o: " ".join(map(str, o))
+                                for o in product(Direction, Axis)})
 
     def __init__(self, parent, experiment_manager, controller, mover) -> None:
         super().__init__(
@@ -40,19 +41,20 @@ class StageCalibrationView(Wizard):
             self._fix_coordinate_system_step_builder,
             title="Fix Coordinate System",
             on_reload=self._check_axis_calibration,
-            on_next=lambda: self.controller.save_coordinate_system(
-                self._current_axes_rotations))
+            on_next=self._on_save_axes_rotations)
         # Step state and variables
         self._performing_wiggle = False
         self._current_axes_rotations = {}
         self._axis_calibration_vars = {}
+        self._axis_wiggle_buttons = {}
 
         for calibration in self.mover.calibrations.values():
             self._current_axes_rotations[calibration] = AxesRotation()
 
             axes_vars = {}
             for chip_axis in Axis:
-                axes_vars[chip_axis] = StringVar(self.parent, self.STAGE_AXIS_OPTIONS[(Direction.POSITIVE, chip_axis)])
+                axes_vars[chip_axis] = StringVar(
+                    self.parent, self.STAGE_AXIS_OPTIONS[(Direction.POSITIVE, chip_axis)])
                 axes_vars[chip_axis].trace(
                     W,
                     lambda *_,
@@ -82,11 +84,6 @@ class StageCalibrationView(Wizard):
             stage_calibration_frame.title = str(calibration)
             stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
 
-            foo = Label(
-                stage_calibration_frame,
-                text=str(self._current_axes_rotations[calibration]._matrix))
-            foo.pack(side=TOP, fill=X)
-
             for chip_axis in Axis:
                 chip_axis_frame = Frame(stage_calibration_frame)
                 chip_axis_frame.pack(side=TOP, fill=X)
@@ -104,7 +101,7 @@ class StageCalibrationView(Wizard):
 
                 Label(chip_axis_frame, text="of Stage").pack(side=LEFT)
 
-                Button(
+                wiggle_button = Button(
                     chip_axis_frame,
                     text="Wiggle {}-Axis".format(
                         chip_axis.name),
@@ -112,8 +109,11 @@ class StageCalibrationView(Wizard):
                         self._on_wiggle_axis,
                         calibration,
                         chip_axis),
-                    state=NORMAL if self._current_axes_rotations[calibration].is_valid else DISABLED).pack(
-                    side=RIGHT)
+                    state=NORMAL if self._current_axes_rotations[calibration].is_valid else DISABLED)
+                wiggle_button.pack(side=RIGHT)
+
+                self._axis_wiggle_buttons.setdefault(
+                    calibration, {})[chip_axis] = wiggle_button
 
     #
     #   Callback
@@ -130,7 +130,7 @@ class StageCalibrationView(Wizard):
         """
         selection = self._axis_calibration_vars[calibration][chip_axis].get()
         direction, stage_axis = self.STAGE_AXIS_OPTIONS.inverse[selection]
-        
+
         self._current_axes_rotations[calibration].update(
             chip_axis=chip_axis, stage_axis=stage_axis, direction=direction
         )
@@ -148,6 +148,19 @@ class StageCalibrationView(Wizard):
         else:
             self.current_step.next_step_enabled = False
             self.set_error("Please do not assign a stage axis twice.")
+
+    def _on_save_axes_rotations(self):
+        """
+        Callback, when user finishes axes calibration.
+        """
+        try:
+            self.controller.save_coordinate_system(
+                self._current_axes_rotations)
+        except CalibrationError as exec:
+            messagebox.showerror("Error", str(exec))
+            return False
+
+        return True
 
     def _on_wiggle_axis(self, calibration: Type[Calibration], chip_axis: Axis):
         """

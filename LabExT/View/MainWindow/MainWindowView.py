@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from platform import system
-from tkinter import DISABLED, NORMAL, Frame, Menu, Checkbutton, \
+from tkinter import Frame, Menu, Checkbutton, \
     Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler

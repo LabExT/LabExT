@@ -6,15 +6,16 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import time
-from typing import Type
 import numpy as np
-
+from typing import Type
 from enum import Enum, auto
+
 from LabExT.Movement.Stage import StageError
 
 
 class CalibrationError(RuntimeError):
     pass
+
 
 class Orientation(Enum):
     """
@@ -80,18 +81,16 @@ class AxesRotation:
     The rotation matrix (3x3) is therefore a signed permutation matrix of the coordinate axes of the chip.
 
     Each row of the matrix represents a chip axis. Each column of the matrix represents a stage axis.
-
-    (i,j) = 1 iff positive Chip-Axis i is used for positive Stage-Axis j, where i,j in [X,Y,Z]
-    (i,j) = -1 iff negative Chip-Axis i is used for negatitve Stage-Axis j, where i,j in [X,Y,Z]
     """
+
     def __init__(self) -> None:
-        self._n = len(Axis) # 3, if we not inventing a new dimension
-        self._matrix = np.identity(len(Axis)) # 3x3 identity matrix
+        self._n = len(Axis)
+        self._matrix = np.identity(len(Axis))  # 3x3 identity matrix
 
     def update(self, chip_axis: Axis, stage_axis: Axis, direction: Direction):
         """
         Updates the axes rotation matrix.
-        Resets all mappings for given chip axis and sets entry for (stage_axis, chip_axis) with given direction.
+        Replaces the column vector of given chip with signed (direction) i-th unit vector (i is stage)
         """
         if not (isinstance(chip_axis, Axis) and isinstance(stage_axis, Axis)):
             raise ValueError("Unknown axes given for calibration.")
@@ -99,7 +98,10 @@ class AxesRotation:
         if not isinstance(direction, Direction):
             raise ValueError("Unknown direction given for calibration.")
 
-        self._matrix[:,chip_axis.value] = np.eye(1,3,stage_axis.value) * direction.value
+        # Replacing column of chip with signed (direction) i-th unit vector (i
+        # is stage)
+        self._matrix[:, chip_axis.value] = np.eye(
+            1, 3, stage_axis.value) * direction.value
 
     @property
     def is_valid(self):
@@ -109,8 +111,11 @@ class AxesRotation:
         A matrix is a permutation matrix if the sum of each row and column is exactly 1.
         """
         abs_matrix = np.absolute(self._matrix)
-        return (abs_matrix.sum(axis=0) == 1).all() and (abs_matrix.sum(axis=1) == 1).all()
-
+        return (
+            abs_matrix.sum(
+                axis=0) == 1).all() and (
+            abs_matrix.sum(
+                axis=1) == 1).all()
 
     def chip_to_stage(self, chip_coordinate):
         """
@@ -119,10 +124,10 @@ class AxesRotation:
         Raises CalibrationError error if matrix is not valid.
         """
         if not self.is_valid:
-            raise CalibrationError("The current axis assignment does not define a valid 90 degree rotation. ")
+            raise CalibrationError(
+                "The current axis assignment does not define a valid 90 degree rotation. ")
 
         return self._matrix.dot(np.array(chip_coordinate))
-
 
 
 class Calibration:
@@ -204,8 +209,9 @@ class Calibration:
 
     def fix_coordinate_system(self, axes_rotation: Type[AxesRotation]) -> bool:
         if not axes_rotation.is_valid:
-            raise CalibrationError("The given axis assignment does not define a valid 90 degree rotation. ")
-        
+            raise CalibrationError(
+                "The given axis assignment does not define a valid 90 degree rotation. ")
+
         self._axes_rotation = axes_rotation
         self._state = State.COORDINATE_SYSTEM_FIXED
 
