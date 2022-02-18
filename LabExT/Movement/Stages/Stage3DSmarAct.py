@@ -13,6 +13,7 @@ from tkinter import TclError
 from typing import List
 
 from LabExT.Movement.Stage import Stage, StageMeta, StageError, assert_stage_connected, assert_driver_loaded
+from LabExT.Movement.Calibration import Axis
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
@@ -37,13 +38,6 @@ class MovementType(Enum):
     """Enumerate different movement modes."""
     RELATIVE = 0,
     ABSOLUTE = 1
-
-
-class Axis(Enum):
-    """Enumerate different channels. Each channel represents one axis."""
-    X = 0
-    Y = 1
-    Z = 2
 
 
 class Stage3DSmarAct(Stage):
