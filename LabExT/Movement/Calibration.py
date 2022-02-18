@@ -117,9 +117,10 @@ class AxesRotation:
             abs_matrix.sum(
                 axis=1) == 1).all()
 
-    def chip_to_stage(self, chip_coordinate):
+    def chip_to_stage(self, chip_relative_difference):
         """
-        Rotates the chip cooridnate (x,y,z) according to the axes calibration.
+        Rotates the chip difference (x,y,z) according to the axes calibration.
+        Use this method for relative movement in the coordinate system of a chip.
 
         Raises CalibrationError error if matrix is not valid.
         """
@@ -127,7 +128,7 @@ class AxesRotation:
             raise CalibrationError(
                 "The current axis assignment does not define a valid 90 degree rotation. ")
 
-        return self._matrix.dot(np.array(chip_coordinate))
+        return self._matrix.dot(np.array(chip_relative_difference))
 
 
 class Calibration:
