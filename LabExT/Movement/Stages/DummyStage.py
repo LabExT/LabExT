@@ -79,6 +79,10 @@ class DummyStage(Stage):
     def z_axis_inverted(self):
         return self.z_axis_direction == -1
 
+    @property
+    def position(self) -> list:
+        return [0,0,0]  
+
     def set_speed_xy(self, umps: float):
         self._speed_xy = umps
 

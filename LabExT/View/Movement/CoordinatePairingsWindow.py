@@ -25,7 +25,8 @@ class CoordinatePairingsWindow(Toplevel):
             experiment_manager,
             parent,
             in_calibration=None,
-            out_calibration=None):
+            out_calibration=None,
+            on_finish=None):
         if in_calibration is None and out_calibration is None:
             raise ValueError(
                 "At least one calibration is needed to create a coordinate pairing. ")
@@ -36,12 +37,12 @@ class CoordinatePairingsWindow(Toplevel):
         self.experiment_manager = experiment_manager
         self._in_calibration = in_calibration
         self._out_calibration = out_calibration
+        self._on_finish = on_finish
 
         super(CoordinatePairingsWindow, self).__init__(parent)
 
         self._device = None
-        self._in_stage_coordinate = None
-        self._out_stage_coordinate = None
+        self.pairings = []
 
         # Set up window
         self.title("New Chip-Stage-Coordinates Pairings")
@@ -97,36 +98,6 @@ class CoordinatePairingsWindow(Toplevel):
 
         self.__setup__()
         self.update_idletasks()
-
-    @property
-    def pairings(self):
-        """
-        Returns a list of coordinate pairings if device and stage coordinate is defined, otherwise empty list.
-        """
-        pairings = []
-        if not self._device:
-            return pairings
-
-        if not self._out_stage_coordinate and not self._in_stage_coordinate:
-            return pairings
-
-        if self._in_calibration and self._in_stage_coordinate:
-            pairings.append(Transformations.CoordinatePairing(
-                self._in_calibration,
-                self._in_stage_coordinate,
-                self._device,
-                self._device._in_position
-            ))
-
-        if self._out_calibration and self._out_stage_coordinate:
-            pairings.append(Transformations.CoordinatePairing(
-                self._out_calibration,
-                self._out_stage_coordinate,
-                self._device,
-                self._device._out_position
-            ))
-
-        return pairings
 
     #
     #   Frames
@@ -189,21 +160,43 @@ class CoordinatePairingsWindow(Toplevel):
     #
 
     def _finish(self):
+        if self._device is None:
+            messagebox.showwarning(
+                'Device Needed',
+                'Please select a device to create a pairing.',
+                parent=self)
+            return
+
+        self.pairings = []
+
         try:
             if self._in_calibration:
-                self._in_stage_coordinate = self._in_calibration.stage.get_current_position()
-            if self._out_calibration:
-                self._out_stage_coordinate = self._out_calibration.stage.get_current_position()
+                self.pairings.append(Transformations.CoordinatePairing(
+                    self._in_calibration,
+                    self._in_calibration.stage.position,
+                    self._device,
+                    self._device._in_position
+                ))
 
-            self.destroy()
+            if self._out_calibration:
+                self.pairings.append(Transformations.CoordinatePairing(
+                    self._out_calibration,
+                    self._out_calibration.stage.position,
+                    self._device,
+                    self._device._out_position
+                ))
         except StageError as e:
             messagebox.showerror(
                 "Error", "Could not get current position: {}".format(e))
+        finally:
+            if self._on_finish:
+                self._on_finish(self.pairings)
+
+            self.destroy()
 
     def _cancel(self):
-        self._in_stage_coordinate = None
-        self._out_stage_coordinate = None
         self._device = None
+        self.pairings = []
         self.destroy()
 
     def _on_device_selection(self):
@@ -244,7 +237,9 @@ class CoordinatePairingsWindow(Toplevel):
 
             CoordinateWidget(
                 pairing_frame,
-                coordinate=self._device._in_position if calibration.is_input_stage else self._device._out_position
+                coordinate=Transformations.make_3d_coordinate(
+                    self._device._in_position if calibration.is_input_stage else self._device._out_position
+                )
             ).pack(side=LEFT)
 
             Label(

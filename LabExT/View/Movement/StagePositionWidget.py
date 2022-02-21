@@ -20,7 +20,7 @@ class StagePositionWidget(CoordinateWidget):
     def __init__(self, parent, stage: Type[Stage]):
         self.stage = stage
 
-        super().__init__(parent, self.stage.get_current_position())
+        super().__init__(parent, self.stage.position)
 
         self._update_pos_job = self.after(
             self.REFRESHING_RATE, self._refresh_position)
@@ -36,7 +36,7 @@ class StagePositionWidget(CoordinateWidget):
         Kills update job, if an error occurred.
         """
         try:
-            self.coordinate = self.stage.get_current_position()
+            self.coordinate = self.stage.position
         except Exception as exc:
             self.after_cancel(self._update_pos_job)
             raise RuntimeError(exc)

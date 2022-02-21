@@ -86,6 +86,13 @@ class MoverNew:
         self._speed_z = None
         self._acceleration_xy = None
 
+    def reset_calibrations(self):
+        """
+        Resets state for each calibration
+        """
+        for calibration in self.calibrations.values():
+            calibration.reset()
+
     #
     #   Reload properties
     #

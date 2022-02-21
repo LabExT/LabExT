@@ -6,21 +6,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from LabExT.View.StageCalibration.StageCalibrationView import StageCalibrationView
-from LabExT.Movement.Calibration import CalibrationError, DevicePort, Orientation
+from LabExT.Movement.Calibration import CalibrationError
 
 
 class StageCalibrationController:
     def __init__(self, experiment_manager, mover, parent=None) -> None:
-        # REMOVE ME
-        for idx, stage in enumerate(mover.available_stages):
-            mover.add_stage_calibration(
-                stage,
-                Orientation(
-                    idx + 1),
-                DevicePort(
-                    idx + 1))
-            stage.connect()
-
         # Precondition: Mover has connected stages
         if not mover.has_connected_stages:
             raise AssertionError(
@@ -75,3 +65,18 @@ class StageCalibrationController:
         """
         Saves for each calibration the Kabsch rotation.
         """
+        errors = {}
+
+        for calibration, rotation in rotations.items():
+            try:
+                calibration.calibrate_fully(rotation)
+            except CalibrationError as e:
+                errors.update({calibration: e})
+
+        if errors:
+            raise CalibrationError(errors)
+
+        if self.experiment_manager:
+            self.experiment_manager.main_window.refresh_context_menu()
+
+        return True

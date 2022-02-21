@@ -511,6 +511,42 @@ class BaseTest(SmarActTestCase):
             (ct.c_ulong(system_handle), ct.c_ulong(2), ct.c_int(-500000), 0)
         )
 
+    #
+    #   Testing position
+    #
+
+    @with_MCSControl_driver_patch
+    def test_position_returns_the_current_position_of_each_channel(
+            self, mcsc_mock: MCSControlInterface):
+        expected_position = 100
+
+        mcsc_mock.SA_GetPosition_S.return_value = MCSC_STATUS_OK
+        mcsc_mock.SA_GetPosition_S.side_effect = update_by_reference({
+            2: ct.c_int(int(to_nanometer(expected_position)))
+        })
+
+        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
+            with self.assert_exit_without_error(mcsc_mock):
+                self.assertEqual(
+                    self.stage.position,
+                    [expected_position] * 3
+                )
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GetPosition_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(0), ANY)
+        )
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GetPosition_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(1), ANY)
+        )
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GetPosition_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(2), ANY)
+        )
+
 
 class ChannelTest(SmarActTestCase):
     """

@@ -451,6 +451,23 @@ class Stage3DSmarAct(Stage):
     def stage_lifted_up(self):
         return self._stage_lifted_up
 
+    @property
+    @assert_driver_loaded
+    @assert_stage_connected
+    def position(self) -> list:
+        """Get current position of the stage in micrometers.
+
+        Returns
+        -------
+        list
+            Returns current position in [x,y,z] format in units of um.
+        """
+        return [
+            self.channels[Axis.X].position,
+            self.channels[Axis.Y].position,
+            self.channels[Axis.Z].position
+        ]
+
     # Stage settings method
     @assert_driver_loaded
     @assert_stage_connected

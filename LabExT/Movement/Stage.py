@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from functools import wraps
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from os.path import dirname, join
 from typing import NamedTuple
 
@@ -123,9 +123,9 @@ class Stage(ABC):
     def __str__(self) -> str:
         pass
 
-    @property
+    @abstractproperty
     def address_string(self) -> str:
-        raise NotImplementedError
+        pass
 
     @abstractmethod
     def connect(self) -> bool:
@@ -177,6 +177,10 @@ class Stage(ABC):
 
     @abstractmethod
     def get_current_position(self):
+        pass
+
+    @abstractproperty
+    def position(self):
         pass
 
     @abstractmethod

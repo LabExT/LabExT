@@ -9,7 +9,8 @@ import unittest
 from unittest.mock import call, patch
 import numpy as np
 
-from LabExT.Movement.Transformations import CoordinatePairing, SinglePointFixation
+from LabExT.Tests.Utils import with_stage_discovery_patch
+from LabExT.Movement.Transformations import CoordinatePairing, Dimension, KabschRotation, SinglePointFixation
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Stages.DummyStage import DummyStage
@@ -172,14 +173,78 @@ class WiggleAxisTest(unittest.TestCase):
 
 
 class CalibrationTest(unittest.TestCase):
-    def setUp(self) -> None:
-        # Create Mover instance without stage discovery
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value=[]):
-                self.mover = MoverNew(None)
-                self.stage = DummyStage('usb:123456789')
-                self.calibration = Calibration(
-                    self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+        stage_classes_mock.return_value = []
+        available_stages_mock.return_value = []
+
+        self.mover = MoverNew(None)
+        self.stage = DummyStage('usb:123456789')
+        self.calibration = Calibration(
+            self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
+
+    def test_reset_removes_axes_rotation(self):
+        axes_rotation = AxesRotation()
+
+        self.assertTrue(self.calibration.fix_coordinate_system(axes_rotation))
+        self.assertEqual(self.calibration._axes_rotation, axes_rotation)
+
+        self.assertTrue(self.calibration.reset())
+
+        self.assertIsNone(self.calibration._axes_rotation)
+
+    def test_reset_removes_single_point_fixation(self):
+        fixation = SinglePointFixation()
+        fixation.update(CoordinatePairing(
+            calibration=None,
+            stage_coordinate=[0, 0],
+            device=None,
+            chip_coordinate=[1, 1]
+        ))
+
+        self.assertTrue(self.calibration.fix_single_point(fixation))
+        self.assertEqual(self.calibration._single_point_fixation, fixation)
+
+        self.assertTrue(self.calibration.reset())
+
+        self.assertIsNone(self.calibration._single_point_fixation)
+
+    def test_reset_removes_full_calibration(self):
+        rotation = KabschRotation()
+        rotation.change_rotation_dimension(Dimension.TWO)
+
+        rotation.update(CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=[0, 0],
+            device=object(),
+            chip_coordinate=[1, 1]
+        ))
+
+        rotation.update(CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=[1, 1],
+            device=object(),
+            chip_coordinate=[2, 2]
+        ))
+
+        self.assertTrue(self.calibration.calibrate_fully(rotation))
+        self.assertEqual(self.calibration._full_calibration, rotation)
+
+        self.assertTrue(self.calibration.reset())
+
+        self.assertIsNone(self.calibration._full_calibration)
+
+    def test_reset_changes_state_based_on_stage_connection(self):
+        self.calibration.connect_to_stage()
+        self.assertEqual(self.calibration.state, State.CONNECTED)
+
+        self.assertTrue(self.calibration.reset())
+        self.assertEqual(self.calibration.state, State.CONNECTED)
+
+        self.stage.disconnect()
+
+        self.assertTrue(self.calibration.reset())
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
     def test_fix_coordinate_system_accepts_only_valid_rotations(self):
         axes_rotation = AxesRotation()
@@ -194,7 +259,7 @@ class CalibrationTest(unittest.TestCase):
     def test_fix_coordinate_system_saves_rotation(self):
         axes_rotation = AxesRotation()
 
-        self.calibration.fix_coordinate_system(axes_rotation)
+        self.assertTrue(self.calibration.fix_coordinate_system(axes_rotation))
 
         self.assertEqual(self.calibration._axes_rotation, axes_rotation)
         self.assertEqual(
@@ -207,7 +272,7 @@ class CalibrationTest(unittest.TestCase):
         with self.assertRaises(CalibrationError):
             self.calibration.fix_single_point(fixation)
 
-    def test_fix_single_point_accepts_saves_fixations(self):
+    def test_fix_single_point_saves_fixations(self):
         fixation = SinglePointFixation()
         fixation.update(CoordinatePairing(
             calibration=None,
@@ -216,9 +281,45 @@ class CalibrationTest(unittest.TestCase):
             chip_coordinate=[1, 1]
         ))
 
-        self.calibration.fix_single_point(fixation)
+        self.assertTrue(self.calibration.fix_single_point(fixation))
 
         self.assertEqual(self.calibration._single_point_fixation, fixation)
         self.assertEqual(
             self.calibration._state,
             State.SINGLE_POINT_FIXED)
+
+    def test_calibrate_fully_accepts_only_valid_rotations(self):
+        rotation = KabschRotation()
+
+        with self.assertRaises(CalibrationError):
+            self.calibration.calibrate_fully(rotation)
+
+    def test_calibrate_fully_saves_rotation(self):
+        rotation = KabschRotation()
+
+        rotation.update(CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=[0, 0],
+            device=object(),
+            chip_coordinate=[1, 1]
+        ))
+
+        rotation.update(CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=[1, 1],
+            device=object(),
+            chip_coordinate=[2, 2]
+        ))
+
+        self.assertFalse(rotation.is_valid)
+
+        with self.assertRaises(CalibrationError):
+            self.calibration.calibrate_fully(rotation)
+
+        rotation.change_rotation_dimension(Dimension.TWO)
+        self.assertTrue(self.calibration.calibrate_fully(rotation))
+
+        self.assertEqual(self.calibration._full_calibration, rotation)
+        self.assertEqual(
+            self.calibration._state,
+            State.FULLY_CALIBRATED)

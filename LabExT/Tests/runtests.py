@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import argparse
 import sys
+from os.path import dirname, join
 import pytest
 
 if __name__ == "__main__":
@@ -18,11 +19,21 @@ if __name__ == "__main__":
         action='store_true',
         default=False,
         help='Tests functionality that requires laboratory equipment.')
+    parser.add_argument(
+        "-f",
+        dest="file",
+        help="Run one test file",
+        metavar="FILE")
 
     options = parser.parse_args()
 
+    pytest.fixture_folder = join(dirname(__file__), "Fixtures")
     pytest.skip_laboratory_tests = not options.laboratory_tests
     if options.laboratory_tests:
         sys.argv.remove('--laboratory_tests')
 
-    sys.exit(pytest.main())
+    pytest_args = ["-v"]
+    if options.file:
+        pytest_args.append(options.file)
+
+    sys.exit(pytest.main(pytest_args))

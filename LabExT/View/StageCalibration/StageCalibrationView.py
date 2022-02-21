@@ -6,15 +6,15 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from operator import add
-from tkinter import W, BooleanVar, Checkbutton, Frame, Label, OptionMenu, StringVar, Button, messagebox, NORMAL, DISABLED, LEFT, RIGHT, TOP, X
+from tkinter import BooleanVar, Checkbutton, Frame, Label, OptionMenu, StringVar, Button, messagebox, NORMAL, DISABLED, LEFT, RIGHT, TOP, X, E, W
 from functools import partial, reduce
 from itertools import product
-from LabExT.Movement.Transformations import KabschRotation, SinglePointFixation
-from LabExT.View.Controls.CustomTable import CustomTable
-from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 from bidict import bidict
 from typing import Type
 
+from LabExT.Movement.Transformations import Dimension, KabschRotation, SinglePointFixation
+from LabExT.View.Controls.CustomTable import CustomTable
+from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 from LabExT.Movement.Calibration import AxesRotation, Calibration, Axis, CalibrationError, Direction
 from LabExT.Utils import run_with_wait_window, try_to_lift_window
 from LabExT.View.Controls.CustomFrame import CustomFrame
@@ -22,6 +22,13 @@ from LabExT.View.Controls.Wizard import Wizard
 
 
 class StageCalibrationView(Wizard):
+    """
+    Implements a Wizard for calibrate the stages in 3 steps.
+
+    1. Fix cooridnate system to allow relative movement in chip cooridnates
+    2. Fix one single point to allow approx absolute movement in chip cooridnates
+    3. Fully calibrate stages by defining a global rotation
+    """
 
     STAGE_AXIS_OPTIONS = bidict({o: " ".join(map(str, o))
                                 for o in product(Direction, Axis)})
@@ -31,6 +38,7 @@ class StageCalibrationView(Wizard):
             parent,
             width=1000,
             height=700,
+            on_cancel=self._on_cancel,
             cancel_button_label="Cancel and Close",
             finish_button_label="Finish and Save"
         )
@@ -90,6 +98,18 @@ class StageCalibrationView(Wizard):
             c: KabschRotation() for c in self.mover.calibrations.values()}
         self._use_input_stage_var = BooleanVar(self.parent, True)
         self._use_output_stage_var = BooleanVar(self.parent, True)
+        self._make_3D_rotation_var = {
+            c: BooleanVar(
+                self.parent,
+                self._current_full_calibrations[c].is_3D) for c in self.mover.calibrations.values()}
+        self._make_3D_rotation_checkbuttons = {}
+        self._full_calibration_new_pairing_button = None
+
+        # -- 4. STEP: FINISH --
+        self.finish_step = self.add_step(
+            self._finish_step_builder,
+            title="Finish",
+            finish_step_enabled=True)
 
         # Global state
         self._coordinate_pairing_window = None
@@ -99,9 +119,10 @@ class StageCalibrationView(Wizard):
         self.fix_single_point_step.previous_step = self.fix_coordinate_system_step
         self.fix_single_point_step.next_step = self.full_calibration_step
         self.full_calibration_step.previous_step = self.fix_single_point_step
+        self.full_calibration_step.next_step = self.finish_step
 
         # Start Wizard by setting the current step
-        self.current_step = self.full_calibration_step
+        self.current_step = self.fix_coordinate_system_step
 
     def _fix_coordinate_system_step_builder(self, frame: Type[CustomFrame]):
         """
@@ -179,9 +200,14 @@ class StageCalibrationView(Wizard):
             Button(
                 single_point_fixation_frame,
                 text="Update Pairing ...",
-                command=partial(self._on_single_point_fixation, calibration)
-            ).pack(side=RIGHT)
-    
+                command=lambda calibration=calibration: self._new_coordinate_pairing_window(
+                    in_calibration=calibration if calibration.is_input_stage else None,
+                    out_calibration=calibration if calibration.is_output_stage else None,
+                    on_finish=partial(
+                        self._apply_single_point_pairing,
+                        calibration))).pack(
+                side=RIGHT)
+
     def _full_calibration_step_builder(self, frame):
         """
         Step builder to make a full calibration.
@@ -190,9 +216,8 @@ class StageCalibrationView(Wizard):
 
         step_description = Label(
             frame,
-            text="In this step all stages can be set by a global transformation to allow safe absolute moving in chip coordinates.\n" \
-                 "Please define 2 or 3 coordinate pairs for each stage."
-        )
+            text="In this step all stages can be set by a global transformation to allow safe absolute moving in chip coordinates.\n"
+            "Please define 2 or 3 coordinate pairs for each stage.")
         step_description.pack(side=TOP, fill=X)
 
         pairings_frame = CustomFrame(frame)
@@ -203,12 +228,10 @@ class StageCalibrationView(Wizard):
         pairings_table_frame.pack(side=TOP, fill=X, expand=False)
 
         CustomTable(
-            parent=pairings_table_frame,
-            selectmode='none',
-            columns=(
-                'Stage', 'Stage Cooridnate', 'Device', 'Chip Coordinate'
-            ),
-            rows=reduce(add, [r.pairings for r in self._current_full_calibrations.values()], []))
+            parent=pairings_table_frame, selectmode='none', columns=(
+                'Stage', 'Stage Cooridnate', 'Device', 'Chip Coordinate'), rows=reduce(
+                add, [
+                    r.pairings for r in self._current_full_calibrations.values()], []))
 
         new_pairing_frame = CustomFrame(pairings_frame)
         new_pairing_frame.title = "New Pairing"
@@ -226,28 +249,82 @@ class StageCalibrationView(Wizard):
             variable=self._use_output_stage_var
         ).pack(side=LEFT)
 
-        Button(
+        self._full_calibration_new_pairing_button = Button(
             new_pairing_frame,
             text="New Pairing...",
-            command=self._on_new_rotation_pairing
-        ).pack(side=RIGHT)
+            command=lambda: self._new_coordinate_pairing_window(
+                in_calibration=self.mover.input_calibration if self._use_input_stage_var.get() else None,
+                out_calibration=self.mover.output_calibration if self._use_output_stage_var.get() else None,
+                on_finish=self._apply_pairings))
+        self._full_calibration_new_pairing_button.pack(side=RIGHT)
 
-        current_rotation_frame = CustomFrame(frame)
-        current_rotation_frame.title = "Current Rotations"
-        current_rotation_frame.pack(side=TOP, fill=X, pady=2)
+        current_rotations_frame = CustomFrame(frame)
+        current_rotations_frame.title = "Current Rotations"
+        current_rotations_frame.pack(side=TOP, fill=X)
 
-        for calibration, rotation in self._current_full_calibrations.items():
+        for idx, (calibration, rotation) in enumerate(
+                self._current_full_calibrations.items()):
             Label(
-                current_rotation_frame,
-                text="{}: {}".format(calibration, rotation),
-                foreground='#4BB543' if rotation.is_valid else "#FF3333",
-            ).pack(side=TOP)
+                current_rotations_frame,
+                text=str(calibration),
+            ).grid(column=0, row=idx, sticky=W)
 
-            
-    
+            Label(
+                current_rotations_frame,
+                text=str(rotation),
+                foreground='#4BB543' if rotation.is_valid else "#FF3333",
+            ).grid(column=1, row=idx, padx=5, sticky=W)
+
+            Label(
+                current_rotations_frame,
+                text="RMSD: {}".format(rotation.rmsd)
+            ).grid(column=2, row=idx, padx=5, sticky=W)
+
+            checkbutton_3D_rotation = Checkbutton(
+                current_rotations_frame,
+                text="3D Transformation",
+                variable=self._make_3D_rotation_var[calibration],
+                command=partial(
+                    self._on_change_rotation_dimension,
+                    calibration))
+            checkbutton_3D_rotation.grid(column=3, row=idx, sticky=E)
+            self._make_3D_rotation_checkbuttons[calibration] = checkbutton_3D_rotation
+
+        rmsd_hint = Label(
+            frame,
+            text="RMSD: Root mean square distance between the set of chip coordinates and the set of stage coordinates after alignment."
+        )
+        rmsd_hint.pack(side=TOP, fill=X)
+
+    def _finish_step_builder(self, frame):
+        """
+        Step builder for finish frame
+        """
+        frame.title = "Stage Calibration Finished"
+
+        step_description = Label(
+            frame,
+            text="Congratulations! The Mover Stages are fully calibrated and can now be fully used. Click on 'Finish' to exit the wizard."
+        )
+        step_description.pack(side=TOP, fill=X)
+
     #
     #   Callback
     #
+
+    def _on_cancel(self) -> bool:
+        """
+        Callback, when user wants to quit the wizard.
+        Warns user, and resets calibration if agreed.
+        """
+        if messagebox.askokcancel(
+            "Quit Wizard?",
+            "Do you really want to cancel the calibration? All changes will be reset.",
+                parent=self):
+            self.mover.reset_calibrations()
+            return True
+
+        return False
 
     def _on_axis_calibrate(
             self,
@@ -286,7 +363,7 @@ class StageCalibrationView(Wizard):
             self.controller.save_coordinate_system(
                 self._current_axes_rotations)
         except CalibrationError as exec:
-            messagebox.showerror("Error", str(exec))
+            messagebox.showerror("Error", str(exec), parent=self)
             return False
 
         return True
@@ -297,7 +374,9 @@ class StageCalibrationView(Wizard):
         """
         if self._performing_wiggle:
             messagebox.showerror(
-                "Error", "Stage cannot wiggle because another stage is being wiggled. ")
+                "Error",
+                "Stage cannot wiggle because another stage is being wiggled. ",
+                parent=self)
             return
 
         message = 'By proceeding this button will move the {} along the {} direction. \n\n'.format(calibration, chip_axis) \
@@ -307,7 +386,7 @@ class StageCalibrationView(Wizard):
                   + 'Second: Move in negative {}-Chip-Axis direction \n\n'.format(chip_axis) \
                   + 'If not, please check your assignments.\n Do you want to proceed with wiggling?'
 
-        if not messagebox.askokcancel("Warning", message):
+        if not messagebox.askokcancel("Warning", message, parent=self):
             return
 
         try:
@@ -319,30 +398,46 @@ class StageCalibrationView(Wizard):
         except Exception as e:
             messagebox.showerror(
                 "Error", "Could not wiggle {}! Reason: {}".format(
-                    calibration, e))
+                    calibration, e), parent=self)
         finally:
             self._performing_wiggle = False
 
         self.lift()
 
-    def _on_single_point_fixation(self, calibration):
+    def _new_coordinate_pairing_window(
+            self,
+            in_calibration=None,
+            out_calibration=None,
+            on_finish=None):
         """
-        Callback, when user wants to update the single point fixation
+        Opens a new window to pair a chip cooridnate with a stage cooridnate.
         """
-        if self._force_only_one_coordinate_window():
+
+        if self._check_for_exisiting_coordinate_window():
+            return
+
+        try:
             self._coordinate_pairing_window = CoordinatePairingsWindow(
                 self.experiment_manager,
                 parent=self,
-                in_calibration=calibration if calibration.is_input_stage else None,
-                out_calibration=calibration if calibration.is_output_stage else None)
-            self.wait_window(self._coordinate_pairing_window)
-            pairings = self._coordinate_pairing_window.pairings
-            if(len(pairings) > 0):
-                self._current_single_point_fixations[calibration].update(
-                    pairings[0])
+                in_calibration=in_calibration,
+                out_calibration=out_calibration,
+                on_finish=on_finish)
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                "Could not initiate a new coordinate pairing: {}".format(e),
+                parent=self)
 
-            self._coordinate_pairing_window = None
-            self.__reload__()
+    def _apply_single_point_pairing(self, calibration, pairings):
+        """
+        Callback, when user finishes single point pairing
+        """
+        if(len(pairings) > 0):
+            self._current_single_point_fixations[calibration].update(
+                pairings[0])
+
+        self.__reload__()
 
     def _check_single_point_fixations(self):
         """
@@ -365,33 +460,25 @@ class StageCalibrationView(Wizard):
             self.controller.save_single_point_fixation(
                 self._current_single_point_fixations)
         except CalibrationError as exec:
-            messagebox.showerror("Error", str(exec))
+            messagebox.showerror("Error", str(exec), parent=self)
             return False
 
         return True
 
-    def _on_new_rotation_pairing(self):
+    def _apply_pairings(self, pairings):
         """
-        Callback, when user wants to create a new pairing for full calibration.
+        Callback, when user finishes coordinate pairing for full calibration
         """
-        if self._force_only_one_coordinate_window():
-            use_input = self._use_input_stage_var.get()
-            use_output = self._use_output_stage_var.get()
-            self._coordinate_pairing_window = CoordinatePairingsWindow(
-                self.experiment_manager,
-                parent=self,
-                in_calibration=self.mover.input_calibration if use_input else None,
-                out_calibration=self.mover.output_calibration if use_output else None)
-            self.wait_window(self._coordinate_pairing_window)
-
-            for pairing in self._coordinate_pairing_window.pairings:
-                try:
-                    self._current_full_calibrations[pairing.calibration].update(pairing)
-                except Exception as e:
-                    messagebox.showerror("Error", "Could not update rotation: {}".format(e))
-
-            self._coordinate_pairing_window = None
-            self.__reload__()
+        for pairing in pairings:
+            try:
+                self._current_full_calibrations[pairing.calibration].update(
+                    pairing)
+            except Exception as e:
+                messagebox.showerror(
+                    "Error",
+                    "Could not update rotation: {}".format(e),
+                    parent=self)
+        self.__reload__()
 
     def _check_full_calibrations(self):
         """
@@ -404,7 +491,6 @@ class StageCalibrationView(Wizard):
             self.current_step.next_step_enabled = False
             self.set_error("Please define a rotation for all stages.")
 
-    
     def _on_save_full_calibrations(self):
         """
         Callback, when user saves full calibration.
@@ -413,29 +499,39 @@ class StageCalibrationView(Wizard):
             self.controller.save_full_calibration(
                 self._current_full_calibrations)
         except CalibrationError as exec:
-            messagebox.showerror("Error", str(exec))
+            messagebox.showerror("Error", str(exec), parent=self)
             return False
 
         return True
 
+    def _on_change_rotation_dimension(self, calibration: Type[Calibration]):
+        """
+        Callback, when changing the rotation dimension.
+        """
+        self._current_full_calibrations[calibration].change_rotation_dimension(
+            Dimension.THREE if self._make_3D_rotation_var[calibration].get() else Dimension.TWO)
+        self.__reload__()
 
     #
     #   Helper
     #
 
-    def _force_only_one_coordinate_window(self) -> bool:
+    def _check_for_exisiting_coordinate_window(self) -> bool:
         """
         Ensures that only one window exists to create a new coordinate pair.
 
-        Returns True if it is ok, to create a new window.
+        Returns True if there is a exsiting window.
         """
-        if self._coordinate_pairing_window is None:
-            return True
+        if self._coordinate_pairing_window is None or not try_to_lift_window(
+                self._coordinate_pairing_window):
+            return False
 
-        if messagebox.askyesno(
+        if not messagebox.askyesno(
             "New Coordinate-Pairing",
-                "You have an unfinished coordinate pairing creation. Do you want to cancel it and create a new one?"):
+            "You have an incomplete creation of a coordinate pair. Click Yes if you want to continue it or No if you want to create the new one.",
+                parent=self._coordinate_pairing_window):
             self._coordinate_pairing_window._cancel()
-            return True
-        else:
-            return not try_to_lift_window(self._coordinate_pairing_window)
+            self._coordinate_pairing_window = None
+            return False
+
+        return True

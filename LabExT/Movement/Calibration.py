@@ -10,7 +10,7 @@ import numpy as np
 from typing import Type
 from enum import Enum, auto
 
-from LabExT.Movement.Transformations import SinglePointFixation
+from LabExT.Movement.Transformations import KabschRotation, SinglePointFixation
 from LabExT.Movement.Stage import StageError
 
 
@@ -145,8 +145,9 @@ class Calibration:
         self._orientation = orientation
         self._device_port = device_port
 
-        self._axes_rotation = None
-        self._single_point_fixation = None
+        self._axes_rotation: Type[AxesRotation] = None
+        self._single_point_fixation: Type[SinglePointFixation] = None
+        self._full_calibration: Type[KabschRotation] = None
 
     #
     #   Representation
@@ -196,6 +197,18 @@ class Calibration:
     #   Calibration Setup Methods
     #
 
+    def reset(self) -> bool:
+        """
+        Resets calibration by removing
+        axes rotation, single point fixation and full calibration.
+        """
+        self._axes_rotation = None
+        self._single_point_fixation = None
+        self._full_calibration = None
+        self._state = State.CONNECTED if self.stage.connected else State.UNINITIALIZED
+
+        return True
+
     def connect_to_stage(self) -> bool:
         """
         Opens a connections to the stage.
@@ -211,6 +224,9 @@ class Calibration:
         return False
 
     def fix_coordinate_system(self, axes_rotation: Type[AxesRotation]) -> bool:
+        """
+        Fixes coordinate system by providing a valid axes rotation matrix.
+        """
         if not axes_rotation.is_valid:
             raise CalibrationError(
                 "The given axis assignment does not define a valid 90 degree rotation. ")
@@ -222,13 +238,29 @@ class Calibration:
 
     def fix_single_point(
             self,
-            single_point_fixation: Type[SinglePointFixation]):
+            single_point_fixation: Type[SinglePointFixation]) -> bool:
+        """
+        Fixes a single point by providing a valid single point fixation.
+        """
         if not single_point_fixation.is_valid:
             raise CalibrationError(
                 "The given fixation is no valid. ")
 
         self._single_point_fixation = single_point_fixation
         self._state = State.SINGLE_POINT_FIXED
+
+        return True
+
+    def calibrate_fully(self, kabsch_rotation: Type[KabschRotation]) -> bool:
+        """
+        Fully calibrate a stage by providing a rotation induced by the Kabsch algorithm.
+        """
+        if not kabsch_rotation.is_valid:
+            raise CalibrationError(
+                "The rotation is no valid. ")
+
+        self._full_calibration = kabsch_rotation
+        self._state = State.FULLY_CALIBRATED
 
         return True
 
