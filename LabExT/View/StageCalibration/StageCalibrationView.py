@@ -5,10 +5,12 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from tkinter import W, Frame, Label, OptionMenu, StringVar, Button, messagebox, NORMAL, DISABLED, LEFT, RIGHT, TOP, X
-from functools import partial
+from operator import add
+from tkinter import W, BooleanVar, Checkbutton, Frame, Label, OptionMenu, StringVar, Button, messagebox, NORMAL, DISABLED, LEFT, RIGHT, TOP, X
+from functools import partial, reduce
 from itertools import product
-from LabExT.Movement.Transformations import SinglePointFixation
+from LabExT.Movement.Transformations import KabschRotation, SinglePointFixation
+from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 from bidict import bidict
 from typing import Type
@@ -77,15 +79,29 @@ class StageCalibrationView(Wizard):
         self._current_single_point_fixations = {
             c: SinglePointFixation() for c in self.mover.calibrations.values()}
 
+        # -- 3. STEP: FULL CALIBRATION --
+        self.full_calibration_step = self.add_step(
+            self._full_calibration_step_builder,
+            title="Fully calibrate Stages",
+            on_reload=self._check_full_calibrations,
+            on_next=self._on_save_full_calibrations)
+        # Step state and variables
+        self._current_full_calibrations = {
+            c: KabschRotation() for c in self.mover.calibrations.values()}
+        self._use_input_stage_var = BooleanVar(self.parent, True)
+        self._use_output_stage_var = BooleanVar(self.parent, True)
+
         # Global state
         self._coordinate_pairing_window = None
 
         # Connect steps
         self.fix_coordinate_system_step.next_step = self.fix_single_point_step
         self.fix_single_point_step.previous_step = self.fix_coordinate_system_step
+        self.fix_single_point_step.next_step = self.full_calibration_step
+        self.full_calibration_step.previous_step = self.fix_single_point_step
 
         # Start Wizard by setting the current step
-        self.current_step = self.fix_coordinate_system_step
+        self.current_step = self.full_calibration_step
 
     def _fix_coordinate_system_step_builder(self, frame: Type[CustomFrame]):
         """
@@ -165,6 +181,70 @@ class StageCalibrationView(Wizard):
                 text="Update Pairing ...",
                 command=partial(self._on_single_point_fixation, calibration)
             ).pack(side=RIGHT)
+    
+    def _full_calibration_step_builder(self, frame):
+        """
+        Step builder to make a full calibration.
+        """
+        frame.title = "Fully calibrate Stages"
+
+        step_description = Label(
+            frame,
+            text="In this step all stages can be set by a global transformation to allow safe absolute moving in chip coordinates.\n" \
+                 "Please define 2 or 3 coordinate pairs for each stage."
+        )
+        step_description.pack(side=TOP, fill=X)
+
+        pairings_frame = CustomFrame(frame)
+        pairings_frame.title = "Current Pairings"
+        pairings_frame.pack(side=TOP, fill=X)
+
+        pairings_table_frame = Frame(pairings_frame)
+        pairings_table_frame.pack(side=TOP, fill=X, expand=False)
+
+        CustomTable(
+            parent=pairings_table_frame,
+            selectmode='none',
+            columns=(
+                'Stage', 'Stage Cooridnate', 'Device', 'Chip Coordinate'
+            ),
+            rows=reduce(add, [r.pairings for r in self._current_full_calibrations.values()], []))
+
+        new_pairing_frame = CustomFrame(pairings_frame)
+        new_pairing_frame.title = "New Pairing"
+        new_pairing_frame.pack(side=TOP, fill=X, pady=5)
+
+        Checkbutton(
+            new_pairing_frame,
+            text="Use Input-Stage for Transformation".format(self.mover.input_calibration),
+            variable=self._use_input_stage_var
+        ).pack(side=LEFT)
+
+        Checkbutton(
+            new_pairing_frame,
+            text="Use Output-Stage for Transformation".format(self.mover.output_calibration),
+            variable=self._use_output_stage_var
+        ).pack(side=LEFT)
+
+        Button(
+            new_pairing_frame,
+            text="New Pairing...",
+            command=self._on_new_rotation_pairing
+        ).pack(side=RIGHT)
+
+        current_rotation_frame = CustomFrame(frame)
+        current_rotation_frame.title = "Current Rotations"
+        current_rotation_frame.pack(side=TOP, fill=X, pady=2)
+
+        for calibration, rotation in self._current_full_calibrations.items():
+            Label(
+                current_rotation_frame,
+                text="{}: {}".format(calibration, rotation),
+                foreground='#4BB543' if rotation.is_valid else "#FF3333",
+            ).pack(side=TOP)
+
+            
+    
     #
     #   Callback
     #
@@ -289,6 +369,55 @@ class StageCalibrationView(Wizard):
             return False
 
         return True
+
+    def _on_new_rotation_pairing(self):
+        """
+        Callback, when user wants to create a new pairing for full calibration.
+        """
+        if self._force_only_one_coordinate_window():
+            use_input = self._use_input_stage_var.get()
+            use_output = self._use_output_stage_var.get()
+            self._coordinate_pairing_window = CoordinatePairingsWindow(
+                self.experiment_manager,
+                parent=self,
+                in_calibration=self.mover.input_calibration if use_input else None,
+                out_calibration=self.mover.output_calibration if use_output else None)
+            self.wait_window(self._coordinate_pairing_window)
+
+            for pairing in self._coordinate_pairing_window.pairings:
+                try:
+                    self._current_full_calibrations[pairing.calibration].update(pairing)
+                except Exception as e:
+                    messagebox.showerror("Error", "Could not update rotation: {}".format(e))
+
+            self._coordinate_pairing_window = None
+            self.__reload__()
+
+    def _check_full_calibrations(self):
+        """
+        Callback, when user reloads full calibration step.
+        """
+        if all(r.is_valid for r in self._current_full_calibrations.values()):
+            self.current_step.next_step_enabled = True
+            self.set_error("")
+        else:
+            self.current_step.next_step_enabled = False
+            self.set_error("Please define a rotation for all stages.")
+
+    
+    def _on_save_full_calibrations(self):
+        """
+        Callback, when user saves full calibration.
+        """
+        try:
+            self.controller.save_full_calibration(
+                self._current_full_calibrations)
+        except CalibrationError as exec:
+            messagebox.showerror("Error", str(exec))
+            return False
+
+        return True
+
 
     #
     #   Helper

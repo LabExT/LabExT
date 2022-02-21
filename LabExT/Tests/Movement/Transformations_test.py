@@ -6,9 +6,10 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
+from LabExT.Wafer.Device import Device
 import numpy as np
 
-from LabExT.Movement.Transformations import CoordinatePairing, SinglePointFixation
+from LabExT.Movement.Transformations import CoordinatePairing, KabschRotation, SinglePointFixation
 
 
 class SinglePointFixationTest(unittest.TestCase):
@@ -106,3 +107,75 @@ class SinglePointFixationTest(unittest.TestCase):
         stage_input_coordinate = [2, 3]
         self.assertTrue((stage_input_coordinate == self.fixation.chip_to_stage(
             self.fixation.stage_to_chip(stage_input_coordinate))).all())
+
+class KabschRotationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.transformation = KabschRotation()
+
+    def test_update_raises_value_error_if_no_pairing(self):
+        with self.assertRaises(ValueError):
+            self.transformation.update([1,2,3])
+
+    def test_update_raises_value_error_if_stage_coordinate_missing(self):
+        with self.assertRaises(ValueError):
+            self.transformation.update(CoordinatePairing(
+                calibration=None,
+                stage_coordinate=None,
+                device=object(),
+                chip_coordinate=[1,2,3]
+            ))
+
+    def test_update_raises_value_error_if_chip_coordinate_missing(self):
+        with self.assertRaises(ValueError):
+            self.transformation.update(CoordinatePairing(
+                calibration=None,
+                stage_coordinate=[1,2,3],
+                device=object(),
+                chip_coordinate=None 
+            ))
+
+    def test_update_raises_value_error_if_device_missing(self):
+        with self.assertRaises(ValueError):
+            self.transformation.update(CoordinatePairing(
+                calibration=None,
+                stage_coordinate=[1,2,3],
+                device=None,
+                chip_coordinate=[1,2,3]
+            ))
+
+    def test_update_raises_value_error_if_device_duplicate(self):
+        device = Device(0, [0, 0], [1, 1], "My Device 1")
+
+        self.transformation.update(CoordinatePairing(
+            calibration=None,
+            stage_coordinate=[1,2,3],
+            device=device,
+            chip_coordinate=[0,0]
+        ))
+
+        with self.assertRaises(ValueError) as error:
+             self.transformation.update(CoordinatePairing(
+                calibration=None,
+                stage_coordinate=[2,3,4],
+                device=device,
+                chip_coordinate=[1,1]
+            ))
+        
+        self.assertEqual(str(error.exception), "A pairing with this device has already been saved.")
+
+    def test_update_raises_value_error_if_coordinate_wrong_dimension(self):
+        with self.assertRaises(ValueError):
+            self.transformation.update(CoordinatePairing(
+                calibration=None,
+                stage_coordinate=[2],
+                device=object(),
+                chip_coordinate=[1]
+            ))
+
+        with self.assertRaises(ValueError):
+            self.transformation.update(CoordinatePairing(
+                calibration=None,
+                stage_coordinate=[2,2,3,4],
+                device=object(),
+                chip_coordinate=[1,3,4,5]
+            ))

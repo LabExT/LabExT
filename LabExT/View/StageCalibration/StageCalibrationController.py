@@ -11,6 +11,16 @@ from LabExT.Movement.Calibration import CalibrationError, DevicePort, Orientatio
 
 class StageCalibrationController:
     def __init__(self, experiment_manager, mover, parent=None) -> None:
+        # REMOVE ME
+        for idx, stage in enumerate(mover.available_stages):
+            mover.add_stage_calibration(
+                stage,
+                Orientation(
+                    idx + 1),
+                DevicePort(
+                    idx + 1))
+            stage.connect()
+
         # Precondition: Mover has connected stages
         if not mover.has_connected_stages:
             raise AssertionError(
@@ -60,3 +70,8 @@ class StageCalibrationController:
             self.experiment_manager.main_window.refresh_context_menu()
 
         return True
+
+    def save_full_calibration(self, rotations):
+        """
+        Saves for each calibration the Kabsch rotation.
+        """
