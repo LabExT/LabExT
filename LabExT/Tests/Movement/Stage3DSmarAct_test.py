@@ -8,8 +8,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import ctypes as ct
 from contextlib import contextmanager
 from enum import Enum
+from itertools import product
 import unittest
-from unittest.mock import Mock, ANY, patch, DEFAULT
+from unittest.mock import Mock, ANY, call, patch, DEFAULT
 from LabExT.Movement.Stage import Stage, StageError
 import LabExT.Movement.Stages.Stage3DSmarAct as SmarActModule
 
@@ -86,13 +87,51 @@ class SmarActTestCase(unittest.TestCase):
             expected_error), str(error_context.exception))
         mcsc_mock.SA_GetStatusInfo.assert_called_once_with(status_code, ANY)
 
+    def assert_mock_has_call_with_arguments(self, func, args):
+        """
+        Checks if a driver function mock was called with a list of arguments with ctypes.
+        """
+        def extract_value(args): return [
+            v.value if isinstance(
+                v, ct._SimpleCData) else v for v in args]
+
+        self.assertTrue(any(extract_value(mock_call[0]) == extract_value(
+            expected_args) for mock_call, expected_args in product(func.call_args_list, [args])))
 
     @contextmanager
     def assert_stage_disconnect(self, stage, mcsc_mock: MCSControlInterface):
         mcsc_mock.SA_CloseSystem.return_value = MCSC_STATUS_OK
         yield
 
+    @contextmanager
+    def successful_stage_connection(
+            self, stage, mcsc_mock: MCSControlInterface):
+        """
+        Use this context manager when a connected stage with channels is needed.
+        """
+        system_handle = 42
 
+        # Mock out system opening
+        mcsc_mock.SA_OpenSystem.return_value = MCSC_STATUS_OK
+        mcsc_mock.SA_OpenSystem.side_effect = update_by_reference({
+            0: ct.c_ulong(system_handle)
+        })
+
+        # Mock out sensor fetching
+        mcsc_mock.SA_GetSensorType_S.return_value = MCSC_STATUS_OK
+        mcsc_mock.SA_GetSensorType_S.side_effect = update_by_reference({
+            2: ct.c_ulong(1)
+        })
+
+        # Assume speed and acceleration setting works
+        mcsc_mock.SA_SetClosedLoopMoveSpeed_S.return_value = MCSC_STATUS_OK
+        mcsc_mock.SA_SetClosedLoopMoveAcceleration_S.return_value = MCSC_STATUS_OK
+
+        # Connect to Stage
+        with patch.object(SmarActModule.Stage3DSmarAct._Channel, 'LINEAR_SENSORS', [1]):
+            with self.assert_exit_without_error(mcsc_mock):
+                stage.connect()
+                yield(system_handle)
 
 
 class BaseTest(SmarActTestCase):
@@ -110,13 +149,16 @@ class BaseTest(SmarActTestCase):
         self.assertEqual(20, self.stage._z_lift)
         self.assertEqual(1, self.stage._z_axis_direction)
         self.assertFalse(self.stage._stage_lifted_up)
-        self.assertEqual(self.stage.address, self.stage_address.encode('utf-8'))
+        self.assertEqual(
+            self.stage.address,
+            self.stage_address.encode('utf-8'))
 
     def test_address_string(self):
         self.assertEqual(self.stage.address_string, self.stage_address)
 
     def test_to_string(self):
-        self.assertEqual(str(self.stage), "SmarAct Piezo-Stage at usb:id:000000000")
+        self.assertEqual(str(self.stage),
+                         "SmarAct Piezo-Stage at usb:id:000000000")
 
     #
     #   Testing Stage Discovery
@@ -247,7 +289,6 @@ class BaseTest(SmarActTestCase):
         self.assertFalse(self.stage.connected)
         self.assertIsNone(self.stage.handle)
 
-
     @with_MCSControl_driver_patch
     def test_disconnect_unsuccessfully(self, mcsc_mock: MCSControlInterface):
         self.stage.connected = True
@@ -260,6 +301,101 @@ class BaseTest(SmarActTestCase):
         mcsc_mock.SA_CloseSystem.assert_called_once_with(self.stage.handle)
         self.assertTrue(self.stage.connected)
 
+    #
+    #   Testing Movement
+    #
+
+    @with_MCSControl_driver_patch
+    def test_move_relative_without_blocking(
+            self, mcsc_mock: MCSControlInterface):
+        mcsc_mock.SA_GotoPositionRelative_S.return_value = MCSC_STATUS_OK
+
+        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
+            with self.assert_exit_without_error(mcsc_mock):
+                self.stage.move_relative(100, 200, wait_for_stopping=False)
+
+        mcsc_mock.SA_GotoPositionAbsolute_S.assert_not_called()
+        mcsc_mock.SA_GetStatus_S.assert_not_called()
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GotoPositionRelative_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(100000), 0)
+        )
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GotoPositionRelative_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(200000), 0)
+        )
+
+    @with_MCSControl_driver_patch
+    def test_move_absolute_without_blocking(
+            self, mcsc_mock: MCSControlInterface):
+        mcsc_mock.SA_GotoPositionAbsolute_S.return_value = MCSC_STATUS_OK
+
+        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
+            with self.assert_exit_without_error(mcsc_mock):
+                self.stage.move_absolute([500, -1000], wait_for_stopping=False)
+
+        mcsc_mock.SA_GotoPositionRelative_S.assert_not_called()
+        mcsc_mock.SA_GetStatus_S.assert_not_called()
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GotoPositionAbsolute_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(500000), 0)
+        )
+
+        self.assert_mock_has_call_with_arguments(
+            mcsc_mock.SA_GotoPositionAbsolute_S,
+            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(-1000000), 0)
+        )
+
+    @with_MCSControl_driver_patch
+    @patch("LabExT.Movement.Stages.Stage3DSmarAct.time.sleep")
+    @patch.object(SmarActModule.Stage3DSmarAct._Channel, 'STATUS_CODES',
+                  {MCSControlInterface.SA_STOPPED_STATUS: 'SA_STOPPED_STATUS'})
+    def test_move_relative_with_blocking(
+            self, sleep_mock, mcsc_mock: MCSControlInterface):
+        """
+        Simple test, if sleep gets triggered when status is not stopped
+        """
+        mcsc_mock.SA_GotoPositionRelative_S.return_value = MCSC_STATUS_OK
+        mcsc_mock.SA_GetStatus_S.return_value = MCSC_STATUS_OK
+
+        mcsc_mock.SA_GetStatus_S.side_effect = update_by_reference({
+            2: ct.c_ulong(MCSControlInterface.SA_STOPPED_STATUS)
+        })
+
+        with self.successful_stage_connection(self.stage, mcsc_mock):
+            with self.assert_exit_without_error(mcsc_mock):
+                self.stage.move_relative(-100, -200, wait_for_stopping=True)
+
+        sleep_mock.assert_called_once()
+        self.assertEqual(3, mcsc_mock.SA_GetStatus_S.call_count)
+
+    @with_MCSControl_driver_patch
+    @patch("LabExT.Movement.Stages.Stage3DSmarAct.time.sleep")
+    @patch.object(SmarActModule.Stage3DSmarAct._Channel, 'STATUS_CODES',
+                  {MCSControlInterface.SA_STOPPED_STATUS: 'SA_STOPPED_STATUS'})
+    def test_move_absolute_with_blocking(
+            self, sleep_mock, mcsc_mock: MCSControlInterface):
+        """
+        Simple test, if sleep gets triggered when status is not stopped
+        """
+        mcsc_mock.SA_GotoPositionAbsolute_S.return_value = MCSC_STATUS_OK
+        mcsc_mock.SA_GetStatus_S.return_value = MCSC_STATUS_OK
+
+        mcsc_mock.SA_GetStatus_S.side_effect = update_by_reference({
+            2: ct.c_ulong(MCSControlInterface.SA_STOPPED_STATUS)
+        })
+
+        with self.successful_stage_connection(self.stage, mcsc_mock):
+            with self.assert_exit_without_error(mcsc_mock):
+                self.stage.move_absolute([-1000, 200], wait_for_stopping=True)
+
+        sleep_mock.assert_called_once()
+        self.assertEqual(3, mcsc_mock.SA_GetStatus_S.call_count)
+
+
 class ChannelTest(SmarActTestCase):
     """
     Testing of a Stage3DSmarAct channel. A channel represents one axis.
@@ -267,7 +403,7 @@ class ChannelTest(SmarActTestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        
+
         self.channel = SmarActModule.Stage3DSmarAct._Channel(
             self.stage, 0, "X")
 
@@ -601,8 +737,7 @@ class ChannelTest(SmarActTestCase):
         with self.assert_exit_without_error(mcsc_mock):
             self.channel.move(
                 requested_diff,
-                SmarActModule.MovementType.RELATIVE,
-                False)
+                SmarActModule.MovementType.RELATIVE)
 
         mcsc_mock.SA_GotoPositionRelative_S.assert_called_once()
         mcsc_mock.SA_GotoPositionAbsolute_S.assert_not_called()
@@ -620,8 +755,7 @@ class ChannelTest(SmarActTestCase):
         with self.assert_exit_without_error(mcsc_mock):
             self.channel.move(
                 requested_diff,
-                SmarActModule.MovementType.ABSOLUTE,
-                False)
+                SmarActModule.MovementType.ABSOLUTE)
 
         mcsc_mock.SA_GotoPositionRelative_S.assert_not_called()
         mcsc_mock.SA_GotoPositionAbsolute_S.assert_called_once()

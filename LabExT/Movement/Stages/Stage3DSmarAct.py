@@ -320,8 +320,7 @@ class Stage3DSmarAct(Stage):
         def move(
                 self,
                 diff: float,
-                mode: MovementType,
-                wait_for_stopping=True) -> None:
+                mode: MovementType) -> None:
             """Moves the channel with the specified movement type by the value diff
 
             Parameters
@@ -333,9 +332,21 @@ class Stage3DSmarAct(Stage):
             """
             self.movement_mode = mode
             if self.movement_mode == MovementType.RELATIVE:
-                self._move_relative(diff, wait_for_stopping)
+                self._stage._exit_if_error(
+                    MCSC.SA_GotoPositionRelative_S(
+                        self._stage.handle,
+                        self._handle,
+                        ct.c_int(int(self._to_nanometer(diff))),
+                        0
+                    ))
             elif self.movement_mode == MovementType.ABSOLUTE:
-                self._move_absolute(diff, wait_for_stopping)
+                self._stage._exit_if_error(
+                    MCSC.SA_GotoPositionAbsolute_S(
+                        self._stage.handle,
+                        self._handle,
+                        ct.c_int(int(self._to_nanometer(diff))),
+                        0
+                    ))
 
         def find_reference_mark(self):
             """Moves the channel to a known physical position, by searching for the reference mark"""
@@ -349,34 +360,6 @@ class Stage3DSmarAct(Stage):
                 ))
 
         # Helper functions
-
-        def _move_relative(self, diff: float, wait_for_stopping: bool):
-            self._stage._exit_if_error(
-                MCSC.SA_GotoPositionRelative_S(
-                    self._stage.handle,
-                    self._handle,
-                    ct.c_int(int(self._to_nanometer(diff))),
-                    0
-                ))
-            if wait_for_stopping:
-                self._wait_for_stopping()
-
-        def _move_absolute(self, pos: float, wait_for_stopping: bool):
-            self._stage._exit_if_error(
-                MCSC.SA_GotoPositionAbsolute_S(
-                    self._stage.handle,
-                    self._handle,
-                    ct.c_int(int(self._to_nanometer(pos))),
-                    0
-                ))
-            if wait_for_stopping:
-                self._wait_for_stopping()
-
-        def _wait_for_stopping(self):
-            while True:
-                time.sleep(0.05)
-                if self.status == MCSC.SA_STOPPED_STATUS:
-                    break
 
         def _to_nanometer(self, um: float) -> int:
             return um * 1e3
@@ -655,7 +638,7 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x, y):
+    def move_relative(self, x, y, wait_for_stopping: bool = True):
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
@@ -664,6 +647,8 @@ class Stage3DSmarAct(Stage):
             Movement in x direction by x measured in um.
         y : int
             Movement in y direction by y measured in um.
+        wait_for_stopping : bool
+            Wait until all axes have stopped.
         """
         self._logger.debug(
             'Want to relative move %s to x = %s um and y = %s um',
@@ -674,15 +659,20 @@ class Stage3DSmarAct(Stage):
         self.channels[Axis.X].move(diff=x, mode=MovementType.RELATIVE)
         self.channels[Axis.Y].move(diff=y, mode=MovementType.RELATIVE)
 
+        if wait_for_stopping:
+            self._wait_for_stopping()
+
     @assert_driver_loaded
     @assert_stage_connected
-    def move_absolute(self, pos):
+    def move_absolute(self, pos, wait_for_stopping: bool = True):
         """Performs an absolute movement to the specified position in units of micrometers.
 
         Parameters
         ----------
         position : list
             Position in [x,y] format measured in um
+        wait_for_stopping : bool
+            Wait until all axes have stopped.
         """
         self._logger.debug(
             'Want to absolute move %s to x = %s um and y = %s um',
@@ -694,6 +684,9 @@ class Stage3DSmarAct(Stage):
             diff=pos[0], mode=MovementType.ABSOLUTE)
         self.channels[Axis.Y].move(
             diff=pos[1], mode=MovementType.ABSOLUTE)
+
+        if wait_for_stopping:
+            self._wait_for_stopping()
 
     # Stage control
 
@@ -738,3 +731,12 @@ class Stage3DSmarAct(Stage):
                     'Channel {} of stage {} has no supported linear sensor!'.format(
                         index.name, self.address))
         self._logger.debug("Linear x, y and z sensor present")
+
+    def _wait_for_stopping(self, deplay=0.05):
+        """
+        Blocks until all channels have 'SA_STOPPED_STATUS' status.
+        """
+        while True:
+            time.sleep(deplay)
+            if all(s == 'SA_STOPPED_STATUS' for s in self.get_status()):
+                break
