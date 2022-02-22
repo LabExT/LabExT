@@ -91,5 +91,18 @@ class SinglePointFixationTest(unittest.TestCase):
 
         self.assertTrue(
             (self.fixation.stage_to_chip([5, 6]) ==
-             np.array([5, 6]) + expected_offset).all()
+             np.array([5, 6]) - expected_offset).all()
         )
+
+    def test_chip_to_stage_and_stage_to_chip_are_inversed(self):
+        self.fixation.update(CoordinatePairing(
+            None, [7, 1], None, [4, 2]
+        ))
+
+        chip_input_coordinate = [2, 3]
+        self.assertTrue((chip_input_coordinate == self.fixation.stage_to_chip(
+            self.fixation.chip_to_stage(chip_input_coordinate))).all())
+
+        stage_input_coordinate = [2, 3]
+        self.assertTrue((stage_input_coordinate == self.fixation.chip_to_stage(
+            self.fixation.stage_to_chip(stage_input_coordinate))).all())
