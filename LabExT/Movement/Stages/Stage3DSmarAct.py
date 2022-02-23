@@ -573,7 +573,7 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def lift_stage(self):
+    def lift_stage(self, wait_for_stopping: bool = True):
         """Lifts the stage up in the z direction by the amount defined in self._z_lift
         """
         if self._stage_lifted_up:
@@ -581,16 +581,17 @@ class Stage3DSmarAct(Stage):
                 "Stage already lifted up. Not executing lift.")
             return
 
-        self.channels[Axis.Z].move(
-            diff=self._z_axis_direction * self._z_lift,
-            mode=MovementType.RELATIVE
-        )
+        self.move_relative(
+            x=0,
+            y=0,
+            z=self._z_axis_direction * self._z_lift,
+            wait_for_stopping=wait_for_stopping)
 
         self._stage_lifted_up = True
 
     @assert_driver_loaded
     @assert_stage_connected
-    def lower_stage(self):
+    def lower_stage(self, wait_for_stopping: bool = True):
         """Lowers the stage in the z direction by the amount defined by self._z_lift
         """
         if not self._stage_lifted_up:
@@ -598,10 +599,11 @@ class Stage3DSmarAct(Stage):
                 "Stage already lowered down. Not executing lowering.")
             return
 
-        self.channels[Axis.Z].move(
-            diff=-self._z_axis_direction * self._z_lift,
-            mode=MovementType.RELATIVE
-        )
+        self.move_relative(
+            x=0,
+            y=0,
+            z=-self._z_axis_direction * self._z_lift,
+            wait_for_stopping=wait_for_stopping)
 
         self._stage_lifted_up = False
 
@@ -638,7 +640,7 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x, y, wait_for_stopping: bool = True):
+    def move_relative(self, x, y, z=0, wait_for_stopping: bool = True):
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
@@ -647,17 +649,21 @@ class Stage3DSmarAct(Stage):
             Movement in x direction by x measured in um.
         y : int
             Movement in y direction by y measured in um.
+        z : int
+            Movement in z direction by z measured in um.
         wait_for_stopping : bool
             Wait until all axes have stopped.
         """
         self._logger.debug(
-            'Want to relative move %s to x = %s um and y = %s um',
+            'Want to relative move %s to x = %s um, y = %s um and z = %s um',
             self.address,
             x,
-            y)
+            y,
+            z)
 
         self.channels[Axis.X].move(diff=x, mode=MovementType.RELATIVE)
         self.channels[Axis.Y].move(diff=y, mode=MovementType.RELATIVE)
+        self.channels[Axis.Z].move(diff=z, mode=MovementType.RELATIVE)
 
         if wait_for_stopping:
             self._wait_for_stopping()
@@ -732,11 +738,11 @@ class Stage3DSmarAct(Stage):
                         index.name, self.address))
         self._logger.debug("Linear x, y and z sensor present")
 
-    def _wait_for_stopping(self, deplay=0.05):
+    def _wait_for_stopping(self, delay=0.05):
         """
         Blocks until all channels have 'SA_STOPPED_STATUS' status.
         """
         while True:
-            time.sleep(deplay)
+            time.sleep(delay)
             if all(s == 'SA_STOPPED_STATUS' for s in self.get_status()):
                 break
