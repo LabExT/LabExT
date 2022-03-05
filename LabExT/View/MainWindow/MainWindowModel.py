@@ -62,6 +62,7 @@ class MainWindowModel:
         self.save_parameters = None
         self.live_plot_data = None
         self.selec_plot_data = None
+        self.last_opened_new_meas_wizard_controller = None
 
         self.load_exp_parameters()
 

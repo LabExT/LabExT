@@ -243,7 +243,8 @@ class MainWindowController:
         """
         Open
         """
-        EditMeasurementWizardController(self.root, self.experiment_manager)
+        self.model.last_opened_new_meas_wizard_controller = \
+            EditMeasurementWizardController(self.root, self.experiment_manager)
 
     def repeat_last_exec_measurement(self):
         """
