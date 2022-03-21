@@ -58,6 +58,10 @@ class StandardExperiment:
         self.chip_parameters = {}
         self.save_parameters = {}
         self._default_save_path = join(str(Path.home()), "laboratory_measurements")
+        # variables updated at each experiment run
+        self.param_output_path = ""
+        self.param_chip_file_path = ""
+        self.param_chip_name = ""
 
         # plot collections, main window plot observe these lists
         self.live_plot_collection = ObservableList()  # right plot, measurements can plot during run
@@ -106,17 +110,20 @@ class StandardExperiment:
             value=self._default_save_path,
             parameter_type='folder')
 
+    def read_parameters_to_variables(self):
+        # update local parameters
+        self.param_chip_name = str(self.chip_parameters['Chip name'].value)
+        self.param_chip_file_path = str(self.chip_parameters['Chip path'].value)
+        self.param_output_path = str(self.save_parameters['Raw output path'].value)
+        makedirs(self.param_output_path, exist_ok=True)
+
     def run(self):
         self.logger.info('Running experiment.')
 
         # update local exctrl variables from GUI, just for safety
         self._experiment_manager.main_window.model.exctrl_vars_changed()
 
-        # update local parameters
-        self.param_chip_name = str(self.chip_parameters['Chip name'].value)
-        self.param_chip_file_path = str(self.chip_parameters['Chip path'].value)
-        self.param_output_path = str(self.save_parameters['Raw output path'].value)
-        makedirs(self.param_output_path, exist_ok=True)
+        self.read_parameters_to_variables()
 
         # we iterate over every measurement of every device in the To Do Queue
         while 0 < len(self.to_do_list):
@@ -192,7 +199,6 @@ class StandardExperiment:
                 data['search for peak'] = None
                 self.logger.info('Search for peak not enabled. Not executing automatic search for peak.')
 
-            self._parent.config(cursor='circle')
             self.logger.info('Executing measurement %s on device %s.',
                              measurement.get_name_with_id(),
                              device.short_str())
@@ -225,7 +231,6 @@ class StandardExperiment:
                 save_file_ending = "_abort.json"
 
             finally:
-                self._parent.config(cursor='')
 
                 # clear live plots after experiment finished
                 while len(self.live_plot_collection) > 0:
@@ -253,10 +258,12 @@ class StandardExperiment:
                 # save to do reference in case user hits "Redo last measurement" button
                 self.last_executed_todo = (device, measurement)
 
-            # shift to do to executed measurements when successful and update GUI
+            # shift to do to executed measurements when successful
             if measurement_executed:
                 self.load_measurement_dataset(data, final_path, force_gui_update=False)
                 self.to_do_list.pop(0)
+
+            # tell GUI to update
             self.update(plot_new_meas=True)
 
             # if manual mode activated, break here
@@ -266,10 +273,6 @@ class StandardExperiment:
             # if we finished all the devices in the to_do_list
             # then we finished measuring everything
             if not self.to_do_list:
-                self.logger.debug('Measurements finished, queue empty. Clearing...')
-                self.to_do_list.clear()
-                self.update()
-
                 messagebox.showinfo("Measurements finished!", "Measurements finished!")
                 self.logger.info("Experiment and hereby all measurements finished.")
 

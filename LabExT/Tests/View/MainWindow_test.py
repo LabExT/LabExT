@@ -16,9 +16,9 @@ from LabExT.Tests.Utils import TKinterTestCase
 
 def simulator_only_instruments_descriptions(name):
     if name[0:5] == 'Laser':
-        return [{"visa": "None", "class": "LaserSimulator", "channels": [0, 1, 2, 3, 4] }]
-    elif name[0:10] == 'PowerMeter':
-        return [{"visa": "None", "class": "PowerMeterSimulator", "channels": [1, 2, 3, 4] }]
+        return [{"visa": "None", "class": "LaserSimulator", "channels": [0, 1, 2, 3, 4]}]
+    elif name[0:11] == 'Power Meter':
+        return [{"visa": "None", "class": "PowerMeterSimulator", "channels": [1, 2, 3, 4]}]
     elif name[0:3] == 'OSA':
         return [{"visa": "None", "class": "OpticalSpectrumAnalyzerSimulator", "channels": []}]
     else:
@@ -28,9 +28,7 @@ def simulator_only_instruments_descriptions(name):
 class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):
-
-        # TODO: the patching does not work all cases!
-        with patch('LabExT.Utils.get_visa_lib_string', lambda: "@py"):
+        with patch('LabExT.ExperimentManager.get_visa_lib_string', lambda: "@py"):
             self.expm = ExperimentManager(self.root, "", skip_setup=True)
             self.expm.exp.measurements_classes['InsertionLossSweep'] = InsertionLossSweep
             self.expm.instrument_api.instruments['LaserSimulator'] = LaserSimulator
@@ -39,27 +37,21 @@ class MainWindowTest(TKinterTestCase):
             self.mwm = self.mwc.model
             self.mwv = self.mwc.view
 
-    def test_mainwindow_initial_state(self):
-
-        self.main_window_setup()
-
-        # full transformation and sfp need initialization before usage
-        self.assertFalse(self.mwm.status_transformation_enabled.get())
-        self.assertFalse(self.mwm.status_sfp_initialized.get())
-
-        # no ToDos and now loaded measurements at beginning
-        self.assertEqual(len(self.expm.exp.to_do_list), 0)
-        self.assertEqual(len(self.expm.exp.measurements), 0)
-
-        # assert no devices loaded
-        self.assertIsNone(self.expm.chip)
-
     def test_mainwindow_single_IL_sweep(self):
-
-        # TODO: the patching does not work all cases!
-        with patch('LabExT.Utils.get_visa_address', simulator_only_instruments_descriptions):
-
+        with patch('LabExT.View.EditMeasurementWizard.EditMeasurementWizardController.get_visa_address',
+                   simulator_only_instruments_descriptions):
             self.main_window_setup()
+
+            # full transformation and sfp need initialization before usage
+            self.assertFalse(self.mwm.status_transformation_enabled.get())
+            self.assertFalse(self.mwm.status_sfp_initialized.get())
+
+            # no ToDos and now loaded measurements at beginning
+            self.assertEqual(len(self.expm.exp.to_do_list), 0)
+            self.assertEqual(len(self.expm.exp.measurements), 0)
+
+            # assert no devices loaded
+            self.assertIsNone(self.expm.chip)
 
             # open new measurement wizard
             self.mwv.frame.buttons_frame.new_meas_button.invoke()
@@ -102,10 +94,10 @@ class MainWindowTest(TKinterTestCase):
             ps['powermeter range'].value = -80.0
             ps['users comment'].value = 'automated testing'
 
-            # TODO: use this patch to not save to file when testing
-            #with patch('LabExT.View.Controls.ParameterTable.serialize'):
-            new_meas_wizard_c.view.section_frames[3].continue_button.invoke()
-            self.pump_events()
+            # this would otherwise save the test params to the user's settings
+            with patch.object(new_meas_wizard_c.view.s3_measurement_param_table, 'serialize'):
+                new_meas_wizard_c.view.section_frames[3].continue_button.invoke()
+                self.pump_events()
 
             # stage 4: save
             new_meas_wizard_c.view.section_frames[4].continue_button.invoke()
@@ -117,9 +109,12 @@ class MainWindowTest(TKinterTestCase):
 
             # this needs to be patched, otherwise measurement executor thread fails
             # ToDo: find out how to patch this properly
-            with patch('LabExT.View.MainWindow.MainWindowModel'):
-                self.mwm.commands[0].button_handle.invoke()
-                self.pump_events()
+            with patch.object(self.mwm, 'exctrl_vars_changed'):
+                with patch.object(self.expm.exp, 'read_parameters_to_variables'):
+                    with patch.object(self.mwc, 'update_tables'):
+                        with patch.object(self.mwm, 'on_experiment_finished'):
+                            self.mwm.commands[0].button_handle.invoke()
+                            self.pump_events()
 
             sleep(10)
             self.pump_events()
