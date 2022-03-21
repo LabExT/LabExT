@@ -29,7 +29,7 @@ class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):
         with patch('LabExT.ExperimentManager.get_visa_lib_string', lambda: "@py"):
-            with patch('LabExT.ExperimentManager.setup_instruments_config', lambda: False):
+            with patch.object(ExperimentManager, 'setup_instruments_config', lambda _: False):
                 self.expm = ExperimentManager(self.root, "", skip_setup=True)
                 self.expm.exp.measurements_classes['InsertionLossSweep'] = InsertionLossSweep
                 self.expm.instrument_api.instruments['LaserSimulator'] = LaserSimulator
@@ -64,13 +64,16 @@ class MainWindowTest(TKinterTestCase):
             new_meas_wizard_c.view.s0_adhoc_frame._entry_id.insert(0, '999')
             new_meas_wizard_c.view.s0_adhoc_frame._entry_type.delete(0, "end")
             new_meas_wizard_c.view.s0_adhoc_frame._entry_type.insert(0, 'MZM')
-            new_meas_wizard_c.view.section_frames[0].continue_button.invoke()
-            self.pump_events()
+            with patch.object(new_meas_wizard_c.view.s0_adhoc_frame, 'serialize'):
+                with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
+                    new_meas_wizard_c.view.section_frames[0].continue_button.invoke()
+                    self.pump_events()
 
             # stage 1: meas selection
             new_meas_wizard_c.view.s1_meas_name.set('InsertionLossSweep')
-            new_meas_wizard_c.view.section_frames[1].continue_button.invoke()
-            self.pump_events()
+            with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
+                new_meas_wizard_c.view.section_frames[1].continue_button.invoke()
+                self.pump_events()
 
             # stage 2: instrument selection - modify saved roles
             laser_role = new_meas_wizard_c.view.s2_instrument_selector.instrument_source['Laser']
@@ -82,8 +85,10 @@ class MainWindowTest(TKinterTestCase):
             opm_role.selected_instr.set(pmsim)
             opm_role.selected_channel.set("1")
 
-            new_meas_wizard_c.view.section_frames[2].continue_button.invoke()
-            self.pump_events()
+            with patch.object(new_meas_wizard_c.view.s2_instrument_selector, 'serialize', lambda _: None):
+                with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
+                    new_meas_wizard_c.view.section_frames[2].continue_button.invoke()
+                    self.pump_events()
 
             # stage 3: parameter selection
             ps = new_meas_wizard_c.view.s3_measurement_param_table._parameter_source
@@ -97,8 +102,9 @@ class MainWindowTest(TKinterTestCase):
 
             # this would otherwise save the test params to the user's settings
             with patch.object(new_meas_wizard_c.view.s3_measurement_param_table, 'serialize'):
-                new_meas_wizard_c.view.section_frames[3].continue_button.invoke()
-                self.pump_events()
+                with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
+                    new_meas_wizard_c.view.section_frames[3].continue_button.invoke()
+                    self.pump_events()
 
             # stage 4: save
             new_meas_wizard_c.view.section_frames[4].continue_button.invoke()
