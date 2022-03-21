@@ -116,12 +116,13 @@ class MainWindowTest(TKinterTestCase):
 
             # this needs to be patched, otherwise measurement executor thread fails
             # ToDo: find out how to patch this properly
-            with patch.object(self.mwm, 'exctrl_vars_changed'):
-                with patch.object(self.expm.exp, 'read_parameters_to_variables'):
-                    with patch.object(self.mwc, 'update_tables'):
-                        with patch.object(self.mwm, 'on_experiment_finished'):
-                            self.mwm.commands[0].button_handle.invoke()
-                            self.pump_events()
+            with patch('LabExT.Experiments.StandardExperiment.AutosaveDict.save'):
+                with patch.object(self.mwm, 'exctrl_vars_changed'):
+                    with patch.object(self.expm.exp, 'read_parameters_to_variables'):
+                        with patch.object(self.mwc, 'update_tables'):
+                            with patch.object(self.mwm, 'on_experiment_finished'):
+                                self.mwm.commands[0].button_handle.invoke()
+                                self.pump_events()
 
             sleep(10)
             self.pump_events()
