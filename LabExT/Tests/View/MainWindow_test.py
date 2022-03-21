@@ -28,8 +28,8 @@ def simulator_only_instruments_descriptions(name):
 class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):
-        with patch('ExperimentManager.get_visa_lib_string', lambda: "@py"):
-            with patch('ExperimentManager.setup_instruments_config', lambda: False):
+        with patch('LabExT.ExperimentManager.get_visa_lib_string', lambda: "@py"):
+            with patch('LabExT.ExperimentManager.setup_instruments_config', lambda: False):
                 self.expm = ExperimentManager(self.root, "", skip_setup=True)
                 self.expm.exp.measurements_classes['InsertionLossSweep'] = InsertionLossSweep
                 self.expm.instrument_api.instruments['LaserSimulator'] = LaserSimulator
