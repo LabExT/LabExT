@@ -171,7 +171,7 @@ class MainWindowTest(TKinterTestCase):
             sleep(10)  # maximum real-life test time is about 5s with above given params
             self.pump_events()
 
-            # check if provided values are actually saved in the dictionary
+            # check if provided values are actually saved to the objects in LabExT
             self.assertEqual(len(self.expm.exp.to_do_list), 0)
             self.assertEqual(len(self.expm.exp.measurements), 1)
             executed_measurement = self.expm.exp.measurements[0]
@@ -194,8 +194,7 @@ class MainWindowTest(TKinterTestCase):
                                  {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
                                   'powermeter range', 'users comment'})
 
-            # check content
-            # check metadata in the saved dictionary
+            # check content in the dictionary saved in the executed measurements
             check_meas_dict_meta_data(executed_measurement)
             # for checking the simulated data, we can re-use the checker function from the measurement's test
             check_ILsweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=ps)
