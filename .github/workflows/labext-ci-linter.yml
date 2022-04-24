@@ -18,7 +18,7 @@ jobs:
         pip install black flake8 isort
     - name: Lint with black
       run: black --check . --exclude docs/
-    - name: Lint with flake8
-      run: flake8 .
     - name: Run isort
       run: isort --profile black .
+    - name: Lint with flake8
+      run: flake8 .
