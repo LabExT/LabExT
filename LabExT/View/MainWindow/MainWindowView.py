@@ -25,6 +25,7 @@ class MainWindowContextMenu(Menu):
     """
     The context menu up top. Upon instantiation creates labels and submenus.
     """
+
     def __init__(self, parent, menu_listener):
         self.parent = parent
         self._menu_listener = menu_listener
@@ -102,6 +103,7 @@ class MainWindowControlFrame(Frame):
     """
     The control frame used. Components are added from outside.
     """
+
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky='nswe')
@@ -111,7 +113,7 @@ class MainWindowControlFrame(Frame):
         title.grid(row=0, column=0, pady=(20, 0), sticky='we')
         version, gitref = get_labext_version()
         if gitref != '-':
-            version = Label(self,text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
+            version = Label(self, text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
         else:
             version = Label(self, text='v' + str(version) + "\nPress F1 for help.")
         version.grid(row=1, column=0, pady=(0, 20), sticky='we')
@@ -129,6 +131,7 @@ class MainWindowControlPanel(ControlPanel):
     The main control panel.
     Has some checkboxes and buttons, registers all callback functions for those.
     """
+
     def __init__(self, parent, model):
         self.parent = parent
         self.model = model
@@ -213,6 +216,7 @@ class MainWindowButtonsFrame(LabelFrame):
     """
     The buttons frame. Has buttons to add measurements.
     """
+
     def __init__(self, parent, main_frame, controller):
         self.main_frame = main_frame
         self.parent = parent
@@ -228,10 +232,10 @@ class MainWindowButtonsFrame(LabelFrame):
                                       command=self.controller.new_single_measurement)
         self.new_meas_button.grid(row=0, column=0, sticky='we', padx=5, pady=5)
         self.new_meas_button.focus_set()
-        new_exp_button = Button(self,
-                                text='New device sweep experiment',
-                                command=self.main_frame.menu_listener.client_new_experiment)
-        new_exp_button.grid(row=1, column=0, sticky='we', padx=5)
+        self.new_exp_button = Button(self,
+                                     text='New device sweep experiment',
+                                     command=self.main_frame.menu_listener.client_new_experiment)
+        self.new_exp_button.grid(row=1, column=0, sticky='we', padx=5)
         self.repeat_meas_button = Button(self,
                                          text='Repeat last executed measurement (Ctrl+R)',
                                          command=self.controller.repeat_last_exec_measurement)
@@ -242,6 +246,7 @@ class MainWindowParameterFrame(Frame):
     """
     The parameters frame, which contains text boxes for chip names and save directories.
     """
+
     def __init__(self, parent, model):
         self.parent = parent
         self.model = model
@@ -279,6 +284,7 @@ class MainWindowAxesFrame(LabelFrame):
     """
     The main axes frame. Contains two selectors for both y and x axis.
     """
+
     def __init__(self, parent, root, controller):
         self.parent = parent
         self.root = root
@@ -319,6 +325,7 @@ class MainWindowLoggingWidget(LabelFrame):
     The logging widget. Displays all logged information.
     Registers itself with the logger.
     """
+
     def __init__(self, parent):
         self.parent = parent
         self.logger = logging.getLogger()
@@ -337,6 +344,7 @@ class MainWindowMeasurementTable(MeasurementTable):
     """
     The main measurement table
     """
+
     def __init__(self, parent, experiment_manager):
         self.parent = parent
         self.experiment_manager = experiment_manager
@@ -355,6 +363,7 @@ class MainWindowToDoTable(ToDoTable):
     """
     The main To do table.
     """
+
     def __init__(self, parent, controller, experiment_manager):
         self.parent = parent
         self.controller = controller
@@ -373,6 +382,7 @@ class MainWindowFinishedMeasFrame(CustomFrame):
     """
     Finished Measurements frame. Sets up the grid and places buttons at the bottom.
     """
+
     def __init__(self, parent, controller):
         self.parent = parent
         self.controller = controller
@@ -402,6 +412,7 @@ class MainWindowToDoFrame(CustomFrame):
     Custom Frame implementation used for the To Do window.
     Sets up the grid and adds the control buttons at the bottom.
     """
+
     def __init__(self, parent, controller):
         self.parent = parent
         self.controller = controller
@@ -435,6 +446,7 @@ class MainWindowFrame(Frame):
     """
     The main Frame class. Provides setup routines for the main window.
     """
+
     def __init__(self, parent, model, controller, experiment_manager):
         """
         Constructor of the main frame. Sets up the TK grid and sets some variables.
@@ -501,7 +513,7 @@ class MainWindowFrame(Frame):
         self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
         self.selec_plot = PlotControl(self, add_toolbar=True, figsize=(5, 5), add_legend=True,
-                                       onclick=self.menu_listener.client_extra_plots)
+                                      onclick=self.menu_listener.client_extra_plots)
         self.selec_plot.title = 'Measurement Selection Plot'
         self.selec_plot.show_grid = True
         self.selec_plot.data_source = self.model.selec_plot_data
@@ -539,6 +551,7 @@ class MainWindowView:
     View Class for the mainwindow. Sets up and controls everything about the mainwindow, including
     the TKinter main window setup routines.
     """
+
     def __init__(self, model, controller, root, experiment_manager):
         self.model = model
         self.controller = controller
@@ -581,7 +594,7 @@ class MainWindowView:
         self.set_up_context_menu()
 
         self.frame.set_up_control_frame()
-        
+
         self.frame.set_up_logging_frame()
         #
         # active and finished measurement tables
