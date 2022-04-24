@@ -4,14 +4,20 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+import json
+import random
+from os import remove
 from time import sleep
 from unittest.mock import patch
 
+import LabExT.Wafer.Device
+import LabExT.Measurements.MeasAPI
 from LabExT.ExperimentManager import ExperimentManager
 from LabExT.Instruments.LaserSimulator import LaserSimulator
 from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
-from LabExT.Tests.Utils import TKinterTestCase
+from LabExT.Tests.Measurements.InsertionLossSweep_test import check_ILsweep_data_output
+from LabExT.Tests.Utils import TKinterTestCase, randomword
 
 
 def simulator_only_instruments_descriptions(name):
@@ -41,6 +47,11 @@ class MainWindowTest(TKinterTestCase):
                 self.mwc.allow_GUI_changes = False
                 self.mwm.allow_GUI_changes = False
 
+    def test_mainwindow_repeated_IL_sweep(self):
+        self.test_mainwindow_single_IL_sweep()
+        self.test_mainwindow_single_IL_sweep()
+        self.test_mainwindow_single_IL_sweep()
+
     def test_mainwindow_single_IL_sweep(self):
         with patch('LabExT.View.EditMeasurementWizard.EditMeasurementWizardController.get_visa_address',
                    simulator_only_instruments_descriptions):
@@ -62,11 +73,15 @@ class MainWindowTest(TKinterTestCase):
             self.pump_events()
             new_meas_wizard_c = self.mwm.last_opened_new_meas_wizard_controller
 
-            # stage 0: ad-hoc device
+            # stage 0: ad-hoc device with randomly generated params
+            random_dev_props = {
+                'id': int(random.randint(0, 99999)),
+                'type': randomword(random.randint(5, 25))
+            }
             new_meas_wizard_c.view.s0_adhoc_frame._entry_id.delete(0, "end")
-            new_meas_wizard_c.view.s0_adhoc_frame._entry_id.insert(0, '999')
+            new_meas_wizard_c.view.s0_adhoc_frame._entry_id.insert(0, str(random_dev_props['id']))
             new_meas_wizard_c.view.s0_adhoc_frame._entry_type.delete(0, "end")
-            new_meas_wizard_c.view.s0_adhoc_frame._entry_type.insert(0, 'MZM')
+            new_meas_wizard_c.view.s0_adhoc_frame._entry_type.insert(0, str(random_dev_props['type']))
             with patch.object(new_meas_wizard_c.view.s0_adhoc_frame, 'serialize'):
                 with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
                     new_meas_wizard_c.view.section_frames[0].continue_button.invoke()
@@ -93,15 +108,24 @@ class MainWindowTest(TKinterTestCase):
                     new_meas_wizard_c.view.section_frames[2].continue_button.invoke()
                     self.pump_events()
 
-            # stage 3: parameter selection
+            # stage 3: parameter selection with randomly generated params
+            random_meas_props = {
+                'wavelength start': random.randint(1460, 1550),
+                'wavelength stop': random.randint(1550, 1640),
+                'wavelength step': random.choice([1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0]),
+                'sweep speed': random.randint(40, 100),
+                'laser power': random.randint(-20, 10),
+                'powermeter range': random.randint(-80, -20),
+                'users comment': 'automated testing ' + randomword(random.randint(2, 40))
+            }
             ps = new_meas_wizard_c.view.s3_measurement_param_table._parameter_source
-            ps['wavelength start'].value = 1500
-            ps['wavelength stop'].value = 1600
-            ps['wavelength step'].value = 10.0
-            ps['sweep speed'].value = 50.0
-            ps['laser power'].value = -10.0
-            ps['powermeter range'].value = -80.0
-            ps['users comment'].value = 'automated testing'
+            ps['wavelength start'].value = random_meas_props['wavelength start']
+            ps['wavelength stop'].value = random_meas_props['wavelength stop']
+            ps['wavelength step'].value = random_meas_props['wavelength step']
+            ps['sweep speed'].value = random_meas_props['sweep speed']
+            ps['laser power'].value = random_meas_props['laser power']
+            ps['powermeter range'].value = random_meas_props['powermeter range']
+            ps['users comment'].value = random_meas_props['users comment']
 
             # this would otherwise save the test params to the user's settings
             with patch.object(new_meas_wizard_c.view.s3_measurement_param_table, 'serialize'):
@@ -113,19 +137,77 @@ class MainWindowTest(TKinterTestCase):
             new_meas_wizard_c.view.section_frames[4].continue_button.invoke()
             self.pump_events()
 
-            # Back to Main Window: run simulation measurement
+            # check if GUI provided values made it into the generated measurement
             self.assertEqual(len(self.expm.exp.to_do_list), 1)
             self.assertEqual(len(self.expm.exp.measurements), 0)
+            new_to_do = self.expm.exp.to_do_list[0]
 
-            # this needs to be patched, otherwise measurement executor thread fails
-            with patch('LabExT.Experiments.StandardExperiment.AutosaveDict.save'):
-                with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
-                    with patch('LabExT.Experiments.StandardExperiment.StandardExperiment.read_parameters_to_variables'):
-                        self.mwm.commands[0].button_handle.invoke()
-                        self.pump_events()
+            new_dev = new_to_do.device
+            self.assertTrue(isinstance(new_dev, LabExT.Wafer.Device.Device))
+            self.assertEqual(new_dev._id, random_dev_props['id'])
+            self.assertEqual(new_dev._type, random_dev_props['type'])
 
-            sleep(10)
+            new_meas = new_to_do.measurement
+            self.assertTrue(isinstance(new_meas, LabExT.Measurements.MeasAPI.Measurement))
+            self.assertEqual(new_meas.parameters['wavelength start'].value, random_meas_props['wavelength start'])
+            self.assertEqual(new_meas.parameters['wavelength stop'].value, random_meas_props['wavelength stop'])
+            self.assertEqual(new_meas.parameters['wavelength step'].value, random_meas_props['wavelength step'])
+            self.assertEqual(new_meas.parameters['sweep speed'].value, random_meas_props['sweep speed'])
+            self.assertEqual(new_meas.parameters['laser power'].value, random_meas_props['laser power'])
+            self.assertEqual(new_meas.parameters['powermeter range'].value, random_meas_props['powermeter range'])
+            self.assertEqual(new_meas.parameters['users comment'].value, random_meas_props['users comment'])
+            self.assertEqual(set(new_meas.parameters.keys()),
+                             {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
+                              'powermeter range', 'users comment'})
+
+            # Back to Main Window: run simulation measurement
+            # various patches necessary s.t. tkinter runs although there is no main thread
+            with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
+                with patch('LabExT.Experiments.StandardExperiment.StandardExperiment.read_parameters_to_variables'):
+                    self.mwm.commands[0].button_handle.invoke()
+                    self.pump_events()
+
+            # wait for the simulated measurement to complete
+            sleep(10)  # maximum real-life test time is about 5s with above given params
             self.pump_events()
 
+            # check if provided values are actually saved in the dictionary
             self.assertEqual(len(self.expm.exp.to_do_list), 0)
             self.assertEqual(len(self.expm.exp.measurements), 1)
+            executed_measurement = self.expm.exp.measurements[0]
+
+            def check_meas_dict_meta_data(meas_dict):
+
+                executed_dev = meas_dict['device']
+                self.assertEqual(executed_dev['id'], random_dev_props['id'])
+                self.assertEqual(executed_dev['type'], random_dev_props['type'])
+
+                executed_meas = meas_dict['measurement settings']
+                self.assertEqual(executed_meas['wavelength start']['value'], random_meas_props['wavelength start'])
+                self.assertEqual(executed_meas['wavelength stop']['value'], random_meas_props['wavelength stop'])
+                self.assertEqual(executed_meas['wavelength step']['value'], random_meas_props['wavelength step'])
+                self.assertEqual(executed_meas['sweep speed']['value'], random_meas_props['sweep speed'])
+                self.assertEqual(executed_meas['laser power']['value'], random_meas_props['laser power'])
+                self.assertEqual(executed_meas['powermeter range']['value'], random_meas_props['powermeter range'])
+                self.assertEqual(executed_meas['users comment']['value'], random_meas_props['users comment'])
+                self.assertEqual(set(executed_meas.keys()),
+                                 {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
+                                  'powermeter range', 'users comment'})
+
+            # check content
+            # check metadata in the saved dictionary
+            check_meas_dict_meta_data(executed_measurement)
+            # for checking the simulated data, we can re-use the checker function from the measurement's test
+            check_ILsweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=ps)
+
+            # do the same analysis on the saved file
+            fpath = executed_measurement['file_path_known']
+            with open(fpath, 'r') as fp:
+                fsaved_meas = json.load(fp)  # tests if valid JSON
+
+            # check content of saved file
+            check_meas_dict_meta_data(fsaved_meas)
+            check_ILsweep_data_output(test_inst=self, data_dict=fsaved_meas, params_dict=ps)
+
+            # delete the generated save file
+            remove(fpath)

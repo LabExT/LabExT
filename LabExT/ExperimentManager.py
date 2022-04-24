@@ -75,9 +75,8 @@ class ExperimentManager:
 
         # create global unique resource manager
         global RESOURCE_MANAGER
-        if RESOURCE_MANAGER is not None:
-            raise RuntimeError("ExperimentManager must only be instantiated once!")
-        RESOURCE_MANAGER = ReusingResourceManager(get_visa_lib_string())
+        if RESOURCE_MANAGER is None:
+            RESOURCE_MANAGER = ReusingResourceManager(get_visa_lib_string())
         self.resource_manager = RESOURCE_MANAGER
 
         # create a new StandardExperiment
