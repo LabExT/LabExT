@@ -168,7 +168,7 @@ class MainWindowTest(TKinterTestCase):
                     self.pump_events()
 
             # wait for the simulated measurement to complete
-            sleep(10)  # maximum real-life test time is about 5s with above given params
+            self.mwm.experiment_handler._experiment_thread.join()
             self.pump_events()
 
             # check if provided values are actually saved to the objects in LabExT
