@@ -37,6 +37,9 @@ class MainWindowTest(TKinterTestCase):
                 self.mwc = self.expm.main_window
                 self.mwm = self.mwc.model
                 self.mwv = self.mwc.view
+                # this "patches" out some features of the classes due to patching not working across threads
+                self.mwc.allow_GUI_changes = False
+                self.mwm.allow_GUI_changes = False
 
     def test_mainwindow_single_IL_sweep(self):
         with patch('LabExT.View.EditMeasurementWizard.EditMeasurementWizardController.get_visa_address',
@@ -115,14 +118,11 @@ class MainWindowTest(TKinterTestCase):
             self.assertEqual(len(self.expm.exp.measurements), 0)
 
             # this needs to be patched, otherwise measurement executor thread fails
-            # ToDo: find out how to patch this properly
             with patch('LabExT.Experiments.StandardExperiment.AutosaveDict.save'):
-                with patch.object(self.mwm, 'exctrl_vars_changed'):
-                    with patch.object(self.expm.exp, 'read_parameters_to_variables'):
-                        with patch.object(self.mwc, 'update_tables'):
-                            with patch.object(self.mwm, 'on_experiment_finished'):
-                                self.mwm.commands[0].button_handle.invoke()
-                                self.pump_events()
+                with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
+                    with patch('LabExT.Experiments.StandardExperiment.StandardExperiment.read_parameters_to_variables'):
+                        self.mwm.commands[0].button_handle.invoke()
+                        self.pump_events()
 
             sleep(10)
             self.pump_events()

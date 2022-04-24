@@ -91,6 +91,9 @@ class MainWindowModel:
         self.status_sfp_initialized = BooleanVar(self.root)
         self.status_sfp_initialized.trace("w", self.submodule_status_updated)
 
+        # for testing across threads
+        self.allow_GUI_changes = True  # set to False to not invoke TK callbacks
+
     def load_exp_parameters(self):
         """
         Loads all experiment parameters and saves them within the model.
@@ -115,6 +118,9 @@ class MainWindowModel:
         """
         Upon start of the experiment alters which buttons are pressable.
         """
+        if not self.allow_GUI_changes:
+            return
+
         # change control button states
         self.commands[0].can_execute = False  # disable the start button
         self.commands[1].can_execute = True  # enable the stop button
@@ -126,6 +132,9 @@ class MainWindowModel:
         """Called when an experiment is finished. Resets control
         buttons.
         """
+        if not self.allow_GUI_changes:
+            return
+
         self.logger.debug('Experiment finished, resetting controls...')
         self.commands[0].can_execute = True  # enable the start button
         self.commands[1].can_execute = False  # disable the stop button
@@ -141,6 +150,9 @@ class MainWindowModel:
         *args
             Tkinter arguments, not needed.
         """
+        if not self.allow_GUI_changes:
+            return
+
         self.logger.debug('State of manual mode is: %s', self.var_mm_pause.get())
         self.logger.debug('State of auto move is: %s', self.var_auto_move.get())
         self.logger.debug('State of SFP enable is: %s', self.var_sfp_ena.get())
@@ -154,6 +166,9 @@ class MainWindowModel:
         """
         Callback on any status change of the submodules
         """
+
+        if not self.allow_GUI_changes:
+            return
 
         # this variable should track Mover.mover_enabled
         mover_ena = bool(self.status_mover_driver_enabled.get())

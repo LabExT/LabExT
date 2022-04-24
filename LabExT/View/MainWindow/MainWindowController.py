@@ -63,6 +63,8 @@ class MainWindowController:
 
         self._register_keyboard_shortcuts()
 
+        self.allow_GUI_changes = True
+
     def on_window_close(self):
         """Called when user closes the application. Save experiment
         settings in .json and call context-callback.
@@ -86,6 +88,9 @@ class MainWindowController:
     def update_tables(self, plot_new_meas=False):
         """Updates the two tables in the main window.
         """
+        if not self.allow_GUI_changes:
+            return
+
         self.logger.debug('Updating tables...')
         # set the cursor to loading
         self.root.config(cursor='circle')
