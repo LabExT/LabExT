@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 from unittest.mock import patch, mock_open
+from pathlib import Path
 
 from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
@@ -42,7 +43,7 @@ class DriverPathDialogTest(TKinterTestCase):
                     dialog._save_button.invoke()
 
                 messagebox_mock.assert_called_once()
-                self.assertEqual(dialog.driver_path, current_driver_path)
+                self.assertEqual(Path(dialog.driver_path), Path(current_driver_path))
                 self.assertFalse(dialog.path_has_changed)
 
     def test_save_with_change(self):
@@ -60,5 +61,5 @@ class DriverPathDialogTest(TKinterTestCase):
                     dialog._save_button.invoke()
 
                 messagebox_mock.assert_called_once()
-                self.assertEqual(dialog.driver_path, new_driver_path)
+                self.assertEqual(Path(dialog.driver_path), Path(current_driver_path))
                 self.assertTrue(dialog.path_has_changed)
