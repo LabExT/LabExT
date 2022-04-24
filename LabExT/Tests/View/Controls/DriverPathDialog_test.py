@@ -61,5 +61,5 @@ class DriverPathDialogTest(TKinterTestCase):
                     dialog._save_button.invoke()
 
                 messagebox_mock.assert_called_once()
-                self.assertEqual(Path(dialog.driver_path), Path(current_driver_path))
+                self.assertEqual(Path(dialog.driver_path), Path(new_driver_path))
                 self.assertTrue(dialog.path_has_changed)
