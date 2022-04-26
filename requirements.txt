@@ -91,6 +91,8 @@ pyparsing==3.0.9
     #   packaging
 pyserial==3.5
     # via -r requirements.in
+pytest==7.1.2
+    # via -r requirements.in
 python-dateutil==2.8.2
     # via
     #   ghp-import

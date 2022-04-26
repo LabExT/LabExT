@@ -42,6 +42,10 @@ bidict
 # auxiliary data structures
 bidict
 
+# tools for testing
+parameterized
+pytest
+
 # tools for development
 # pip-tools
 # build
