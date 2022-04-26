@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
-This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
+This program is free software and comes with ABSOLUTELY NO WARRANTY;
+for details see LICENSE file.
 """
 
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Type
 import numpy as np
@@ -40,6 +42,124 @@ class Transformation(ABC):
         Transforms a coordinate in stage space to chip space.
         """
         pass
+
+
+class Coordinate(ABC):
+    """
+    Abstract base class of a coordinate with X, Y and Z values.
+
+    The base class cannot be initialised directly.
+    """
+    @classmethod
+    def from_list(cls, list: list) -> Type[Coordinate]:
+        """
+        Returns a new coordinate, created from a list.
+        """
+        return cls(*list[:3])
+
+    @classmethod
+    def from_numpy(cls, array: np.ndarray) -> Type[Coordinate]:
+        """
+        Returns a new coordinate created from a one-dimensional numpy array.
+        """
+        if array.ndim != 1:
+            raise ValueError("The given array is not a 1D-Array.")
+
+        return cls(*array.tolist()[:3])
+
+    @abstractmethod
+    def __init__(self, x=0, y=0, z=0) -> None:
+        """
+        Constructor.
+        """
+        self.x = x
+        self.y = y
+        self.z = z
+
+        self.type: Coordinate = type(self)
+
+    def __str__(self) -> str:
+        """
+        Prints coordinate rounded to 2 digits
+        """
+        return "[{:.2f}, {:.2f}, {:.2f}]".format(self.x, self.y, self.z)
+
+    def __add__(self, other) -> Type[Coordinate]:
+        """
+        Adds two coordinates.
+        Returns a new coordinate of the same type.
+
+        Raises TypeError if both coordinates are not the same type.
+        """
+        if not isinstance(other, self.type):
+            raise TypeError(
+                "Invalid types: {} and {} cannot be added.".format(
+                    self.type, type(other)))
+
+        return self.type.from_numpy(self.to_numpy() + other.to_numpy())
+
+    def __sub__(self, other) -> Type[Coordinate]:
+        """
+        Subtracts two coordinates.
+        Returns a new coordinate of the same type.
+
+        Raises TypeError if both coordinates are not the same type.
+        """
+        if not isinstance(other, self.type):
+            raise TypeError(
+                "Invalid types: {} and {} cannot be added.".format(
+                    self.type, type(other)))
+
+        return self.type.from_numpy(self.to_numpy() - other.to_numpy())
+
+    def __eq__(self, o: object) -> bool:
+        """
+        Compares two coordinates.
+
+        Two coordinates are equal, if they are of the same type and all
+        values are equal.
+        """
+        if not isinstance(o, self.type):
+            return False
+
+        return o.x == self.x and o.y == self.y and o.z == self.z
+
+    def __mul__(self, scalar) -> Type[Coordinate]:
+        """
+        Multiplies the coordinate by a scalar.
+        Returns a new coordinate of the same type.
+        """
+        return self.type.from_numpy(self.to_numpy() * scalar)
+
+    def to_list(self) -> list:
+        """
+        Returns the coordinate as a list.
+        """
+        return [self.x, self.y, self.z]
+
+    def to_numpy(self) -> np.ndarray:
+        """
+        Returns the coordinate as a numpy array.
+        """
+        return np.array(self.to_list())
+
+
+class StageCoordinate(Coordinate):
+    """
+    A Coordinate in the coordinate system of a stage.
+    """
+
+    def __init__(self, x=0, y=0, z=0) -> None:
+        super().__init__(x, y, z)
+
+
+class ChipCoordinate(Coordinate):
+    """
+    A Coordinate in the cooridnate system of a chip.
+    """
+
+    def __init__(self, x=0, y=0, z=0) -> None:
+        super().__init__(x, y, z)
 
 
 class CoordinatePairing(NamedTuple):
