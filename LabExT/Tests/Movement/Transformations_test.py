@@ -13,9 +13,10 @@ import numpy as np
 from parameterized import parameterized
 from itertools import product, combinations, permutations
 from scipy.spatial.transform import Rotation
+from LabExT.Movement.Calibration import Calibration
 
 from LabExT.Movement.config import Direction, Axis
-from LabExT.Movement.Transformations import Coordinate, ChipCoordinate,\
+from LabExT.Movement.Transformations import Coordinate, ChipCoordinate, KabschRotation,\
     StageCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, Transformation, TransformationError, assert_valid_transformation
 from LabExT.Tests.Utils import get_calibrations_from_file
 
@@ -23,6 +24,8 @@ from LabExT.Tests.Utils import get_calibrations_from_file
 POSSIBLE_AXIS_ROTATIONS = list(product(
     permutations(Axis), product(
         Direction, repeat=3)))
+
+VACHERIN_ROTATION, VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS = get_calibrations_from_file("vacherin.json", "left")
 
 class CoordinateTest(unittest.TestCase):
 
@@ -327,15 +330,12 @@ class SinglePointOffsetTest(unittest.TestCase):
         (-50, 1120, 0)
     ])
     def test_against_kabsch_rotation(self, chip_x, chip_y, chip_z):
-        axes_rotation, stage_coordinates, chip_coordinates = get_calibrations_from_file(
-            "vacherin.json", "left")
+        self.rotation.matrix = VACHERIN_ROTATION
 
-        self.rotation.matrix = axes_rotation
-
-        stage_offset = stage_coordinates.mean(axis=0)
-        chip_offset = chip_coordinates.mean(axis=0)
+        stage_offset = VACHERIN_STAGE_COORDS.mean(axis=0)
+        chip_offset = VACHERIN_CHIP_COORDS.mean(axis=0)
         kabsch, _ = Rotation.align_vectors(
-            chip_coordinates - chip_offset, stage_coordinates - stage_offset)
+            VACHERIN_CHIP_COORDS - chip_offset, VACHERIN_STAGE_COORDS - stage_offset)
 
         device_coordinate = ChipCoordinate(chip_x, chip_y, chip_z)
 
@@ -344,12 +344,105 @@ class SinglePointOffsetTest(unittest.TestCase):
 
         self.transformation.update(CoordinatePairing(
             calibration=Mock(),
-            stage_coordinate=StageCoordinate(*stage_coordinates[0]),
+            stage_coordinate=StageCoordinate(*VACHERIN_STAGE_COORDS[0]),
             device=None,
-            chip_coordinate=ChipCoordinate(*chip_coordinates[0])))
+            chip_coordinate=ChipCoordinate(*VACHERIN_CHIP_COORDS[0])))
 
-        self.assertTrue(np.isclose(
+        self.assertTrue(np.allclose(
             expected_stage_coordinate,
             self.transformation.chip_to_stage(device_coordinate).to_numpy(),
             rtol=1,
-            atol=1).all())
+            atol=1))
+
+
+class KabschRotationTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.transformation = KabschRotation()
+        self.calibration = Mock(spec=Calibration)
+        return super().setUp()
+
+    def test_initialization(self):
+        self.transformation.initialize()
+
+        self.assertIsNone(self.transformation.rotation)
+        self.assertIsNone(self.transformation.chip_offset)
+        self.assertIsNone(self.transformation.stage_offset)
+        self.assertIsNone(self.transformation.rmsd)
+        self.assertEqual(self.transformation.pairings, [])
+
+        self.assertFalse(self.transformation.is_valid)
+
+    @parameterized.expand([
+        (CoordinatePairing(None, None, None, None),),
+        (CoordinatePairing(None, StageCoordinate(1, 2, 3), None, None),),
+        (CoordinatePairing(None, None, None, ChipCoordinate(1, 2, 3)),),
+        (CoordinatePairing(None, StageCoordinate(1, 2, 3), None, ChipCoordinate(1, 2, 3)),),
+        (CoordinatePairing(Mock(), StageCoordinate(1, 2, 3), None, ChipCoordinate(1, 2, 3)),),
+        (CoordinatePairing(None, StageCoordinate(1, 2, 3), Mock(), ChipCoordinate(1, 2, 3)),),
+    ])
+    def test_update_with_invalid_pairing(self, invalid_pairing):
+        with self.assertRaises(ValueError):
+            self.transformation.update(invalid_pairing)
+
+        self.assertNotIn(invalid_pairing, self.transformation.pairings)
+
+    def test_update_with_double_device(self):
+        device = Mock()
+        pairing = CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=StageCoordinate(1,2,3),
+            device=device,
+            chip_coordinate=ChipCoordinate(4,5,6))
+
+        self.transformation.update(pairing)
+        self.assertIn(pairing, self.transformation.pairings)
+
+        pairing_2 = CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=StageCoordinate(7,8,9),
+            device=device,
+            chip_coordinate=ChipCoordinate(8,7,6))
+
+        with self.assertRaises(ValueError):
+            self.transformation.update(pairing_2)
+
+        self.assertNotIn(pairing_2, self.transformation.pairings)
+
+    @parameterized.expand([(np.delete(VACHERIN_STAGE_COORDS, (i), axis=0), np.delete(VACHERIN_CHIP_COORDS, (i), axis=0), VACHERIN_STAGE_COORDS[i,:], VACHERIN_CHIP_COORDS[i,:]) for i in range(0,4)])
+    def test_transformation_estimates_fourth_variable(self, stage_coordinates, chip_coordinates, test_stage_coordinate, test_chip_coordinate):
+        for stage_coord, chip_coord in zip(stage_coordinates, chip_coordinates):
+            pairing = CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord))
+
+            self.transformation.update(pairing)
+            self.assertIn(pairing, self.transformation.pairings)
+
+        self.assertTrue(self.transformation.is_valid)
+
+        test_stage_coordinate = StageCoordinate.from_numpy(test_stage_coordinate)
+        test_chip_coordinate = ChipCoordinate.from_numpy(test_chip_coordinate)
+
+        self.assertTrue(np.allclose(test_stage_coordinate.to_numpy(), self.transformation.chip_to_stage(test_chip_coordinate).to_numpy(), rtol=1, atol=1))
+        self.assertTrue(np.allclose(test_chip_coordinate.to_numpy(), self.transformation.stage_to_chip(test_stage_coordinate).to_numpy(), rtol=1, atol=1))
+
+    
+    def test_reversibility(self):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        chip_coordinate = ChipCoordinate(1,2,3)
+        stage_coordinate = StageCoordinate(4,5,6)
+
+        self.assertTrue(np.allclose(
+            self.transformation.stage_to_chip(self.transformation.chip_to_stage(chip_coordinate)).to_numpy(),
+            chip_coordinate.to_numpy()))
+        self.assertTrue(np.allclose(
+            self.transformation.chip_to_stage(self.transformation.stage_to_chip(stage_coordinate)).to_numpy(),
+            stage_coordinate.to_numpy()))
