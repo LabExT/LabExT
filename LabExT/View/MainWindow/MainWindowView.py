@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import logging
 from platform import system
 from tkinter import Frame, Menu, Checkbutton, \
-    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext
+    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version
@@ -153,28 +153,34 @@ class MainWindowControlPanel(ControlPanel):
         self.exctrl_mm_pause_reason.config(state='disabled')
         self.add_widget(self.exctrl_mm_pause_reason, column=2, row=1, sticky='we')
 
+        self.wait_time_lbl = Label(self, text="Wait time between measurements")
+        self.add_widget(self.wait_time_lbl, column=1, row=2, sticky='we')
+        self.exctrl_wait_time = Entry(self, textvariable=self.model.var_imeas_wait_time_str)
+        self.add_widget(self.exctrl_wait_time, column=2, row=2, sticky='we')
+
         self.exctrl_auto_move = Checkbutton(
             self,
             text="Automatically move Piezo Stages to device",
             variable=self.model.var_auto_move)
-        self.add_widget(self.exctrl_auto_move, column=0, row=2, columnspan=2, sticky='we')
+        self.add_widget(self.exctrl_auto_move, column=0, row=3, columnspan=2, sticky='we')
         self.exctrl_auto_move_reason = Label(self, textvariable=self.model.var_auto_move_reason)
         self.exctrl_auto_move_reason.config(state='disabled')
-        self.add_widget(self.exctrl_auto_move_reason, column=2, row=2, sticky='we')
+        self.add_widget(self.exctrl_auto_move_reason, column=2, row=3, sticky='we')
 
         self.exctrl_sfp_ena = Checkbutton(
             self,
             text="Execute Search-for-Peak before measurement",
             variable=self.model.var_sfp_ena)
-        self.add_widget(self.exctrl_sfp_ena, column=0, row=3, columnspan=2, sticky='we')
+        self.add_widget(self.exctrl_sfp_ena, column=0, row=4, columnspan=2, sticky='we')
         self.exctrl_sfp_ena_reason = Label(self, textvariable=self.model.var_sfp_ena_reason)
         self.exctrl_sfp_ena_reason.config(state='disabled')
-        self.add_widget(self.exctrl_sfp_ena_reason, column=2, row=3, sticky='we')
+        self.add_widget(self.exctrl_sfp_ena_reason, column=2, row=4, sticky='we')
 
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=1)
         self.rowconfigure(3, weight=1)
+        self.rowconfigure(4, weight=1)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)

@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
-from tkinter import BooleanVar, StringVar
+from tkinter import BooleanVar, StringVar, DoubleVar
 
 from LabExT.Model.ExperimentHandler import ExperimentHandler
 from LabExT.Utils import DeprecatedException
@@ -81,6 +81,8 @@ class MainWindowModel:
         self.var_sfp_ena = BooleanVar(self.root)
         self.var_sfp_ena.trace("w", self.exctrl_vars_changed)
         self.var_sfp_ena_reason = StringVar(self.root)
+        self.var_imeas_wait_time_str = StringVar(self.root, "0.0")
+        self.var_imeas_wait_time_str.trace("w", self.exctrl_vars_changed)
 
         # status of various sub-modules
         self.status_mover_driver_enabled = BooleanVar(self.root)
@@ -140,14 +142,39 @@ class MainWindowModel:
         *args
             Tkinter arguments, not needed.
         """
+        # save udpates of control variables to log
         self.logger.debug('State of manual mode is: %s', self.var_mm_pause.get())
         self.logger.debug('State of auto move is: %s', self.var_auto_move.get())
         self.logger.debug('State of SFP enable is: %s', self.var_sfp_ena.get())
+        self.logger.debug('Inter-measurement wait time is: %s', self.var_imeas_wait_time_str.get())
 
         # propagate change to experiment
         self.experiment_manager.exp.exctrl_pause_after_device = self.var_mm_pause.get()
         self.experiment_manager.exp.exctrl_auto_move_stages = self.var_auto_move.get()
         self.experiment_manager.exp.exctrl_enable_sfp = self.var_sfp_ena.get()
+
+        # allow wait time changes only if manual mode is not activated
+        if self.var_mm_pause.get():
+            self.view.frame.control_panel.exctrl_wait_time.config(state='disabled')
+            self.view.frame.control_panel.wait_time_lbl.config(state='disabled')
+            self.var_imeas_wait_time_str.set("0.0")
+        else:
+            self.view.frame.control_panel.exctrl_wait_time.config(state='normal')
+            self.view.frame.control_panel.wait_time_lbl.config(state='normal')
+
+        # convert wait time to float and check for positive-ness
+        try:
+            imeas_wait_time = float(self.var_imeas_wait_time_str.get())
+        except ValueError:
+            # text does not convert to float, so we skip updating the variable
+            return
+
+        if imeas_wait_time < 0.0:
+            self.logger.info('Inter-measurement wait time cannot be negative. Setting to 0.0')
+            imeas_wait_time = 0.0
+            self.var_imeas_wait_time_str.set("0.0")
+
+        self.experiment_manager.exp.exctrl_inter_measurement_wait_time = imeas_wait_time
 
     def submodule_status_updated(self, *args):
         """
