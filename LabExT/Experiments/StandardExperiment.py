@@ -192,7 +192,7 @@ class StandardExperiment:
                 self.logger.info('Search for peak done.')
             else:
                 data['search for peak'] = None
-                self.logger.info('Search for peak not enabled. Not executing automatic search for peak.')
+                self.logger.debug('Search for peak not enabled. Not executing automatic search for peak.')
 
             self._parent.config(cursor='circle')
             self.logger.info('Executing measurement %s on device %s.',

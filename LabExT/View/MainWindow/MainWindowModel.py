@@ -49,13 +49,10 @@ class MainWindowModel:
         self.commands = list()
         start_button = ControlCommand(
             self.controller.start, self.root, name='Run (F5)')
+        self.commands.append(start_button)
         stop_button = ControlCommand(
             self.controller.stop, self.root, name='Abort (Escape)', can_execute=False)
-        finish_button = ControlCommand(
-            self.finish, self.root, name='Finish', can_execute=False)
-        self.commands.append(start_button)
         self.commands.append(stop_button)
-        self.commands.append(finish_button)
 
         self.experiment = None
         self.chip_parameters = None
@@ -108,9 +105,6 @@ class MainWindowModel:
 
     def settings(self):
         raise DeprecationWarning("Open Settings window is deprecated. Do not use!")
-
-    def finish(self):
-        raise DeprecationWarning("Finish button function is deprecated. Do not use!")
 
     def on_experiment_start(self):
         """
