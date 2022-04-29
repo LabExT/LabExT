@@ -151,7 +151,6 @@ class MainWindowModel:
         if self.var_mm_pause.get():
             self.view.frame.control_panel.exctrl_wait_time.config(state='disabled')
             self.view.frame.control_panel.wait_time_lbl.config(state='disabled')
-            self.var_imeas_wait_time_str.set("0.0")
         else:
             self.view.frame.control_panel.exctrl_wait_time.config(state='normal')
             self.view.frame.control_panel.wait_time_lbl.config(state='normal')
