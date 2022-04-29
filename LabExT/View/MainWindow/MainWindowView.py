@@ -153,7 +153,7 @@ class MainWindowControlPanel(ControlPanel):
         self.exctrl_mm_pause_reason.config(state='disabled')
         self.add_widget(self.exctrl_mm_pause_reason, column=1, row=1, sticky='we')
 
-        self.wait_time_lbl = Label(self, text="Wait time between measurements")
+        self.wait_time_lbl = Label(self, text="Seconds to wait between measurements")
         self.add_widget(self.wait_time_lbl, column=0, row=2, sticky='e')
         self.exctrl_wait_time = Entry(self, textvariable=self.model.var_imeas_wait_time_str)
         self.add_widget(self.exctrl_wait_time, column=1, row=2, sticky='w', padx=5, pady=5)
