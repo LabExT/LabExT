@@ -214,7 +214,7 @@ class MoverNew:
             raise MoverError(
                 "A stage has already been assigned for {}.".format(orientation))
 
-        calibration = Calibration(self, stage, orientation, port)
+        calibration = Calibration(stage, orientation, port)
 
         if stage in self.active_stages:
             del self._port_by_orientation[orientation]

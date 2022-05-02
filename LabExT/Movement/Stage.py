@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from functools import wraps
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from os.path import dirname, join
 from typing import NamedTuple
 
@@ -164,6 +164,26 @@ class Stage(ABC):
         pass
 
     @abstractmethod
+    def get_position(self) -> list:
+        pass
+
+    @abstractmethod
+    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
+        pass
+
+    @abstractmethod
+    def move_absolute(self, x: float = None, y: float = None, z: float = None, wait_for_stopping: bool = True) -> None:
+        pass
+
+
+    # LEGACY SUPPORT
+    # The following methods are deprecated and will be remove in the future
+
+    @abstractmethod
+    def get_current_position(self):
+        pass
+
+    @abstractmethod
     def wiggle_z_axis_positioner(self):
         pass
 
@@ -173,16 +193,4 @@ class Stage(ABC):
 
     @abstractmethod
     def lower_stage(self):
-        pass
-
-    @abstractmethod
-    def get_current_position(self):
-        pass
-
-    @abstractmethod
-    def move_relative(self, x, y):
-        pass
-
-    @abstractmethod
-    def move_absolute(self, pos):
         pass

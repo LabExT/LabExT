@@ -7,7 +7,7 @@ for details see LICENSE file.
 """
 
 from enum import Enum, auto
-
+from functools import total_ordering
 
 class BaseEnum(Enum):
     def _generate_next_value_(name, start, count, last_values):
@@ -46,6 +46,7 @@ class DevicePort(BaseEnum):
     OUTPUT = auto()
 
 
+@total_ordering
 class State(BaseEnum):
     """
     Enumerate different calibration states.
@@ -57,3 +58,21 @@ class State(BaseEnum):
     FULLY_CALIBRATED = 4
 
     def __str__(self) -> str: return self.name.replace('_', ' ').capitalize()
+
+    def __eq__(self, other):
+        """
+        Compare two states for equality.
+        """
+        if self.__class__ is other.__class__:
+            return self.value == other.value
+        
+        return NotImplemented
+            
+    def __lt__(self, other):
+        """
+        Compare two states on "less than".
+        """
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        
+        return NotImplemented

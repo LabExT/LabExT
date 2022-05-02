@@ -11,6 +11,8 @@ from enum import Enum
 from itertools import product
 import unittest
 from unittest.mock import Mock, ANY, call, patch, DEFAULT
+from parameterized import parameterized
+
 from LabExT.Movement.Stage import Stage, StageError
 import LabExT.Movement.Stages.Stage3DSmarAct as SmarActModule
 
@@ -91,12 +93,13 @@ class SmarActTestCase(unittest.TestCase):
         """
         Checks if a driver function mock was called with a list of arguments with ctypes.
         """
-        def extract_value(args): return [
-            v.value if isinstance(
-                v, ct._SimpleCData) else v for v in args]
+        self.assertTrue(self._mock_has_call_with_arguments(func, args))
 
-        self.assertTrue(any(extract_value(mock_call[0]) == extract_value(
-            expected_args) for mock_call, expected_args in product(func.call_args_list, [args])))
+    def assert_mock_has_no_call_with_arguments(self, func, args):
+        """
+        Checks if a driver function mock was not called with a list of arguments with ctypes.
+        """
+        self.assertFalse(self._mock_has_call_with_arguments(func, args))
 
     @contextmanager
     def assert_stage_disconnect(self, stage, mcsc_mock: MCSControlInterface):
@@ -132,6 +135,18 @@ class SmarActTestCase(unittest.TestCase):
             with self.assert_exit_without_error(mcsc_mock):
                 stage.connect()
                 yield(system_handle)
+
+
+    def _mock_has_call_with_arguments(self, func, args):
+        """
+        Returns True if mock function has any call with given arguments
+        """
+        def extract_value(args): return [
+            v.value if isinstance(
+                v, ct._SimpleCData) else v for v in args]
+
+        return any(extract_value(mock_call[0]) == extract_value(
+            expected_args) for mock_call, expected_args in product(func.call_args_list, [args]))
 
 
 class BaseTest(SmarActTestCase):
@@ -348,6 +363,59 @@ class BaseTest(SmarActTestCase):
             mcsc_mock.SA_GotoPositionAbsolute_S,
             (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(-1000000), 0)
         )
+
+    @parameterized.expand([
+        (None, None, None),
+        (None, None, 300),
+        (None, 200, None),
+        (None, 200, 300),
+        (100, None, None),
+        (100, None, 300),
+        (100, 200, None),
+        (100, 200, 300)
+    ])
+    @with_MCSControl_driver_patch
+    def test_move_absolute_v2(
+            self, x, y, z, mcsc_mock: MCSControlInterface):
+        move_absolute_driver = mcsc_mock.SA_GotoPositionAbsolute_S
+        move_absolute_driver.return_value = MCSC_STATUS_OK
+
+        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
+            with self.assert_exit_without_error(mcsc_mock):
+                self.stage.move_absolute(x, y, z, wait_for_stopping=False)
+
+        if x is not None:
+            self.assert_mock_has_call_with_arguments(
+                move_absolute_driver,
+                (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(int(x * 1e3)), 0)
+            )
+        else:
+            self.assert_mock_has_no_call_with_arguments(
+                move_absolute_driver,
+                (ct.c_ulong(system_handle), ct.c_ulong(0), ANY, 0)
+            )
+
+        if y is not None:
+            self.assert_mock_has_call_with_arguments(
+                move_absolute_driver,
+                (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(int(y * 1e3)), 0)
+            )
+        else:
+            self.assert_mock_has_no_call_with_arguments(
+                move_absolute_driver,
+                (ct.c_ulong(system_handle), ct.c_ulong(1), ANY, 0)
+            )
+
+        if z is not None:
+            self.assert_mock_has_call_with_arguments(
+                move_absolute_driver,
+                (ct.c_ulong(system_handle), ct.c_ulong(2), ct.c_int(int(z * 1e3)), 0)
+            )
+        else:
+            self.assert_mock_has_no_call_with_arguments(
+                move_absolute_driver,
+                (ct.c_ulong(system_handle), ct.c_ulong(2), ANY, 0)
+            )
 
     @with_MCSControl_driver_patch
     @patch("LabExT.Movement.Stages.Stage3DSmarAct.time.sleep")

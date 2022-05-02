@@ -118,8 +118,11 @@ class DummyStage(Stage):
     def get_current_position(self):
         return [0, 0]
 
-    def move_relative(self, x, y, z=0):
+    def get_position(self) -> list:
+        return [0, 0, 0]
+
+    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
         pass
 
-    def move_absolute(self, pos):
+    def move_absolute(self, x: float = None, y: float = None, z: float = None, wait_for_stopping: bool = True) -> None:
         pass

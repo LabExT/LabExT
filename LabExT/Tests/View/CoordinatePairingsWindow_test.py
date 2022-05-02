@@ -29,20 +29,16 @@ class Foo(TKinterTestCase):
 
         self.experiment_manager = Mock()
 
-        self.mover = MoverNew(self.experiment_manager)
-
         self.stage_1 = Mock(spec=Stage)
         self.stage_2 = Mock(spec=Stage)
         self.stage_1.connected = True
         self.stage_2.connected = True
 
         self.in_calibration = Calibration(
-            self.mover,
             self.stage_1,
             Orientation.LEFT,
             DevicePort.INPUT)
         self.out_calibration = Calibration(
-            self.mover,
             self.stage_2,
             Orientation.RIGHT,
             DevicePort.OUTPUT)

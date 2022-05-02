@@ -4,6 +4,7 @@
 LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from ast import arg
 import sys
 import json
 import time
@@ -11,9 +12,9 @@ import ctypes as ct
 from enum import Enum
 from tkinter import TclError
 from typing import List
+from warnings import warn
 
-from LabExT.Movement.config import Axis
-from LabExT.Movement.Stage import Stage, StageMeta, StageError, assert_stage_connected, assert_driver_loaded
+from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
@@ -40,6 +41,13 @@ class MovementType(Enum):
     ABSOLUTE = 1
 
 
+class Axis(Enum):
+    """Enumerate different channels. Each channel represents one axis."""
+    X = 0
+    Y = 1
+    Z = 2
+
+
 class Stage3DSmarAct(Stage):
     """Implementation of a SmarAct stage. Communication with the devices using the driver version 1.
 
@@ -53,10 +61,6 @@ class Stage3DSmarAct(Stage):
 
     driver_loaded = MCS_LOADED
     driver_path_dialog = None
-    meta = StageMeta(
-        description='SmarAct Modular Control System',
-        driver_specifiable=True
-    )
 
     @classmethod
     def load_driver(cls, parent) -> bool:
@@ -638,6 +642,23 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
+    def get_position(self) -> list:
+        """
+        Get current position of the stages in micrometers.
+
+        Returns
+        -------
+        list
+            Returns current position in [x,y,z] format in units of um.
+        """
+        return [
+            self.channels[Axis.X].position,
+            self.channels[Axis.Y].position,
+            self.channels[Axis.Z].position,
+        ]
+
+    @assert_driver_loaded
+    @assert_stage_connected
     def move_relative(self, x, y, z=0, wait_for_stopping: bool = True):
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
@@ -668,16 +689,30 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_absolute(self, pos, wait_for_stopping: bool = True):
-        """Performs an absolute movement to the specified position in units of micrometers.
-
-        Parameters
-        ----------
-        position : list
-            Position in [x,y] format measured in um
-        wait_for_stopping : bool
-            Wait until all axes have stopped.
+    def move_absolute(self, *args, **kwargs) -> None:
         """
+        Perfoms an absolute movement to the specified position in units of micrometers.
+
+        Attention: This methods supports two signatures, to support the old version.
+        """
+        if type(args[0]) is list:
+            self._move_absolute_v1(args[0][:2], wait_for_stopping=kwargs.get('wait_for_stopping'))
+        else:
+            self._move_absolute_v2(*args, wait_for_stopping=kwargs.get('wait_for_stopping'))
+
+    # Stage control
+
+    @assert_driver_loaded
+    @assert_stage_connected
+    def stop(self):
+        for channel in self.channels.values():
+            channel.stop()
+
+    # Helper methods
+
+    def _move_absolute_v1(self, pos, wait_for_stopping: bool = True):
+        warn("This method is deprecated and will be removed in the future.")
+
         self._logger.debug(
             'Want to absolute move %s to x = %s um and y = %s um',
             self.address,
@@ -692,15 +727,23 @@ class Stage3DSmarAct(Stage):
         if wait_for_stopping:
             self._wait_for_stopping()
 
-    # Stage control
+    def _move_absolute_v2(self, x: float = None, y: float = None, z: float = None, wait_for_stopping: bool = True) -> None:
+        self._logger.debug(
+            'Want to absolute move %s to x = %s um, y = %s um and z = %s um',
+            self.address,
+            x,
+            y,
+            z)
 
-    @assert_driver_loaded
-    @assert_stage_connected
-    def stop(self):
-        for channel in self.channels.values():
-            channel.stop()
+        if x is not None:
+            self.channels[Axis.X].move(diff=x, mode=MovementType.ABSOLUTE)
+        if y is not None:
+            self.channels[Axis.Y].move(diff=y, mode=MovementType.ABSOLUTE)
+        if z is not None:
+            self.channels[Axis.Z].move(diff=z, mode=MovementType.ABSOLUTE)
 
-    # Helper methods
+        if wait_for_stopping:
+            self._wait_for_stopping()
 
     @classmethod
     def _exit_if_error(self, status: int) -> bool:
