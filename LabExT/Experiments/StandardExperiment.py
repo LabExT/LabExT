@@ -9,6 +9,7 @@ import datetime
 import logging
 import socket
 import sys
+import time
 import traceback
 from collections import OrderedDict
 from glob import glob
@@ -77,6 +78,7 @@ class StandardExperiment:
         self.exctrl_pause_after_device = False
         self.exctrl_auto_move_stages = False
         self.exctrl_enable_sfp = False
+        self.exctrl_inter_measurement_wait_time = 0.0
 
         # data structures for FINISHED measurements
         self.measurements = ObservableList()
@@ -190,7 +192,7 @@ class StandardExperiment:
                 self.logger.info('Search for peak done.')
             else:
                 data['search for peak'] = None
-                self.logger.info('Search for peak not enabled. Not executing automatic search for peak.')
+                self.logger.debug('Search for peak not enabled. Not executing automatic search for peak.')
 
             self._parent.config(cursor='circle')
             self.logger.info('Executing measurement %s on device %s.',
@@ -272,6 +274,12 @@ class StandardExperiment:
 
                 messagebox.showinfo("Measurements finished!", "Measurements finished!")
                 self.logger.info("Experiment and hereby all measurements finished.")
+
+                return
+
+            if self.exctrl_inter_measurement_wait_time > 0.0:
+                self.logger.info(f"Waiting {self.exctrl_inter_measurement_wait_time:.0f}s before continuing...")
+                time.sleep(self.exctrl_inter_measurement_wait_time)
 
     def load_measurement_dataset(self, meas_dict, file_path, force_gui_update=True):
         """
