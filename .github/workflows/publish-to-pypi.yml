@@ -1,4 +1,4 @@
-name: Build and Upload Python Package for LabExT to PyPI
+name: Publish to PyPI
 
 on:
   release:

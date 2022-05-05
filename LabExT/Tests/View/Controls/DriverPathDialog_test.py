@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 from unittest.mock import patch, mock_open
+from pathlib import Path
 
 from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
@@ -16,7 +17,7 @@ class DriverPathDialogTest(TKinterTestCase):
 
     def test_dialog_initial_state(self):
         settings_file_path = 'my_path_file.txt'
-        current_driver_path = '/path/to/control/module.py'
+        current_driver_path = str(Path('/path/to/control/module.py'))
 
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path') as config_path:
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
@@ -32,7 +33,7 @@ class DriverPathDialogTest(TKinterTestCase):
 
     def test_save_without_change(self):
         settings_file_path = 'my_path_file.txt'
-        current_driver_path = '/path/to/control/module.py'
+        current_driver_path = str(Path('/path/to/control/module.py'))
 
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path'):
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
@@ -42,13 +43,13 @@ class DriverPathDialogTest(TKinterTestCase):
                     dialog._save_button.invoke()
 
                 messagebox_mock.assert_called_once()
-                self.assertEqual(dialog.driver_path, current_driver_path)
+                self.assertEqual(Path(dialog.driver_path), Path(current_driver_path))
                 self.assertFalse(dialog.path_has_changed)
 
     def test_save_with_change(self):
         settings_file_path = 'my_path_file.txt'
-        current_driver_path = '/path/to/control/module.py'
-        new_driver_path = '/my/new/path.py'
+        current_driver_path = str(Path('/path/to/control/module.py'))
+        new_driver_path = str(Path('/my/new/path.py'))
 
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path'):
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
@@ -60,5 +61,5 @@ class DriverPathDialogTest(TKinterTestCase):
                     dialog._save_button.invoke()
 
                 messagebox_mock.assert_called_once()
-                self.assertEqual(dialog.driver_path, new_driver_path)
+                self.assertEqual(Path(dialog.driver_path), Path(new_driver_path))
                 self.assertTrue(dialog.path_has_changed)
