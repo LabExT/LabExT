@@ -1,0 +1,6 @@
+#
+# This file is manually updated and describes the dependencies for running code testing for LabExT
+#
+pytest
+tox
+tox-gh-actions
