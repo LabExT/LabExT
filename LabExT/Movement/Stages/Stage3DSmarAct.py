@@ -12,6 +12,7 @@ from enum import Enum
 from tkinter import TclError
 from typing import List
 
+from LabExT.Movement.config import Axis
 from LabExT.Movement.Stage import Stage, StageMeta, StageError, assert_stage_connected, assert_driver_loaded
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog

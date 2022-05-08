@@ -26,7 +26,6 @@ from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
 from LabExT.View.MovementWizard.MovementWizardController import MovementWizardController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
-from LabExT.View.StageCalibration.StageCalibrationController import StageCalibrationController
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
 
 
