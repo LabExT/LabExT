@@ -5,7 +5,9 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-
+from os import path
+import json
+import numpy as np
 import _tkinter
 import tkinter
 from unittest.mock import patch
@@ -15,6 +17,8 @@ from unittest import TestCase
 import random
 import string
 
+RUNTESTS_DIR = path.abspath(path.dirname(__file__))
+TRANSFORMATIONS_DIR = path.join(RUNTESTS_DIR, "transformations")
 
 class TKinterTestCase(TestCase):
     def setUp(self):
@@ -29,6 +33,25 @@ class TKinterTestCase(TestCase):
     def pump_events(self):
         while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
             pass
+
+def get_calibrations_from_file(chip_file: str, stage_orientation: str) -> tuple:
+    """
+    Returns a tuple with a axes rotation, a list of stage coordinates and a list of chip coordinates.
+    """
+    trafo_file = path.join(TRANSFORMATIONS_DIR, chip_file)
+    if not path.exists(trafo_file):
+        raise RuntimeError("No transformation file exists for the requested Chip {}.".format(chip_file))
+
+    with open(trafo_file) as f:
+        data = json.load(f).get(stage_orientation)
+        if not data:
+            raise RuntimeError("No Transformations exist for the requested stage orientation {}.".format(stage_orientation))
+
+        stage_coordinates = np.array(data.get("stageCoordinates"))
+        chip_coordinates = np.array(data.get("chipCoordinates"))
+        axes_rotation = np.array(data.get("axesRotation", np.identity(3)))
+
+    return axes_rotation, stage_coordinates, chip_coordinates
 
 def with_stage_discovery_patch(func):
     """
