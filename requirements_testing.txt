@@ -4,3 +4,4 @@
 pytest
 tox
 tox-gh-actions
+parametrized
