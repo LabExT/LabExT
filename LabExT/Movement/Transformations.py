@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, NamedTuple, Type
 from abc import ABC, abstractmethod, abstractproperty
 from functools import wraps
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from LabExT.Movement.config import Axis, Direction
 
@@ -445,3 +446,154 @@ class SinglePointOffset(Transformation):
         """
         return self.axes_rotation.stage_to_chip(
             stage_coordinate + self.stage_offset)
+
+
+class KabschRotation(Transformation):
+    """
+    Estimate a rotation to optimally align two sets of vectors.
+    Find a rotation to align a set of stage coordinates with a set of chip coordinates.
+    For more information see Kabsch Algorithm.
+    We require 3 points for a 3D transformation.
+    More points are possible and may increase the accuracy.
+    """
+
+    MIN_POINTS = 3
+
+    def __init__(self) -> None:
+        self.initialize()
+
+    def initialize(self) -> None:
+        """
+        Initalises the transformation by unsetting all coordinates and offsets.
+        """
+        self.pairings = []
+
+        self.chip_coordinates = np.empty((0, 3), float)
+        self.stage_coordinates = np.empty((0, 3), float)
+
+        self.chip_offset = None
+        self.stage_offset = None
+
+        self.rotation = None
+        self._rmsd = None
+
+    def __str__(self) -> str:
+        if not self.is_valid:
+            return "No valid rotation defined ({}/{} Points set)".format(
+                len(self.pairings), self.MIN_POINTS)
+
+        return "Rotation defined with {} Points (RMSD: {})".format(
+            len(self.pairings), self.rmsd)
+
+    @property
+    def is_valid(self) -> bool:
+        """
+        Returns True if Kabsch transformation is defined, i.e. if more than 3 pairings are defined.
+        """
+        return len(self.pairings) >= self.MIN_POINTS
+
+    @property
+    def rmsd(self):
+        """
+        Returns RMSD of rotation.
+        """
+        return self._rmsd if self.is_valid else None
+
+    def update(self, pairing: Type[CoordinatePairing]) -> None:
+        """
+        Updates the transformation by adding a new pairing.
+        Add the stage coordinate and chip coordinates to a matrix and recalculates the rotation.
+
+        Parameters
+        ----------
+        pairing: CoordinatePairing
+            A coordinate pairing between a stage and chip coordinate
+
+        Raises
+        ------
+        ValueError
+           If the pairing is not well defined or a pairing for the chip has already been set.
+        """
+        if not isinstance(pairing, CoordinatePairing) or not all(pairing):
+            raise ValueError(
+                "Use a complete CoordinatePairing object to update the rotation. ")
+
+        if any(p.device == pairing.device for p in self.pairings):
+            raise ValueError(
+                "A pairing with this device has already been saved.")
+
+        self.pairings.append(pairing)
+
+        self.chip_coordinates = np.append(
+            self.chip_coordinates,
+            [pairing.chip_coordinate.to_numpy()],
+            axis=0)
+        self.stage_coordinates = np.append(
+            self.stage_coordinates,
+            [pairing.stage_coordinate.to_numpy()],
+            axis=0)
+
+        # Calculate mean for each set
+        self.chip_offset = ChipCoordinate.from_numpy(
+            self.chip_coordinates.mean(axis=0))
+        self.stage_offset = StageCoordinate.from_numpy(
+            self.stage_coordinates.mean(axis=0))
+
+        # Create Rotation with centered vectors
+        self.rotation, self._rmsd = Rotation.align_vectors(
+            (self.chip_coordinates - self.chip_offset.to_numpy()),
+            (self.stage_coordinates - self.stage_offset.to_numpy()))
+
+    @assert_valid_transformation
+    def chip_to_stage(
+            self,
+            chip_coordinate: Type[ChipCoordinate]) -> Type[StageCoordinate]:
+        """
+        Transforms a chip coordinate into a stage coordinate.
+        Centres the given chip coordinate by substracting the chip offset
+        and applies inverse rotation, then adds the stage offset.
+
+        Parameters
+        ----------
+        chip_coordinate: ChipCoordinate
+
+        Returns
+        -------
+        stage_coordinate: StageCoordinate
+
+        Raises
+        ------
+        TransformationError: RuntimeError
+            If transformation is not valid.
+        """
+        centered_chip_coordinate = chip_coordinate - self.chip_offset
+
+        return StageCoordinate.from_numpy(
+            self.rotation.apply(centered_chip_coordinate.to_numpy(),
+                                inverse=True)) + self.stage_offset
+
+    def stage_to_chip(
+            self,
+            stage_coordinate: Type[StageCoordinate]) -> Type[ChipCoordinate]:
+        """
+        Transforms a stage coordinate into a chip coordinate.
+        Centres the given stage coordinate by substracting the stage offset
+        and applies rotation, then adds the chip offset.
+
+        Parameters
+        ----------
+        stage_coordinate: StageCoordinate
+
+        Returns
+        -------
+        chip_coordinate: ChipCoordinate
+
+        Raises
+        ------
+        TransformationError: RuntimeError
+            If transformation is not valid.
+        """
+        centered_stage_coordinate = stage_coordinate - self.stage_offset
+
+        return ChipCoordinate.from_numpy(self.rotation.apply(
+            centered_stage_coordinate.to_numpy())) + self.chip_offset

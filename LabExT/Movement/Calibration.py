@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from typing import Type
 
 from LabExT.Movement.config import DevicePort, Orientation, State
-from LabExT.Movement.Transformations import SinglePointOffset, AxesRotation
+from LabExT.Movement.Transformations import SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
 
 
@@ -31,6 +31,7 @@ class Calibration:
 
         self._axes_rotation: Type[AxesRotation] = None
         self._single_point_offset: Type[SinglePointOffset] = None
+        self._kabsch_rotation: Type[KabschRotation] = None
 
     #
     #   Representation
