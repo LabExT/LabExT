@@ -9,8 +9,9 @@ from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RA
 from typing import Type, List
 from functools import wraps
 
+from LabExT.Movement.config import Orientation, DevicePort
+from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
-from LabExT.Movement.Calibration import Calibration, DevicePort, DevicePort, Orientation
 
 
 def assert_connected_stages(func):

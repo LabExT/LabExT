@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from tkinter import LEFT, SUNKEN, Frame, Label
-from LabExT.Movement.Calibration import Axis
+from LabExT.Movement.config import Axis
 
 
 class CoordinateWidget(Frame):
