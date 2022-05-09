@@ -131,7 +131,7 @@ class StageCoordinate(Coordinate):
 
 class ChipCoordinate(Coordinate):
     """
-    A Coordinate in the cooridnate system of a chip.
+    A Coordinate in the coordinate system of a chip.
     """
 
     def __init__(self, x=0, y=0, z=0) -> None:
@@ -533,11 +533,15 @@ class KabschRotation(Transformation):
             [pairing.stage_coordinate.to_numpy()],
             axis=0)
 
+        if not self.is_valid:
+            return
+
         # Calculate mean for each set
         self.chip_offset = ChipCoordinate.from_numpy(
             self.chip_coordinates.mean(axis=0))
         self.stage_offset = StageCoordinate.from_numpy(
             self.stage_coordinates.mean(axis=0))
+
 
         # Create Rotation with centered vectors
         self.rotation, self._rmsd = Rotation.align_vectors(

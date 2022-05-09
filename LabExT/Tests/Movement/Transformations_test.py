@@ -102,7 +102,7 @@ class CoordinateTest(unittest.TestCase):
         self.assertEqual(coordinate.z, z)
 
 
-class StageCooridnateTest(CoordinateTest):
+class StageCoordinateTest(CoordinateTest):
     @CoordinateTest.list_parameterized
     def test_from_list(self, list, x, y, z):
         self.assert_build_from_list(StageCoordinate, list, x, y, z)
