@@ -16,7 +16,7 @@ from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWind
 from LabExT.Wafer.Device import Device
 
 
-class Foo(TKinterTestCase):
+class CoordinatePairingsWindowTest(TKinterTestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         super().setUp()
