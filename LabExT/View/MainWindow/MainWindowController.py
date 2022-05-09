@@ -510,11 +510,11 @@ class MainWindowController:
 
     def open_live_viewer(self):
         """ opens live-viewer window by calling appropriate menu listener function """
-        self.view.menu_listener.client_live_view()
+        self.view.frame.menu_listener.client_live_view()
 
     def open_peak_searcher(self):
         """ opens search for peak window by calling appropriate menu listener function """
-        self.view.menu_listener.client_search_for_peak()
+        self.view.frame.menu_listener.client_search_for_peak()
 
     def start(self):
         """Calls the experiment handler to start the experiment.
