@@ -2,6 +2,7 @@
 # This file is manually updated and describes the dependencies for running code testing for LabExT
 #
 pytest
+pytest-xvfb
+parametrized
 tox
 tox-gh-actions
-parametrized
