@@ -131,7 +131,7 @@ class StageCoordinate(Coordinate):
 
 class ChipCoordinate(Coordinate):
     """
-    A Coordinate in the cooridnate system of a chip.
+    A Coordinate in the coordinate system of a chip.
     """
 
     def __init__(self, x=0, y=0, z=0) -> None:
