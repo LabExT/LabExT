@@ -633,7 +633,8 @@ class Stage3DSmarAct(Stage):
             Returns current position in [x,y] format in units of um.
         """
         warnings.warn(
-            "This method is deprecated and will be removed in the future. Please use the get_position() method.")
+            "This method is deprecated and will be removed in the future. Please use the get_position() method.",
+            category=DeprecationWarning)
         return [
             self.channels[Axis.X].position,
             self.channels[Axis.Y].position
@@ -719,7 +720,8 @@ class Stage3DSmarAct(Stage):
 
     def _move_absolute_v1(self, pos, wait_for_stopping: bool = True):
         warnings.warn(
-            "This method is deprecated and will be removed in the future.")
+            "This method is deprecated and will be removed in the future. Please use the new signature.",
+            category=DeprecationWarning)
 
         self._logger.debug(
             'Want to absolute move %s to x = %s um and y = %s um',
