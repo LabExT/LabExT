@@ -312,3 +312,45 @@ class Calibration:
             return
 
         self._state = State.FULLY_CALIBRATED
+
+    #
+    #   Position method
+    #
+
+    @property
+    @assert_minimum_state_for_coordinate_system(
+        stage_coordinate_system=State.CONNECTED,
+        chip_coordinate_system=State.SINGLE_POINT_FIXED)
+    def position(self) -> Union[Type[StageCoordinate], Type[ChipCoordinate]]:
+        """
+        Method to read out the current position of the stage.
+        This method can display the position in stage and chip coordinates,
+        depending on the context in which this method is used.
+
+        Returns
+        -------
+        position: StageCoordinate | ChipCoordinate
+            Position of the stage in chip or stage coordinates.
+
+        Raises
+        ------
+        CalibrationError
+            If the state of calibration is lower than the required one.
+        RuntimeError
+            If coordinate system is unsupported.
+        """
+        stage_position = StageCoordinate.from_list(self.stage.get_position())
+
+        if self.coordinate_system == StageCoordinate:
+            return stage_position
+        elif self.coordinate_system == ChipCoordinate:
+            if self.state == State.FULLY_CALIBRATED:
+                return self._kabsch_rotation.stage_to_chip(stage_position)
+            elif self.state == State.SINGLE_POINT_FIXED:
+                return self._single_point_offset.stage_to_chip(stage_position)
+            else:
+                raise CalibrationError(
+                    "Insufficient calibration state to return the position in chip coordinates.")
+        else:
+            RuntimeError(
+                f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
