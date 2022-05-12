@@ -581,3 +581,57 @@ class CalibrationTest(CalibrationTestCase):
                 np.array([kwargs.get('x'), kwargs.get('y'), kwargs.get('z')]),
                 rtol=1,
                 atol=1))
+
+    @parameterized.expand([
+        (Axis.X, 1000, 0, 0), (Axis.Y, 0, 1000, 0), (Axis.Z, 0, 0, 1000)
+    ])
+    @patch.object(DummyStage, "move_relative")
+    def test_wiggle_axis_applies_axes_rotation(
+            self,
+            wiggle_axis,
+            x_movement,
+            y_movement,
+            z_movement,
+            move_relative_mock):
+
+        self.calibration.connect_to_stage()
+        self.set_valid_axes_rotation()
+        self.calibration.wiggle_axis(
+            wiggle_axis, wiggle_distance=1000, wait_time=0)
+
+        move_relative_mock.assert_has_calls([
+            call(x=y_movement, y=-z_movement, z=-x_movement, wait_for_stopping=True),
+            call(x=-y_movement, y=z_movement, z=x_movement, wait_for_stopping=True)])
+
+    @parameterized.expand([
+        (Axis.X, 1000, 0, 0), (Axis.Y, 0, 1000, 0), (Axis.Z, 0, 0, 1000)
+    ])
+    @patch.object(DummyStage, "move_relative")
+    @patch.object(DummyStage, "set_speed_xy")
+    @patch.object(DummyStage, "set_speed_z")
+    def test_wiggle_axis_sets_and_resets_speed(
+            self,
+            wiggle_axis,
+            x_movement,
+            y_movement,
+            z_movement,
+            set_speed_z_mock,
+            set_speed_xy_mock,
+            move_relative_mock):
+        current_speed_xy = self.stage._speed_xy
+        current_speed_z = self.stage._speed_z
+
+        self.calibration.connect_to_stage()
+
+        self.calibration.wiggle_axis(
+            wiggle_axis,
+            wiggle_distance=1000,
+            wiggle_speed=5000,
+            wait_time=0)
+
+        move_relative_mock.assert_has_calls([
+            call(x=x_movement, y=y_movement, z=z_movement, wait_for_stopping=True),
+            call(x=-x_movement, y=-y_movement, z=-z_movement, wait_for_stopping=True)])
+        set_speed_z_mock.assert_has_calls([call(5000), call(current_speed_z)])
+        set_speed_xy_mock.assert_has_calls(
+            [call(5000), call(current_speed_xy)])
