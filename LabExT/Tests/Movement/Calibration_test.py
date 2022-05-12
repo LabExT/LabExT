@@ -6,13 +6,16 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from parameterized import parameterized
 
-from LabExT.Movement.config import State, Orientation, DevicePort
-from LabExT.Movement.Stage import Stage
+from LabExT.Tests.Utils import get_calibrations_from_file
+
+from LabExT.Movement.config import State, Orientation, DevicePort, Axis, Direction
+from LabExT.Movement.Stage import StageError
+from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.MoverNew import MoverNew
-from LabExT.Movement.Transformations import ChipCoordinate, StageCoordinate
+from LabExT.Movement.Transformations import ChipCoordinate, CoordinatePairing, StageCoordinate
 from LabExT.Movement.Calibration import Calibration, CalibrationError, assert_minimum_state_for_coordinate_system
 
 EXPECTED_TO_REJECT = [
@@ -27,6 +30,58 @@ EXPECTED_TO_ACCEPT = [
     (State.COORDINATE_SYSTEM_FIXED, [State.UNINITIALIZED, State.CONNECTED, State.COORDINATE_SYSTEM_FIXED]),
     (State.SINGLE_POINT_FIXED, [State.UNINITIALIZED, State.CONNECTED, State.COORDINATE_SYSTEM_FIXED, State.SINGLE_POINT_FIXED]),
     (State.FULLY_CALIBRATED, [State.UNINITIALIZED, State.CONNECTED, State.COORDINATE_SYSTEM_FIXED, State.SINGLE_POINT_FIXED, State.FULLY_CALIBRATED])]
+
+VACHERIN_ROTATION, VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS = get_calibrations_from_file("vacherin.json", "left")
+
+INVALID_AXES_MAPPING = [
+    (Axis.X, Direction.POSITIVE, Axis.Y),
+    (Axis.X, Direction.POSITIVE, Axis.Y),
+    (Axis.Y, Direction.POSITIVE, Axis.Z)
+]
+
+VALID_AXES_MAPPING = [
+    (Axis.X, Direction.NEGATIVE, Axis.Z),
+    (Axis.Y, Direction.POSITIVE, Axis.X),
+    (Axis.Z, Direction.NEGATIVE, Axis.Y)
+]
+
+
+class CalibrationTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self.stage = DummyStage('usb:123456789')
+
+        self.mover = MoverNew(None)
+
+        self.calibration = Calibration(
+            self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
+
+    def set_valid_axes_rotation(self):
+        for chip_axis, direction, stage_axis in VALID_AXES_MAPPING:
+            self.calibration.update_axes_rotation(
+                chip_axis, direction, stage_axis)
+
+    def set_invalid_axes_rotation(self):
+        for chip_axis, direction, stage_axis in INVALID_AXES_MAPPING:
+            self.calibration.update_axes_rotation(
+                chip_axis, direction, stage_axis)
+
+    def set_valid_single_point_offset(self):
+        self.calibration.update_single_point_offset(CoordinatePairing(
+            self.calibration,
+            StageCoordinate.from_numpy(VACHERIN_STAGE_COORDS[0]),
+            Mock(),
+            ChipCoordinate.from_numpy(VACHERIN_CHIP_COORDS[0])
+        ))
+
+    def set_valid_kabsch_rotation(self):
+        for stage_coord, chip_coord in zip(
+                VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.calibration.update_kabsch_rotation(CoordinatePairing(
+                calibration=self.calibration,
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
 
 class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -112,18 +167,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
             self.func.reset_mock()
 
 
-class CoordinateSystemControlTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.stage = Mock(spec=Stage)
-        self.stage.connected = False
-
-        self.mover = MoverNew(None)
-
-        self.calibration = Calibration(
-            self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
-
-        return super().setUp()
-
+class CoordinateSystemControlTest(CalibrationTestCase):
     def test_set_chip_coordinate_system(self):
         with self.calibration.perform_in_chip_coordinates():
             self.assertEqual(
@@ -186,3 +230,85 @@ class CoordinateSystemControlTest(unittest.TestCase):
                 func()
 
         self.assertIsNone(self.calibration.coordinate_system)
+
+
+class DetermineStateTest(CalibrationTestCase):
+    def test_uninitialized_state_if_stage_is_not_set(self):
+        self.calibration.stage = None
+
+        self.calibration.determine_state()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+    def test_uninitialized_state_if_stage_is_not_connected(self):
+        self.stage.disconnect()
+
+        self.calibration.determine_state()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+    @patch.object(DummyStage, "get_status", side_effect=StageError)
+    def test_uninitialized_state_if_stage_raises_error(self, status_mock):
+        self.stage.connect()
+        self.assertTrue(self.stage.connected)
+
+        self.calibration.determine_state()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+        status_mock.assert_called_once()
+
+    @patch.object(DummyStage, "get_status", return_value=None)
+    def test_uninitialized_state_if_stage_does_not_respond(self, status_mock):
+        self.stage.connect()
+        self.assertTrue(self.stage.connected)
+
+        self.calibration.determine_state()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+        status_mock.assert_called_once()
+
+    def test_connected_state_if_axes_rotation_is_invalid(self):
+        self.calibration.connect_to_stage()
+        self.assertTrue(self.stage.connected)
+
+        self.set_invalid_axes_rotation()
+        self.assertFalse(self.calibration._axes_rotation.is_valid)
+
+        self.calibration.determine_state()
+        self.assertEqual(self.calibration.state, State.CONNECTED)
+
+    def test_coordinate_system_state_if_single_point_offset_is_invalid(self):
+        self.calibration.connect_to_stage()
+        self.assertTrue(self.stage.connected)
+
+        self.set_valid_axes_rotation()
+        self.assertTrue(self.calibration._axes_rotation.is_valid)
+        self.assertFalse(self.calibration._single_point_offset.is_valid)
+
+        self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
+
+    def test_single_point_offset_state_if_kabsch_rotation_is_invalid(self):
+        self.calibration.connect_to_stage()
+        self.assertTrue(self.stage.connected)
+
+        self.set_valid_axes_rotation()
+        self.assertTrue(self.calibration._axes_rotation.is_valid)
+
+        self.set_valid_single_point_offset()
+        self.assertTrue(self.calibration._single_point_offset.is_valid)
+
+        self.assertFalse(self.calibration._kabsch_rotation.is_valid)
+        self.assertEqual(self.calibration.state, State.SINGLE_POINT_FIXED)
+
+    def test_fully_calibrated(self):
+        self.calibration.connect_to_stage()
+        self.assertTrue(self.stage.connected)
+
+        self.set_valid_axes_rotation()
+        self.assertTrue(self.calibration._axes_rotation.is_valid)
+
+        self.set_valid_single_point_offset()
+        self.assertTrue(self.calibration._single_point_offset.is_valid)
+
+        self.set_valid_kabsch_rotation()
+        self.assertTrue(self.calibration._kabsch_rotation.is_valid)
+
+        self.assertEqual(self.calibration.state, State.FULLY_CALIBRATED)

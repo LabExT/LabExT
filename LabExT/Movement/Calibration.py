@@ -17,6 +17,7 @@ from LabExT.Movement.Stage import StageError
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
 
+
 class CalibrationError(RuntimeError):
     pass
 
@@ -63,7 +64,7 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    def __init__(self, mover, stage: Type[Stage], orientation, device_port) -> None:
+    def __init__(self, mover, stage, orientation, device_port) -> None:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
@@ -73,9 +74,10 @@ class Calibration:
 
         self._coordinate_system = None
 
-        self._axes_rotation: Type[AxesRotation] = None
-        self._single_point_offset: Type[SinglePointOffset] = None
-        self._kabsch_rotation: Type[KabschRotation] = None
+        self._axes_rotation: Type[AxesRotation] = AxesRotation()
+        self._single_point_offset: Type[SinglePointOffset] = SinglePointOffset(
+            self._axes_rotation)
+        self._kabsch_rotation: Type[KabschRotation] = KabschRotation()
 
     #
     #   Representation
@@ -221,6 +223,7 @@ class Calibration:
         """
         Updates the axis rotation of the calibration.
         After the update, the state of the calibration is recalculated.
+
         Parameters
         ----------
         chip_axis: Axis
@@ -242,6 +245,7 @@ class Calibration:
         """
         Updates the single point offset transformation of the calibration.
         After the update, the state of the calibration is recalculated.
+
         Parameters
         ----------
         pairing: CoordinatePairing
@@ -256,6 +260,7 @@ class Calibration:
         """
         Updates the kabsch transformation of the calibration.
         After the update, the state of the calibration is recalculated.
+
         Parameters
         ----------
         pairing: CoordinatePairing
@@ -266,7 +271,7 @@ class Calibration:
         finally:
             self.determine_state(skip_connection=True)
 
-    def determine_state(self, skip_connection=False):
+    def determine_state(self, skip_connection=False) -> None:
         """
         Determines the status of the calibration independently of the status variables of the instance.
         1. Checks whether the stage responds. If yes, status is at least CONNECTED.
@@ -278,9 +283,12 @@ class Calibration:
         self._state = State.UNINITIALIZED
 
         # 1. Check if stage responds
+        if self.stage is None:
+            return
+
         if not skip_connection:
             try:
-                if not self.stage or self.stage.get_status() is None:
+                if not self.stage.connected or self.stage.get_status() is None:
                     return
                 self._state = State.CONNECTED
             except StageError:
