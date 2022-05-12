@@ -632,9 +632,28 @@ class Stage3DSmarAct(Stage):
         list
             Returns current position in [x,y] format in units of um.
         """
+        warnings.warn(
+            "This method is deprecated and will be removed in the future. Please use the get_position() method.")
         return [
             self.channels[Axis.X].position,
             self.channels[Axis.Y].position
+        ]
+
+    @assert_driver_loaded
+    @assert_stage_connected
+    def get_position(self) -> list:
+        """
+        Get current position of the stages in micrometers.
+
+        Returns
+        -------
+        list
+            Returns current position in [x,y,z] format in units of um.
+        """
+        return [
+            self.channels[Axis.X].position,
+            self.channels[Axis.Y].position,
+            self.channels[Axis.Z].position
         ]
 
     @assert_driver_loaded
