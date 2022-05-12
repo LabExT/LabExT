@@ -400,3 +400,76 @@ class CalibrationTest(CalibrationTestCase):
                 atol=1))
 
         get_position_mock.assert_called_once()
+
+    def test_move_relative_in_stage_coordinate_raises_error_if_unconnected(
+            self):
+        self.calibration.disconnect_to_stage()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+        with self.calibration.perform_in_stage_coordinates():
+            with self.assertRaises(CalibrationError):
+                self.calibration.move_relative(StageCoordinate(1, 2, 3))
+
+    def test_move_relative_in_chip_coordinate_raises_error_if_axes_rotation_invalid(
+            self):
+        self.calibration.connect_to_stage()
+        self.set_invalid_axes_rotation()
+        self.assertEqual(self.calibration.state, State.CONNECTED)
+
+        with self.calibration.perform_in_chip_coordinates():
+            with self.assertRaises(CalibrationError):
+                self.calibration.move_relative(StageCoordinate(1, 2, 3))
+
+    def test_move_relative_in_stage_coordinate_raises_error_if_offset_type_invalid(
+            self):
+        self.calibration.connect_to_stage()
+        with self.calibration.perform_in_stage_coordinates():
+            with self.assertRaises(TypeError):
+                self.calibration.move_relative(ChipCoordinate(1, 2, 3))
+
+    def test_move_relative_in_chip_coordinate_raises_error_if_offset_type_invalid(
+            self):
+        self.calibration.connect_to_stage()
+        with self.calibration.perform_in_chip_coordinates():
+            with self.assertRaises(TypeError):
+                self.calibration.move_relative(StageCoordinate(1, 2, 3))
+
+    @parameterized.expand([(True,), (False,)])
+    @patch.object(DummyStage, "move_relative")
+    def test_move_relative_in_stage_coordinates(
+            self, wait_for_stopping, move_relative_mock):
+        self.set_invalid_axes_rotation()
+        required_movement = [100.0, 200.0, 300.0]
+
+        with self.calibration.perform_in_stage_coordinates():
+            self.calibration.connect_to_stage()
+            self.calibration.move_relative(
+                StageCoordinate.from_list(required_movement),
+                wait_for_stopping)
+
+        self.assertEqual(self.calibration.state, State.CONNECTED)
+        move_relative_mock.assert_called_once_with(
+            x=required_movement[0],
+            y=required_movement[1],
+            z=required_movement[2],
+            wait_for_stopping=wait_for_stopping)
+
+    @parameterized.expand([(True,), (False,)])
+    @patch.object(DummyStage, "move_relative")
+    def test_move_relative_in_chip_coordinates_with_axes_rotation(
+            self, wait_for_stopping, move_relative_mock):
+        self.set_valid_axes_rotation()
+        required_movement = [100.0, 200.0, 300.0]
+
+        with self.calibration.perform_in_chip_coordinates():
+            self.calibration.connect_to_stage()
+            self.calibration.move_relative(
+                ChipCoordinate.from_list(required_movement),
+                wait_for_stopping)
+
+        self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
+        move_relative_mock.assert_called_once_with(
+            x=required_movement[1],
+            y=-required_movement[2],
+            z=-required_movement[0],
+            wait_for_stopping=wait_for_stopping)
