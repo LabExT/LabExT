@@ -38,7 +38,7 @@ def assert_minimum_state_for_coordinate_system(
     """
     def assert_state(func):
         @wraps(func)
-        def wrap(calibration: Type[Calibration], *args, **kwargs):
+        def wrap(calibration: Type["Calibration"], *args, **kwargs):
             if calibration.coordinate_system is None:
                 raise CalibrationError(
                     "Function {} needs a cooridnate system to operate in. Please use the context to set the system.".format(
@@ -316,11 +316,11 @@ class Calibration:
     #   Position method
     #
 
-    @property
     @assert_minimum_state_for_coordinate_system(
         stage_coordinate_system=State.CONNECTED,
         chip_coordinate_system=State.SINGLE_POINT_FIXED)
-    def position(self) -> Union[Type[StageCoordinate], Type[ChipCoordinate]]:
+    def get_position(
+            self) -> Union[Type[StageCoordinate], Type[ChipCoordinate]]:
         """
         Method to read out the current position of the stage.
         This method can display the position in stage and chip coordinates,
