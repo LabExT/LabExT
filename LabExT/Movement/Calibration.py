@@ -5,14 +5,17 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import Type, Union
+from typing import TYPE_CHECKING, Type, Union
 from functools import wraps
 from contextlib import contextmanager
 
-from LabExT.Movement.config import DevicePort, Orientation, State
-from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, SinglePointOffset, AxesRotation, KabschRotation
+from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction
+from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
 
+
+if TYPE_CHECKING:
+    from LabExT.Movement.Stage import Stage
 
 class CalibrationError(RuntimeError):
     pass
@@ -60,9 +63,9 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    def __init__(self, mover, stage, orientation, device_port) -> None:
+    def __init__(self, mover, stage: Type[Stage], orientation, device_port) -> None:
         self.mover = mover
-        self.stage = stage
+        self.stage: Type[Stage] = stage
 
         self._state = State.CONNECTED if stage.connected else State.UNINITIALIZED
         self._orientation = orientation
@@ -192,16 +195,111 @@ class Calibration:
     #   Calibration Setup Methods
     #
 
-    def connect_to_stage(self) -> bool:
+    def connect_to_stage(self) -> None:
         """
-        Opens a connections to the stage.
+        Opens a connection to the stage.
         """
         try:
-            if self.stage.connect():
-                self._state = State.CONNECTED
-                return True
-        except StageError as e:
-            self._state = State.UNINITIALIZED
-            raise e
+            self.stage.connect()
+        finally:
+            self.determine_state(skip_connection=False)
 
-        return False
+    def disconnect_to_stage(self) -> None:
+        """
+        Closes the connection to the stage.
+        """
+        try:
+            self.stage.disconnect()
+        finally:
+            self.determine_state(skip_connection=False)
+
+    def update_axes_rotation(
+            self,
+            chip_axis: Axis,
+            direction: Direction,
+            stage_axis: Axis) -> None:
+        """
+        Updates the axis rotation of the calibration.
+        After the update, the state of the calibration is recalculated.
+        Parameters
+        ----------
+        chip_axis: Axis
+            Chip Axis which is to be assigned a Stage Axis.
+            The value of the enum defines which column of the rotation matrix is to be changed.
+        direction: Direction
+            Defines the direction of the assigned stage axis.
+        stage_axis: Axis
+            Stage Axis which is to be assigned to the Chip Axis.
+            The value of the enum defines which row of the rotation matrix is to be changed.
+        """
+        try:
+            self._axes_rotation.update(chip_axis, direction, stage_axis)
+        finally:
+            self.determine_state(skip_connection=True)
+
+    def update_single_point_offset(
+            self, pairing: Type[CoordinatePairing]) -> None:
+        """
+        Updates the single point offset transformation of the calibration.
+        After the update, the state of the calibration is recalculated.
+        Parameters
+        ----------
+        pairing: CoordinatePairing
+            A coordinate pairing between a stage and chip coordinate
+        """
+        try:
+            self._single_point_offset.update(pairing)
+        finally:
+            self.determine_state(skip_connection=True)
+
+    def update_kabsch_rotation(self, pairing: Type[CoordinatePairing]) -> None:
+        """
+        Updates the kabsch transformation of the calibration.
+        After the update, the state of the calibration is recalculated.
+        Parameters
+        ----------
+        pairing: CoordinatePairing
+            A coordinate pairing between a stage and chip coordinate
+        """
+        try:
+            self._kabsch_rotation.update(pairing)
+        finally:
+            self.determine_state(skip_connection=True)
+
+    def determine_state(self, skip_connection=False):
+        """
+        Determines the status of the calibration independently of the status variables of the instance.
+        1. Checks whether the stage responds. If yes, status is at least CONNECTED.
+        2. Checks if axis rotation is valid. If Yes, status is at least COORDINATE SYSTEM FIXED.
+        3. Checks if single point fixation is valid. If Yes, status is at least SINGLE POINT FIXED.
+        4. Checks if full calibration is valid. If Yes, status is FULLY CALIBRATED.
+        """
+        # Reset state
+        self._state = State.UNINITIALIZED
+
+        # 1. Check if stage responds
+        if not skip_connection:
+            try:
+                if not self.stage or self.stage.get_status() is None:
+                    return
+                self._state = State.CONNECTED
+            except StageError:
+                return
+        else:
+            self._state = State.CONNECTED
+
+        # 2. Check if axis rotation is valid
+        if not self._axes_rotation or not self._axes_rotation.is_valid:
+            return
+        self._state = State.COORDINATE_SYSTEM_FIXED
+
+        # 3. Check if single point fixation is valid
+        if not self._single_point_offset or not self._single_point_offset.is_valid:
+            return
+        self._state = State.SINGLE_POINT_FIXED
+
+        # 4. Check if Full Calibration is valid
+        if not self._kabsch_rotation or not self._kabsch_rotation.is_valid:
+            return
+
+        self._state = State.FULLY_CALIBRATED
