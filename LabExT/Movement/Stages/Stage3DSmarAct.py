@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import ctypes as ct
+import warnings
 from enum import Enum
 from tkinter import TclError
 from typing import List
@@ -638,7 +639,12 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
@@ -668,16 +674,34 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_absolute(self, pos, wait_for_stopping: bool = True):
-        """Performs an absolute movement to the specified position in units of micrometers.
-
-        Parameters
-        ----------
-        position : list
-            Position in [x,y] format measured in um
-        wait_for_stopping : bool
-            Wait until all axes have stopped.
+    def move_absolute(self, *args, **kwargs) -> None:
         """
+        Perfoms an absolute movement to the specified position in units of micrometers.
+
+        Attention: This method supports two method signatures to temporarily support the old version (v1)
+        and the new version (v2).
+        """
+        wait_for_stopping = kwargs.get('wait_for_stopping', True)
+        if isinstance(args[0], list):
+            self._move_absolute_v1(args[0][:2], wait_for_stopping)
+        else:
+            self._move_absolute_v2(*args, wait_for_stopping)
+
+    # Stage control
+
+    @assert_driver_loaded
+    @assert_stage_connected
+    def stop(self):
+        for channel in self.channels.values():
+            channel.stop()
+
+    # Move absolute methods
+    # Temporarily, two different methods for absolute movement are supported.
+
+    def _move_absolute_v1(self, pos, wait_for_stopping: bool = True):
+        warnings.warn(
+            "This method is deprecated and will be removed in the future.")
+
         self._logger.debug(
             'Want to absolute move %s to x = %s um and y = %s um',
             self.address,
@@ -692,13 +716,28 @@ class Stage3DSmarAct(Stage):
         if wait_for_stopping:
             self._wait_for_stopping()
 
-    # Stage control
+    def _move_absolute_v2(
+            self,
+            x: float = None,
+            y: float = None,
+            z: float = None,
+            wait_for_stopping: bool = True) -> None:
+        self._logger.debug(
+            'Want to absolute move %s to x = %s um, y = %s um and z = %s um',
+            self.address,
+            x,
+            y,
+            z)
 
-    @assert_driver_loaded
-    @assert_stage_connected
-    def stop(self):
-        for channel in self.channels.values():
-            channel.stop()
+        if x is not None:
+            self.channels[Axis.X].move(diff=x, mode=MovementType.ABSOLUTE)
+        if y is not None:
+            self.channels[Axis.Y].move(diff=y, mode=MovementType.ABSOLUTE)
+        if z is not None:
+            self.channels[Axis.Z].move(diff=z, mode=MovementType.ABSOLUTE)
+
+        if wait_for_stopping:
+            self._wait_for_stopping()
 
     # Helper methods
 
