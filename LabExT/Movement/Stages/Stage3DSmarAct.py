@@ -638,7 +638,7 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x, y, z=0, wait_for_stopping: bool = True):
+    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
