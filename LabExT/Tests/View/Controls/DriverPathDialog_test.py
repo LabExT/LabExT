@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 from unittest.mock import patch, mock_open
+from pathlib import Path
 
 from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
@@ -32,7 +33,7 @@ class DriverPathDialogTest(TKinterTestCase):
 
     def test_save_without_change(self):
         settings_file_path = 'my_path_file.txt'
-        current_driver_path = '/path/to/control/module.py'
+        current_driver_path = str(Path('/path/to/control/module.py'))
 
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path'):
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
@@ -47,8 +48,8 @@ class DriverPathDialogTest(TKinterTestCase):
 
     def test_save_with_change(self):
         settings_file_path = 'my_path_file.txt'
-        current_driver_path = '/path/to/control/module.py'
-        new_driver_path = '/my/new/path.py'
+        current_driver_path = str(Path('/path/to/control/module.py'))
+        new_driver_path = str(Path('/my/new/path.py'))
 
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path'):
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
