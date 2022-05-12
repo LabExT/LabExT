@@ -68,7 +68,7 @@ class Calibration:
         self._orientation = orientation
         self._device_port = device_port
 
-        self._corrdinate_system = None
+        self._coordinate_system = None
 
         self._axes_rotation: Type[AxesRotation] = None
         self._single_point_offset: Type[SinglePointOffset] = None
@@ -128,7 +128,7 @@ class Calibration:
         """
         Returns the current coordinate system
         """
-        return self._corrdinate_system
+        return self._coordinate_system
 
     @coordinate_system.setter
     def coordinate_system(self, system) -> None:
