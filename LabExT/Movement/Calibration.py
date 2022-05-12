@@ -398,3 +398,55 @@ class Calibration:
             y=stage_offset.y,
             z=stage_offset.z,
             wait_for_stopping=wait_for_stopping)
+
+    @assert_minimum_state_for_coordinate_system(
+        stage_coordinate_system=State.CONNECTED,
+        chip_coordinate_system=State.SINGLE_POINT_FIXED)
+    def move_absolute(self,
+                      coordinate: Union[Type[StageCoordinate],
+                                        Type[ChipCoordinate]],
+                      wait_for_stopping: bool = True) -> None:
+        """
+        Moves the stage absolute to the given coordinate.
+        The coordinate can be passed in stage or chip coordinates,
+        depending on the coordinate system in which this method is called.
+
+        Parameters
+        ----------
+        coordinate: StageCoordinate | ChipCoordinate
+            Coordinate offset in stage or chip coordinates.
+
+        Raises
+        ------
+        CalibrationError
+            If the state of calibration is lower than the required one.
+        TypeError
+            If the passed offset does not have the correct type.
+        RuntimeError
+            If coordinate system is unsupported.
+        """
+        if not isinstance(coordinate, self.coordinate_system):
+            raise TypeError(
+                f"Given coordinate is in {type(coordinate)}. Need coordinate in {self.coordinate_system} to move the stage absolute in this system.")
+
+        if self.coordinate_system == StageCoordinate:
+            stage_coordinate = coordinate
+        elif self.coordinate_system == ChipCoordinate:
+            if self.state == State.FULLY_CALIBRATED:
+                stage_coordinate = self._kabsch_rotation.chip_to_stage(
+                    coordinate)
+            elif self.state == State.SINGLE_POINT_FIXED:
+                stage_coordinate = self._single_point_offset.chip_to_stage(
+                    coordinate)
+            else:
+                raise CalibrationError(
+                    "Insufficient calibration state to move the stage absolutely.")
+        else:
+            RuntimeError(
+                f"Unsupported coordinate system {self.coordinate_system} to move the stage absolutely.")
+
+        self.stage.move_absolute(
+            x=stage_coordinate.x,
+            y=stage_coordinate.y,
+            z=stage_coordinate.z,
+            wait_for_stopping=wait_for_stopping)
