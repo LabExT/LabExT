@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from shutil import move
 import unittest
 import numpy as np
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, call
 from parameterized import parameterized
 
 from LabExT.Tests.Utils import get_calibrations_from_file
@@ -473,3 +473,111 @@ class CalibrationTest(CalibrationTestCase):
             y=-required_movement[2],
             z=-required_movement[0],
             wait_for_stopping=wait_for_stopping)
+    #
+    #
+    #
+
+    def test_move_absolute_in_stage_coordinate_raises_error_if_unconnected(
+            self):
+        self.calibration.disconnect_to_stage()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+        with self.calibration.perform_in_stage_coordinates():
+            with self.assertRaises(CalibrationError):
+                self.calibration.move_absolute(StageCoordinate(1, 2, 3))
+
+    def test_move_absolute_in_chip_coordinate_raises_error_if_not_single_point_fixed(
+            self):
+        self.calibration.connect_to_stage()
+        self.set_valid_axes_rotation()
+        self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
+
+        with self.calibration.perform_in_chip_coordinates():
+            with self.assertRaises(CalibrationError):
+                self.calibration.move_absolute(ChipCoordinate(1, 2, 3))
+
+    def test_move_absolute_in_stage_coordinate_raises_error_if_coord_type_invalid(
+            self):
+        self.calibration.connect_to_stage()
+        with self.calibration.perform_in_stage_coordinates():
+            with self.assertRaises(TypeError):
+                self.calibration.move_absolute(ChipCoordinate(1, 2, 3))
+
+    def test_move_absolute_in_chip_coordinate_raises_error_if_coord_type_invalid(
+            self):
+        self.calibration.connect_to_stage()
+        self.set_valid_single_point_offset()
+        with self.calibration.perform_in_chip_coordinates():
+            with self.assertRaises(TypeError):
+                self.calibration.move_absolute(StageCoordinate(1, 2, 3))
+
+    @parameterized.expand([(True,), (False,)])
+    @patch.object(DummyStage, "move_absolute")
+    def test_move_absolute_in_stage_coordinates(
+            self, wait_for_stopping, move_absolute_mock):
+        self.set_invalid_axes_rotation()
+        required_movement = [100.0, 200.0, 300.0]
+
+        with self.calibration.perform_in_stage_coordinates():
+            self.calibration.connect_to_stage()
+            self.calibration.move_absolute(
+                StageCoordinate.from_list(required_movement),
+                wait_for_stopping)
+
+        self.assertEqual(self.calibration.state, State.CONNECTED)
+        move_absolute_mock.assert_called_once_with(
+            x=required_movement[0],
+            y=required_movement[1],
+            z=required_movement[2],
+            wait_for_stopping=wait_for_stopping)
+
+    @patch.object(DummyStage, "move_absolute")
+    def test_move_absolute_in_chip_coordinates_with_single_point_offset(
+            self, move_absolute_mock):
+        self.set_valid_single_point_offset()
+        expected_stage_pos, expected_chip_pos = (
+            VACHERIN_STAGE_COORDS[1], VACHERIN_CHIP_COORDS[1])
+
+        with self.calibration.perform_in_chip_coordinates():
+            self.calibration.connect_to_stage()
+            self.calibration.move_absolute(
+                ChipCoordinate.from_numpy(expected_chip_pos),
+                True)
+
+        self.assertEqual(self.calibration.state, State.SINGLE_POINT_FIXED)
+
+        move_absolute_mock.assert_called_once()
+
+        stage_call = move_absolute_mock.call_args_list[0]
+        self.assertTrue(
+            np.allclose(
+                expected_stage_pos,
+                np.array([stage_call.kwargs['x'], stage_call.kwargs['y'], stage_call.kwargs['z']]),
+                rtol=1,
+                atol=1))
+
+    @patch.object(DummyStage, "move_absolute")
+    def test_move_absolute_in_chip_coordinates_with_kabsch_rotation(
+            self, move_absolute_mock):
+        self.set_valid_single_point_offset()
+        self.set_valid_kabsch_rotation()
+        expected_stage_pos, expected_chip_pos = (
+            VACHERIN_STAGE_COORDS[3], VACHERIN_CHIP_COORDS[3])
+
+        with self.calibration.perform_in_chip_coordinates():
+            self.calibration.connect_to_stage()
+            self.calibration.move_absolute(
+                ChipCoordinate.from_numpy(expected_chip_pos),
+                True)
+
+        self.assertEqual(self.calibration.state, State.FULLY_CALIBRATED)
+
+        move_absolute_mock.assert_called_once()
+
+        stage_call = move_absolute_mock.call_args_list[0]
+        self.assertTrue(
+            np.allclose(
+                expected_stage_pos,
+                np.array([stage_call.kwargs['x'], stage_call.kwargs['y'], stage_call.kwargs['z']]),
+                rtol=1,
+                atol=1))
