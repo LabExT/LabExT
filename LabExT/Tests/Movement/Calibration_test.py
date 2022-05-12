@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from shutil import move
 import unittest
+import numpy as np
 from unittest.mock import Mock, patch
 from parameterized import parameterized
 
@@ -313,3 +314,89 @@ class DetermineStateTest(CalibrationTestCase):
         self.assertTrue(self.calibration._kabsch_rotation.is_valid)
 
         self.assertEqual(self.calibration.state, State.FULLY_CALIBRATED)
+
+
+class CalibrationTest(CalibrationTestCase):
+
+    def test_position_in_stage_coordinate_raises_error_if_unconnected(self):
+        self.calibration.disconnect_to_stage()
+        self.assertEqual(self.calibration.state, State.UNINITIALIZED)
+
+        with self.calibration.perform_in_stage_coordinates():
+            with self.assertRaises(CalibrationError):
+                self.calibration.get_position()
+
+    def test_position_in_chip_coordinate_raises_error_if_not_single_point_fixed(
+            self):
+        self.calibration.connect_to_stage()
+        self.set_valid_axes_rotation()
+        self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
+
+        with self.calibration.perform_in_chip_coordinates():
+            with self.assertRaises(CalibrationError):
+                self.calibration.get_position()
+
+    @patch.object(DummyStage, "get_position")
+    def test_position_in_stage_coordinates(self, get_position_mock):
+        expected_position = [100, 200, 300]
+        get_position_mock.return_value = expected_position
+
+        with self.calibration.perform_in_stage_coordinates():
+            self.calibration.connect_to_stage()
+            position = self.calibration.get_position()
+
+        self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
+
+        self.assertIsInstance(position, StageCoordinate)
+        self.assertEqual(position.to_list(), expected_position)
+
+        get_position_mock.assert_called_once()
+
+    @patch.object(DummyStage, "get_position")
+    def test_position_in_chip_coordinates_with_single_point_offset(
+            self, get_position_mock):
+        expected_stage_pos, expected_chip_pos = (
+            VACHERIN_STAGE_COORDS[1], VACHERIN_CHIP_COORDS[1])
+        get_position_mock.return_value = expected_stage_pos
+
+        with self.calibration.perform_in_chip_coordinates():
+            self.calibration.connect_to_stage()
+            self.set_valid_single_point_offset()
+            position = self.calibration.get_position()
+
+        self.assertEqual(self.calibration.state, State.SINGLE_POINT_FIXED)
+
+        self.assertIsInstance(position, ChipCoordinate)
+        self.assertTrue(
+            np.allclose(
+                position.to_numpy(),
+                expected_chip_pos,
+                rtol=1,
+                atol=1))
+
+        get_position_mock.assert_called_once()
+
+    @patch.object(DummyStage, "get_position")
+    def test_position_in_chip_coordinates_with_kabsch_rotation(
+            self, get_position_mock):
+        expected_stage_pos, expected_chip_pos = (
+            VACHERIN_STAGE_COORDS[3], VACHERIN_CHIP_COORDS[3])
+        get_position_mock.return_value = expected_stage_pos
+
+        with self.calibration.perform_in_chip_coordinates():
+            self.calibration.connect_to_stage()
+            self.set_valid_single_point_offset()
+            self.set_valid_kabsch_rotation()
+            position = self.calibration.get_position()
+
+        self.assertEqual(self.calibration.state, State.FULLY_CALIBRATED)
+
+        self.assertIsInstance(position, ChipCoordinate)
+        self.assertTrue(
+            np.allclose(
+                position.to_numpy(),
+                expected_chip_pos,
+                rtol=1,
+                atol=1))
+
+        get_position_mock.assert_called_once()
