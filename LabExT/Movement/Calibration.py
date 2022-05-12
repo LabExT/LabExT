@@ -10,8 +10,6 @@ from functools import wraps
 from contextlib import contextmanager
 from time import sleep
 
-import numpy as np
-
 from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction
 from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
@@ -19,7 +17,6 @@ from LabExT.Movement.Stage import StageError
 
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
-
 
 class CalibrationError(RuntimeError):
     pass
@@ -67,7 +64,7 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    def __init__(self, mover, stage, orientation, device_port) -> None:
+    def __init__(self, mover, stage: Type[Stage], orientation, device_port) -> None:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
@@ -226,7 +223,6 @@ class Calibration:
         """
         Updates the axis rotation of the calibration.
         After the update, the state of the calibration is recalculated.
-
         Parameters
         ----------
         chip_axis: Axis
@@ -248,7 +244,6 @@ class Calibration:
         """
         Updates the single point offset transformation of the calibration.
         After the update, the state of the calibration is recalculated.
-
         Parameters
         ----------
         pairing: CoordinatePairing
@@ -263,7 +258,6 @@ class Calibration:
         """
         Updates the kabsch transformation of the calibration.
         After the update, the state of the calibration is recalculated.
-
         Parameters
         ----------
         pairing: CoordinatePairing
@@ -274,7 +268,7 @@ class Calibration:
         finally:
             self.determine_state(skip_connection=True)
 
-    def determine_state(self, skip_connection=False) -> None:
+    def determine_state(self, skip_connection=False):
         """
         Determines the status of the calibration independently of the status variables of the instance.
         1. Checks whether the stage responds. If yes, status is at least CONNECTED.
@@ -286,12 +280,9 @@ class Calibration:
         self._state = State.UNINITIALIZED
 
         # 1. Check if stage responds
-        if self.stage is None:
-            return
-
         if not skip_connection:
             try:
-                if not self.stage.connected or self.stage.get_status() is None:
+                if not self.stage or self.stage.get_status() is None:
                     return
                 self._state = State.CONNECTED
             except StageError:
@@ -314,184 +305,3 @@ class Calibration:
             return
 
         self._state = State.FULLY_CALIBRATED
-
-    #
-    #   Position method
-    #
-
-    @assert_minimum_state_for_coordinate_system(
-        stage_coordinate_system=State.CONNECTED,
-        chip_coordinate_system=State.SINGLE_POINT_FIXED)
-    def get_position(
-            self) -> Union[Type[StageCoordinate], Type[ChipCoordinate]]:
-        """
-        Method to read out the current position of the stage.
-        This method can display the position in stage and chip coordinates,
-        depending on the context in which this method is used.
-
-        Returns
-        -------
-        position: StageCoordinate | ChipCoordinate
-            Position of the stage in chip or stage coordinates.
-
-        Raises
-        ------
-        CalibrationError
-            If the state of calibration is lower than the required one.
-        RuntimeError
-            If coordinate system is unsupported.
-        """
-        stage_position = StageCoordinate.from_list(self.stage.get_position())
-
-        if self.coordinate_system == StageCoordinate:
-            return stage_position
-        elif self.coordinate_system == ChipCoordinate:
-            if self.state == State.FULLY_CALIBRATED:
-                return self._kabsch_rotation.stage_to_chip(stage_position)
-            elif self.state == State.SINGLE_POINT_FIXED:
-                return self._single_point_offset.stage_to_chip(stage_position)
-            else:
-                raise CalibrationError(
-                    "Insufficient calibration state to return the position in chip coordinates.")
-        else:
-            RuntimeError(
-                f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
-
-    #
-    #   Movement methods
-    #
-
-    @assert_minimum_state_for_coordinate_system(
-        stage_coordinate_system=State.CONNECTED,
-        chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
-    def move_relative(self,
-                      offset: Union[Type[StageCoordinate],
-                                    Type[ChipCoordinate]],
-                      wait_for_stopping: bool = True) -> None:
-        """
-        Moves the stage relative in its coordinate system.
-        The offset can be passed a stage or chip coordinate,
-        depending on the context in which this method is used.
-
-        Parameters
-        ----------
-        offset: StageCoordinate | ChipCoordinate
-            Relative offset in stage or chip coordinates.
-
-        Raises
-        ------
-        CalibrationError
-            If the state of calibration is lower than the required one.
-        TypeError
-            If the passed offset does not have the correct type.
-        RuntimeError
-            If coordinate system is unsupported.
-        """
-        if not isinstance(offset, self.coordinate_system):
-            raise TypeError(
-                f"Given offset is in {type(offset)}. Need offset in {self.coordinate_system} to move the stage relative in this system.")
-
-        if self.coordinate_system == StageCoordinate:
-            stage_offset = offset
-        elif self.coordinate_system == ChipCoordinate:
-            stage_offset = self._axes_rotation.chip_to_stage(offset)
-        else:
-            RuntimeError(
-                f"Unsupported coordinate system {self.coordinate_system} to move the stage relatively.")
-
-        self.stage.move_relative(
-            x=stage_offset.x,
-            y=stage_offset.y,
-            z=stage_offset.z,
-            wait_for_stopping=wait_for_stopping)
-
-    @assert_minimum_state_for_coordinate_system(
-        stage_coordinate_system=State.CONNECTED,
-        chip_coordinate_system=State.SINGLE_POINT_FIXED)
-    def move_absolute(self,
-                      coordinate: Union[Type[StageCoordinate],
-                                        Type[ChipCoordinate]],
-                      wait_for_stopping: bool = True) -> None:
-        """
-        Moves the stage absolute to the given coordinate.
-        The coordinate can be passed in stage or chip coordinates,
-        depending on the coordinate system in which this method is called.
-
-        Parameters
-        ----------
-        coordinate: StageCoordinate | ChipCoordinate
-            Coordinate offset in stage or chip coordinates.
-
-        Raises
-        ------
-        CalibrationError
-            If the state of calibration is lower than the required one.
-        TypeError
-            If the passed offset does not have the correct type.
-        RuntimeError
-            If coordinate system is unsupported.
-        """
-        if not isinstance(coordinate, self.coordinate_system):
-            raise TypeError(
-                f"Given coordinate is in {type(coordinate)}. Need coordinate in {self.coordinate_system} to move the stage absolute in this system.")
-
-        if self.coordinate_system == StageCoordinate:
-            stage_coordinate = coordinate
-        elif self.coordinate_system == ChipCoordinate:
-            if self.state == State.FULLY_CALIBRATED:
-                stage_coordinate = self._kabsch_rotation.chip_to_stage(
-                    coordinate)
-            elif self.state == State.SINGLE_POINT_FIXED:
-                stage_coordinate = self._single_point_offset.chip_to_stage(
-                    coordinate)
-            else:
-                raise CalibrationError(
-                    "Insufficient calibration state to move the stage absolutely.")
-        else:
-            RuntimeError(
-                f"Unsupported coordinate system {self.coordinate_system} to move the stage absolutely.")
-
-        self.stage.move_absolute(
-            x=stage_coordinate.x,
-            y=stage_coordinate.y,
-            z=stage_coordinate.z,
-            wait_for_stopping=wait_for_stopping)
-
-    def wiggle_axis(
-            self,
-            wiggle_axis: Axis,
-            wiggle_distance: float = 1e3,
-            wiggle_speed: float = 1e3,
-            wait_time: float = 2) -> None:
-        """
-        Wiggles an axis of the stage.
-        Moves the axis first in a positive direction then in a negative direction.
-        This method can be used to check the axis rotation.
-        This method is executed in chip coordinates.
-
-        Parameters
-        ----------
-        wiggle_axis: Axis
-            Axis to be wiggled.
-        wiggle_distance: float = 1e3
-            Specifies how much the axis should be moved in one direction [um].
-        wiggle_speed: float = 1e3
-            Specifies how fast the axis should be moved in one direction [um/s].
-        wait_time: float = 2
-            Specifies how long to wait between positive and negative movement [s].
-        """
-        current_speed_xy = self.stage.get_speed_xy()
-        current_speed_z = self.stage.get_speed_z()
-
-        self.stage.set_speed_xy(wiggle_speed)
-        self.stage.set_speed_z(wiggle_speed)
-
-        wiggle_difference = np.array(
-            [wiggle_distance if wiggle_axis == axis else 0 for axis in Axis])
-        with self.perform_in_chip_coordinates():
-            self.move_relative(ChipCoordinate.from_numpy(wiggle_difference))
-            sleep(wait_time)
-            self.move_relative(ChipCoordinate.from_numpy(-wiggle_difference))
-
-        self.stage.set_speed_xy(current_speed_xy)
-        self.stage.set_speed_z(current_speed_z)
