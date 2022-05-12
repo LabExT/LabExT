@@ -20,7 +20,6 @@ from LabExT.Movement.Stage import StageError
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
 
-
 class CalibrationError(RuntimeError):
     pass
 
@@ -67,7 +66,7 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    def __init__(self, mover, stage, orientation, device_port) -> None:
+    def __init__(self, mover, stage: Type[Stage], orientation, device_port) -> None:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
@@ -263,7 +262,6 @@ class Calibration:
         """
         Updates the kabsch transformation of the calibration.
         After the update, the state of the calibration is recalculated.
-
         Parameters
         ----------
         pairing: CoordinatePairing
