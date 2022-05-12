@@ -353,3 +353,47 @@ class Calibration:
         else:
             RuntimeError(
                 f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
+
+    @assert_minimum_state_for_coordinate_system(
+        stage_coordinate_system=State.CONNECTED,
+        chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
+    def move_relative(self,
+                      offset: Union[Type[StageCoordinate],
+                                    Type[ChipCoordinate]],
+                      wait_for_stopping: bool = True) -> None:
+        """
+        Moves the stage relative in its coordinate system.
+        The offset can be passed a stage or chip coordinate,
+        depending on the context in which this method is used.
+
+        Parameters
+        ----------
+        offset: StageCoordinate | ChipCoordinate
+            Relative offset in stage or chip coordinates.
+
+        Raises
+        ------
+        CalibrationError
+            If the state of calibration is lower than the required one.
+        TypeError
+            If the passed offset does not have the correct type.
+        RuntimeError
+            If coordinate system is unsupported.
+        """
+        if not isinstance(offset, self.coordinate_system):
+            raise TypeError(
+                f"Given offset is in {type(offset)}. Need offset in {self.coordinate_system} to move the stage relative in this system.")
+
+        if self.coordinate_system == StageCoordinate:
+            stage_offset = offset
+        elif self.coordinate_system == ChipCoordinate:
+            stage_offset = self._axes_rotation.chip_to_stage(offset)
+        else:
+            RuntimeError(
+                f"Unsupported coordinate system {self.coordinate_system} to move the stage relatively.")
+
+        self.stage.move_relative(
+            x=stage_offset.x,
+            y=stage_offset.y,
+            z=stage_offset.z,
+            wait_for_stopping=wait_for_stopping)
