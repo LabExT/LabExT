@@ -159,7 +159,7 @@ class CoordinatePairingsWindow(Toplevel):
         frame.pack(side=TOP, fill=X, pady=5)
 
         if not self._device:
-            self._device_table = DeviceTable(frame, self.experiment_manager)
+            self._device_table = DeviceTable(frame, self.experiment_manager.chip)
             self._device_table.pack(side=TOP, fill=X, expand=True)
 
             self._select_device_button = Button(

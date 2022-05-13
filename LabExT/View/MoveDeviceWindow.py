@@ -67,7 +67,7 @@ class MoveDeviceWindow(Frame):
         """
         self.logger.debug('Setup MoveDeviceWindow.')
 
-        self._device_table = DeviceTable(self._root, self._experiment_manager)
+        self._device_table = DeviceTable(self._root, self._experiment_manager.chip)
         self._device_table.grid(column=0, row=0, sticky='nswe')
 
         self._info_label = Label(self._root, text=self._text_label)
