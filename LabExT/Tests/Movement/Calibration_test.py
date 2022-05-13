@@ -548,11 +548,11 @@ class CalibrationTest(CalibrationTestCase):
 
         move_absolute_mock.assert_called_once()
 
-        stage_call = move_absolute_mock.call_args_list[0]
+        _, kwargs = move_absolute_mock.call_args
         self.assertTrue(
             np.allclose(
                 expected_stage_pos,
-                np.array([stage_call.kwargs['x'], stage_call.kwargs['y'], stage_call.kwargs['z']]),
+                np.array([kwargs.get('x'), kwargs.get('y'), kwargs.get('z')]),
                 rtol=1,
                 atol=1))
 
@@ -574,10 +574,10 @@ class CalibrationTest(CalibrationTestCase):
 
         move_absolute_mock.assert_called_once()
 
-        stage_call = move_absolute_mock.call_args_list[0]
+        _, kwargs = move_absolute_mock.call_args
         self.assertTrue(
             np.allclose(
                 expected_stage_pos,
-                np.array([stage_call.kwargs['x'], stage_call.kwargs['y'], stage_call.kwargs['z']]),
+                np.array([kwargs.get('x'), kwargs.get('y'), kwargs.get('z')]),
                 rtol=1,
                 atol=1))
