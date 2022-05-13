@@ -6,11 +6,15 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from tkinter import Frame, Toplevel, Button, Label, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y
+from typing import Callable, Type
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.DeviceTable import DeviceTable
+from LabExT.View.Controls.CoordinateWidget import CoordinateWidget, StagePositionWidget
 
-from LabExT.Movement.Stage import StageError
-import LabExT.Movement.Transformations as Transformations
+from LabExT.Movement.Transformations import CoordinatePairing
+from LabExT.Movement.MoverNew import MoverNew
+from LabExT.Movement.Calibration import Calibration
+from LabExT.Wafer.Chip import Chip
 
 
 class CoordinatePairingsWindow(Toplevel):
@@ -20,31 +24,61 @@ class CoordinatePairingsWindow(Toplevel):
 
     def __init__(
             self,
-            experiment_manager,
-            parent,
-            in_calibration=None,
-            out_calibration=None):
-        if in_calibration is None and out_calibration is None:
-            raise ValueError(
-                "At least one calibration is needed to create a coordinate pairing. ")
+            master,
+            mover: Type[MoverNew],
+            chip: Type[Chip],
+            on_finish: Type[Callable],
+            with_input_stage: bool = True,
+            with_output_stage: bool = True) -> None:
+        """
+        Constructor for new CoordinatePairing Window.
 
-        if experiment_manager.chip is None:
+        Parameters
+        ----------
+        master : Tk
+            Tk instance of the master toplevel
+        mover : Mover
+            Instance of the current mover.
+        chip : Chip
+            Instance of the current imported Chip.
+        on_finish : Callable
+            Callback function, when user completed the pairing.
+        with_input_stage : bool = True
+            Specifies whether the input stage is to be used.
+        with_output_stage : bool = True
+            Specifies whether the output stage is to be used.
+
+        Raises
+        ------
+        ValueError
+            If input or output calibration are undefined but requested by user.
+            If chip is None.
+        """
+        super(CoordinatePairingsWindow, self).__init__(master)
+
+        self.chip: Type[Chip] = chip
+        self.mover: Type[MoverNew] = mover
+        self.on_finish = on_finish
+        self.with_input_stage = with_input_stage
+        self.with_output_stage = with_output_stage
+
+        if self.chip is None:
             raise ValueError("Cannot create pairing without chip imported. ")
 
-        self.experiment_manager = experiment_manager
-        self._in_calibration = in_calibration
-        self._out_calibration = out_calibration
+        if self.with_input_stage and self.mover.input_calibration is None:
+            raise ValueError(
+                "No input stage defined, but requested by user to create a pairing.")
 
-        super(CoordinatePairingsWindow, self).__init__(parent)
+        if self.with_output_stage and self.mover.output_calibration is None:
+            raise ValueError(
+                "No input stage defined, but requested by user to create a pairing.")
 
         self._device = None
-        self._in_stage_coordinate = None
-        self._out_stage_coordinate = None
 
         # Set up window
         self.title("New Chip-Stage-Coordinates Pairings")
         self.geometry('{:d}x{:d}+{:d}+{:d}'.format(1000, 600, 200, 200))
-        self.protocol('WM_DELETE_WINDOW', self._cancel)
+        self.protocol('WM_DELETE_WINDOW', self.cancel)
 
         # Build window
         self._main_frame = Frame(self, borderwidth=0, relief=FLAT)
@@ -66,13 +100,13 @@ class CoordinatePairingsWindow(Toplevel):
             text="Save and Close",
             width=15,
             state=DISABLED,
-            command=self._finish)
+            command=self.finish)
         self._finish_button.pack(
             side=RIGHT, fill=Y, expand=0)
 
         self.__setup__()
 
-    def __setup__(self):
+    def __setup__(self) -> None:
         """
         Builds all widgets based on current state.
         """
@@ -81,85 +115,12 @@ class CoordinatePairingsWindow(Toplevel):
         top_hint = Label(self._main_frame, text=hint)
         top_hint.pack(side=TOP, fill=X)
 
-        self._select_device_frame()
-        self._current_pairings_frame()
-
-    def __reload__(self):
-        """
-        Reloads window.
-        """
-        for child in self._main_frame.winfo_children():
-            child.forget()
-
-        self._finish_button.config(state=NORMAL if self._device else DISABLED)
-
-        self.__setup__()
-        self.update_idletasks()
-
-    @property
-    def pairings(self):
-        """
-        Returns a list of coordinate pairings if device and stage coordinate is defined, otherwise empty list.
-        """
-        pairings = []
-        if not self._device:
-            return pairings
-
-        if not self._out_stage_coordinate and not self._in_stage_coordinate:
-            return pairings
-
-        if self._in_calibration and self._in_stage_coordinate:
-            pairings.append(Transformations.CoordinatePairing(
-                self._in_calibration,
-                self._in_stage_coordinate,
-                self._device,
-                self._device._in_position
-            ))
-
-        if self._out_calibration and self._out_stage_coordinate:
-            pairings.append(Transformations.CoordinatePairing(
-                self._out_calibration,
-                self._out_stage_coordinate,
-                self._device,
-                self._device._out_position
-            ))
-
-        return pairings
-
-    #
-    #   Frames
-    #
-
-    def _current_pairings_frame(self):
-        """
-        Renders a frame to show the current pairings
-        """
-        frame = CustomFrame(self._main_frame)
-        frame.pack(side=TOP, fill=X, pady=5)
-
-        step_hint = Label(frame, text=self._get_coupling_hint())
-        step_hint.pack(side=TOP, fill=X)
-
-        if self._in_calibration:
-            self._calibration_pairing_widget(
-                frame, self._in_calibration).pack(
-                side=TOP, fill=X)
-
-        if self._out_calibration:
-            self._calibration_pairing_widget(
-                frame, self._out_calibration).pack(
-                side=TOP, fill=X)
-
-    def _select_device_frame(self):
-        """
-        Renders a frame to select a device.
-        """
         frame = CustomFrame(self._main_frame)
         frame.title = "Device Selection"
         frame.pack(side=TOP, fill=X, pady=5)
 
         if not self._device:
-            self._device_table = DeviceTable(frame, self.experiment_manager.chip)
+            self._device_table = DeviceTable(frame, self.chip)
             self._device_table.pack(side=TOP, fill=X, expand=True)
 
             self._select_device_button = Button(
@@ -182,29 +143,76 @@ class CoordinatePairingsWindow(Toplevel):
             )
             self._clear_device_button.pack(side=LEFT, padx=5)
 
+        frame = CustomFrame(self._main_frame)
+        frame.pack(side=TOP, fill=X, pady=5)
+
+        step_hint = Label(frame, text=self._get_coupling_hint())
+        step_hint.pack(side=TOP, fill=X)
+
+        if self.with_input_stage:
+            self._calibration_pairing_widget(
+                frame, self.mover.input_calibration).pack(
+                side=TOP, fill=X)
+
+        if self.with_output_stage:
+            self._calibration_pairing_widget(
+                frame, self.mover.output_calibration).pack(
+                side=TOP, fill=X)
+
+    def __reload__(self) -> None:
+        """
+        Reloads window.
+        """
+        for child in self._main_frame.winfo_children():
+            child.forget()
+
+        self._finish_button.config(state=NORMAL if self._device else DISABLED)
+
+        self.__setup__()
+        self.update_idletasks()
+
+    def finish(self) -> None:
+        """
+        Callback, when user wants to finish the pairing.
+
+        Builds the pairings and calls the on_finish callback.
+
+        Destroys the window.
+        """
+        if self._device is None:
+            messagebox.showwarning(
+                'Device Needed',
+                'Please select a device to create a pairing.',
+                parent=self)
+            return
+
+        pairings = []
+
+        if self.with_input_stage:
+            pairings.append(self._get_pairing(self.mover.input_calibration))
+
+        if self.with_output_stage:
+            pairings.append(self._get_pairing(self.mover.output_calibration))
+
+        self.on_finish(pairings)
+        self.destroy()
+
+    def cancel(self) -> None:
+        """
+        Callback, when user wants to cancel the pairing.
+
+        Resets the device.
+
+        Destroys the window.
+        """
+        self._device = None
+        self.destroy()
+
     #
     #   Callbacks
     #
 
-    def _finish(self):
-        try:
-            if self._in_calibration:
-                self._in_stage_coordinate = self._in_calibration.stage.get_current_position()
-            if self._out_calibration:
-                self._out_stage_coordinate = self._out_calibration.stage.get_current_position()
-
-            self.destroy()
-        except StageError as e:
-            messagebox.showerror(
-                "Error", "Could not get current position: {}".format(e))
-
-    def _cancel(self):
-        self._in_stage_coordinate = None
-        self._out_stage_coordinate = None
-        self._device = None
-        self.destroy()
-
-    def _on_device_selection(self):
+    def _on_device_selection(self) -> None:
         """
         Callback, when user hits "Select marked device" button.
         """
@@ -218,7 +226,7 @@ class CoordinatePairingsWindow(Toplevel):
 
         self.__reload__()
 
-    def _on_device_selection_clear(self):
+    def _on_device_selection_clear(self) -> None:
         """
         Callback, when user wants to clear the current device selection.
         """
@@ -229,43 +237,77 @@ class CoordinatePairingsWindow(Toplevel):
     #   Helpers
     #
 
-    def _calibration_pairing_widget(self, parent, calibration):
+    def _get_pairing(
+            self,
+            calibration: Type[Calibration]) -> Type[CoordinatePairing]:
+        """
+        Builds and returns a new coordinate pairing for the given calibration.
+
+        Returns None if calibration is None.
+        """
+        if calibration is None:
+            return
+
+        if calibration.is_input_stage:
+            chip_coord = self._device.input_coordinate
+        elif calibration.is_output_stage:
+            chip_coord = self._device.output_coordinate
+
+        with calibration.perform_in_stage_coordinates():
+            return CoordinatePairing(
+                calibration,
+                calibration.get_position(),
+                self._device,
+                chip_coord)
+
+    def _calibration_pairing_widget(
+            self, parent, calibration) -> Type[CustomFrame]:
+        """
+        Builds and returns a frame to display the current pairing state.
+        """
         pairing_frame = CustomFrame(parent)
         pairing_frame.title = calibration.short_str
         pairing_frame.pack(side=TOP, fill=X, pady=5)
 
-        Label(
-            pairing_frame,
-            text="Paired with chip coordinate:"
-        ).pack(side=LEFT, fill=X)
-
         if self._device:
             Label(
                 pairing_frame,
-                text=self._device._in_position if calibration.is_input_stage else self._device._out_position,
-                borderwidth=2,
-                relief='sunken').pack(
-                side=LEFT,
-                padx=5)
+                text="Chip coordinate:"
+            ).pack(side=LEFT)
+
+            CoordinateWidget(
+                pairing_frame,
+                coordinate=self._device.input_coordinate if calibration.is_input_stage else self._device.output_coordinate
+            ).pack(side=LEFT)
+
+            Label(
+                pairing_frame,
+                text="will be paired with Stage coordinate:"
+            ).pack(side=LEFT)
+
+            StagePositionWidget(pairing_frame, calibration).pack(side=LEFT)
         else:
             Label(
                 pairing_frame,
                 text="No device selected",
                 foreground="#FF3333"
-            ).pack(side=LEFT, padx=5)
+            ).pack(side=LEFT)
 
         return pairing_frame
 
     def _get_coupling_hint(self):
-        if self._in_calibration and self._out_calibration:
+        """
+        Displays a coupling hint depending on the given calibrations.
+        """
+        if self.with_input_stage and self.with_output_stage:
             return "You have selected two stages to create a pairing:\n" \
-                   "{} must be moved to the input port.\n" \
-                   "{} must be moved to the output port.".format(self._in_calibration, self._out_calibration)
+                   f"{self.mover.input_calibration} must be moved to the input port.\n" \
+                   f"{self.mover.output_calibration} must be moved to the output port."
 
-        if self._in_calibration:
+        if self.with_input_stage:
             return "You have selected one stages to create a pairing:\n" \
-                   "{} must be moved to the input port".format(self._in_calibration)
+                   f"{self.mover.input_calibration} must be moved to the input port"
 
-        if self._out_calibration:
+        if self.with_output_stage:
             return "You have selected one stages to create a pairing:\n" \
-                   "{} must be moved to the output port".format(self._out_calibration)
+                   f"{self.mover.output_calibration} must be moved to the output port"
