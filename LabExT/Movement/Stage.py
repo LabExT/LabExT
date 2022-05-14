@@ -180,9 +180,13 @@ class Stage(ABC):
         pass
 
     @abstractmethod
-    def move_relative(self, x, y):
+    def get_position(self) -> list:
         pass
 
     @abstractmethod
-    def move_absolute(self, pos):
+    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
+        pass
+
+    @abstractmethod
+    def move_absolute(self, x: float = None, y: float = None, z: float = None, wait_for_stopping: bool = True) -> None:
         pass
