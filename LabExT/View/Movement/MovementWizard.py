@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from functools import partial
-from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
+from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
 from typing import Type
 
 from LabExT.Utils import run_with_wait_window
@@ -90,6 +90,105 @@ class StageWizard(Wizard):
             parent=self)
 
         return True
+
+
+class MoverWizard(Wizard):
+    """
+    Wizard to configure the mover
+    """
+
+    def __init__(self, master, mover):
+        """
+        Constructor for new Mover Wizard.
+
+        Parameters
+        ----------
+        master : Tk
+            Tk instance of the master toplevel
+        mover : Mover
+            Instance of the current mover.
+        """
+        self.mover: Type[MoverNew] = mover
+
+        if not self.mover.has_connected_stages:
+            raise RuntimeError("No connected stages. Cannot configure mover.")
+
+        super().__init__(
+            master,
+            width=1100,
+            height=800,
+            on_finish=self.finish,
+            next_button_label="Next Step",
+            previous_button_label="Previous Step",
+            cancel_button_label="Cancel",
+            finish_button_label="Save",
+            with_sidebar=False
+        )
+        self.title("Configure Mover")
+
+        self.configure_mover_step = ConfigureMoverStep(self, self.mover)
+        self.current_step = self.configure_mover_step
+
+    def finish(self):
+        speed_xy = self._get_safe_value(
+            self.configure_mover_step.xy_speed_var,
+            float,
+            self.mover.DEFAULT_SPEED_XY)
+        speed_z = self._get_safe_value(
+            self.configure_mover_step.z_speed_var,
+            float,
+            self.mover.DEFAULT_SPEED_Z)
+        acceleration_xy = self._get_safe_value(
+            self.configure_mover_step.xy_acceleration_var,
+            float,
+            self.mover.DEFAULT_ACCELERATION_XY)
+
+        if self._warn_user_about_zero_speed(
+                speed_xy) and self._warn_user_about_zero_speed(speed_z):
+            try:
+                self.mover.speed_xy = speed_xy
+                self.mover.speed_z = speed_z
+                self.mover.acceleration_xy = acceleration_xy
+
+                messagebox.showinfo(
+                    "Mover Setup completed.",
+                    f"Successfully configured mover.",
+                    parent=self)
+
+                return True
+            except Exception as e:
+                messagebox.showerror(
+                    message=f"Could not setup stages. Reason: {e}",
+                    parent=self)
+
+        return False
+
+    def _warn_user_about_zero_speed(self, speed) -> bool:
+        """
+        Warns user when settings speed to zero.
+        Returns True if speed is not zero or user wants to set speed to zero.
+        """
+        if speed == 0.0:
+            return messagebox.askokcancel(
+                message="Setting speed to 0 will turn the speed control OFF! \n"
+                "The stage will now move as fast as possible. Set a different speed if "
+                "this is not intended. Do you want still to proceed?")
+
+        return True
+
+    def _get_safe_value(
+            self,
+            var: Type[DoubleVar],
+            to_type: type,
+            default=None):
+        """
+        Returns the value of a tkinter entry and cast it to a specified type.
+        If casting or retrieving fails, it returns a default value.
+        """
+        try:
+            return to_type(var.get())
+        except (ValueError, TypeError):
+            return default
 
 
 class StageDriverStep(Step):
@@ -340,3 +439,90 @@ class StageAssignmentStep(Step):
             port_vars[stage] = port_var
 
         return orientation_vars, port_vars
+
+
+class ConfigureMoverStep(Step):
+    def __init__(self, wizard, mover) -> None:
+        super().__init__(
+            wizard,
+            self.build,
+            finish_step_enabled=True,
+            title="Stage Configuration")
+        self.mover: Type[MoverNew] = mover
+
+        self.xy_speed_var = DoubleVar(
+            self.wizard,
+            self.mover.speed_xy if self.mover._speed_xy else self.mover.DEFAULT_SPEED_XY)
+        self.z_speed_var = DoubleVar(
+            self.wizard,
+            self.mover.speed_z if self.mover._speed_z else self.mover.DEFAULT_SPEED_Z)
+        self.xy_acceleration_var = DoubleVar(
+            self.wizard,
+            self.mover.acceleration_xy if self.mover._acceleration_xy else self.mover.DEFAULT_ACCELERATION_XY)
+
+    def build(self, frame: Type[CustomFrame]):
+        """
+        Builds step to configure stages.
+        """
+        frame.title = "Configure Assigned Stages"
+
+        Label(
+            frame,
+            text="Configure the selected stages.\nThese settings are applied globally to all selected stages."
+        ).pack(side=TOP, fill=X)
+
+        stage_properties_frame = CustomFrame(frame)
+        stage_properties_frame.title = "Speed and Acceleration Settings"
+        stage_properties_frame.pack(side=TOP, fill=X)
+
+        Label(
+            stage_properties_frame,
+            anchor="w",
+            text="Speed Hint: A value of 0 (default) deactivates the speed control feature. The stage will move as fast as possible!"
+        ).pack(side=TOP, fill=X)
+        Label(
+            stage_properties_frame,
+            anchor="w",
+            text="Acceleration Hint: A value of 0 (default) deactivates the acceleration control feature."
+        ).pack(side=TOP, fill=X)
+
+        self._build_entry_with_label(
+            stage_properties_frame,
+            self.xy_speed_var,
+            label="Movement speed xy direction (valid range: {}...{:.0e}um/s):".format(
+                self.mover.SPEED_LOWER_BOUND,
+                self.mover.SPEED_UPPER_BOUND),
+            unit="[um/s]")
+
+        self._build_entry_with_label(
+            stage_properties_frame,
+            self.z_speed_var,
+            label="Movement speed z direction (valid range: {}...{:.0e}um/s):".format(
+                self.mover.SPEED_LOWER_BOUND,
+                self.mover.SPEED_UPPER_BOUND),
+            unit="[um/s]")
+
+        self._build_entry_with_label(
+            stage_properties_frame,
+            self.xy_acceleration_var,
+            label="Movement acceleration xy direction (valid range: {}...{:.0e}um/s^2):".format(
+                self.mover.ACCELERATION_LOWER_BOUND,
+                self.mover.ACCELERATION_UPPER_BOUND),
+            unit="[um/s^2]")
+
+    def _build_entry_with_label(
+            self,
+            parent,
+            var: Type[DoubleVar],
+            label: str = None,
+            unit: str = None) -> None:
+        """
+        Builds an tkinter entry with label and unit.
+        """
+        entry_frame = Frame(parent)
+        entry_frame.pack(side=TOP, fill=X, pady=2)
+
+        Label(entry_frame, text=label).pack(side=LEFT)
+        Label(entry_frame, text=unit).pack(side=RIGHT)
+        entry = Entry(entry_frame, textvariable=var)
+        entry.pack(side=RIGHT, padx=10)
