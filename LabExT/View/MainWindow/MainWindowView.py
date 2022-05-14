@@ -64,6 +64,9 @@ class MainWindowContextMenu(Menu):
         self._movement_new.add_command(
             label="Configure Mover...",
             command=self._menu_listener.client_setup_mover)
+        self._movement_new.add_command(
+            label="Calibrate Stages...",
+            command=self._menu_listener.client_calibrate_stage)
 
         self._movement.add_command(
             label="Configure Stages",
