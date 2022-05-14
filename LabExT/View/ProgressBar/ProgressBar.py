@@ -28,7 +28,7 @@ class ProgressBar(Toplevel):
         lbl.grid(row=0, column=0)
 
         # don't show classical window bar for progress bar
-        # self.overrideredirect(True)
+        self.overrideredirect(True)
 
         # this lets the window manager draw all windows, which is necessary as
         while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
