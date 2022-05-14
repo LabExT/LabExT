@@ -60,7 +60,7 @@ class MainWindowContextMenu(Menu):
 
         self._movement_new.add_command(
             label="Configure Stages...",
-            command=self._menu_listener.client_configure_mover)
+            command=self._menu_listener.client_setup_stages)
 
         self._movement.add_command(
             label="Configure Stages",

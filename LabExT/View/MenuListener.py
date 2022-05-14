@@ -23,7 +23,7 @@ from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
-from LabExT.View.MovementWizard.MovementWizardController import MovementWizardController
+from LabExT.View.Movement.MovementWizard import StageWizard
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
@@ -63,7 +63,7 @@ class MListener:
         self.about_toplevel = None
         self.pgb = None
         self.import_done = False
-        self.movement_wizard_toplevel = None
+        self.stage_setup_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
@@ -187,16 +187,14 @@ class MListener:
         """
         sys.exit(0)
 
-    def client_configure_mover(self):
+    def client_setup_stages(self):
         """
-        Open wizard to configure the Mover.
+        Open wizard to setup the stages.
         """
-        if try_to_lift_window(self.movement_wizard_toplevel):
+        if try_to_lift_window(self.stage_setup_toplevel):
             return
         
-        movement_wizard = MovementWizardController(
-            self._experiment_manager, self._experiment_manager.mover_new, parent=self._root)
-        self.movement_wizard_toplevel = movement_wizard.view
+        self.stage_setup_toplevel = StageWizard(self._root, self._experiment_manager.mover_new)
 
     def client_configure_stages(self):
         """
