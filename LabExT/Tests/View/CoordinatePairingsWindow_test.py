@@ -5,15 +5,17 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from unittest.mock import Mock, patch
-from LabExT.Movement.Calibration import Calibration, DevicePort, Orientation
+from unittest.mock import Mock
+
+from LabExT.Movement.config import DevicePort, Orientation
+
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Stage import Stage
-from LabExT.Movement.Transformations import CoordinatePairing
 from LabExT.Tests.Utils import TKinterTestCase, with_stage_discovery_patch
 from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 
 from LabExT.Wafer.Device import Device
+from LabExT.Wafer.Chip import Chip
 
 
 class CoordinatePairingsWindowTest(TKinterTestCase):
@@ -23,153 +25,162 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         available_stages_mock.return_value = []
         stage_classes_mock.return_value = []
 
-        self.devices = {
-            0: Device(0, [0, 0], [1, 1], "My Device 1")
-        }
-
-        self.experiment_manager = Mock()
-
-        self.mover = MoverNew(self.experiment_manager)
+        self.device = Device(0, [0, 0], [1, 1], "My Device 1")
+        self.chip = Chip(devices={0: self.device})
+        self.mover = MoverNew(None)
 
         self.stage_1 = Mock(spec=Stage)
         self.stage_2 = Mock(spec=Stage)
         self.stage_1.connected = True
         self.stage_2.connected = True
 
-        self.in_calibration = Calibration(
-            self.mover,
-            self.stage_1,
-            Orientation.LEFT,
-            DevicePort.INPUT)
-        self.out_calibration = Calibration(
-            self.mover,
-            self.stage_2,
-            Orientation.RIGHT,
-            DevicePort.OUTPUT)
+        self.stage_1_position = [23744.60, -9172.55, 18956.10]
+        self.stage_2_position = [23236.35, -7888.67, 18956.06]
+        self.stage_1.get_position.return_value = self.stage_1_position
+        self.stage_2.get_position.return_value = self.stage_2_position
 
-    def test_raises_error_if_no_calibration_is_given(self):
-        with self.assertRaises(ValueError):
-            CoordinatePairingsWindow(self.experiment_manager, self.root)
+        self.on_finish = Mock()
+
+    def setup_calibrations(self):
+        self.in_calibration = self.mover.add_stage_calibration(
+            self.stage_1, Orientation.LEFT, DevicePort.INPUT)
+        self.out_calibration = self.mover.add_stage_calibration(
+            self.stage_2, Orientation.RIGHT, DevicePort.OUTPUT)
+
+    def setup_window(self, with_input_stage=True, with_output_stage=True):
+        return CoordinatePairingsWindow(
+            self.root,
+            self.mover,
+            self.chip,
+            self.on_finish,
+            with_input_stage,
+            with_output_stage)
 
     def test_raises_error_if_no_chip_is_imported(self):
-        self.experiment_manager.chip = None
         with self.assertRaises(ValueError):
-            CoordinatePairingsWindow(self.experiment_manager, self.root)
+            CoordinatePairingsWindow(
+                self.root, self.mover, None, self.on_finish)
 
-    def test_pairings_returns_an_empty_list_for_no_device(self):
-        self.experiment_manager.chip._devices = self.devices
-        window = CoordinatePairingsWindow(
-            self.experiment_manager,
-            self.root,
-            self.in_calibration,
-            self.out_calibration)
+    def test_raises_error_if_input_is_requested_but_not_defined(self):
+        with self.assertRaises(ValueError):
+            CoordinatePairingsWindow(
+                self.root,
+                self.mover,
+                self.chip,
+                self.on_finish,
+                with_input_stage=True)
 
-        self.assertEqual([], window.pairings)
+    def test_raises_error_if_output_is_requested_but_not_defined(self):
+        with self.assertRaises(ValueError):
+            CoordinatePairingsWindow(
+                self.root,
+                self.mover,
+                self.chip,
+                self.on_finish,
+                with_output_stage=True)
 
-    def test_pairings_returns_an_empty_list_if_no_stage_cooridnates(self):
-        self.experiment_manager.chip._devices = self.devices
-        window = CoordinatePairingsWindow(
-            self.experiment_manager,
-            self.root,
-            self.in_calibration,
-            self.out_calibration)
+    def test_no_callback_for_no_device_selection(self):
+        self.setup_calibrations()
+        window = self.setup_window()
+
+        window._finish_button.invoke()
+
+        self.on_finish.assert_not_called()
+
+    def test_device_selection(self):
+        self.setup_calibrations()
+        window = self.setup_window()
 
         window._device_table.set_selected_device(0)
         window._select_device_button.invoke()
 
-        self.assertEqual([], window.pairings)
+        self.assertEqual(window._device, self.device)
 
-    def test_reset_device_selection(self):
-        self.experiment_manager.chip._devices = self.devices
-        window = CoordinatePairingsWindow(
-            self.experiment_manager,
-            self.root,
-            self.in_calibration,
-            self.out_calibration)
+    def test_device_reset(self):
+        self.setup_calibrations()
+        window = self.setup_window()
 
         window._device_table.set_selected_device(0)
         window._select_device_button.invoke()
-
-        self.assertEqual(window._device, self.devices.get(0))
+        self.assertEqual(window._device, self.device)
 
         window._clear_device_button.invoke()
-
         self.assertIsNone(window._device)
 
-    def test_pairings_for_input_calibration(self):
-        self.experiment_manager.chip._devices = self.devices
-        window = CoordinatePairingsWindow(
-            self.experiment_manager, self.root, self.in_calibration)
+    def test_pairings_for_input_stage(self):
+        self.setup_calibrations()
+        window = self.setup_window(
+            with_input_stage=True,
+            with_output_stage=False)
 
         window._device_table.set_selected_device(0)
         window._select_device_button.invoke()
-
-        self.in_calibration.stage.get_current_position.return_value = [3, 9]
-
         window._finish_button.invoke()
 
-        expected_pairings = CoordinatePairing(
-            calibration=self.in_calibration,
-            stage_coordinate=[3, 9],
-            device=self.devices.get(0),
-            chip_coordinate=[0, 0]
-        )
+        self.on_finish.assert_called_once()
 
-        self.assertEqual(window.pairings, [expected_pairings])
+        args, _ = self.on_finish.call_args
+        pairings = args[0]
 
-    def test_pairings_for_output_calibration(self):
-        self.experiment_manager.chip._devices = self.devices
-        window = CoordinatePairingsWindow(
-            self.experiment_manager,
-            self.root,
-            out_calibration=self.out_calibration)
-
-        window._device_table.set_selected_device(0)
-        window._select_device_button.invoke()
-
-        self.out_calibration.stage.get_current_position.return_value = [4, 8]
-
-        window._finish_button.invoke()
-
-        expected_pairings = CoordinatePairing(
-            calibration=self.out_calibration,
-            stage_coordinate=[4, 8],
-            device=self.devices.get(0),
-            chip_coordinate=[1, 1]
-        )
-
-        self.assertEqual(window.pairings, [expected_pairings])
-
-    def test_pairings_for_input_and_output_calibration(self):
-        self.experiment_manager.chip._devices = self.devices
-        window = CoordinatePairingsWindow(
-            self.experiment_manager,
-            self.root,
-            in_calibration=self.in_calibration,
-            out_calibration=self.out_calibration)
-
-        window._device_table.set_selected_device(0)
-        window._select_device_button.invoke()
-
-        self.in_calibration.stage.get_current_position.return_value = [4, 8]
-        self.out_calibration.stage.get_current_position.return_value = [3, 9]
-
-        window._finish_button.invoke()
-
-        expected_pairing_1 = CoordinatePairing(
-            calibration=self.in_calibration,
-            stage_coordinate=[4, 8],
-            device=self.devices.get(0),
-            chip_coordinate=[0, 0]
-        )
-
-        expected_pairing_2 = CoordinatePairing(
-            calibration=self.out_calibration,
-            stage_coordinate=[3, 9],
-            device=self.devices.get(0),
-            chip_coordinate=[1, 1]
-        )
-
+        self.assertEqual(1, len(pairings))
+        self.assertEqual(self.in_calibration, pairings[0].calibration)
+        self.assertEqual(self.device, pairings[0].device)
         self.assertEqual(
-            window.pairings, [
-                expected_pairing_1, expected_pairing_2])
+            self.stage_1_position,
+            pairings[0].stage_coordinate.to_list())
+        self.assertEqual([0, 0, 0], pairings[0].chip_coordinate.to_list())
+
+    def test_pairings_for_output_stage(self):
+        self.setup_calibrations()
+        window = self.setup_window(
+            with_input_stage=False,
+            with_output_stage=True)
+
+        window._device_table.set_selected_device(0)
+        window._select_device_button.invoke()
+        window._finish_button.invoke()
+
+        self.on_finish.assert_called_once()
+
+        args, _ = self.on_finish.call_args
+        pairings = args[0]
+
+        self.assertEqual(1, len(pairings))
+        self.assertEqual(self.out_calibration, pairings[0].calibration)
+        self.assertEqual(self.device, pairings[0].device)
+        self.assertEqual(
+            self.stage_2_position,
+            pairings[0].stage_coordinate.to_list())
+        self.assertEqual([1, 1, 0], pairings[0].chip_coordinate.to_list())
+
+    def test_pairings_for_input_and_output_stage(self):
+        self.setup_calibrations()
+        window = self.setup_window(
+            with_input_stage=True,
+            with_output_stage=True)
+
+        window._device_table.set_selected_device(0)
+        window._select_device_button.invoke()
+        window._finish_button.invoke()
+
+        self.on_finish.assert_called_once()
+
+        args, _ = self.on_finish.call_args
+        pairings = args[0]
+
+        self.assertEqual(2, len(pairings))
+
+        input_pairing = pairings[0]
+        self.assertEqual(self.in_calibration, input_pairing.calibration)
+        self.assertEqual(self.device, input_pairing.device)
+        self.assertEqual(
+            self.stage_1_position,
+            input_pairing.stage_coordinate.to_list())
+        self.assertEqual([0, 0, 0], input_pairing.chip_coordinate.to_list())
+
+        output_pairing = pairings[1]
+        self.assertEqual(self.out_calibration, output_pairing.calibration)
+        self.assertEqual(self.device, output_pairing.device)
+        self.assertEqual(self.stage_2_position,
+                         output_pairing.stage_coordinate.to_list())
+        self.assertEqual([1, 1, 0], output_pairing.chip_coordinate.to_list())
