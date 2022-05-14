@@ -6,17 +6,23 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from functools import partial
-from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
-from typing import Type
+from itertools import product
+from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
+from typing import Type, List
+from bidict import bidict
 
-from LabExT.Utils import run_with_wait_window
+from LabExT.Utils import run_with_wait_window, try_to_lift_window
+from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Controls.Wizard import Step, Wizard
 
-from LabExT.Movement.Calibration import DevicePort, Orientation
+from LabExT.Movement.config import Orientation, DevicePort, Axis, Direction
 from LabExT.Movement.Stage import Stage, StageError
 from LabExT.Movement.MoverNew import MoverError, MoverNew, Stage
+from LabExT.Movement.Transformations import CoordinatePairing
+from LabExT.Movement.Calibration import Calibration
+from LabExT.Wafer.Chip import Chip
 
 
 class StageWizard(Wizard):
@@ -189,6 +195,39 @@ class MoverWizard(Wizard):
             return to_type(var.get())
         except (ValueError, TypeError):
             return default
+
+
+class CalibrationWizard(Wizard):
+    def __init__(self, master, mover, chip):
+        self.mover: Type[MoverNew] = mover
+        self.chip: Type[Chip] = chip
+
+        if len(self.mover.calibrations) == 0:
+            raise RuntimeError(
+                "Calibration not possible without connected stages.")
+
+        if self.chip is None:
+            raise RuntimeError("Calibration not possible without loaded chip.")
+
+        super().__init__(
+            master,
+            width=1100,
+            height=800,
+            next_button_label="Next Step",
+            previous_button_label="Previous Step",
+            cancel_button_label="Cancel",
+            finish_button_label="Finish Setup",
+        )
+        self.title("Configure Mover")
+
+        self.calibrate_axes_step = AxesCalibrationStep(self, self.mover)
+        self.coordinate_pairing_step = CoordinatePairingStep(
+            self, self.mover, self.chip)
+
+        self.calibrate_axes_step.next_step = self.coordinate_pairing_step
+        self.coordinate_pairing_step.previous_step = self.calibrate_axes_step
+
+        self.current_step = self.calibrate_axes_step
 
 
 class StageDriverStep(Step):
@@ -526,3 +565,381 @@ class ConfigureMoverStep(Step):
         Label(entry_frame, text=unit).pack(side=RIGHT)
         entry = Entry(entry_frame, textvariable=var)
         entry.pack(side=RIGHT, padx=10)
+
+
+class AxesCalibrationStep(Step):
+    """
+    Wizard Step to calibrate stage axes.
+    """
+
+    STAGE_AXIS_OPTIONS = bidict({o: " ".join(map(str, o))
+                                for o in product(Direction, Axis)})
+
+    def __init__(self, wizard, mover) -> None:
+        """
+        Constructor for new Wizard step for calibrating stage axes.
+
+        Parameters
+        ----------
+        master : Tk
+            Tk instance of the master toplevel
+        mover : Mover
+            Instance of the current mover.
+        """
+        super().__init__(
+            wizard,
+            self.build,
+            on_reload=self.on_reload,
+            title="Stage Axes Calibration")
+        self.mover: Type[MoverNew] = mover
+
+        self.axes_mapping_vars = self._build_axes_mapping_vars()
+
+    def _build_axes_mapping_vars(self):
+        """
+        Builds and returns Tkinter variables for axes calibration.
+        """
+        vars = {}
+        for calibration in self.mover.calibrations.values():
+            for chip_axis in Axis:
+                str_var = StringVar(
+                    self.wizard, (Direction.POSITIVE, chip_axis))
+                str_var.trace(
+                    W,
+                    lambda *_,
+                    calibration=calibration,
+                    chip_axis=chip_axis: self.calibrate_axis(
+                        calibration,
+                        chip_axis))
+                vars.setdefault(calibration, {})[chip_axis] = str_var
+
+        return vars
+
+    def build(self, frame: Type[CustomFrame]):
+        """
+        Builds step to calibrate axes.
+
+        Parameters
+        ----------
+        frame : CustomFrame
+            Instance of a customized Tkinter frame.
+        """
+        frame.title = "Fix Coordinate System"
+
+        Label(
+            frame,
+            text="In order for each stage to move relative to the chip coordinates, the direction of each axis of each stage must be defined. \n Postive Y-Axis: North of chip, Positive X-Axis: East of chip, Positive Z-Axis: Lift stage"
+        ).pack(side=TOP, fill=X)
+
+        for calibration in self.mover.calibrations.values():
+            stage_calibration_frame = CustomFrame(frame)
+            stage_calibration_frame.title = str(calibration)
+            stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
+
+            for chip_axis in Axis:
+                chip_axis_frame = Frame(stage_calibration_frame)
+                chip_axis_frame.pack(side=TOP, fill=X)
+
+                Label(
+                    chip_axis_frame,
+                    text="Positive {}-Chip-axis points to ".format(chip_axis.name)
+                ).pack(side=LEFT)
+
+                OptionMenu(
+                    chip_axis_frame,
+                    self.axes_mapping_vars[calibration][chip_axis],
+                    *self.STAGE_AXIS_OPTIONS.values(),
+                ).pack(side=LEFT)
+
+                Label(chip_axis_frame, text="of Stage").pack(side=LEFT)
+
+                wiggle_button = Button(
+                    chip_axis_frame,
+                    text="Wiggle {}-Axis".format(
+                        chip_axis.name),
+                    command=lambda axis=chip_axis,
+                    calibration=calibration: self._wiggle_axis(
+                        calibration,
+                        axis),
+                    state=NORMAL if calibration._axes_rotation.is_valid else DISABLED)
+                wiggle_button.pack(side=RIGHT)
+
+    def on_reload(self) -> None:
+        """
+        Callback, when coordinate system fixation step gets reloaded.
+        Checks, if the current assignment is valid.
+        """
+        if all(c._axes_rotation.is_valid for c in self.mover.calibrations.values()):
+            self.next_step_enabled = True
+            self.wizard.set_error("")
+        else:
+            self.next_step_enabled = False
+            self.wizard.set_error("Please do not assign a stage axis twice.")
+
+    def calibrate_axis(self, calibration: Type[Calibration], chip_axis: Axis):
+        """
+        Callback, when user wants to change the axis rotation of a calibration.
+        """
+        axis_var = self.axes_mapping_vars[calibration][chip_axis]
+        direction, stage_axis = self.STAGE_AXIS_OPTIONS.inverse[axis_var.get()]
+
+        calibration.update_axes_rotation(chip_axis, direction, stage_axis)
+        self.wizard.__reload__()
+
+    def wiggle_axis(self, calibration: Type[Calibration], chip_axis: Axis):
+        """
+        Callback, when user wants to wiggle an axis.
+
+        Parameters
+        ----------
+        calibration: Calibration
+            Instance of a calibration
+        chip_axis: Axis
+            Requested chip axis to wiggle
+        """
+        if not self._confirm_wiggle(chip_axis):
+            return
+
+        try:
+            run_with_wait_window(
+                self.wizard,
+                f"Wiggle {chip_axis} of {calibration}",
+                lambda: calibration.wiggle_axis(chip_axis))
+        except RuntimeError as e:
+            messagebox.showerror(
+                "Error"
+                f"Wiggling {chip_axis} failed: {e}",
+                parent=self.wizard)
+
+    def _confirm_wiggle(self, axis) -> bool:
+        """
+        Confirms with user if wiggeling is allowed.
+        """
+        message = 'By proceeding this button will move the stage along the {} direction. \n\n'.format(axis) \
+                  + 'Please make sure it has enough travel range(+-5mm) to avoid collision. \n\n' \
+                  + 'For correct operation the stage should: \n' \
+                  + 'First: Move in positive {}-Chip-Axis direction \n'.format(axis) \
+                  + 'Second: Move in negative {}-Chip-Axis direction \n\n'.format(axis) \
+                  + 'If not, please check your assignments.\n Do you want to proceed with wiggling?'
+
+        return messagebox.askokcancel("Warning", message, parent=self.wizard)
+
+
+class CoordinatePairingStep(Step):
+    """
+    Wizard Step to fully calibrate stages.
+    """
+
+    def __init__(self, wizard, mover, chip) -> None:
+        """
+        Constructor for new Wizard step for fully calibrate stages.
+
+        Parameters
+        ----------
+        master : Tk
+            Tk instance of the master toplevel
+        mover : Mover
+            Instance of the current mover.
+        """
+        super().__init__(
+            wizard,
+            self.build,
+            finish_step_enabled=True,
+            on_reload=self.on_reload,
+            title="Stage Configuration")
+        self.mover: Type[MoverNew] = mover
+        self.chip: Type[Chip] = chip
+
+        self._use_input_stage_var = BooleanVar(self.wizard, True)
+        self._use_output_stage_var = BooleanVar(self.wizard, True)
+        self._full_calibration_new_pairing_button = None
+
+        self._coordinate_pairing_window = None
+
+        self.pairings = []
+
+    def build(self, frame: Type[CustomFrame]):
+        """
+        Builds step to fully calibrate axes.
+
+        Parameters
+        ----------
+        frame : CustomFrame
+            Instance of a customized Tkinter frame.
+        """
+        frame.title = "Calibrate Stage to enable absolute movement"
+
+        Label(
+            frame,
+            text="To move the stages absolutely in chip coordinates, define at least 3 stage-chip-coordinate pairings to calculate the rotation. \n" +
+            "Note: After one coordinate pairing TODO. Therefore this is only an approximation.").pack(
+            side=TOP,
+            fill=X)
+
+        # Render table with all defined pairings
+        pairings_frame = CustomFrame(frame)
+        pairings_frame.title = "Defined Pairings"
+        pairings_frame.pack(side=TOP, fill=X)
+
+        pairings_table_frame = Frame(pairings_frame)
+        pairings_table_frame.pack(side=TOP, fill=X, expand=False)
+
+        CustomTable(
+            parent=pairings_table_frame,
+            selectmode='none',
+            columns=(
+                'ID',
+                'Stage',
+                'Stage Cooridnate',
+                'Device',
+                'Chip Coordinate'),
+            rows=[
+                (idx,
+                 ) + p for idx,
+                p in enumerate(
+                    self.pairings)])
+
+        # Render frame to show current calibration state
+        calibration_summary_frame = CustomFrame(frame)
+        calibration_summary_frame.pack(side=TOP, fill=X)
+
+        for calibration in self.mover.calibrations.values():
+            stage_calibration_frame = CustomFrame(calibration_summary_frame)
+            stage_calibration_frame.title = str(calibration)
+            stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
+
+            # SINGLE POINT STATE
+            Label(
+                stage_calibration_frame,
+                text="Single Point Fixation:"
+            ).grid(row=0, column=0, padx=2, pady=2, sticky=W)
+            Label(
+                stage_calibration_frame,
+                text=calibration._single_point_offset,
+                foreground='#4BB543' if calibration._single_point_offset.is_valid else "#FF3333",
+            ).grid(
+                row=0,
+                column=1,
+                padx=2,
+                pady=2,
+                sticky=W)
+
+            # GLOBAL STATE
+            Label(
+                stage_calibration_frame,
+                text="Global Transformation:"
+            ).grid(row=1, column=0, padx=2, pady=2, sticky=W)
+            Label(
+                stage_calibration_frame,
+                text=calibration._kabsch_rotation,
+                foreground='#4BB543' if calibration._kabsch_rotation.is_valid else "#FF3333",
+            ).grid(
+                row=1,
+                column=1,
+                padx=2,
+                pady=2,
+                sticky=W)
+
+        # FRAME FOR NEW PAIRING
+        new_pairing_frame = CustomFrame(frame)
+        new_pairing_frame.title = "Create New Pairing"
+        new_pairing_frame.pack(side=TOP, fill=X, pady=5)
+
+        Checkbutton(
+            new_pairing_frame,
+            text="Use Input-Stage for Pairing",
+            variable=self._use_input_stage_var
+        ).pack(side=LEFT)
+        Checkbutton(
+            new_pairing_frame,
+            text="Use Output-Stage for Pairing",
+            variable=self._use_output_stage_var
+        ).pack(side=LEFT)
+
+        self._full_calibration_new_pairing_button = Button(
+            new_pairing_frame,
+            text="New Pairing...",
+            command=self._new_coordinate_pairing)
+        self._full_calibration_new_pairing_button.pack(side=RIGHT)
+
+        Label(
+            frame,
+            text="RMSD: Root mean square distance between the set of chip coordinates and the set of stage coordinates after alignment."
+        ).pack(side=TOP, fill=X)
+
+    def on_reload(self):
+        """
+        Callback, when wizard step gets reloaded.
+        Checks, if the all transformations are vald.
+        """
+        if not all(
+                c._single_point_offset.is_valid for c in self.mover.calibrations.values()):
+            self.next_step_enabled = False
+            self.finish_step_enabled = False
+            self.wizard.set_error("Please fix for each stage a single point.")
+            return
+
+        if not all(
+                c._kabsch_rotation.is_valid for c in self.mover.calibrations.values()):
+            self.next_step_enabled = False
+            self.finish_step_enabled = True
+            self.wizard.set_error(
+                "Please define for each stage at least three points to calibrate the stages globally.")
+            return
+
+        self.finish_step_enabled = True
+        self.next_step_enabled = True
+        self.wizard.set_error("")
+
+    def _new_coordinate_pairing(self):
+        """
+        Creates a window to create a coordinate pairing.
+        """
+        if self._check_for_exisiting_coordinate_window():
+            return
+
+        try:
+            self._coordinate_pairing_window = CoordinatePairingsWindow(
+                self.wizard,
+                self.mover,
+                self.chip,
+                on_finish=self._save_coordinate_pairing,
+                with_input_stage=self._use_input_stage_var.get(),
+                with_output_stage=self._use_output_stage_var.get())
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                "Could not initiate a new coordinate pairing: {}".format(e),
+                parent=self.wizard)
+
+    def _save_coordinate_pairing(self, pairings: List[CoordinatePairing]):
+        """
+        Delegates the list of pairings to the responsible calibrations.
+        """
+        for p in pairings:
+            if not p.calibration._single_point_offset.is_valid:
+                p.calibration.update_single_point_offset(p)
+
+            p.calibration.update_kabsch_rotation(p)
+            self.pairings.append(p)
+
+        self.wizard.__reload__()
+
+    def _check_for_exisiting_coordinate_window(self) -> bool:
+        """
+        Ensures that only one window exists to create a new coordinate pair.
+        Returns True if there is a exsiting window.
+        """
+        if self._coordinate_pairing_window is None or not try_to_lift_window(
+                self._coordinate_pairing_window):
+            return False
+
+        if not messagebox.askyesno(
+            "New Coordinate-Pairing",
+            "You have an incomplete creation of a coordinate pair. Click Yes if you want to continue it or No if you want to create the new one.",
+                parent=self._coordinate_pairing_window):
+            self._coordinate_pairing_window.cancel()
+            self._coordinate_pairing_window = None
+            return False
+
+        return True
