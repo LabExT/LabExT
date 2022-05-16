@@ -125,11 +125,14 @@ class CreateToolTip(object):
         self.tw.wm_overrideredirect(True)
         self.tw.wm_geometry("+%d+%d" % (x, y))
 
-        # here we load the docstring
-        meas_class = self.meas_class_dict[self.text]
-
-        # sanitize docstring for proper markdown display
-        sanitized = get_short_docstring(meas_class.__doc__)
+        try:
+            # load docstring from measurement class
+            meas_class = self.meas_class_dict[self.text]
+            # sanitize docstring for proper markdown display
+            sanitized = get_short_docstring(meas_class.__doc__)
+        except KeyError:
+            # unknown measurement class
+            sanitized = ''
 
         if sanitized == '' or self.text == '\n':
             sanitized = 'No description available.'

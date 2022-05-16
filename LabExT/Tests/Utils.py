@@ -10,6 +10,8 @@ import _tkinter
 import tkinter
 import pytest
 from unittest import TestCase
+import random
+import string
 
 
 class TKinterTestCase(TestCase):
@@ -70,3 +72,8 @@ def ask_user_yes_no(ask_string="Is one kg of feathers lighter than one kg of iro
             raise RuntimeError("User aborted yes-no-question.")
         else:
             continue
+
+
+def randomword(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for _ in range(length))
