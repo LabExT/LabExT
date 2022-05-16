@@ -8,11 +8,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 from unittest.mock import patch, mock_open
 from pathlib import Path
+from flaky import flaky
 
 from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
 
+@flaky(max_runs=3)
 class DriverPathDialogTest(TKinterTestCase):
 
     def test_dialog_initial_state(self):
