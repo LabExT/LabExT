@@ -31,7 +31,7 @@ def simulator_only_instruments_descriptions(name):
         raise ValueError('Unknown name for simulator descriptions:' + str(name))
 
 
-@flaky(max_runs=5)
+@flaky(max_runs=3)
 class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):

@@ -14,7 +14,7 @@ from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
 
-@flaky(max_runs=5)
+@flaky(max_runs=3)
 class DriverPathDialogTest(TKinterTestCase):
 
     def test_dialog_initial_state(self):
