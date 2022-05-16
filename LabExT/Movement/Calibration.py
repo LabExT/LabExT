@@ -8,6 +8,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from typing import TYPE_CHECKING, Type, Union
 from functools import wraps
 from contextlib import contextmanager
+from time import sleep
+
+import numpy as np
 
 from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction
 from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
@@ -354,6 +357,10 @@ class Calibration:
             RuntimeError(
                 f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
 
+    #
+    #   Movement methods
+    #
+
     @assert_minimum_state_for_coordinate_system(
         stage_coordinate_system=State.CONNECTED,
         chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
@@ -449,3 +456,42 @@ class Calibration:
             y=stage_coordinate.y,
             z=stage_coordinate.z,
             wait_for_stopping=wait_for_stopping)
+
+    def wiggle_axis(
+            self,
+            wiggle_axis: Axis,
+            wiggle_distance: float = 1e3,
+            wiggle_speed: float = 1e3,
+            wait_time: float = 2) -> None:
+        """
+        Wiggles an axis of the stage.
+        Moves the axis first in a positive direction then in a negative direction.
+        This method can be used to check the axis rotation.
+        This method is executed in chip coordinates.
+
+        Parameters
+        ----------
+        wiggle_axis: Axis
+            Axis to be wiggled.
+        wiggle_distance: float = 1e3
+            Specifies how much the axis should be moved in one direction [um].
+        wiggle_speed: float = 1e3
+            Specifies how fast the axis should be moved in one direction [um/s].
+        wait_time: float = 2
+            Specifies how long to wait between positive and negative movement [s].
+        """
+        current_speed_xy = self.stage.get_speed_xy()
+        current_speed_z = self.stage.get_speed_z()
+
+        self.stage.set_speed_xy(wiggle_speed)
+        self.stage.set_speed_z(wiggle_speed)
+
+        wiggle_difference = np.array(
+            [wiggle_distance if wiggle_axis == axis else 0 for axis in Axis])
+        with self.perform_in_chip_coordinates():
+            self.move_relative(ChipCoordinate.from_numpy(wiggle_difference))
+            sleep(wait_time)
+            self.move_relative(ChipCoordinate.from_numpy(-wiggle_difference))
+
+        self.stage.set_speed_xy(current_speed_xy)
+        self.stage.set_speed_z(current_speed_z)
