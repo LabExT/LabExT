@@ -13,7 +13,7 @@ import tkinter
 from LabExT.View.Controls.Wizard import Step, Wizard
 
 
-@flaky(max_runs=3)
+@flaky(max_runs=5)
 class WizardUnitTest(TKinterTestCase):
     """
     Unittests for Wizard Widget.
@@ -245,7 +245,7 @@ class WizardUnitTest(TKinterTestCase):
         on_reload.assert_called_once()
 
 
-@flaky(max_runs=3)
+@flaky(max_runs=5)
 class WizardIntegrationTest(TKinterTestCase):
     """
     Integration test for a Wizard with 2 steps.
