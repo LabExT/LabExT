@@ -5,9 +5,11 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from contextlib import contextmanager
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Type, List
 from functools import wraps
+from LabExT.Movement.Transformations import ChipCoordinate
 
 from LabExT.Movement.config import Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
@@ -320,6 +322,55 @@ class MoverNew:
             raise MoverError("Acceleration xy speed failed: {}".format(exec))
 
         self._acceleration_xy = umps2
+
+
+    @contextmanager
+    def perform_in_chip_coordinates(self):
+        """
+        Context manager to execute a block of instructions in chip coordinates 
+        for all defined calibrations.
+        """
+        for calibration in self.calibrations.values():
+            calibration.coordinate_system = ChipCoordinate
+        
+        try:
+            yield
+        finally:
+            for calibration in self.calibrations.values():
+                calibration.coordinate_system = None
+
+
+    def move_absolute(
+        self,
+        left_stage_target: Type[ChipCoordinate] = None,
+        right_stage_target: Type[ChipCoordinate] = None,
+        top_stage_target: Type[ChipCoordinate] = None,
+        bottom_stage_target: Type[ChipCoordinate] = None
+    ) -> None:
+        """
+        Moves stages absolutely to target positions with collisions avoidance.
+
+
+        Raises
+        ------
+        MoverError
+            
+        """
+        if left_stage_target and self.left_calibration is None:
+            raise MoverError("No left stage configured, but target coordinate for left passed.")
+
+        if right_stage_target and self.right_calibration is None:
+            raise MoverError("No left stage configured, but target coordinate for left passed.")
+
+        if top_stage_target and self.top_calibration is None:
+            raise MoverError("No left stage configured, but target coordinate for left passed.")
+
+        if bottom_stage_target and self.bottom_calibration is None:
+            raise MoverError("No left stage configured, but target coordinate for left passed.")
+
+        with self.perform_in_chip_coordinates():
+            pass
+
 
     #
     #   Helpers
