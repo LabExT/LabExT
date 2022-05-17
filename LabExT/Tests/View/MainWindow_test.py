@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 import random
 from os import remove
-from time import sleep
+from flaky import flaky
 from unittest.mock import patch
 
 import LabExT.Wafer.Device
@@ -31,6 +31,7 @@ def simulator_only_instruments_descriptions(name):
         raise ValueError('Unknown name for simulator descriptions:' + str(name))
 
 
+@flaky(max_runs=3)
 class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):

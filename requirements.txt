@@ -10,7 +10,7 @@ cached-property==1.5.2
     # via
     #   h5py
     #   pytkdocs
-click==8.1.2
+click==8.1.3
     # via mkdocs
 collision==1.2.2
     # via -r .\requirements.in
@@ -18,9 +18,9 @@ colorama==0.4.4
     # via click
 cycler==0.11.0
     # via matplotlib
-fonttools==4.33.2
+fonttools==4.33.3
     # via matplotlib
-ghp-import==2.0.2
+ghp-import==2.1.0
     # via mkdocs
 h5py==3.6.0
     # via -r .\requirements.in
@@ -31,14 +31,14 @@ importlib-metadata==4.11.3
     #   mkdocs
     #   pyvisa
     #   pyvisa-py
-jinja2==3.1.1
+jinja2==3.1.2
     # via
     #   mkdocs
     #   mkdocs-material
     #   mkdocstrings
 kiwisolver==1.4.2
     # via matplotlib
-markdown==3.3.6
+markdown==3.3.7
     # via
     #   mkdocs
     #   mkdocs-autorefs
@@ -49,7 +49,7 @@ markupsafe==2.1.1
     # via
     #   jinja2
     #   mkdocstrings
-matplotlib==3.5.1
+matplotlib==3.5.2
     # via -r .\requirements.in
 mergedeep==1.3.4
     # via mkdocs
@@ -61,7 +61,7 @@ mkdocs==1.3.0
     #   mkdocstrings
 mkdocs-autorefs==0.4.1
     # via mkdocstrings
-mkdocs-material==8.2.9
+mkdocs-material==8.2.14
     # via -r .\requirements.in
 mkdocs-material-extensions==1.0.3
     # via mkdocs-material
@@ -86,13 +86,13 @@ pillow==9.1.0
     #   -r .\requirements.in
     #   matplotlib
     #   ttkwidgets
-pygments==2.11.2
+pygments==2.12.0
     # via mkdocs-material
-pymdown-extensions==9.3
+pymdown-extensions==9.4
     # via
     #   mkdocs-material
     #   mkdocstrings
-pyparsing==3.0.8
+pyparsing==3.0.9
     # via
     #   matplotlib
     #   packaging
@@ -106,11 +106,11 @@ pytkdocs==0.16.1
     # via mkdocstrings-python-legacy
 pyusb==1.2.1
     # via -r .\requirements.in
-pyvisa==1.11.3
+pyvisa==1.12.0
     # via
     #   -r .\requirements.in
     #   pyvisa-py
-pyvisa-py==0.5.2
+pyvisa-py==0.5.3
     # via -r .\requirements.in
 pyyaml==6.0
     # via
