@@ -410,6 +410,7 @@ class MoverNew:
 
             for waypoints in planning.waypoints():
                 for orientation, waypoint in waypoints.items():
+                    waypoint.z = self.z_lift
                     self._get_calibration(orientation=orientation).move_absolute(waypoint)
         
         # with self.perform_in_chip_coordinates():
@@ -429,9 +430,9 @@ class MoverNew:
 
         movement_commands = {}
         if self.input_calibration:
-            movement_commands[self.input_calibration.orientation] = device.input_coordinate + ChipCoordinate(0,0,self.z_lift)
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate
         if self.output_calibration:
-            movement_commands[self.output_calibration.orientation] = device.output_coordinate + ChipCoordinate(0,0,self.z_lift)
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate
         
         self.move_absolute(movement_commands, chip=chip)
 

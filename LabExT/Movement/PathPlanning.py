@@ -6,11 +6,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 
+from itertools import combinations
 from time import time
 from typing import Dict, Tuple, Type
 
 import warnings
 import numpy as np
+from scipy.spatial.distance import pdist
 
 from LabExT.Movement.Transformations import ChipCoordinate
 from LabExT.Movement.config import Orientation
@@ -19,7 +21,7 @@ from LabExT.Wafer.Chip import Chip
 
 class PotenialField:
 
-    GRID_SIZE = 100.0
+    # GRID_SIZE = 40.0
     REPULSIVE_GAIN = 100.0
     ATTRACTIVE_GAIN = 5.0
     FIBER_RADIUS = 125.0
@@ -38,10 +40,16 @@ class PotenialField:
         self.goal = goal
 
         self.chip = chip
+        self.all_points = np.concatenate([
+           [d._in_position for d in chip._devices.values()],
+            [d._out_position for d in chip._devices.values()]
+        ], axis=0)
         self.chip_outline = self._get_chip_outline(chip, tol=100)
+
+        self.gird_size = np.floor(np.min(pdist(self.all_points)))
         
-        self.x_coords = np.arange(self.chip_outline[0][0], self.chip_outline[0][1] + self.GRID_SIZE, self.GRID_SIZE)
-        self.y_coords = np.arange(self.chip_outline[1][0], self.chip_outline[1][1] + self.GRID_SIZE, self.GRID_SIZE)
+        self.x_coords = np.arange(self.chip_outline[0][0], self.chip_outline[0][1] + self.gird_size, self.gird_size)
+        self.y_coords = np.arange(self.chip_outline[1][0], self.chip_outline[1][1] + self.gird_size, self.gird_size)
         self.cx, self.cy = np.meshgrid(self.x_coords, self.y_coords)
 
         self.current_idx = np.array(
@@ -85,7 +93,7 @@ class PotenialField:
         Returns a tuple, where the first value is the waypoint and the second value indicates
         whether there are more (different) waypoints to follow, i.e. the algorithm has not yet converged.
         """
-        while self.distance_to_goal > self.GRID_SIZE:
+        while self.distance_to_goal > self.gird_size:
             next_potenial = self.potential_field[self.current_idx[1], self.current_idx[0]]
             next_idx = self.current_idx.copy()
 
@@ -112,13 +120,8 @@ class PotenialField:
             yield self.goal, True
 
     def _get_chip_outline(self, chip: Type[Chip], tol=0):
-        all_ports = np.concatenate([
-           [d._in_position for d in chip._devices.values()],
-            [d._out_position for d in chip._devices.values()]
-        ], axis=0)
-
-        xs = all_ports[:,0]
-        ys = all_ports[:,1]
+        xs = self.all_points[:,0]
+        ys = self.all_points[:,1]
 
         return (
             (xs.min() - tol, xs.max() + tol), # X-min, X-max
@@ -153,7 +156,6 @@ class PotenialField:
 
         if orientation == Orientation.TOP:
             raise NotImplementedError
-
 
 class PathPlanning:
 
