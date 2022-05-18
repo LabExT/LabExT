@@ -82,6 +82,9 @@ class Calibration:
             self._axes_rotation)
         self._kabsch_rotation: Type[KabschRotation] = KabschRotation()
 
+        with self.perform_in_chip_coordinates():
+            pass
+
     #
     #   Representation
     #

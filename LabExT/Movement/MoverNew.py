@@ -6,15 +6,19 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from contextlib import contextmanager
+from time import sleep
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Type, List
+from typing import Dict, Type, List
 from functools import wraps
+from LabExT.Movement.PathPlanning import PathPlanning
 from LabExT.Movement.Transformations import ChipCoordinate
 
 from LabExT.Movement.config import Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
+from LabExT.Wafer.Chip import Chip
 
+from LabExT.Wafer.Device import Device
 
 def assert_connected_stages(func):
     """
@@ -55,6 +59,7 @@ class MoverNew:
     DEFAULT_SPEED_XY = 200.0
     DEFAULT_SPEED_Z = 20.0
     DEFAULT_ACCELERATION_XY = 0.0
+    DEFAULT_Z_LIFT = 20.0
 
     def __init__(self, experiment_manager):
         """Constructor.
@@ -75,6 +80,9 @@ class MoverNew:
         self._speed_xy = None
         self._speed_z = None
         self._acceleration_xy = None
+        self._z_lift = None
+
+        self.stages_lifted = False
 
         self.reload_stages()
         self.reload_stage_classes()
@@ -158,27 +166,27 @@ class MoverNew:
         return len(self.connected_stages) > 0
 
     @property
-    def left_calibration(self): return self._get_calibration(
+    def left_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.LEFT)
 
     @property
-    def right_calibration(self): return self._get_calibration(
+    def right_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.RIGHT)
 
     @property
-    def top_calibration(self): return self._get_calibration(
+    def top_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.TOP)
 
     @property
-    def bottom_calibration(self): return self._get_calibration(
+    def bottom_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.BOTTOM)
 
     @property
-    def input_calibration(self): return self._get_calibration(
+    def input_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.INPUT)
 
     @property
-    def output_calibration(self): return self._get_calibration(
+    def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.OUTPUT)
 
     #
@@ -323,6 +331,23 @@ class MoverNew:
 
         self._acceleration_xy = umps2
 
+    @property
+    def z_lift(self):
+        """
+        Returns the set value of how much the stage moves up
+        :return: how much the stage moves up [um]
+        """
+        return self._z_lift
+
+    @z_lift.setter
+    def z_lift(self, lift):
+        """
+        Sets the value of how much the stage moves up
+        :param height: how much the stage moves up [um]
+        """
+        lift = float(lift)
+        assert lift >= 0.0, "Lift distance must be non-negative."
+        self._z_lift = lift
 
     @contextmanager
     def perform_in_chip_coordinates(self):
@@ -340,43 +365,106 @@ class MoverNew:
                 calibration.coordinate_system = None
 
 
+    @assert_connected_stages
     def move_absolute(
         self,
-        left_stage_target: Type[ChipCoordinate] = None,
-        right_stage_target: Type[ChipCoordinate] = None,
-        top_stage_target: Type[ChipCoordinate] = None,
-        bottom_stage_target: Type[ChipCoordinate] = None
+        movement_commands: Dict[Orientation, Type[ChipCoordinate]],
+        chip: Type[Chip] = None
     ) -> None:
         """
-        Moves stages absolutely to target positions with collisions avoidance.
+        Moves the stages absolutely in the chip coordinate system.
 
+        If a PathPlanning instance is passed, it is used to calculate a collision-free path.
+
+        Parameters
+        ----------
+        movement_commands : Dict[Orientation, Type[ChipCoordinate]]
+            A mapping between orientation and target chip coordinate.
+            For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved to the chip co-ordinate x=1, y=2, z=3
+        path_planning : PathPlanning
+            PathPlanning instance for waypoint calculation.
 
         Raises
         ------
         MoverError
-            
+            If an orientation has been given a target, but no stage exists for this orientation.
         """
-        if left_stage_target and self.left_calibration is None:
-            raise MoverError("No left stage configured, but target coordinate for left passed.")
+        for target_orient in movement_commands.keys():
+            if not target_orient in self._port_by_orientation.keys():
+                raise MoverError(f"No {target_orient} stage configured, but target coordinate for {target_orient} passed.")
 
-        if right_stage_target and self.right_calibration is None:
-            raise MoverError("No left stage configured, but target coordinate for left passed.")
-
-        if top_stage_target and self.top_calibration is None:
-            raise MoverError("No left stage configured, but target coordinate for left passed.")
-
-        if bottom_stage_target and self.bottom_calibration is None:
-            raise MoverError("No left stage configured, but target coordinate for left passed.")
 
         with self.perform_in_chip_coordinates():
-            pass
 
+            # left_cali = movement_commands[Orientation.LEFT]
+
+            # PathPlanning({
+
+            # })
+
+            planning = PathPlanning(
+                start_goal_coordinates={
+                    o: (self._get_calibration(orientation=o).get_position(), target) for o, target in movement_commands.items()
+                },
+                chip=chip)
+
+            for waypoints in planning.waypoints():
+                for orientation, waypoint in waypoints.items():
+                    self._get_calibration(orientation=orientation).move_absolute(waypoint)
+        
+        # with self.perform_in_chip_coordinates():
+        #     for orient, target in movement_commands.items():
+        #         self._get_calibration(orientation=orient).move_absolute(target)
+
+
+    def move_to_device(self, chip: Type[Chip], device_id: int):
+        """
+        Moves stages to device.
+        """
+        device = chip._devices.get(device_id)
+        if device is None:
+            raise MoverError
+
+        self.lower_or_lift_stages()
+
+        movement_commands = {}
+        if self.input_calibration:
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate + ChipCoordinate(0,0,self.z_lift)
+        if self.output_calibration:
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate + ChipCoordinate(0,0,self.z_lift)
+        
+        self.move_absolute(movement_commands, chip=chip)
+
+        self.lower_or_lift_stages()
+
+
+    def lower_or_lift_stages(self):
+        """
+        Lifts or lowers input and output stage (if defined) by the configured z_lift value.
+
+        Performs movement in chip coordinates.
+
+        Performs NO safe movement.
+        """
+        stage_offset = ChipCoordinate(0,0,-self.z_lift if self.stages_lifted else self.z_lift)
+        with self.perform_in_chip_coordinates():
+            if self.input_calibration:
+                self.input_calibration.move_absolute(
+                    coordinate=self.input_calibration.get_position() + stage_offset,
+                    wait_for_stopping=True)
+
+            if self.output_calibration:
+                self.output_calibration.move_absolute(
+                    coordinate=self.output_calibration.get_position() + stage_offset,
+                    wait_for_stopping=True)
+
+        self.stages_lifted = not self.stages_lifted
 
     #
     #   Helpers
     #
 
-    def _get_calibration(self, port=None, orientation=None, default=None):
+    def _get_calibration(self, port=None, orientation=None, default=None) -> Type[Calibration]:
         """
         Get safely calibration by port and orientation.
         """
