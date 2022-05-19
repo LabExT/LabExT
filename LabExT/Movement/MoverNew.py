@@ -55,6 +55,7 @@ class MoverNew:
     DEFAULT_SPEED_XY = 200.0
     DEFAULT_SPEED_Z = 20.0
     DEFAULT_ACCELERATION_XY = 0.0
+    DEFAULT_Z_LIFT = 20.0
 
     def __init__(self, experiment_manager):
         """Constructor.
