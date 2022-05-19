@@ -5,13 +5,15 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from contextlib import contextmanager
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Type, List
+from typing import Dict, Tuple, Type, List
 from functools import wraps
 
 from LabExT.Movement.config import Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
+from LabExT.Movement.Transformations import ChipCoordinate
 
 
 def assert_connected_stages(func):
@@ -73,6 +75,7 @@ class MoverNew:
         self._speed_xy = None
         self._speed_z = None
         self._acceleration_xy = None
+        self._z_lift = None
 
         self.reload_stages()
         self.reload_stage_classes()
@@ -125,7 +128,8 @@ class MoverNew:
         return self._available_stages
 
     @property
-    def calibrations(self):
+    def calibrations(
+            self) -> Dict[Tuple[Orientation, DevicePort], Type[Calibration]]:
         """
         Returns a mapping: Calibration -> (orientation, device_port) instance
         Read-only. Use add_stage_calibration to register a new stage.
@@ -320,6 +324,59 @@ class MoverNew:
             raise MoverError("Acceleration xy speed failed: {}".format(exec))
 
         self._acceleration_xy = umps2
+
+    @property
+    def z_lift(self) -> float:
+        """
+        Returns the set value of how much the stage moves up
+        Always positive.
+        """
+        return self._z_lift
+
+    @z_lift.setter
+    def z_lift(self, lift: float) -> None:
+        """
+        Sets the value of how much the stage moves up
+
+        Parameters
+        ----------
+        lift : float
+            How much the stage moves up [um]
+
+        Raises
+        ------
+        ValueError
+            If lift is negative.
+        """
+        if lift < 0:
+            raise ValueError("Lift distance must be non-negative.")
+
+        self._z_lift = lift
+
+    #
+    #   Movement Methods
+    #
+
+    @contextmanager
+    def lift_stages(self):
+        """
+        Lifts the stages to the configured value before the block is executed and lowers the stages again after the block.
+
+        Performs movement in chip coordinates.
+        Performs NO safe movement (i.e no Path planning)
+        """
+
+        def _lift_lower_stages(lift):
+            for calibration in self.calibrations.values():
+                with calibration.perform_in_chip_coordinates():
+                    calibration.move_absolute(
+                        calibration.get_position() + ChipCoordinate(z=lift))
+
+        _lift_lower_stages(self.z_lift)
+        try:
+            yield
+        finally:
+            _lift_lower_stages(-self.z_lift)
 
     #
     #   Helpers
