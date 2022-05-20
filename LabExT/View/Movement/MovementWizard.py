@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from logging import getLogger
 from functools import partial
 from itertools import product
 from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
@@ -606,6 +607,7 @@ class AxesCalibrationStep(Step):
             on_reload=self.on_reload,
             title="Stage Axes Calibration")
         self.mover: Type[MoverNew] = mover
+        self.logger = getLogger()
 
         self.axes_mapping_vars = self._build_axes_mapping_vars()
 
@@ -720,6 +722,7 @@ class AxesCalibrationStep(Step):
                 f"Wiggle {chip_axis} of {calibration}",
                 lambda: calibration.wiggle_axis(chip_axis))
         except RuntimeError as e:
+            self.logger.log(f"Wiggling {chip_axis} failed: {e}")
             messagebox.showerror(
                 "Error"
                 f"Wiggling {chip_axis} failed: {e}",
@@ -786,7 +789,7 @@ class CoordinatePairingStep(Step):
         Label(
             frame,
             text="To move the stages absolutely in chip coordinates, define at least 3 stage-chip-coordinate pairings to calculate the rotation. \n" +
-            "Note: After one coordinate pairing TODO. Therefore this is only an approximation.").pack(
+            "Note: After the first coordinate pairing, the stages can be moved approximatively absolute in chip coordinates.").pack(
             side=TOP,
             fill=X)
 
