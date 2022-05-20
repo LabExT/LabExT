@@ -148,6 +148,10 @@ class MoverWizard(Wizard):
             self.configure_mover_step.xy_acceleration_var,
             float,
             self.mover.DEFAULT_ACCELERATION_XY)
+        z_lift = self._get_safe_value(
+            self.configure_mover_step.z_lift_var,
+            float,
+            self.mover.DEFAULT_Z_LIFT)
 
         if self._warn_user_about_zero_speed(
                 speed_xy) and self._warn_user_about_zero_speed(speed_z):
@@ -155,6 +159,7 @@ class MoverWizard(Wizard):
                 self.mover.speed_xy = speed_xy
                 self.mover.speed_z = speed_z
                 self.mover.acceleration_xy = acceleration_xy
+                self.mover.z_lift = z_lift
 
                 messagebox.showinfo(
                     "Mover Setup completed.",
@@ -498,6 +503,9 @@ class ConfigureMoverStep(Step):
         self.xy_acceleration_var = DoubleVar(
             self.wizard,
             self.mover.acceleration_xy if self.mover._acceleration_xy else self.mover.DEFAULT_ACCELERATION_XY)
+        self.z_lift_var = DoubleVar(
+            self.wizard,
+            self.mover.z_lift if self.mover._z_lift else self.mover.DEFAULT_Z_LIFT)
 
     def build(self, frame: Type[CustomFrame]):
         """
@@ -548,6 +556,12 @@ class ConfigureMoverStep(Step):
                 self.mover.ACCELERATION_LOWER_BOUND,
                 self.mover.ACCELERATION_UPPER_BOUND),
             unit="[um/s^2]")
+
+        self._build_entry_with_label(
+            stage_properties_frame,
+            self.z_lift_var,
+            label="Z channel up-movement during xy movement:",
+            unit="[um]")
 
     def _build_entry_with_label(
             self,
