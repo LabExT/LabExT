@@ -6,7 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from dataclasses import dataclass, field, asdict, astuple
-from typing import List
+from typing import List, Type
+
+from LabExT.Movement.Transformations import ChipCoordinate
 
 
 @dataclass(frozen=True, order=True)
@@ -40,3 +42,11 @@ class Device:
     def as_tuple(self):
         """ Return device as a tuple. """
         return astuple(self)
+
+    @property
+    def input_coordinate(self) -> Type[ChipCoordinate]:
+        return ChipCoordinate.from_list(self.in_position)
+
+    @property
+    def output_coordinate(self) -> Type[ChipCoordinate]:
+        return ChipCoordinate.from_list(self.out_position)
