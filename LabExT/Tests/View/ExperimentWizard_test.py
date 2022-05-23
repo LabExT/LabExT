@@ -295,6 +295,8 @@ class ExperimentWizardTest(TKinterTestCase):
 
         # enable automatic mode (GUI updates disabled, so hard-code setting experiment property)
         self.expm.exp.exctrl_pause_after_device = False
+        # override show-messagebox (GUI updates disabled, so hard-code setting experiment property)
+        self.expm.exp.show_meas_finished_infobox = lambda: None
 
         # various patches necessary s.t. tkinter runs although there is no main thread
         with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
