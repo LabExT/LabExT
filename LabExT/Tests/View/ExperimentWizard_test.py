@@ -310,16 +310,29 @@ class ExperimentWizardTest(TKinterTestCase):
         # post-run checks
         #
 
+        # make sure we run completely through all ToDos
         self.assertEqual(len(self.expm.exp.to_do_list), 0)
         self.assertEqual(len(self.expm.exp.measurements), 6)
 
+        # to check with the meta-data checker, we need to extract the device props into a dict
+        dev_props = {
+            did: {'id': did, 'type': self.expm.chip._devices[did]._type} for did in sel_these_device_ids
+        }
+
+        # check metadata and data of the recorded files
         def check_meas_dict(check_meas_dict):
             """ checks a given measurement record to correctness of some metadata and data """
             if check_meas_dict['measurement name'] == 'DummyMeas':
-                check_DummyMeas_meas_dict_meta_data(self, check_meas_dict, meas_props=random_dummy_props)
+                check_DummyMeas_meas_dict_meta_data(self,
+                                                    check_meas_dict,
+                                                    dev_props=dev_props[check_meas_dict['device']['id']],
+                                                    meas_props=random_dummy_props)
                 check_DummyMeas_data_output(self, check_meas_dict, random_dummy_props)
             elif check_meas_dict['measurement name'] == 'InsertionLossSweep':
-                check_InsertionLossSweep_meas_dict_meta_data(self, check_meas_dict, meas_props=random_ilm_props)
+                check_InsertionLossSweep_meas_dict_meta_data(self,
+                                                             check_meas_dict,
+                                                             dev_props=dev_props[check_meas_dict['device']['id']],
+                                                             meas_props=random_ilm_props)
                 check_InsertionLossSweep_data_output(self, check_meas_dict, random_ilm_props)
             else:
                 raise AssertionError('Unknown measurement name: ' + str(check_meas_dict['measurement name']))
