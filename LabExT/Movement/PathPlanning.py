@@ -42,9 +42,9 @@ class StagePolygon(ABC):
         pass
 
 
-class DCProbe(StagePolygon):
+class SingleModeFiber(StagePolygon):
     """
-    Polygon for DCProbe.
+    Polygon for single mode fiber.
     """
 
     FIBER_LENGTH = 8e4  # [um] (8cm)
@@ -56,7 +56,7 @@ class DCProbe(StagePolygon):
         safety_distance: float = 75.0
     ) -> None:
         """
-        Constructor for new Stage polygon
+        Constructor for new single mode fiber polygon.
 
         Parameters
         ----------
@@ -74,7 +74,7 @@ class DCProbe(StagePolygon):
                           mesh_y: np.ndarray,
                           ) -> np.ndarray:
         """
-        Returns a mask if if a point of the DCProbe in the meshgrid is in the stage.
+        Returns a mask if if a point of the single mode fiber in the meshgrid is in the stage.
 
         Parameters
         ----------
@@ -110,28 +110,19 @@ class DCProbe(StagePolygon):
             If no outline is defined for the given orientation.
         """
         safe_fiber_radius = self.FIBER_RADIUS + self.safety_distance
+
+        x_min = position.x - safe_fiber_radius
+        x_max = position.x + safe_fiber_radius
+        y_min = position.y - safe_fiber_radius
+        y_max = position.y + safe_fiber_radius
+
         if self.orientation == Orientation.LEFT:
-            x_min = position.x - safe_fiber_radius - self.FIBER_LENGTH
-            x_max = position.x + safe_fiber_radius
-            y_min = position.y - safe_fiber_radius
-            y_max = position.y + safe_fiber_radius
+            x_min -= self.FIBER_LENGTH
         elif self.orientation == Orientation.RIGHT:
-            x_min = position.x - safe_fiber_radius
-            x_max = position.x + safe_fiber_radius + self.FIBER_LENGTH
-            y_min = position.y - safe_fiber_radius
-            y_max = position.y + safe_fiber_radius
+            x_max += self.FIBER_LENGTH
         elif self.orientation == Orientation.BOTTOM:
-            x_min = position.x - safe_fiber_radius
-            x_max = position.x + safe_fiber_radius
-            y_min = position.y - safe_fiber_radius - self.FIBER_LENGTH
-            y_max = position.y + safe_fiber_radius
+            y_min -= self.FIBER_LENGTH
         elif self.orientation == Orientation.TOP:
-            x_min = position.x - safe_fiber_radius
-            x_max = position.x + safe_fiber_radius
-            y_min = position.y - safe_fiber_radius
-            y_max = position.y + safe_fiber_radius + self.FIBER_LENGTH
-        else:
-            raise ValueError(
-                f"No Stage Polygon defined for orientation {self.orientation}")
+            y_max += self.FIBER_LENGTH
 
         return x_min, x_max, y_min, y_max

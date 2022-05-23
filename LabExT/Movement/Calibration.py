@@ -15,7 +15,7 @@ import numpy as np
 from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction
 from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
-from LabExT.Movement.PathPlanning import StagePolygon, DCProbe
+from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
 
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
@@ -71,7 +71,7 @@ class Calibration:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
-        self.stage_polygon: Type[StagePolygon] = DCProbe(orientation)
+        self.stage_polygon: Type[StagePolygon] = SingleModeFiber(orientation)
 
         self._state = State.CONNECTED if stage.connected else State.UNINITIALIZED
         self._orientation = orientation
