@@ -23,7 +23,7 @@ from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
-from LabExT.View.Movement.MovementWizard import StageWizard
+from LabExT.View.Movement.MovementWizard import CalibrationWizard, MoverWizard, StageWizard
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
@@ -64,6 +64,8 @@ class MListener:
         self.pgb = None
         self.import_done = False
         self.stage_setup_toplevel = None
+        self.mover_setup_toplevel = None
+        self.calibration_setup_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
@@ -195,6 +197,27 @@ class MListener:
             return
         
         self.stage_setup_toplevel = StageWizard(self._root, self._experiment_manager.mover_new)
+
+    def client_setup_mover(self):
+        """
+        Open wizard to setup mover.
+        """
+        if try_to_lift_window(self.mover_setup_toplevel):
+            return
+        
+        self.mover_setup_toplevel = MoverWizard(self._root, self._experiment_manager.mover_new)
+
+    def client_calibrate_stage(self):
+        """
+        Open wizard to calibrate stages.
+        """
+        if try_to_lift_window(self.calibration_setup_toplevel):
+            return
+        
+        self.calibration_setup_toplevel = CalibrationWizard(
+            self._root,
+            self._experiment_manager.mover_new,
+            self._experiment_manager.chip)
 
     def client_configure_stages(self):
         """
