@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from unittest.mock import Mock
+from flaky import flaky
 
 from LabExT.Movement.config import DevicePort, Orientation
 
@@ -18,6 +19,7 @@ from LabExT.Wafer.Device import Device
 from LabExT.Wafer.Chip import Chip
 
 
+@flaky(max_runs=3)
 class CoordinatePairingsWindowTest(TKinterTestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:
