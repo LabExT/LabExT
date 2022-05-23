@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 import json
 import random
+from itertools import product
 from os import remove
 from os.path import join, dirname
 from flaky import flaky
@@ -41,6 +42,8 @@ class ExperimentWizardTest(TKinterTestCase):
                 # this "patches" out some features of the classes due to patching not working across threads
                 self.mwc.allow_GUI_changes = False
                 self.mwm.allow_GUI_changes = False
+                # live plotting does not work as we don't run a mainloop in tk
+                self.expm.exp.live_plot_collection = []  # un-listenable list -> disables live plotting callbacks
 
     def test_experiment_wizard_repeated(self):
         self.test_experiment_wizard()
@@ -119,9 +122,9 @@ class ExperimentWizardTest(TKinterTestCase):
             meas_subwindow.select_all()
             self.pump_events()
 
-        for cidx, _id in enumerate(tree_children):
+        for cid, _id in enumerate(tree_children):
             meas_info = meas_subwindow._meas_table.get_tree().item(_id)
-            self.assertEqual(meas_info['values'][0], cidx + 1)
+            self.assertEqual(meas_info['values'][0], cid + 1)
 
         with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
             with patch('LabExT.View.ExperimentWizard.Components.InstrumentWindow.get_visa_address',
@@ -212,5 +215,99 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(self.expm.exp.to_do_list), 6)
         self.assertEqual(len(self.expm.exp.measurements), 0)
 
+        # enable automatic mode
+        self.mwm.var_mm_pause.set(False)
+        self.pump_events()
+
+        #
+        # check saved properties of the ToDos
+        #
+
+        # check amount of instantiated correct
+        dev_ids = [t.device._id for t in self.expm.exp.to_do_list]
+        for dev_id in sel_these_device_ids:
+            self.assertEqual(dev_ids.count(dev_id), 2)
+        meas_names = [t.measurement.name for t in self.expm.exp.to_do_list]
+        self.assertEqual(meas_names.count('DummyMeas'), 3)
+        self.assertEqual(meas_names.count('InsertionLossSweep'), 3)
+
+        # check that the correct combinations of dev id and measurement names were instantiated
+        all_combs = [p for p in product(sel_these_device_ids, ['DummyMeas', 'InsertionLossSweep'])]
+        to_dos_copied = self.expm.exp.to_do_list.copy()
+        for cid, cmeas in all_combs:
+            for t in self.expm.exp.to_do_list:
+                if t.device._id == cid and t.measurement.name == cmeas:
+                    to_dos_copied.remove(t)
+                    break
+            else:
+                raise AssertionError('ToDo with dev id: ' + str(cid) + ' and meas name: ' + cmeas + ' not found.')
+        self.assertEqual(len(to_dos_copied), 0)
+
+        # check that pointers in the ToDos actually point to the devices loaded as part of chip
+        for dev_id in sel_these_device_ids:
+            todo_devs_with_this_id = [t.device for t in self.expm.exp.to_do_list if t.device._id == dev_id]
+            for tdev in todo_devs_with_this_id:
+                self.assertIs(tdev, self.expm.chip._devices[dev_id])
+
+        # check that the measurements have the correct parameters set
+        all_ilm_meas = [t.measurement for t in self.expm.exp.to_do_list if t.measurement.name == 'InsertionLossSweep']
+        self.assertIs(all_ilm_meas[0], all_ilm_meas[1])
+        self.assertIs(all_ilm_meas[0], all_ilm_meas[2])
+        self.assertTrue(isinstance(all_ilm_meas[0], LabExT.Measurements.MeasAPI.Measurement))
+        self.assertEqual(all_ilm_meas[0].parameters['wavelength start'].value, random_ilm_props['wavelength start'])
+        self.assertEqual(all_ilm_meas[0].parameters['wavelength stop'].value, random_ilm_props['wavelength stop'])
+        self.assertEqual(all_ilm_meas[0].parameters['wavelength step'].value, random_ilm_props['wavelength step'])
+        self.assertEqual(all_ilm_meas[0].parameters['sweep speed'].value, random_ilm_props['sweep speed'])
+        self.assertEqual(all_ilm_meas[0].parameters['laser power'].value, random_ilm_props['laser power'])
+        self.assertEqual(all_ilm_meas[0].parameters['powermeter range'].value, random_ilm_props['powermeter range'])
+        self.assertEqual(all_ilm_meas[0].parameters['users comment'].value, random_ilm_props['users comment'])
+        self.assertEqual(set(all_ilm_meas[0].parameters.keys()),
+                         {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
+                          'powermeter range', 'users comment'})
+
+        # check that the measurements have the correct parameters set
+        all_dm_meas = [t.measurement for t in self.expm.exp.to_do_list if t.measurement.name == 'DummyMeas']
+        self.assertIs(all_dm_meas[0], all_dm_meas[1])
+        self.assertIs(all_dm_meas[0], all_dm_meas[2])
+        self.assertTrue(isinstance(all_dm_meas[0], LabExT.Measurements.MeasAPI.Measurement))
+        self.assertEqual(all_dm_meas[0].parameters['number of points'].value, random_dummy_props['number of points'])
+        self.assertEqual(all_dm_meas[0].parameters['total measurement time'].value,
+                         random_dummy_props['total measurement time'])
+        self.assertEqual(all_dm_meas[0].parameters['mean'].value, random_dummy_props['mean'])
+        self.assertEqual(all_dm_meas[0].parameters['std. deviation'].value, random_dummy_props['std. deviation'])
+        self.assertEqual(all_dm_meas[0].parameters['simulate measurement error'].value,
+                         random_dummy_props['simulate measurement error'])
+        self.assertEqual(set(all_dm_meas[0].parameters.keys()), {'number of points', 'total measurement time', 'mean',
+                                                                 'std. deviation', 'simulate measurement error'})
+
+        #
+        # Back to Main Window: run simulation measurement
+        #
+
+        # various patches necessary s.t. tkinter runs although there is no main thread
+        with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
+            with patch('LabExT.Experiments.StandardExperiment.StandardExperiment.read_parameters_to_variables'):
+                self.mwm.commands[0].button_handle.invoke()
+                self.pump_events()
+
+        # wait for the simulated measurement to complete
+        self.mwm.experiment_handler._experiment_thread.join()
+        self.pump_events()
+
+        #
+        # post-run checks
+        #
+
+        self.assertEqual(len(self.expm.exp.to_do_list), 0)
+        self.assertEqual(len(self.expm.exp.measurements), 6)
+
+        for meas_record in self.expm.exp.measurements:
+
+            if meas_record['measurement name'] == 'DummyMeas':
+                pass
+            elif meas_record['measurement name'] == 'InsertionLossSweep':
+                pass
+            else:
+                raise AssertionError('Unknown measurement name: ' + str(meas_record['measurement name']))
 
         pass
