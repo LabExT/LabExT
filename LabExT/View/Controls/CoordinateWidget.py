@@ -90,4 +90,5 @@ class StagePositionWidget(CoordinateWidget):
             self.after_cancel(self._update_pos_job)
             raise RuntimeError(exc)
 
-        self.after(self.REFRESHING_RATE, self._refresh_position)
+        self._update_pos_job = self.after(
+            self.REFRESHING_RATE, self._refresh_position)
