@@ -316,3 +316,12 @@ class MoverStageSettingsTest(unittest.TestCase):
         self.assertEqual(self.mover.acceleration_xy, 200)
         self.assertEqual(self.stage.get_acceleration_xy(), 200)
         self.assertEqual(self.stage2.get_acceleration_xy(), 200)
+
+    def test_set_z_lift_does_not_accept_negative_values(self):
+        with self.assertRaises(ValueError):
+            self.mover.z_lift = -10
+
+    def test_set_z_lift_stores_positive_lift(self):
+        self.mover.z_lift = 50
+
+        self.assertEqual(self.mover.z_lift, 50)

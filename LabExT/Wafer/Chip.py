@@ -16,7 +16,7 @@ from LabExT.Wafer.Device import Device
 class Chip:
     """Chip is the implementation of a chip with devices."""
 
-    def __init__(self, path, name=None, devices=None):
+    def __init__(self, path=None, name=None, devices=None):
         """Constructor.
 
         Parameters
@@ -44,6 +44,9 @@ class Chip:
         """Loads the information contained in chip file and creates
         devices accordingly, adds them to the internal dictionary.
         """
+        if self._path is None:
+            return
+
         self.logger.debug('Starting to load information of chip from file.')
 
         try:

@@ -7,6 +7,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 
+from LabExT.Movement.Transformations import ChipCoordinate
+
 
 class Device:
     """Implements a device on a chip.
@@ -36,6 +38,10 @@ class Device:
         self._id = identifier
         self._in_position = in_p
         self._out_position = out_p
+
+        self.input_coordinate = ChipCoordinate.from_list(in_p)
+        self.output_coordinate = ChipCoordinate.from_list(out_p)
+
         if parameters is not None:
             self._parameters = parameters
         else:
