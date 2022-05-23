@@ -16,7 +16,7 @@ from LabExT.ExperimentManager import ExperimentManager
 from LabExT.Instruments.LaserSimulator import LaserSimulator
 from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
-from LabExT.Tests.Measurements.InsertionLossSweep_test import check_ILsweep_data_output
+from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
 from LabExT.Tests.Utils import TKinterTestCase, randomword
 
 
@@ -29,6 +29,26 @@ def simulator_only_instruments_descriptions(name):
         return [{"visa": "None", "class": "OpticalSpectrumAnalyzerSimulator", "channels": []}]
     else:
         raise ValueError('Unknown name for simulator descriptions:' + str(name))
+
+
+def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_props=None, meas_props=None):
+    if dev_props is not None:
+        executed_dev = meas_record['device']
+        testinst.assertEqual(executed_dev['id'], dev_props['id'])
+        testinst.assertEqual(executed_dev['type'], dev_props['type'])
+
+    if meas_props is not None:
+        executed_meas = meas_record['measurement settings']
+        testinst.assertEqual(executed_meas['wavelength start']['value'], meas_props['wavelength start'])
+        testinst.assertEqual(executed_meas['wavelength stop']['value'], meas_props['wavelength stop'])
+        testinst.assertEqual(executed_meas['wavelength step']['value'], meas_props['wavelength step'])
+        testinst.assertEqual(executed_meas['sweep speed']['value'], meas_props['sweep speed'])
+        testinst.assertEqual(executed_meas['laser power']['value'], meas_props['laser power'])
+        testinst.assertEqual(executed_meas['powermeter range']['value'], meas_props['powermeter range'])
+        testinst.assertEqual(executed_meas['users comment']['value'], meas_props['users comment'])
+        testinst.assertEqual(set(executed_meas.keys()),
+                             {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
+                              'powermeter range', 'users comment'})
 
 
 @flaky(max_runs=3)
@@ -177,28 +197,13 @@ class MainWindowTest(TKinterTestCase):
             self.assertEqual(len(self.expm.exp.measurements), 1)
             executed_measurement = self.expm.exp.measurements[0]
 
-            def check_meas_dict_meta_data(meas_dict):
-
-                executed_dev = meas_dict['device']
-                self.assertEqual(executed_dev['id'], random_dev_props['id'])
-                self.assertEqual(executed_dev['type'], random_dev_props['type'])
-
-                executed_meas = meas_dict['measurement settings']
-                self.assertEqual(executed_meas['wavelength start']['value'], random_meas_props['wavelength start'])
-                self.assertEqual(executed_meas['wavelength stop']['value'], random_meas_props['wavelength stop'])
-                self.assertEqual(executed_meas['wavelength step']['value'], random_meas_props['wavelength step'])
-                self.assertEqual(executed_meas['sweep speed']['value'], random_meas_props['sweep speed'])
-                self.assertEqual(executed_meas['laser power']['value'], random_meas_props['laser power'])
-                self.assertEqual(executed_meas['powermeter range']['value'], random_meas_props['powermeter range'])
-                self.assertEqual(executed_meas['users comment']['value'], random_meas_props['users comment'])
-                self.assertEqual(set(executed_meas.keys()),
-                                 {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                                  'powermeter range', 'users comment'})
-
             # check content in the dictionary saved in the executed measurements
-            check_meas_dict_meta_data(executed_measurement)
+            check_InsertionLossSweep_meas_dict_meta_data(self,
+                                                         executed_measurement,
+                                                         random_dev_props,
+                                                         random_meas_props)
             # for checking the simulated data, we can re-use the checker function from the measurement's test
-            check_ILsweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=ps)
+            check_InsertionLossSweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=random_meas_props)
 
             # do the same analysis on the saved file
             fpath = executed_measurement['file_path_known']
@@ -206,8 +211,11 @@ class MainWindowTest(TKinterTestCase):
                 fsaved_meas = json.load(fp)  # tests if valid JSON
 
             # check content of saved file
-            check_meas_dict_meta_data(fsaved_meas)
-            check_ILsweep_data_output(test_inst=self, data_dict=fsaved_meas, params_dict=ps)
+            check_InsertionLossSweep_meas_dict_meta_data(self,
+                                                         fsaved_meas,
+                                                         random_dev_props,
+                                                         random_meas_props)
+            check_InsertionLossSweep_data_output(test_inst=self, data_dict=fsaved_meas, params_dict=random_meas_props)
 
             # delete the generated save file
             remove(fpath)
