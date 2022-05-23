@@ -19,10 +19,30 @@ from LabExT.Instruments.LaserSimulator import LaserSimulator
 from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.DummyMeas import DummyMeas
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
-from LabExT.Tests.Measurements.InsertionLossSweep_test import check_ILsweep_data_output
+from LabExT.Tests.Measurements.DummyMeas_test import check_DummyMeas_data_output
+from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
 from LabExT.Tests.Utils import TKinterTestCase, randomword
-from LabExT.Tests.View.MainWindow_test import simulator_only_instruments_descriptions
+from LabExT.Tests.View.MainWindow_test import simulator_only_instruments_descriptions, \
+    check_InsertionLossSweep_meas_dict_meta_data
 from LabExT.View.ExperimentWizard.Components.DeviceWindow import DeviceWindow
+
+
+def check_DummyMeas_meas_dict_meta_data(testinst, meas_record, dev_props=None, meas_props=None):
+    if dev_props is not None:
+        executed_dev = meas_record['device']
+        testinst.assertEqual(executed_dev['id'], dev_props['id'])
+        testinst.assertEqual(executed_dev['type'], dev_props['type'])
+
+    if meas_props is not None:
+        executed_meas = meas_record['measurement settings']
+        testinst.assertEqual(executed_meas['number of points']['value'], meas_props['number of points'])
+        testinst.assertEqual(executed_meas['total measurement time']['value'], meas_props['total measurement time'])
+        testinst.assertEqual(executed_meas['mean']['value'], meas_props['mean'])
+        testinst.assertEqual(executed_meas['std. deviation']['value'], meas_props['std. deviation'])
+        testinst.assertEqual(executed_meas['simulate measurement error']['value'],
+                             meas_props['simulate measurement error'])
+        testinst.assertEqual(set(executed_meas.keys()), {'number of points', 'total measurement time', 'mean',
+                                                         'std. deviation', 'simulate measurement error'})
 
 
 @flaky(max_runs=3)
@@ -215,10 +235,6 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(self.expm.exp.to_do_list), 6)
         self.assertEqual(len(self.expm.exp.measurements), 0)
 
-        # enable automatic mode
-        self.mwm.var_mm_pause.set(False)
-        self.pump_events()
-
         #
         # check saved properties of the ToDos
         #
@@ -254,35 +270,31 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertIs(all_ilm_meas[0], all_ilm_meas[1])
         self.assertIs(all_ilm_meas[0], all_ilm_meas[2])
         self.assertTrue(isinstance(all_ilm_meas[0], LabExT.Measurements.MeasAPI.Measurement))
-        self.assertEqual(all_ilm_meas[0].parameters['wavelength start'].value, random_ilm_props['wavelength start'])
-        self.assertEqual(all_ilm_meas[0].parameters['wavelength stop'].value, random_ilm_props['wavelength stop'])
-        self.assertEqual(all_ilm_meas[0].parameters['wavelength step'].value, random_ilm_props['wavelength step'])
-        self.assertEqual(all_ilm_meas[0].parameters['sweep speed'].value, random_ilm_props['sweep speed'])
-        self.assertEqual(all_ilm_meas[0].parameters['laser power'].value, random_ilm_props['laser power'])
-        self.assertEqual(all_ilm_meas[0].parameters['powermeter range'].value, random_ilm_props['powermeter range'])
-        self.assertEqual(all_ilm_meas[0].parameters['users comment'].value, random_ilm_props['users comment'])
-        self.assertEqual(set(all_ilm_meas[0].parameters.keys()),
-                         {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                          'powermeter range', 'users comment'})
+        props = {
+            'measurement settings': {
+                key: {'value': all_ilm_meas[0].parameters[key].value} for key in all_ilm_meas[0].parameters.keys()
+            }
+        }
+        check_InsertionLossSweep_meas_dict_meta_data(self, props, meas_props=random_ilm_props)
 
         # check that the measurements have the correct parameters set
         all_dm_meas = [t.measurement for t in self.expm.exp.to_do_list if t.measurement.name == 'DummyMeas']
         self.assertIs(all_dm_meas[0], all_dm_meas[1])
         self.assertIs(all_dm_meas[0], all_dm_meas[2])
         self.assertTrue(isinstance(all_dm_meas[0], LabExT.Measurements.MeasAPI.Measurement))
-        self.assertEqual(all_dm_meas[0].parameters['number of points'].value, random_dummy_props['number of points'])
-        self.assertEqual(all_dm_meas[0].parameters['total measurement time'].value,
-                         random_dummy_props['total measurement time'])
-        self.assertEqual(all_dm_meas[0].parameters['mean'].value, random_dummy_props['mean'])
-        self.assertEqual(all_dm_meas[0].parameters['std. deviation'].value, random_dummy_props['std. deviation'])
-        self.assertEqual(all_dm_meas[0].parameters['simulate measurement error'].value,
-                         random_dummy_props['simulate measurement error'])
-        self.assertEqual(set(all_dm_meas[0].parameters.keys()), {'number of points', 'total measurement time', 'mean',
-                                                                 'std. deviation', 'simulate measurement error'})
+        props = {
+            'measurement settings': {
+                key: {'value': all_dm_meas[0].parameters[key].value} for key in all_dm_meas[0].parameters.keys()
+            }
+        }
+        check_DummyMeas_meas_dict_meta_data(self, props, meas_props=random_dummy_props)
 
         #
-        # Back to Main Window: run simulation measurement
+        # Main Window: run simulation measurement
         #
+
+        # enable automatic mode (GUI updates disabled, so hard-code setting experiment property)
+        self.expm.exp.exctrl_pause_after_device = False
 
         # various patches necessary s.t. tkinter runs although there is no main thread
         with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
@@ -301,13 +313,26 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(self.expm.exp.to_do_list), 0)
         self.assertEqual(len(self.expm.exp.measurements), 6)
 
-        for meas_record in self.expm.exp.measurements:
-
-            if meas_record['measurement name'] == 'DummyMeas':
-                pass
-            elif meas_record['measurement name'] == 'InsertionLossSweep':
-                pass
+        def check_meas_dict(check_meas_dict):
+            """ checks a given measurement record to correctness of some metadata and data """
+            if check_meas_dict['measurement name'] == 'DummyMeas':
+                check_DummyMeas_meas_dict_meta_data(self, check_meas_dict, meas_props=random_dummy_props)
+                check_DummyMeas_data_output(self, check_meas_dict, random_dummy_props)
+            elif check_meas_dict['measurement name'] == 'InsertionLossSweep':
+                check_InsertionLossSweep_meas_dict_meta_data(self, check_meas_dict, meas_props=random_ilm_props)
+                check_InsertionLossSweep_data_output(self, check_meas_dict, random_ilm_props)
             else:
-                raise AssertionError('Unknown measurement name: ' + str(meas_record['measurement name']))
+                raise AssertionError('Unknown measurement name: ' + str(check_meas_dict['measurement name']))
 
-        pass
+        for meas_record in self.expm.exp.measurements:
+            # analyse data dictionary output
+            check_meas_dict(meas_record)
+
+            # do the same analysis on the saved file
+            fpath = meas_record['file_path_known']
+            with open(fpath, 'r') as fp:
+                fsaved_meas = json.load(fp)  # tests if valid JSON
+            check_meas_dict(fsaved_meas)
+
+            # delete the generated save file
+            remove(fpath)
