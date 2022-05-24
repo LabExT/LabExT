@@ -13,6 +13,22 @@ from LabExT.Measurements.DummyMeas import DummyMeas
 from LabExT.Measurements.MeasAPI import Measurement
 
 
+def check_DummyMeas_data_output(test_inst, data_dict, params_dict):
+    # force all to be numpy arrays
+    values_arr = {}
+    for k, v in data_dict['values'].items():
+        values_arr[k] = np.array(v)
+
+    # check data point output
+    n_data = len(values_arr['point indices'])
+    test_inst.assertTrue(params_dict['number of points'] == n_data)
+    np.testing.assert_array_equal(values_arr['point indices'], np.arange(n_data))
+
+    # check noise output
+    test_inst.assertTrue(len(values_arr['point values']) == n_data)
+    test_inst.assertTrue(np.all(np.isfinite(values_arr['point values'])))
+
+
 class DummyMeasTest(unittest.TestCase):
     """
     Test for the DummyMeas measurement.
@@ -58,19 +74,11 @@ class DummyMeasTest(unittest.TestCase):
 
         self.meas._check_data(data=data)
 
-        # force all to be numpy arrays
-        values_arr = {}
-        for k, v in data['values'].items():
-            values_arr[k] = np.array(v)
-
-        # check data point output
-        n_data = len(values_arr['point indices'])
-        self.assertTrue(params['number of points'].value == n_data)
-        np.testing.assert_array_equal(values_arr['point indices'], np.arange(n_data))
-
-        # check noise output
-        self.assertTrue(len(values_arr['point values']) == n_data)
-        self.assertTrue(np.all(np.isfinite(values_arr['point values'])))
+        # check data output
+        meas_params = {
+            key: params[key].value for key in params.keys()
+        }
+        check_DummyMeas_data_output(self, data, meas_params)
 
     def test_raise_error(self):
         #

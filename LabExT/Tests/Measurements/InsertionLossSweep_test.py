@@ -15,7 +15,7 @@ from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Measurements.MeasAPI import Measurement
 
 
-def check_ILsweep_data_output(test_inst, data_dict, params_dict):
+def check_InsertionLossSweep_data_output(test_inst, data_dict, params_dict):
     # length of all output data vectors should be equal
     len_trans = len(data_dict['values']['transmission [dBm]'])
     for k, v in data_dict['values'].items():
@@ -27,9 +27,9 @@ def check_ILsweep_data_output(test_inst, data_dict, params_dict):
 
     # test wavelength start and end
     test_inst.assertTrue(np.isclose(data_dict['values']['wavelength [nm]'][0],
-                               params_dict['wavelength start'].value))
+                               params_dict['wavelength start']))
     test_inst.assertTrue(np.isclose(data_dict['values']['wavelength [nm]'][-1],
-                               params_dict['wavelength stop'].value))
+                               params_dict['wavelength stop']))
 
 
 class InsertionLossSweepTest(unittest.TestCase):
@@ -106,4 +106,7 @@ class InsertionLossSweepTest(unittest.TestCase):
         self.meas._check_data(data=data)
 
         # check rest of data
-        check_ILsweep_data_output(test_inst=self, data_dict=data, params_dict=params)
+        meas_params = {
+            key: params[key].value for key in params.keys()
+        }
+        check_InsertionLossSweep_data_output(test_inst=self, data_dict=data, params_dict=meas_params)

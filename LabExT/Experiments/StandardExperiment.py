@@ -119,6 +119,9 @@ class StandardExperiment:
         self.param_output_path = str(self.save_parameters['Raw output path'].value)
         makedirs(self.param_output_path, exist_ok=True)
 
+    def show_meas_finished_infobox(self):
+        messagebox.showinfo("Measurements finished!", "Measurements finished!")
+
     def run(self):
         self.logger.info('Running experiment.')
 
@@ -275,9 +278,8 @@ class StandardExperiment:
             # if we finished all the devices in the to_do_list
             # then we finished measuring everything
             if not self.to_do_list:
-                messagebox.showinfo("Measurements finished!", "Measurements finished!")
+                self.show_meas_finished_infobox()
                 self.logger.info("Experiment and hereby all measurements finished.")
-
                 return
 
             if self.exctrl_inter_measurement_wait_time > 0.0:
