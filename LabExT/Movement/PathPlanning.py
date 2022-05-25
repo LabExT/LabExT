@@ -9,12 +9,14 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Tuple, Type
 
 import numpy as np
+from scipy.spatial.distance import pdist
 
 from LabExT.Movement.Transformations import ChipCoordinate
 from LabExT.Movement.config import Orientation
 
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
+    from LabExT.Wafer.Chip import Chip
 
 
 class StagePolygon(ABC):
@@ -326,3 +328,120 @@ class PotentialField:
                 curr_idx = possible_idx
 
         return curr_idx
+
+
+class LocalMinimumError(RuntimeError):
+    pass
+
+
+class PathPlanning:
+    """
+    Main class for Path Planning
+    """
+
+    def __init__(self, chip) -> None:
+        """
+        Constructor for the Path Planning.
+
+        Parameters
+        ----------
+        chip: Chip
+            Instance of the a chip
+        """
+        self.chip: Type[Chip] = chip
+        self.grid_size, self.grid_outline = self._get_grid_properties(tol=100)
+
+        self.potential_fields = {}
+        self.last_moves = []
+
+    def set_stage_target(
+            self,
+            calibration: Type["Calibration"],
+            target: Type[ChipCoordinate]) -> None:
+        """
+        Registers a target for the given calibration.
+
+        Parameters
+        ----------
+        calibration : Calibration
+            Instance of a calibration
+        target : ChipCoordinate
+            Target of the stage in chip coordinates.
+        """
+        self.potential_fields[calibration] = PotentialField(
+            calibration,
+            target,
+            self.grid_size,
+            self.grid_outline)
+
+    def trajectory(self, abort_local_minimum=3):
+        """
+
+        """
+        while not all(f.current_position ==
+                      f.target_position for f in self.potential_fields.values()):
+
+            next_move = {}
+
+            for calibration, potential_field in self.potential_fields.items():
+                potential_field.set_stage_obstacles(*[
+                    obstacle_calibration for obstacle_calibration in self.potential_fields.keys() if obstacle_calibration != calibration
+                ])
+
+                next_move[calibration] = potential_field.next_waypoint()
+
+            if self._last_moves_equal(
+                    self.last_moves[-abort_local_minimum:], next_move):
+                raise LocalMinimumError
+
+            self.last_moves.append(next_move)
+            yield next_move
+
+    def _get_grid_properties(self, tol: float = 0) -> tuple:
+        """
+        Dynamically calculates the grid outline based on the points of the chip.
+
+        Dynamically calculates the grid size by calculating
+        the smallest distance between two points on the chip
+
+        Parameters
+        ----------
+        tol: float = 0
+            Grid outline tolerance.
+        """
+        all_points = np.concatenate([
+            [d._in_position for d in self.chip._devices.values()],
+            [d._out_position for d in self.chip._devices.values()]
+        ], axis=0)
+
+        xs = all_points[:, 0]
+        ys = all_points[:, 1]
+
+        outline = (
+            (xs.min() - tol, xs.max() + tol),  # X-min, X-max
+            (ys.min() - tol, ys.max() + tol)  # Y-min, Y-max
+        )
+        grid_size = np.floor(np.min(pdist(all_points)))
+
+        return grid_size, outline
+
+    def _last_moves_equal(self, last_moves: list, new_move: dict) -> bool:
+        """
+        Returns True if all last moves are equal to the new move.
+
+        Parameters
+        ----------
+        last_moves: list
+            List of last moves
+        new_moves: dict
+            Dict of the new move
+        """
+        if len(last_moves) == 0:
+            return False
+
+        for last_move in last_moves:
+            for calibration, waypoint in last_move.items():
+                if new_move[calibration] != waypoint:
+                    return False
+
+        return True
