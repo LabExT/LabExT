@@ -9,11 +9,13 @@ from contextlib import contextmanager
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
+from LabExT.Movement.PathPlanning import PathPlanning
 
 from LabExT.Movement.config import Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Wafer.Chip import Chip
 
 
 def assert_connected_stages(func):
@@ -357,6 +359,51 @@ class MoverNew:
     #
     #   Movement Methods
     #
+
+    @assert_connected_stages
+    def move_absolute(
+        self,
+        movement_commands: Dict[Orientation, Type[ChipCoordinate]],
+        chip: Type[Chip],
+        wait_for_stopping: bool = True
+    ) -> None:
+        """
+        Moves the stages absolutely in the chip coordinate system.
+
+        A collision-free trajectory is calculated.
+
+        Parameters
+        ----------
+        movement_commands : Dict[Orientation, Type[ChipCoordinate]]
+            A mapping between orientation and target chip coordinate.
+            For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved to the chip co-ordinate x=1, y=2, z=3
+        wait_for_stopping: bool = True
+            Whether each stage should have completed its movement before the next one moves.
+
+        Raises
+        ------
+        MoverError
+            If an orientation has been given a target, but no stage exists for this orientation.
+        LocalMinimumError
+            If the path-finding algorithm makes no progress
+             i.e. does not converge to the target coordinate.
+        """
+        path_planning = PathPlanning(chip)
+
+        # Set up Path Planning
+        for orientation, target in movement_commands.items():
+            calibration = self._get_calibration(orientation=orientation)
+            if calibration is None:
+                raise MoverError(
+                    f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
+
+            path_planning.set_stage_target(orientation, target)
+
+        # Move stages on safe trajectory
+        for calibration_waypoints in path_planning.trajectory():
+            for calibration, waypoint in calibration_waypoints.items():
+                with calibration.perform_in_chip_coordinates():
+                    calibration.move_absolute(waypoint, wait_for_stopping)
 
     @contextmanager
     def lift_stages(self):
