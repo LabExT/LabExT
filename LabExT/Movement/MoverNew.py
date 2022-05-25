@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from contextlib import contextmanager
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Any, Dict, Tuple, Type, List
 from functools import wraps
 from LabExT.Movement.PathPlanning import PathPlanning
 
@@ -390,6 +390,9 @@ class MoverNew:
             If the path-finding algorithm makes no progress
              i.e. does not converge to the target coordinate.
         """
+        if not movement_commands:
+            return
+
         path_planning = PathPlanning(chip)
 
         # Set up Path Planning
@@ -441,6 +444,39 @@ class MoverNew:
             yield
         finally:
             _lift_lower_stages(-self.z_lift)
+
+    @assert_connected_stages
+    def move_to_device(self, chip: Type[Chip], device_id: Any):
+        """
+        Moves stages to device.
+
+        Parameters
+        ----------
+        chip: Chip
+            Instance of a imported chip.
+        device_id: Any
+            Device ID to which the stages should move.
+
+        Raises
+        ------
+        MoverError
+            If no device was found for the given ID.
+        """
+        device = chip._devices.get(device_id)
+        if device is None:
+            raise MoverError(
+                f"No device was found for the given chip for the given device ID {device_id}.")
+
+        with self.lift_stages():
+            movement_commands = {}
+            if self.input_calibration:
+                movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
+                    ChipCoordinate(z=self.z_lift)
+            if self.output_calibration:
+                movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
+                    ChipCoordinate(z=self.z_lift)
+
+            self.move_absolute(movement_commands, chip=chip)
 
     #
     #   Helpers
