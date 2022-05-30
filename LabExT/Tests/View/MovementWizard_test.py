@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
+from flaky import flaky
 
 from tkinter import DISABLED, NORMAL
 from unittest.mock import Mock, patch
@@ -16,7 +17,7 @@ from LabExT.Movement.Stages.DummyStage import DummyStage
 
 from LabExT.View.MovementWizard.MovementWizardController import MovementWizardController, Stage
 
-
+@flaky(max_runs=3)
 class MovementWizardAssignmentStepTest(TKinterTestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:
@@ -155,6 +156,7 @@ class MovementWizardAssignmentStepTest(TKinterTestCase):
         self.assertEqual(self.view._next_button["state"], DISABLED)
 
 
+@flaky(max_runs=3)
 class MovementWizardControllerTest(unittest.TestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:
@@ -252,6 +254,7 @@ class MovementWizardControllerTest(unittest.TestCase):
         self.assertEqual(100, self.mover.acceleration_xy)
 
 
+@flaky(max_runs=3)
 class MovementWizardIntegrationTest(TKinterTestCase):
     def setUp(self):
         super().setUp()
