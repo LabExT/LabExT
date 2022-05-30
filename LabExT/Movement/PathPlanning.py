@@ -34,7 +34,8 @@ class StagePolygon(ABC):
         self,
         position: Type[ChipCoordinate],
         mesh_x: np.ndarray,
-        mesh_y: np.ndarray
+        mesh_y: np.ndarray,
+        grid_size: float
     ) -> np.ndarray:
         """
         Returns a mask if a point in the meshgrid is in the stage.
@@ -68,13 +69,15 @@ class SingleModeFiber(StagePolygon):
         self.orientation = orientation
         self.safety_distance = safety_distance
 
-    def stage_in_meshgrid(self,
-                          position: Type[ChipCoordinate],
-                          mesh_x: np.ndarray,
-                          mesh_y: np.ndarray,
-                          ) -> np.ndarray:
+    def stage_in_meshgrid(
+        self,
+        position: Type[ChipCoordinate],
+        mesh_x: np.ndarray,
+        mesh_y: np.ndarray,
+        grid_size: float
+    ) -> np.ndarray:
         """
-        Returns a mask if if a point of the single mode fiber in the meshgrid is in the stage.
+        Returns a mask if a point of the single mode fiber in the meshgrid is in the stage.
 
         Parameters
         ----------
@@ -84,25 +87,38 @@ class SingleModeFiber(StagePolygon):
             X values of the meshgrid
         mesh_y : np.ndarray
             Y values of the meshgrid
+        grid_size : float
+            Grid size of meshgrid
         """
-        x_min, x_max, y_min, y_max = self._create_outline(position)
+        x_min, x_max, y_min, y_max = self._create_outline(position, grid_size)
         return np.logical_and(
             np.logical_and(x_min <= mesh_x, mesh_x <= x_max),
             np.logical_and(y_min <= mesh_y, mesh_y <= y_max))
 
     def _create_outline(
         self,
-        position: Type[ChipCoordinate]
+        position: Type[ChipCoordinate],
+        grid_size: float,
+        grid_epsilon: float = 10
     ) -> Tuple[float, float, float, float]:
         """
         Returns a tuple with the X- and Y-axis limits.
 
         Performs a case distinction according to the orientation of the stage.
 
+        Artificially enlarges the outline, if it is too small for the grid:
+        e.g. If the distance between x_max and x_min is less than or equal to the grid size,
+        half the grid size plus an absolute epsilon is added/substracted.
+
         Parameters
         ----------
         position : ChipCoordinate
             Current position of the stage in Chip-Coordinates
+        grid_size : float
+            Grid size of meshgrid
+        grid_epsilon : float
+            Absolute summand to artificially enlarge the obstacle
+            if it is too small for the meshgrid.
 
         Raises
         ------
@@ -124,5 +140,17 @@ class SingleModeFiber(StagePolygon):
             y_min -= self.FIBER_LENGTH
         elif self.orientation == Orientation.TOP:
             y_max += self.FIBER_LENGTH
+        else:
+            raise ValueError(
+                f"No Stage Polygon defined for orientation {self.orientation}")
+
+        # Make sure, that outline fits into meshgrid
+        if np.abs(x_max - x_min) <= grid_size:
+            x_max += grid_size / 2 + grid_epsilon
+            x_min -= grid_size / 2 + grid_epsilon
+
+        if np.abs(y_max - y_min) <= grid_size:
+            y_max += grid_size / 2 + grid_epsilon
+            y_min -= grid_size / 2 + grid_epsilon
 
         return x_min, x_max, y_min, y_max
