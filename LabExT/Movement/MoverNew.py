@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from contextlib import contextmanager
+from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
@@ -365,7 +366,8 @@ class MoverNew:
         self,
         movement_commands: Dict[Orientation, Type[ChipCoordinate]],
         chip: Type[Chip],
-        wait_for_stopping: bool = True
+        wait_for_stopping: bool = True,
+        wait_timeout: float = 2.0
     ) -> None:
         """
         Moves the stages absolutely in the chip coordinate system.
@@ -397,13 +399,27 @@ class MoverNew:
                 raise MoverError(
                     f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
-            path_planning.set_stage_target(orientation, target)
+            path_planning.set_stage_target(calibration, target)
 
         # Move stages on safe trajectory
         for calibration_waypoints in path_planning.trajectory():
             for calibration, waypoint in calibration_waypoints.items():
                 with calibration.perform_in_chip_coordinates():
                     calibration.move_absolute(waypoint, wait_for_stopping)
+
+            # Wait for all stages to stop if stages move simultaneously.
+            if not wait_for_stopping:
+                busy_spinning_start = time()
+                while True:
+                    sleep(0.05)
+
+                    if time() - busy_spinning_start >= wait_timeout:
+                        raise RuntimeError(
+                            f"Stages did not stopped after {wait_timeout}")
+
+                    if all(
+                            c.stage.is_stopped for c in calibration_waypoints.keys()):
+                        break
 
     @contextmanager
     def lift_stages(self):

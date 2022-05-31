@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from functools import wraps
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from os.path import dirname, join
 from typing import NamedTuple
 
@@ -19,8 +19,8 @@ class StageError(RuntimeError):
 
 
 class StageMeta(NamedTuple):
-     description: str
-     driver_specifiable: str
+    description: str
+    driver_specifiable: str
 
 
 def assert_stage_connected(func):
@@ -184,9 +184,23 @@ class Stage(ABC):
         pass
 
     @abstractmethod
-    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
         pass
 
     @abstractmethod
-    def move_absolute(self, x: float = None, y: float = None, z: float = None, wait_for_stopping: bool = True) -> None:
+    def move_absolute(
+            self,
+            x: float = None,
+            y: float = None,
+            z: float = None,
+            wait_for_stopping: bool = True) -> None:
+        pass
+
+    @abstractproperty
+    def is_stopped(self) -> bool:
         pass
