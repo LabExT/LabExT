@@ -349,7 +349,8 @@ class PathPlanning:
             Instance of the a chip
         """
         self.chip: Type[Chip] = chip
-        self.grid_size, self.grid_outline = self._get_grid_properties(tol=100)
+        self.grid_size, self.grid_outline = self._get_grid_properties(
+            padding=100)
 
         self.potential_fields = {}
         self.last_moves = []
@@ -364,7 +365,7 @@ class PathPlanning:
         Parameters
         ----------
         calibration : Calibration
-            Instance of a calibration
+            Instance of a calibrated stage, such that the stage can move in chip coordinates.
         target : ChipCoordinate
             Target of the stage in chip coordinates.
         """
@@ -376,7 +377,21 @@ class PathPlanning:
 
     def trajectory(self, abort_local_minimum=3):
         """
+        Generator to calculate a trajectory for all stages.
 
+        Returns a mapping between calibration and next waypoint (in chip coordinates).
+
+        Updates the obstacles after each stage waypoint.
+
+        Parameters
+        ----------
+        abort_local_minimum: int = 3
+            Number of identical movements before an error is raised.
+
+        Raises
+        ------
+        LocalMinimumError
+            If no progress has been made.
         """
         while not all(f.current_position ==
                       f.target_position for f in self.potential_fields.values()):
@@ -392,12 +407,17 @@ class PathPlanning:
 
             if self._last_moves_equal(
                     self.last_moves[-abort_local_minimum:], next_move):
-                raise LocalMinimumError
+                raise LocalMinimumError(
+                    f"Path-finding algorithm makes no progress. The last {abort_local_minimum} movements were identical!")
 
             self.last_moves.append(next_move)
             yield next_move
 
-    def _get_grid_properties(self, tol: float = 0) -> tuple:
+    def _get_grid_properties(
+        self,
+        padding: float = 0,
+        maximum_gird_size: float = 100
+    ) -> tuple:
         """
         Dynamically calculates the grid outline based on the points of the chip.
 
@@ -406,8 +426,10 @@ class PathPlanning:
 
         Parameters
         ----------
-        tol: float = 0
-            Grid outline tolerance.
+        padding: float = 0
+            Grid outline padding.
+        maximum_gird_size: float = 100
+            Grid size that must not be exceeded.
         """
         all_points = np.concatenate([
             [d._in_position for d in self.chip._devices.values()],
@@ -418,10 +440,10 @@ class PathPlanning:
         ys = all_points[:, 1]
 
         outline = (
-            (xs.min() - tol, xs.max() + tol),  # X-min, X-max
-            (ys.min() - tol, ys.max() + tol)  # Y-min, Y-max
+            (xs.min() - padding, xs.max() + padding),  # X-min, X-max
+            (ys.min() - padding, ys.max() + padding)  # Y-min, Y-max
         )
-        grid_size = np.floor(np.min(pdist(all_points)))
+        grid_size = min(np.floor(np.min(pdist(all_points))), maximum_gird_size)
 
         return grid_size, outline
 
