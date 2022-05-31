@@ -809,7 +809,7 @@ class Stage3DSmarAct(Stage):
         """
         Blocks until all channels have 'SA_STOPPED_STATUS' status.
         """
-        while True:
+        while not self.is_stopped:
             time.sleep(delay)
 
             if self.is_stopped:
