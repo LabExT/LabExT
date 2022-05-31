@@ -467,15 +467,15 @@ class MoverNew:
             raise MoverError(
                 f"No device was found for the given chip for the given device ID {device_id}.")
 
-        with self.lift_stages():
-            movement_commands = {}
-            if self.input_calibration:
-                movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
-                    ChipCoordinate(z=self.z_lift)
-            if self.output_calibration:
-                movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
-                    ChipCoordinate(z=self.z_lift)
+        movement_commands = {}
+        if self.input_calibration:
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
+                ChipCoordinate(z=self.z_lift)
+        if self.output_calibration:
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
+                ChipCoordinate(z=self.z_lift)
 
+        with self.lift_stages():
             self.move_absolute(movement_commands, chip=chip)
 
     #
