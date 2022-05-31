@@ -295,7 +295,8 @@ class PotentialField:
                 stage_mask = calibration.stage_polygon.stage_in_meshgrid(
                     calibration.get_position(),
                     self.cx,
-                    self.cy)
+                    self.cy,
+                    self.grid_size)
 
             for ox, oy in zip(self.cx[stage_mask], self.cy[stage_mask]):
                 o_dist = np.hypot(self.cx - ox, self.cy - oy)
