@@ -165,10 +165,11 @@ class PotentialField:
     A potential field is created for each stage, with all other stages being obstacles.
 
     This algorithm operates in 2D (x,y), assuming that the stages are on a plane.
+
+    Parts of this algorithm are based on the implementation in
+    https://github.com/AtsushiSakai/PythonRobotics/blob/master/PathPlanning/PotentialFieldPlanning/potential_field_planning.py released under MIT license.
     """
 
-    REPULSIVE_GAIN = 100.0
-    ATTRACTIVE_GAIN = 5.0
     FIBER_RADIUS = 125.0
 
     MOTIONS = [[1, 0],
@@ -185,7 +186,9 @@ class PotentialField:
         calibration: Type["Calibration"],
         target_position: Type[ChipCoordinate],
         grid_size: float = 50.0,
-        grid_outline: tuple = ((-5000, 5000), (-5000, 5000))
+        grid_outline: tuple = ((-5000, 5000), (-5000, 5000)),
+        repulsive_gain: float = 10000.0,
+        attractive_gain: float = 1.0
     ) -> None:
         """
         Constructor for new Potential Field
@@ -200,12 +203,18 @@ class PotentialField:
             Size of the potential field grid
         grid_outline: tuple
             Outline (x_min, x_max, y_min, y_max) of the potential field grid
+        repulsive_gain: tuple
+            Repulsive gain in the potential field
+        attractive_gain: tuple
+            Attractive gain in the potential field
         """
         self.calibration = calibration
+        self.target_position = target_position
+
         self.grid_size = grid_size
         self.grid_outline = grid_outline
-
-        self.target_position = target_position
+        self.repulsive_gain = repulsive_gain
+        self.attractive_gain = attractive_gain
 
         self.x_coords = np.arange(
             self.grid_outline[0][0],
@@ -219,10 +228,10 @@ class PotentialField:
             self.grid_size)
         self.cx, self.cy = np.meshgrid(self.x_coords, self.y_coords)
 
-        self.attractive_potenial_field = self.ATTRACTIVE_GAIN * \
+        self.attractive_potential_field = self.attractive_gain * \
             np.hypot(self.cx - self.target_position.x, self.cy - self.target_position.y)
         self.potential_field = np.zeros_like(
-            self.cx) + self.attractive_potenial_field
+            self.cx) + self.attractive_potential_field
 
         with self.calibration.perform_in_chip_coordinates():
             self.start_coordinate = self.calibration.get_position()
@@ -263,8 +272,11 @@ class PotentialField:
 
         return self.current_position
 
-    def set_stage_obstacles(self, *
-                            calibrations: List[Type["Calibration"]]) -> None:
+    def set_stage_obstacles(
+        self,
+        *calibrations: List[Type["Calibration"]],
+        safety_multiplier: int = 5
+    ) -> None:
         """
         Creates an obstacle in the potential field for each passed calibration.
 
@@ -272,9 +284,11 @@ class PotentialField:
         ----------
         calibrations : List[Calibration]
             List of calibration instances
+        safety_multiplier: int
+            Multiplier of the fiber radius to calculate the field mask
         """
         self.potential_field = np.zeros_like(
-            self.cx) + self.attractive_potenial_field
+            self.cx) + self.attractive_potential_field
 
         for calibration in calibrations:
             with calibration.perform_in_chip_coordinates():
@@ -285,9 +299,8 @@ class PotentialField:
 
             for ox, oy in zip(self.cx[stage_mask], self.cy[stage_mask]):
                 o_dist = np.hypot(self.cx - ox, self.cy - oy)
-                field_mask = o_dist < 5 * self.FIBER_RADIUS
-                rep_field = self.REPULSIVE_GAIN * \
-                    (1.0 / o_dist - 1.0 / self.FIBER_RADIUS) ** 2
+                field_mask = o_dist < safety_multiplier * self.FIBER_RADIUS
+                rep_field = self.repulsive_gain * (1.0 / o_dist) ** 2
 
                 self.potential_field[field_mask] += rep_field[field_mask]
 
