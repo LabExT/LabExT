@@ -17,6 +17,8 @@ from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, Coo
 from LabExT.Movement.Stage import StageError
 from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
 
+from LabExT.Utils import ask_yes_no
+
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
 
@@ -453,11 +455,12 @@ class Calibration:
             RuntimeError(
                 f"Unsupported coordinate system {self.coordinate_system} to move the stage absolutely.")
 
-        self.stage.move_absolute(
-            x=stage_coordinate.x,
-            y=stage_coordinate.y,
-            z=stage_coordinate.z,
-            wait_for_stopping=wait_for_stopping)
+        if self._allow_movement(coordinate, stage_coordinate):
+            self.stage.move_absolute(
+                x=stage_coordinate.x,
+                y=stage_coordinate.y,
+                z=stage_coordinate.z,
+                wait_for_stopping=wait_for_stopping)
 
     def wiggle_axis(
             self,
@@ -497,3 +500,27 @@ class Calibration:
 
         self.stage.set_speed_xy(current_speed_xy)
         self.stage.set_speed_z(current_speed_z)
+
+    def _allow_movement(self, chip_target, stage_target):
+
+        stage_position = StageCoordinate.from_list(self.stage.get_position())
+
+        if self.state == State.FULLY_CALIBRATED:
+            chip_position = self._kabsch_rotation.stage_to_chip(stage_position)
+        elif self.state == State.SINGLE_POINT_FIXED:
+            chip_position = self._single_point_offset.stage_to_chip(
+                stage_position)
+        else:
+            chip_position = None
+
+        print("=" * 15 + " MOVEMENT CONTROL " + "=" * 15)
+        print("Movement in Chip-Coordinates:")
+        print(
+            f"Current position: {chip_position} - Target Position: {chip_target} - Delta: {chip_position - chip_target}")
+        print(f"Movement in Stage-Coordinates:")
+        print(
+            f"Current position: {stage_position} - Target Position: {stage_target} - Delta: {stage_position - stage_target}")
+
+        return ask_yes_no(
+            "Do you want to perform this movement?",
+            default="yes")
