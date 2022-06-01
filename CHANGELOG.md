@@ -1,3 +1,11 @@
+## Version 2.1.3
+Released 2022-05-30
+
+* feature: you can now specify a wait time between consecutive ToDo executions in automatic mode
+* usability: The live viewer and the search-for-peak are now available via buttons in the main window
+* under-the-hood: all automated testing is now done for Python version 3.7, 3.8, and 3.9 on both, Ubuntu and Windows, operating systems
+* under-the-hood: update of dependencies due to safety reasons
+
 ## Version 2.1.2
 Released 2022-01-19
 
