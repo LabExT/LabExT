@@ -1,6 +1,6 @@
 # InstrumentAPI
 
-::: LabExT.Instruments.InstrumentAPI.Instrument
+::: LabExT.Instruments.InstrumentAPI.Instrument.Instrument
     rendering:
         show_root_heading: true
         sort_members: source
