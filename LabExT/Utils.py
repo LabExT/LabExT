@@ -16,7 +16,6 @@ from os import makedirs
 from os.path import join, dirname, abspath, exists, basename
 from pathlib import Path
 from tkinter import Entry, TclError, Toplevel, ttk, Label
-import sys
 
 import unicodedata
 
@@ -279,22 +278,3 @@ def try_to_lift_window(window):
         return True
     except TclError:
         return False
-
-def ask_yes_no(question: str, default="yes"):
-    valid = {"yes": True, "y": True, "no": False, "n": False}
-
-    prompt = " [y/n]"
-    if default == "yes":
-        prompt = " [Y/n]"
-    elif default == "no":
-        prompt = " [y/N]"
-
-    while True:
-        sys.stdout.write(question + prompt)
-        choice = input().lower()
-        if choice is None or choice == "":
-            return valid[default]
-        elif choice in valid:
-            return valid[choice]
-        else:
-            sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")

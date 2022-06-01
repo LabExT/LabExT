@@ -12,12 +12,12 @@ from time import sleep
 
 import numpy as np
 
+from tkinter import messagebox
+
 from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction
 from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
 from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
-
-from LabExT.Utils import ask_yes_no
 
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
@@ -502,7 +502,6 @@ class Calibration:
         self.stage.set_speed_z(current_speed_z)
 
     def _allow_movement(self, chip_target, stage_target):
-
         stage_position = StageCoordinate.from_list(self.stage.get_position())
 
         if self.state == State.FULLY_CALIBRATED:
@@ -513,14 +512,8 @@ class Calibration:
         else:
             chip_position = None
 
-        print("=" * 15 + " MOVEMENT CONTROL " + "=" * 15)
-        print("Movement in Chip-Coordinates:")
-        print(
-            f"Current position: {chip_position} - Target Position: {chip_target} - Delta: {chip_position - chip_target}")
-        print(f"Movement in Stage-Coordinates:")
-        print(
-            f"Current position: {stage_position} - Target Position: {stage_target} - Delta: {stage_position - stage_target}")
-
-        return ask_yes_no(
-            "Do you want to perform this movement?",
-            default="yes")
+        return messagebox.askyesno(
+            title="Confirm Movement",
+            message=f"Chip-Coordinates: \n -Current: {chip_position} \n -Target: {chip_target} \n -Delta: {chip_position - chip_target} \n\n" \
+                f"Stage-Coordinates \n -Current: {stage_position} \n -Target: {stage_target} \n -Delta: {stage_position - stage_target}"
+        )
