@@ -12,7 +12,7 @@ from typing import Any, Dict, Tuple, Type, List
 from functools import wraps
 from LabExT.Movement.PathPlanning import PathPlanning
 
-from LabExT.Movement.config import Orientation, DevicePort
+from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
@@ -162,6 +162,14 @@ class MoverNew:
         Returns True if any of the connected stage is connected (opened a connection to the stage).
         """
         return len(self.connected_stages) > 0
+
+    @property
+    def can_move_absolutely(self) -> bool:
+        """
+        Returns True if mover can move absolutely in chip coordinates.
+        """
+        return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
+                   State.FULLY_CALIBRATED for c in self.calibrations.values())
 
     @property
     def left_calibration(self): return self._get_calibration(
