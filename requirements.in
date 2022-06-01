@@ -34,6 +34,7 @@ pillow
 mkdocs
 mkdocs-material
 mkdocstrings
+mkdocstrings-python
 
 # tools for development
 # pip-tools
