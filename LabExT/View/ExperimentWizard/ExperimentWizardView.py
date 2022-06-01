@@ -92,6 +92,7 @@ class ExperimentWizardView:
         self.controller = controller
 
         self.parent = parent
+        self.last_opened_subwindow = None
 
         # list of all the labels, used to track user steps and coloring
         self.labels = []
@@ -105,4 +106,4 @@ class ExperimentWizardView:
                                    self.parent.winfo_screenheight() / 2))
         new_w.lift()
         new_w.bind('<F1>', exp_manager.show_documentation)
-        frame_class(new_w, exp_manager, callback=callback)
+        self.last_opened_subwindow = frame_class(new_w, exp_manager, callback=callback)

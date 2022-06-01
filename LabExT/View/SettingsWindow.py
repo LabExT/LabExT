@@ -82,6 +82,7 @@ class SettingsWindow(ScrollableFrame):
         self._content_frame.columnconfigure(0, weight=1)
 
         self._children = []
+        self._meas_param_tables = {}
         self.__setup__()  # setup the main window content
 
     def __on_close__(self):
@@ -200,8 +201,9 @@ class SettingsWindow(ScrollableFrame):
             self._children.append(self._parameter_measurement_table)
             self._parameter_measurement_table.title = 'Parameters ' + measurement.name
             self._parameter_measurement_table.parameter_source = measurement.parameters
-            # here we need to manage the final update, the writeback to measurement
+            self._meas_param_tables[measurement.name] = self._parameter_measurement_table
 
+            # here we need to manage the final update, the writeback to measurement
             if not self.force_noload:
                 if self._parameter_measurement_table.deserialize(measurement.settings_path):
                     self.logger.info("Loading measurement's {:s} parameter from file.".format(measurement.name))
