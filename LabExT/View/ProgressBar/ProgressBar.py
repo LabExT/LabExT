@@ -35,6 +35,7 @@ class ProgressBar(Toplevel):
             self.overrideredirect(True)
 
         # this lets the window manager draw all windows, which is necessary as
+        # the sizes of the window will be read below
         while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
             pass
 
