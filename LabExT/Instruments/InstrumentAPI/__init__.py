@@ -1,2 +1,2 @@
-from .Instrument import Instrument, InstrumentException
+from ._Instrument import Instrument, InstrumentException
 from .InstrumentAPI import InstrumentAPI

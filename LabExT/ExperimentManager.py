@@ -20,7 +20,6 @@ from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
 from LabExT.Movement.Mover import Mover
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
-from LabExT.View.Controls.KeyboardShortcutButtonPress import callback_if_btn_enabled
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
@@ -46,7 +45,7 @@ class ExperimentManager:
         Takes care of all movement related actions.
     """
 
-    def __init__(self, root, log_file_path, chip=None):
+    def __init__(self, root, log_file_path, chip=None, skip_setup=False):
         """Constructor.
 
         Parameters
@@ -76,73 +75,57 @@ class ExperimentManager:
 
         # create global unique resource manager
         global RESOURCE_MANAGER
-        if RESOURCE_MANAGER is not None:
-            raise RuntimeError("ExperimentManager must only be instantiated once!")
-        RESOURCE_MANAGER = ReusingResourceManager(get_visa_lib_string())
+        if RESOURCE_MANAGER is None:
+            RESOURCE_MANAGER = ReusingResourceManager(get_visa_lib_string())
         self.resource_manager = RESOURCE_MANAGER
 
         # create a new StandardExperiment
         self.exp = StandardExperiment(self, root, chip, self.mover)
         self.peak_searcher.set_experiment(self.exp)
 
-        # load addon settings from settings file
-        self.load_addon_settings()
+        if not skip_setup:  # only True in case of testing
 
-        # here we start fully loading LabExT. Its also where we start the Progressbar.
-        # Although Tkinter is technically thread - safe(assuming Tk is built with --enable - threads), practically
-        # speaking there are still problems when used in multithreaded Python applications. The problems stem from
-        # the fact that the _tkinter module attempts to gain control of the main thread via a polling technique
-        # when processing calls from other threads.
-        # This is why we need to put all the setting up into a different thread (yayy)
-        # since we are working in a diffrent thread, we need a variable to signal the end of the process
-        self.setup_done = False
-        # here we set up the progress bar
-        self.pgb = ProgressBar(root, 'Welcome to LabExt\nWe are setting everything up for you!')
-        # this is needed, since tk automatically opens a root window, which we do not want. The withdraw
-        # command hides that window
-        root.withdraw()
+            # load addon settings from settings file
+            self.load_addon_settings()
 
-        # now we can start the setup thread, we pass the text variable as an argument, so we can send updates
-        # to the window
-        Thread(target=self.setup_runner).start()
+            # here we start fully loading LabExT. Its also where we start the Progressbar.
+            # Although Tkinter is technically thread - safe(assuming Tk is built with --enable - threads), practically
+            # speaking there are still problems when used in multithreaded Python applications. The problems stem from
+            # the fact that the _tkinter module attempts to gain control of the main thread via a polling technique
+            # when processing calls from other threads.
+            # This is why we need to put all the setting up into a different thread (yayy)
+            # since we are working in a diffrent thread, we need a variable to signal the end of the process
+            self.setup_done = False
+            # here we set up the progress bar
+            self.pgb = ProgressBar(root, 'Welcome to LabExt\nWe are setting everything up for you!')
+            # this is needed, since tk automatically opens a root window, which we do not want. The withdraw
+            # command hides that window
+            root.withdraw()
 
-        # this little loop here updates the progress bar
-        while not self.setup_done:
-            self.pgb.update_idletasks()
-            self.pgb.update()
+            # now we can start the setup thread, we pass the text variable as an argument, so we can send updates
+            # to the window
+            Thread(target=self.setup_runner).start()
 
-        # finally, we can destroy the progress bar window and continue with setting up the main window
-        self.pgb.destroy()
+            # this little loop here updates the progress bar
+            while not self.setup_done:
+                self.pgb.update_idletasks()
+                self.pgb.update()
 
-        # recall the root window since we hid it during progress bar loading
-        root.deiconify()
+            # finally, we can destroy the progress bar window and continue with setting up the main window
+            self.pgb.destroy()
+
+            # recall the root window since we hid it during progress bar loading
+            root.deiconify()
 
         # create and open main window GUI
         self.main_window = MainWindowController(self._root, self)
-        self.main_window.offer_chip_reload_possibility()
+        if not skip_setup:
+            self.main_window.offer_chip_reload_possibility()
 
         # update status the first time
         self.main_window.model.status_mover_driver_enabled.set(self.mover.mover_enabled)
         self.main_window.model.status_transformation_enabled.set(self.mover.trafo_enabled)
         self.main_window.model.status_sfp_initialized.set(self.peak_searcher.initialized)
-
-        # Keyboard Shortcuts
-        self.root.bind("<F1>", self.show_documentation)
-        self.root.bind("<F5>",
-                       callback_if_btn_enabled(lambda event: self.main_window.start(),
-                                               self.main_window.model.commands[0].button_handle))
-        self.root.bind("<Escape>",
-                       callback_if_btn_enabled(lambda event: self.main_window.stop(),
-                                               self.main_window.model.commands[1].button_handle))
-        self.root.bind("<Control-r>",
-                       callback_if_btn_enabled(lambda event: self.main_window.repeat_last_exec_measurement(),
-                                               self.main_window.view.frame.buttons_frame.repeat_meas_button))
-        self.root.bind("<Control-n>",
-                       callback_if_btn_enabled(lambda event: self.main_window.new_single_measurement(),
-                                               self.main_window.view.frame.buttons_frame.new_meas_button))
-        self.root.bind("<Delete>",
-                       callback_if_btn_enabled(lambda event: self.main_window.todo_delete(),
-                                               self.main_window.view.frame.to_do_frame.delete_todo_meas))
 
         # inform user about mover status
         if not self.mover.mover_enabled:

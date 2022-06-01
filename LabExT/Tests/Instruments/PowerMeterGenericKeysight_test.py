@@ -14,9 +14,10 @@ import unittest
 
 from LabExT.Instruments.InstrumentAPI import InstrumentException
 from LabExT.Instruments.PowerMeterN7744A import PowerMeterN7744A
+from LabExT.Tests.Utils import mark_as_laboratory_test
 
-
-class Test_PowerMeterGenericKeysight(unittest.TestCase):
+@mark_as_laboratory_test
+class PowerMeterGenericKeysightTest(unittest.TestCase):
     #
     # test case constants
     #
@@ -142,7 +143,3 @@ class Test_PowerMeterGenericKeysight(unittest.TestCase):
 
         power_data = self.instr.logging_get_data()
         self.assertEqual(len(power_data), N_points)
-
-
-if __name__ == '__main__':
-    unittest.main()

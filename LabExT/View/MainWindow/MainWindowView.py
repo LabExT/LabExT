@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import logging
 from platform import system
 from tkinter import Frame, Menu, Checkbutton, \
-    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext
+    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version
@@ -25,6 +25,7 @@ class MainWindowContextMenu(Menu):
     """
     The context menu up top. Upon instantiation creates labels and submenus.
     """
+
     def __init__(self, parent, menu_listener):
         self.parent = parent
         self._menu_listener = menu_listener
@@ -69,14 +70,14 @@ class MainWindowContextMenu(Menu):
             label="Move Stages to Device",
             command=self._menu_listener.client_move_device)
         self._movement.add_command(
-            label="Search for Peak",
+            label="Search for Peak (Ctrl+S)",
             command=self._menu_listener.client_search_for_peak)
 
         self._view.add_command(
             label="Open Extra Plots",
             command=self._menu_listener.client_extra_plots)
         self._view.add_command(
-            label="Start Live Instrument View",
+            label="Start Live Instrument View (Ctrl+L)",
             command=self._menu_listener.client_live_view)
 
         self._settings.add_command(
@@ -102,6 +103,7 @@ class MainWindowControlFrame(Frame):
     """
     The control frame used. Components are added from outside.
     """
+
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky='nswe')
@@ -111,7 +113,7 @@ class MainWindowControlFrame(Frame):
         title.grid(row=0, column=0, pady=(20, 0), sticky='we')
         version, gitref = get_labext_version()
         if gitref != '-':
-            version = Label(self,text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
+            version = Label(self, text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
         else:
             version = Label(self, text='v' + str(version) + "\nPress F1 for help.")
         version.grid(row=1, column=0, pady=(0, 20), sticky='we')
@@ -129,6 +131,7 @@ class MainWindowControlPanel(ControlPanel):
     The main control panel.
     Has some checkboxes and buttons, registers all callback functions for those.
     """
+
     def __init__(self, parent, model):
         self.parent = parent
         self.model = model
@@ -138,58 +141,88 @@ class MainWindowControlPanel(ControlPanel):
         # control buttons
         #
         self.logger.debug('Adding control buttons..')
-        self.grid(row=4, column=0, sticky='we')
-        self.title = 'Experiment Control'
-        self.button_width = 15
+        self.grid(row=5, column=0, sticky='we')
+        self.title = 'Execute ToDos'
         self.command_source = self.model.commands
+        self.button_width = None
 
         # add checkboxes for execution controls
         self.exctrl_mm_pause = Checkbutton(
             self,
             text="Pause after every device (Manual Mode)",
             variable=self.model.var_mm_pause)
-        self.add_widget(self.exctrl_mm_pause, column=0, row=1, columnspan=2, sticky='we')
+        self.add_widget(self.exctrl_mm_pause, column=0, row=1, sticky='we')
         self.exctrl_mm_pause_reason = Label(self, textvariable=self.model.var_mm_pause_reason)
         self.exctrl_mm_pause_reason.config(state='disabled')
-        self.add_widget(self.exctrl_mm_pause_reason, column=2, row=1, sticky='we')
+        self.add_widget(self.exctrl_mm_pause_reason, column=1, row=1, sticky='we')
+
+        self.wait_time_lbl = Label(self, text="Seconds to wait between measurements")
+        self.add_widget(self.wait_time_lbl, column=0, row=2, sticky='e')
+        self.exctrl_wait_time = Entry(self, textvariable=self.model.var_imeas_wait_time_str)
+        self.add_widget(self.exctrl_wait_time, column=1, row=2, sticky='w', padx=5, pady=5)
 
         self.exctrl_auto_move = Checkbutton(
             self,
             text="Automatically move Piezo Stages to device",
             variable=self.model.var_auto_move)
-        self.add_widget(self.exctrl_auto_move, column=0, row=2, columnspan=2, sticky='we')
+        self.add_widget(self.exctrl_auto_move, column=0, row=3, sticky='we')
         self.exctrl_auto_move_reason = Label(self, textvariable=self.model.var_auto_move_reason)
         self.exctrl_auto_move_reason.config(state='disabled')
-        self.add_widget(self.exctrl_auto_move_reason, column=2, row=2, sticky='we')
+        self.add_widget(self.exctrl_auto_move_reason, column=1, row=3, sticky='we')
 
         self.exctrl_sfp_ena = Checkbutton(
             self,
             text="Execute Search-for-Peak before measurement",
             variable=self.model.var_sfp_ena)
-        self.add_widget(self.exctrl_sfp_ena, column=0, row=3, columnspan=2, sticky='we')
+        self.add_widget(self.exctrl_sfp_ena, column=0, row=4, sticky='we')
         self.exctrl_sfp_ena_reason = Label(self, textvariable=self.model.var_sfp_ena_reason)
         self.exctrl_sfp_ena_reason.config(state='disabled')
-        self.add_widget(self.exctrl_sfp_ena_reason, column=2, row=3, sticky='we')
+        self.add_widget(self.exctrl_sfp_ena_reason, column=1, row=4, sticky='we')
 
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=1)
         self.rowconfigure(3, weight=1)
+        self.rowconfigure(4, weight=1)
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-        self.columnconfigure(2, weight=1)
+        self.columnconfigure(1, weight=2)
+
+
+class MainWindowCouplingTools(LabelFrame):
+    """
+    Buttons for quick-accessing the auxiliary tools.
+    """
+
+    def __init__(self, parent, controller):
+        self.parent = parent
+        self.controller = controller
+        LabelFrame.__init__(self, self.parent, text='Couple Light to SiP Chip')
+        self.grid(row=3, column=0, sticky='we')
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        self.live_viewer_btn = Button(self,
+                                      text='Open Live Viewer (Ctrl+L)',
+                                      command=self.controller.open_live_viewer)
+        self.live_viewer_btn.grid(row=0, column=0, sticky='we', padx=5, pady=5)
+        self.peak_searcher_btn = Button(self,
+                                        text='Peak Searcher (Ctrl+S)',
+                                        command=self.controller.open_peak_searcher)
+        self.peak_searcher_btn.grid(row=1, column=0, sticky='we', padx=5, pady=5)
 
 
 class MainWindowButtonsFrame(LabelFrame):
     """
     The buttons frame. Has buttons to add measurements.
     """
+
     def __init__(self, parent, main_frame, controller):
         self.main_frame = main_frame
         self.parent = parent
         self.controller = controller
-        LabelFrame.__init__(self, self.parent, text='Start New Experiment')
-        self.grid(row=3, column=0, sticky='we')
+        LabelFrame.__init__(self, self.parent, text='Create new ToDos')
+        self.grid(row=4, column=0, sticky='we')
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
@@ -199,10 +232,10 @@ class MainWindowButtonsFrame(LabelFrame):
                                       command=self.controller.new_single_measurement)
         self.new_meas_button.grid(row=0, column=0, sticky='we', padx=5, pady=5)
         self.new_meas_button.focus_set()
-        new_exp_button = Button(self,
-                                text='New device sweep experiment',
-                                command=self.main_frame.menu_listener.client_new_experiment)
-        new_exp_button.grid(row=1, column=0, sticky='we', padx=5)
+        self.new_exp_button = Button(self,
+                                     text='New device sweep experiment',
+                                     command=self.main_frame.menu_listener.client_new_experiment)
+        self.new_exp_button.grid(row=1, column=0, sticky='we', padx=5)
         self.repeat_meas_button = Button(self,
                                          text='Repeat last executed measurement (Ctrl+R)',
                                          command=self.controller.repeat_last_exec_measurement)
@@ -213,6 +246,7 @@ class MainWindowParameterFrame(Frame):
     """
     The parameters frame, which contains text boxes for chip names and save directories.
     """
+
     def __init__(self, parent, model):
         self.parent = parent
         self.model = model
@@ -250,13 +284,14 @@ class MainWindowAxesFrame(LabelFrame):
     """
     The main axes frame. Contains two selectors for both y and x axis.
     """
+
     def __init__(self, parent, root, controller):
         self.parent = parent
         self.root = root
         self.controller = controller
-        LabelFrame.__init__(self, self.parent)
+        LabelFrame.__init__(self, self.parent, text='Choose Axes to Display')
 
-        self.grid(row=5, column=0, sticky='we')
+        self.grid(row=6, column=0, sticky='we')
         self.rowconfigure(2, weight=1)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -290,6 +325,7 @@ class MainWindowLoggingWidget(LabelFrame):
     The logging widget. Displays all logged information.
     Registers itself with the logger.
     """
+
     def __init__(self, parent):
         self.parent = parent
         self.logger = logging.getLogger()
@@ -308,6 +344,7 @@ class MainWindowMeasurementTable(MeasurementTable):
     """
     The main measurement table
     """
+
     def __init__(self, parent, experiment_manager):
         self.parent = parent
         self.experiment_manager = experiment_manager
@@ -326,6 +363,7 @@ class MainWindowToDoTable(ToDoTable):
     """
     The main To do table.
     """
+
     def __init__(self, parent, controller, experiment_manager):
         self.parent = parent
         self.controller = controller
@@ -344,6 +382,7 @@ class MainWindowFinishedMeasFrame(CustomFrame):
     """
     Finished Measurements frame. Sets up the grid and places buttons at the bottom.
     """
+
     def __init__(self, parent, controller):
         self.parent = parent
         self.controller = controller
@@ -373,6 +412,7 @@ class MainWindowToDoFrame(CustomFrame):
     Custom Frame implementation used for the To Do window.
     Sets up the grid and adds the control buttons at the bottom.
     """
+
     def __init__(self, parent, controller):
         self.parent = parent
         self.controller = controller
@@ -406,6 +446,7 @@ class MainWindowFrame(Frame):
     """
     The main Frame class. Provides setup routines for the main window.
     """
+
     def __init__(self, parent, model, controller, experiment_manager):
         """
         Constructor of the main frame. Sets up the TK grid and sets some variables.
@@ -439,6 +480,7 @@ class MainWindowFrame(Frame):
         self.control_frame = None
         self.parameter_frame = None
         self.buttons_frame = None
+        self.coupling_tools_panel = None
         self.control_panel = None
 
         self.selec_plot = None
@@ -452,12 +494,12 @@ class MainWindowFrame(Frame):
         self.to_do_frame = None
         self.finished_meas_frame = None
 
-    def set_up_menu(self, menu_listener):
+    def set_up_menu(self):
         """
         Sets up the menu bar up top.
         """
-        self.menu_listener = menu_listener
-        self.menu = MainWindowContextMenu(self, menu_listener)
+        self.menu_listener = MListener(self.experiment_manager, self.root)
+        self.menu = MainWindowContextMenu(self, self.menu_listener)
 
     def set_up_control_frame(self):
         """
@@ -467,10 +509,11 @@ class MainWindowFrame(Frame):
         self.parameter_frame = MainWindowParameterFrame(self.control_frame, self.model)
         self.buttons_frame = MainWindowButtonsFrame(self.control_frame, self, self.controller)
         self.control_panel = MainWindowControlPanel(self.control_frame, self.model)
+        self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
         self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
         self.selec_plot = PlotControl(self, add_toolbar=True, figsize=(5, 5), add_legend=True,
-                                       onclick=self.menu_listener.client_extra_plots)
+                                      onclick=self.menu_listener.client_extra_plots)
         self.selec_plot.title = 'Measurement Selection Plot'
         self.selec_plot.show_grid = True
         self.selec_plot.data_source = self.model.selec_plot_data
@@ -508,6 +551,7 @@ class MainWindowView:
     View Class for the mainwindow. Sets up and controls everything about the mainwindow, including
     the TKinter main window setup routines.
     """
+
     def __init__(self, model, controller, root, experiment_manager):
         self.model = model
         self.controller = controller
@@ -517,7 +561,6 @@ class MainWindowView:
         self.logger = logging.getLogger()
 
         self.frame = None
-        self.menu_listener = None
 
     def set_up_root_window(self):
         """
@@ -545,15 +588,10 @@ class MainWindowView:
         """
         Setup main window
         """
-        self.menu_listener = MListener(self.experiment_manager, self.root)
-
         #
         # add menu bar
         #
-        self.frame.set_up_menu(self.menu_listener)
-
-        self.logger.debug('Adding menu bar..')
-        self.root.config(menu=self.frame.menu)
+        self.set_up_context_menu()
 
         self.frame.set_up_control_frame()
 
@@ -563,3 +601,10 @@ class MainWindowView:
         #
 
         self.frame.set_up_auxiliary_tables()
+
+    def set_up_context_menu(self):
+        """
+        Setup main window context menu and menu listener
+        """
+        self.frame.set_up_menu()
+        self.root.config(menu=self.frame.menu)

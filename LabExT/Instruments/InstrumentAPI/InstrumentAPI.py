@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import logging
 from os.path import dirname
 
-from LabExT.Instruments.InstrumentAPI.Instrument import Instrument
+from LabExT.Instruments.InstrumentAPI._Instrument import Instrument
 from LabExT.Instruments.InstrumentAPI.InstrumentSetup import create_instrument_obj_impl
 from LabExT.PluginLoader import PluginLoader
 

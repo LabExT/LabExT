@@ -77,10 +77,26 @@ Install `pytest` and `tox`:
 pip install pytest tox --upgrade
 ```
 
-Switch to the LabExT repo directory and test LabExT with the Python version 3.8:
+
+### Running Testsuits
+Test cases in LabExT are divided into lab tests and normal tests. Lab tests require lab equipment and are therefore skipped when the test suite is running in CI.
+
+- To run the complete CI test suite with Python version 3.7, 3.8 and 3.9 use:
 ```
 cd <labext-path>
 tox
+```
+
+- To run the CI test suite with your current Python version, use:
+```
+cd <labext-path>
+python -m LabExT.Tests.runtests
+```
+
+- To run the CI test suite **and** the laboratory tests use the `--laboratory_tests` flag:
+```
+cd <labext-path>
+python -m LabExT.Tests.runtests --laboratory_tests
 ```
 
 On every push and every pull request to the LabExT repo, tox is run. A pull request needs to pass all tests to be

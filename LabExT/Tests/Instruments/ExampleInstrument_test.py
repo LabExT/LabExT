@@ -14,14 +14,14 @@ Required lab setup:
 import unittest
 
 from LabExT.Instruments.DummyInstrument import DummyInstrument
-from LabExT.Tests.Utils import ask_user_yes_no
+from LabExT.Tests.Utils import ask_user_yes_no, mark_as_laboratory_test
 
 
 # import your instrument / measurement class here
 # from LabExT.Instruments.something import something
 
-
-class Test_ExampleInstrument(unittest.TestCase):
+@mark_as_laboratory_test
+class ExampleInstrumentTest(unittest.TestCase):
 
     #
     # test case constants
@@ -81,8 +81,3 @@ class Test_ExampleInstrument(unittest.TestCase):
     def test_example_user_interaction_required(self):
         if self.user_interaction_required:
             self.assertTrue(ask_user_yes_no('Should the test pass, if_clause?', default_answer=False))
-
-
-
-if __name__ == '__main__':
-    unittest.main()
