@@ -27,14 +27,14 @@ class ToDo:
             raise KeyError(item)
 
     def __str__(self):
-        return "<ToDo: " + str(self.measurement.get_name_with_id()) + " on " + str(self.device.short_str()) + ">"
+        return "<ToDo: " + str(self.measurement.get_name_with_id()) + " on " + str(self.device) + ">"
 
     def __repr__(self):
         return self.__str__()
 
     def get_hash(self):
-        """calculate the unique but hardly one-way functional 'hash' of a to do"""
-        hash = str(self.device.short_str())
+        """calculate the unique but hardly one-way functional 'hash' of a to-do"""
+        hash = str(self.device)
         hash += str(self.measurement.get_name_with_id())
         hash += str(self._timestamp)
         return hash

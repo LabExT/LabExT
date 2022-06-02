@@ -51,7 +51,7 @@ class StandardExperiment:
 
         # addon loading
         self.plugin_loader = PluginLoader()  # used to load measurements from addon folders
-        self.plugin_loader_stats = {}  # contains infos on how many measurements from which paths were loaded.
+        self.plugin_loader_stats = {}  # contains info on how many measurements from which paths were loaded.
         self.measurements_classes = {}  # contains names and classes of loaded measurements
 
         # user given parameters about chip
@@ -100,11 +100,11 @@ class StandardExperiment:
         """
         self.chip_parameters['Chip name'] = ConfigParameter(
             self._parent,
-            value=self._chip._name if self._chip else 'UnknownChip',
+            value=self._chip.name if self._chip else 'UnknownChip',
             parameter_type='text')
         self.chip_parameters['Chip path'] = ConfigParameter(
             self._parent,
-            value=self._chip._path if self._chip else '',
+            value=self._chip.path if self._chip else '',
             parameter_type='text',
             allow_user_changes=False)
         self.save_parameters['Raw output path'] = ConfigParameter(
@@ -137,20 +137,15 @@ class StandardExperiment:
             device = current_todo.device
             measurement = current_todo.measurement
 
-            self.logger.debug('Popped device:%s with measurement:%s',
-                              device.short_str(),
-                              measurement.get_name_with_id())
+            self.logger.debug('Popped device:%s with measurement:%s', device, measurement.get_name_with_id())
 
             now = datetime.datetime.now()
             ts = str('{date:%Y-%m-%d_%H%M%S}'.format(date=now))
             ts_iso = str(datetime.datetime.isoformat(now))
 
             # save result to file and to execute measurements list
-            save_file_name = str(self.param_chip_name) + \
-                             '_id' + str(device._id) + \
-                             '_' + str(device._type) + \
-                             '_' + measurement.name + \
-                             '_' + ts
+            save_file_name = f'{self.param_chip_name}_id{device.id}_{device.type}_{measurement.name}_{ts}'
+
             save_file_name = make_filename_compliant(save_file_name)
 
             save_file_path = join(self.param_output_path, save_file_name)
@@ -175,7 +170,7 @@ class StandardExperiment:
             data['chip']['name'] = self.param_chip_name
             data['chip']['description file path'] = self.param_chip_file_path
 
-            data['device'] = device.get_device_data()
+            data['device'] = device.as_dict()
 
             data['timestamp start'] = ts
             data['timestamp iso start'] = ts_iso
@@ -193,7 +188,7 @@ class StandardExperiment:
             # only move if automatic movement is enabled
             if self.exctrl_auto_move_stages:
                 self._mover.move_to_device(device)
-                self.logger.info('Automatically moved to device:' + str(device.short_str()))
+                self.logger.info('Automatically moved to device:' + str(device))
 
             # execute automatic search for peak
             if self.exctrl_enable_sfp:
@@ -206,7 +201,7 @@ class StandardExperiment:
 
             self.logger.info('Executing measurement %s on device %s.',
                              measurement.get_name_with_id(),
-                             device.short_str())
+                             device)
 
             measurement_executed = False
             try:
@@ -331,7 +326,7 @@ class StandardExperiment:
 
         # all good, append to measurements
         self.measurements_hashes.extend([meas_hash])
-        self.measurements.extend([meas_dict])  # dont trigger gui update if not explicitly requested by kwarg
+        self.measurements.extend([meas_dict])  # don't trigger gui update if not explicitly requested by kwarg
 
         # tell GUI to update
         if force_gui_update:
@@ -406,8 +401,8 @@ class StandardExperiment:
         """
         self.logger.debug('Updating chip... New chip: %s', chip)
         self._chip = chip
-        self.chip_parameters['Chip name'].value = chip._name
-        self.chip_parameters['Chip path'].value = chip._path
+        self.chip_parameters['Chip name'].value = chip.name
+        self.chip_parameters['Chip path'].value = chip.path
 
         self.update()
 

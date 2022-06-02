@@ -179,7 +179,7 @@ class ExperimentManager:
             raise ValueError("Empty path, could not import chip!")
         else:
             # create chip based on description file on path
-            self.chip = Chip(path, name)
+            self.chip = Chip.from_file(path, name)
             # ban user to make any more changes to exp parameters
             self.main_window.model.allow_change_chip_params.set(False)
             # update chip reference in subclasses
