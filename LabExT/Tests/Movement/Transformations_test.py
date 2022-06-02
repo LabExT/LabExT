@@ -446,3 +446,56 @@ class KabschRotationTest(unittest.TestCase):
         self.assertTrue(np.allclose(
             self.transformation.chip_to_stage(self.transformation.stage_to_chip(stage_coordinate)).to_numpy(),
             stage_coordinate.to_numpy()))
+
+
+class KabschOrientationTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.stage_coords = np.array([
+            [17232.05, 258.53, 9674.18],
+            [17229.81, 807.78, 9676.27],
+            [20582.50, -2968.97, 9694.711]
+        ])
+        self.stage_offset = self.stage_coords.mean(axis=0)
+
+        self.chip_coords = np.array([
+            [-1050.00, 570, 0],
+            [-1050.00, 1120, 0],
+            [2295.00, -2650, 0]
+        ])
+        self.chip_offset = self.chip_coords.mean(axis=0)
+
+        self.rotation, self._rmsd = Rotation.align_vectors(
+            (self.chip_coords - self.chip_offset),
+            (self.stage_coords - self.stage_offset))
+
+        self.axes_rotation = np.array([
+            [1,0,0],
+            [0,1,0],
+            [0,0,-1]
+        ])
+
+
+    def test_x_unit_direction(self):
+        chip_x_unit = [1,0,0]
+
+        abs_stage_x_unit = self.rotation.apply(chip_x_unit, inverse=True)
+        rel_stage_x_unit = self.axes_rotation.dot(chip_x_unit)
+
+        self.assertTrue(np.allclose(rel_stage_x_unit, abs_stage_x_unit, rtol=1))
+
+    def test_y_unit_direction(self):
+        chip_y_unit = [0,1,0]
+
+        abs_stage_y_unit = self.rotation.apply(chip_y_unit, inverse=True)
+        rel_stage_y_unit = self.axes_rotation.dot(chip_y_unit)
+
+        self.assertTrue(np.allclose(rel_stage_y_unit, abs_stage_y_unit, rtol=1))
+
+    def test_z_unit_direction(self):
+        chip_z_unit = [0,0,1]
+
+        abs_stage_z_unit = self.rotation.apply(chip_z_unit, inverse=True)
+        rel_stage_z_unit = self.axes_rotation.dot(chip_z_unit)
+
+        self.assertTrue(np.allclose(abs_stage_z_unit, rel_stage_z_unit, rtol=1))
