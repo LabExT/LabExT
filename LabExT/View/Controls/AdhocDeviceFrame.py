@@ -36,9 +36,9 @@ class AdhocDeviceFrame(CustomFrame):
     def __setup__(self):
         """setup GUI elements"""
 
-        Label(self, text='Device ID number (*):').grid(row=0, column=0, padx=5, sticky='w')
+        Label(self, text='Device ID (*):').grid(row=0, column=0, padx=5, sticky='w')
         self._entry_id = self.add_widget(Entry(self), row=0, column=1, padx=5, sticky='we', columnspan=3)
-        Label(self, text='Required: integer >= 0').grid(row=0, column=4, padx=5, sticky='w')
+        Label(self, text='Required: string').grid(row=0, column=4, padx=5, sticky='w')
 
         Label(self, text='Type (*):').grid(row=1, column=0, padx=5, sticky='w')
         self._entry_type = self.add_widget(Entry(self), row=1, column=1, padx=5, sticky='we', columnspan=3)
