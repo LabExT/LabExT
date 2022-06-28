@@ -90,7 +90,7 @@ class CustomTable(object):
 
         Parameters
         ----------
-        device_id : int
+        device_id : str
             Device ID.
         id_column : int
             The column of the table which contains the device IDs

@@ -194,7 +194,7 @@ class DeviceWindow(Frame):
             all_childs = self._device_table.get_tree().get_children()
             for c in all_childs:
                 # the following convoluted line gets the device id out of the values stored in the tree row
-                c_dev_id = self._device_table.get_tree().item(c)['values'][1]
+                c_dev_id = str(self._device_table.get_tree().item(c)['values'][1])
                 if dev_id == c_dev_id:
                     fiid = c
                     break
