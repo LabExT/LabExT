@@ -13,7 +13,7 @@ import webbrowser
 from threading import Thread
 from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, Button, TclError, font
 
-from LabExT.Utils import run_with_wait_window, get_author_list, try_to_lift_window
+from LabExT.Utils import run_with_wait_window, get_author_list, try_to_lift_window, get_mover_settings_directory
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
 from LabExT.View.ConfigureStageWindow import ConfigureStageWindow
 from LabExT.View.Controls.ParameterTable import ParameterTable, ConfigParameter
@@ -218,6 +218,16 @@ class MListener:
             self._root,
             self._experiment_manager.mover_new,
             self._experiment_manager.chip)
+
+    def client_load_mover_settings(self):
+        _config_path = filedialog.askopenfilename(
+            title="Select mover settings file",
+            initialdir=get_mover_settings_directory(),
+            filetypes=(("settings file", "*.txt"),
+                       ("settings file", "*.json"),
+                       ("all files", "*.*")))
+        if _config_path:
+            self._experiment_manager.mover_new.load_settings_from_file(_config_path)
 
     def client_configure_stages(self):
         """

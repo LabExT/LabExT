@@ -8,6 +8,7 @@ for details see LICENSE file.
 
 from typing import Type
 import unittest
+from  numpy.testing import assert_array_equal
 from unittest.mock import Mock
 import numpy as np
 from parameterized import parameterized
@@ -278,6 +279,64 @@ class AxesRotationTest(unittest.TestCase):
         self.assertEqual(self.rotation.stage_to_chip(stage_coord), chip_coord)
         self.assertEqual(self.rotation.chip_to_stage(chip_coord), stage_coord)
 
+    
+    def test_to_storable_format(self):
+        self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Y)
+        self.rotation.update(Axis.Y, Direction.POSITIVE, Axis.Z)
+        self.rotation.update(Axis.Z, Direction.NEGATIVE, Axis.X)
+
+        self.assertTrue(self.rotation.is_valid)
+
+        self.assertDictEqual(
+            self.rotation.to_storable_format(),
+            {
+                'X': ('NEGATIVE', 'Y'),
+                'Y': ('POSITIVE', 'Z'),
+                'Z': ('NEGATIVE', 'X')
+            })
+
+    def test_from_storable_format(self):
+        stored_mapping = {
+            'Z': ('NEGATIVE', 'Z'),
+            'Y': ('NEGATIVE', 'X'),
+            'X': ('POSITIVE', 'Y')
+        }
+
+        rotation = AxesRotation.from_storable_format(stored_mapping)
+
+        self.assertTrue(rotation.is_valid)
+        assert_array_equal(rotation.matrix, [
+            [0, -1, 0],
+            [1,0,0],
+            [0,0,-1]
+        ])
+
+    def test_from_storable_format_raises_error_if_invalid(self):
+        stored_mapping = {
+            'X': ('NEGATIVE', 'Z'),
+            'Y': ('NEGATIVE', 'X'),
+            'Z': ('POSITIVE', 'Z')
+        }
+
+        with self.assertRaises(TransformationError):
+            AxesRotation.from_storable_format(stored_mapping)
+
+    def test_to_storable_and_from_storable(self):
+        self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Z)
+        self.rotation.update(Axis.Y, Direction.NEGATIVE, Axis.X)
+        self.rotation.update(Axis.Z, Direction.POSITIVE, Axis.Y)
+
+        current_matrix = self.rotation.matrix
+
+        self.assertTrue(self.rotation.is_valid)
+
+        from_stored_rotation = AxesRotation.from_storable_format(
+            self.rotation.to_storable_format())
+
+        self.assertTrue(from_stored_rotation.is_valid)
+
+        assert_array_equal(current_matrix, from_stored_rotation.matrix)
+
 
 class SinglePointOffsetTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -354,6 +413,56 @@ class SinglePointOffsetTest(unittest.TestCase):
             self.transformation.chip_to_stage(device_coordinate).to_numpy(),
             rtol=1,
             atol=1))
+
+    def test_to_storable_format(self):
+        chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
+        stage_coordinate = StageCoordinate.from_list(
+            [23236.35, -7888.67, 18956.06])
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=stage_coordinate,
+            device=Mock(),
+            chip_coordinate=chip_coordinate))
+
+        self.assertDictEqual(
+            self.transformation.to_storable_format(),
+            {
+                "stage_coordinate": stage_coordinate.to_list(),
+                "chip_coordinate": chip_coordinate.to_list()
+            }
+        )
+
+    def test_from_storable_format(self):
+        stored_format = {
+            "stage_coordinate": [19,293.03,1029.02],
+            "chip_coordinate": [110203,29342,0],
+        }
+
+        transformation = SinglePointOffset.from_storable_format(self.rotation, stored_format)
+
+        assert_array_equal(
+            transformation.stage_offset.to_numpy(),
+            np.array([110203,29342,0]) - np.array([19,293.03,1029.02]))
+
+    def test_to_storable_and_from_storable(self):
+        chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
+        stage_coordinate = StageCoordinate.from_list(
+            [23236.35, -7888.67, 18956.06])
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=stage_coordinate,
+            device=Mock(),
+            chip_coordinate=chip_coordinate))
+
+        current_offset = self.transformation.stage_offset.to_numpy()
+
+        from_stored_offset = SinglePointOffset.from_storable_format(
+            self.transformation.axes_rotation,
+            self.transformation.to_storable_format())
+
+        assert_array_equal(current_offset, from_stored_offset.stage_offset.to_numpy())
 
 
 class RigidTransformationTest(unittest.TestCase):
@@ -481,6 +590,51 @@ class KabschRotationTest(unittest.TestCase):
             self.transformation.chip_to_stage(self.transformation.stage_to_chip(stage_coordinate)).to_numpy(),
             stage_coordinate.to_numpy()))
 
+    def test_to_storable_format(self):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        self.assertEqual([
+            {
+                'stage_coordinate': [23236.35, -7888.67, 18956.06],
+                'chip_coordinate': [-1550.0, 1120.0, 0.0]
+            },
+            {
+                'stage_coordinate': [23744.6, -9172.55, 18956.1],
+                'chip_coordinate': [-1050.0, -160.0, 0.0]
+            }, 
+            {
+                'stage_coordinate': [25846.07, -10348.82, 18955.11],
+                'chip_coordinate': [1046.25, -1337.5, 0.0]
+            },
+            {
+                'stage_coordinate': [25837.8, -7721.47, 18972.08],
+                'chip_coordinate': [1046.25, 1287.5, 0.0]
+            }],
+            self.transformation.to_storable_format())
+
+    def test_to_storable_and_from_storable(self):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        current_matrix = self.transformation.rotation.as_matrix()
+        current_stage_offset = self.transformation.stage_offset
+        current_chip_offset = self.transformation.chip_offset
+
+        kabsch_from_stored = KabschRotation.from_storable_format(
+            self.transformation.to_storable_format())
+
+        assert_array_equal(current_matrix, kabsch_from_stored.rotation.as_matrix())
+        assert_array_equal(current_stage_offset, kabsch_from_stored.stage_offset)
+        assert_array_equal(current_chip_offset, kabsch_from_stored.chip_offset)
 
 
 class KabschOrientationPerservationTest(unittest.TestCase):

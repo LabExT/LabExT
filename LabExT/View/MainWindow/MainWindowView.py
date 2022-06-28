@@ -5,10 +5,13 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from cProfile import label
 import logging
 from platform import system
 from tkinter import Frame, Menu, Checkbutton, \
     Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry
+
+from click import command
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version
@@ -67,6 +70,10 @@ class MainWindowContextMenu(Menu):
         self._movement_new.add_command(
             label="Calibrate Stages...",
             command=self._menu_listener.client_calibrate_stage)
+        self._movement_new.add_separator()
+        self._movement_new.add_command(
+            label="Load Mover settings...",
+            command=self._menu_listener.client_load_mover_settings)
 
         self._movement.add_command(
             label="Configure Stages",

@@ -244,6 +244,16 @@ def get_configuration_file_path(config_file_path_in_settings_dir, ignore_missing
     return config_path
 
 
+def get_mover_settings_directory(makedir_if_needed=False):
+    """
+    Returns the directory to store mover settings, which is a subdirectory of the LabExT home folder.
+    """
+    settings_directory = abspath(join(setup_user_settings_directory(), 'mover'))
+    if makedir_if_needed:
+        makedirs(settings_directory, exist_ok=True)
+    return settings_directory
+
+
 def run_with_wait_window(tk_root, description: str, function):
     """
     Use this as decorator to run the given function in a second thread and display a wait window.
