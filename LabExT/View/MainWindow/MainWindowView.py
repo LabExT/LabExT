@@ -5,13 +5,10 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from cProfile import label
 import logging
 from platform import system
 from tkinter import Frame, Menu, Checkbutton, \
     Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry
-
-from click import command
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version

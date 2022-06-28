@@ -439,7 +439,7 @@ class SinglePointOffsetTest(unittest.TestCase):
             "chip_coordinate": [110203,29342,0],
         }
 
-        transformation = SinglePointOffset.from_storable_format(self.rotation, stored_format)
+        transformation = SinglePointOffset.from_storable_format(stored_format, self.rotation)
 
         assert_array_equal(
             transformation.stage_offset.to_numpy(),
@@ -459,8 +459,8 @@ class SinglePointOffsetTest(unittest.TestCase):
         current_offset = self.transformation.stage_offset.to_numpy()
 
         from_stored_offset = SinglePointOffset.from_storable_format(
-            self.transformation.axes_rotation,
-            self.transformation.to_storable_format())
+            self.transformation.to_storable_format(),
+            self.transformation.axes_rotation)
 
         assert_array_equal(current_offset, from_stored_offset.stage_offset.to_numpy())
 

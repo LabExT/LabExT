@@ -91,7 +91,7 @@ class Calibration:
 
             if calibration_settings["single_point_offset"]:
                 single_point_offset = SinglePointOffset.from_storable_format(
-                    axes_rotation, calibration_settings["single_point_offset"])
+                    calibration_settings["single_point_offset"], axes_rotation)
             else:
                 single_point_offset = None
 

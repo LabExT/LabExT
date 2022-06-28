@@ -151,7 +151,7 @@ class Transformation(ABC):
     """
 
     @abstractclassmethod
-    def from_storable_format(cls, storable: Any) -> Type[Transformation]:
+    def from_storable_format(cls, storable: Any, *args, **kwargs) -> Type[Transformation]:
         """
         Creates a new Transformation from storable format.
         """
@@ -390,12 +390,12 @@ class SinglePointOffset(Transformation):
 
     @classmethod
     def from_storable_format(
-        cls, axes_rotation: Type[AxesRotation], pairing: dict
+        cls, pairing: dict, *args, **kwargs
     ) -> Type[SinglePointOffset]:
         """
         Creates a single point offset from a pairing and axes rotation.
         """
-        single_point_offset = cls(axes_rotation)
+        single_point_offset = cls(*args, **kwargs)
         single_point_offset.update(
             CoordinatePairing(
                 calibration=None,
@@ -530,11 +530,11 @@ class KabschRotation(Transformation):
     MIN_POINTS = 3
     
     @classmethod
-    def from_storable_format(cls, pairings: list) -> Type[KabschRotation]:
+    def from_storable_format(cls, pairings: list, *args, **kwargs) -> Type[KabschRotation]:
         """
         Create Kabsch Rotation from list of pairings
         """
-        kabsch_rotation = cls()
+        kabsch_rotation = cls(*args, **kwargs)
         for p in pairings:
             kabsch_rotation.update(
                 CoordinatePairing(
