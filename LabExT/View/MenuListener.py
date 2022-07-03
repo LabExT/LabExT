@@ -229,6 +229,8 @@ class MListener:
         if _config_path:
             self._experiment_manager.mover_new.load_settings_from_file(_config_path)
 
+        messagebox.showinfo("Mover", "Mover settings successfully imported!")
+
     def client_configure_stages(self):
         """
         Open stage info and configuration window.

@@ -636,8 +636,9 @@ class AxesCalibrationStep(Step):
         vars = {}
         for calibration in self.mover.calibrations.values():
             for chip_axis in Axis:
-                str_var = StringVar(
-                    self.wizard, (Direction.POSITIVE, chip_axis))
+                current_mapping = calibration._axes_rotation.mapping.get(
+                    chip_axis, (Direction.POSITIVE, chip_axis))
+                str_var = StringVar(self.wizard, current_mapping)
                 str_var.trace(
                     W,
                     lambda *_,
@@ -791,7 +792,9 @@ class CoordinatePairingStep(Step):
 
         self._coordinate_pairing_window = None
 
-        self.pairings = []
+        self.pairings = sum(
+            [c._kabsch_rotation.pairings for c in self.mover.calibrations.values()],
+            [])
 
     def build(self, frame: Type[CustomFrame]):
         """
