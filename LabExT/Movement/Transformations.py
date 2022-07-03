@@ -692,6 +692,18 @@ class KabschRotation(Transformation):
             self.rotation_to_chip.dot(stage_coordinate.to_numpy()) +
             self.translation_to_chip.T).flatten())
 
+    def to_storable_format(self) -> list:
+         """
+         Returns a list of pairings.
+         """
+         if self.pairings:
+             return [{
+                 "stage_coordinate": p.stage_coordinate.to_list(),
+                 "chip_coordinate": p.chip_coordinate.to_list()
+             } for p in self.pairings]
+
+         return []
+
 
 def rigid_transform_with_orientation_preservation(
     S: np.ndarray,

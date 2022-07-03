@@ -97,7 +97,7 @@ class Calibration:
 
             if calibration_settings["kabsch_rotation"]:
                 kabsch_rotation = KabschRotation.from_storable_format(
-                    calibration_settings["kabsch_rotation"])
+                    calibration_settings["kabsch_rotation"], axes_rotation)
             else:
                 kabsch_rotation = None
         else:
