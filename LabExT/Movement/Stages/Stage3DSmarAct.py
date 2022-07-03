@@ -710,11 +710,10 @@ class Stage3DSmarAct(Stage):
         Attention: This method supports two method signatures to temporarily support the old version (v1)
         and the new version (v2).
         """
-        wait_for_stopping = kwargs.get('wait_for_stopping', True)
         if isinstance(args[0], list):
-            self._move_absolute_v1(args[0][:2], wait_for_stopping)
+            self._move_absolute_v1(*args, **kwargs)
         else:
-            self._move_absolute_v2(*args, wait_for_stopping)
+            self._move_absolute_v2(*args, **kwargs)
 
     # Stage control
 
