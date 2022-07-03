@@ -1,0 +1,156 @@
+{
+    "settings": {
+        "speed_xy": 500,
+        "speed_z": 50,
+        "acceleration_xy": 20,
+        "z_lift": 50
+    },
+    "calibrations": [
+        {
+            "stage_module": "Stages.DummyStage",
+            "stage_cls": "DummyStage",
+            "stage_address": "tcp:192.168.0.42:1234",
+            "orientation": "LEFT",
+            "device_port": "INPUT",
+            "transformations": {
+                "axes_rotation": {
+                    "X": [
+                        "NEGATIVE",
+                        "Z"
+                    ],
+                    "Y": [
+                        "POSITIVE",
+                        "Y"
+                    ],
+                    "Z": [
+                        "NEGATIVE",
+                        "X"
+                    ]
+                },
+                "single_point_offset": {
+                    "stage_coordinate": [
+                        23236.35,
+                        -7888.67,
+                        18956.06
+                    ],
+                    "chip_coordinate": [
+                        -1550,
+                        1120,
+                        0
+                    ]
+                },
+                "kabsch_rotation": [
+                    {
+                        "stage_coordinate": [
+                            23236.35,
+                            -7888.67,
+                            18956.06
+                        ],
+                        "chip_coordinate": [
+                            -1550,
+                            1120,
+                            0
+                        ]
+                    },
+                    {
+                        "stage_coordinate": [
+                            23744.6,
+                            -9172.55,
+                            18956.1
+                        ],
+                        "chip_coordinate": [
+                            -1050,
+                            -160,
+                            0
+                        ]
+                    },
+                    {
+                        "stage_coordinate": [
+                            25846.07,
+                            -10348.82,
+                            18955.11
+                        ],
+                        "chip_coordinate": [
+                            1046.25,
+                            -1337.5,
+                            0
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "stage_module": "Stages.DummyStage",
+            "stage_cls": "DummyStage",
+            "stage_address": "tcp:192.168.0.123:7894",
+            "orientation": "RIGHT",
+            "device_port": "OUTPUT",
+            "transformations": {
+                "axes_rotation": {
+                    "X": [
+                        "POSITIVE",
+                        "X"
+                    ],
+                    "Y": [
+                        "POSITIVE",
+                        "Y"
+                    ],
+                    "Z": [
+                        "NEGATIVE",
+                        "Z"
+                    ]
+                },
+                "single_point_offset": {
+                    "stage_coordinate": [
+                        7232.05,
+                        258.53,
+                        9674.18
+                    ],
+                    "chip_coordinate": [
+                        -1546.8962,
+                        -2500,
+                        0
+                    ]
+                },
+                "kabsch_rotation": [
+                    {
+                        "stage_coordinate": [
+                            17232.05,
+                            258.53,
+                            9674.18
+                        ],
+                        "chip_coordinate": [
+                            -1050,
+                            570,
+                            0
+                        ]
+                    },
+                    {
+                        "stage_coordinate": [
+                            17229.81,
+                            807.78,
+                            9676.27
+                        ],
+                        "chip_coordinate": [
+                            -1050,
+                            1120,
+                            0
+                        ]
+                    },
+                    {
+                        "stage_coordinate": [
+                            20582.5,
+                            -2968.97,
+                            9694.711
+                        ],
+                        "chip_coordinate": [
+                            2295,
+                            -2650,
+                            0
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}

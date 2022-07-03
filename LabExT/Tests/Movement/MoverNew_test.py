@@ -5,7 +5,11 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import json
+from os.path import join, dirname, abspath
+
 import unittest
+import numpy as np
 from unittest.mock import Mock, patch
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Calibration import DevicePort, Orientation
@@ -325,3 +329,37 @@ class MoverStageSettingsTest(unittest.TestCase):
         self.mover.z_lift = 50
 
         self.assertEqual(self.mover.z_lift, 50)
+
+
+class MoverLoadedFromFileTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.config_file = join(abspath(dirname(__file__)), "mover_sample_config.json")
+        self.mover = MoverNew(None)
+
+        with open(self.config_file, 'r') as fp:
+            self.config = json.load(fp)
+
+    def test_load_settings_from_file(self):
+        self.mover.load_settings_from_file(self.config_file) 
+
+        self.assertEqual(len(self.mover.active_stages), 2)
+        self.assertEqual(len(self.mover.calibrations), 2)
+
+        self.assertIsNotNone(self.mover.calibrations.get((Orientation.LEFT, DevicePort.INPUT)))
+        self.assertIsNotNone(self.mover.calibrations.get((Orientation.RIGHT, DevicePort.OUTPUT)))
+
+        left_cali = self.mover.left_calibration
+        self.assertTrue(left_cali._axes_rotation.is_valid)
+        self.assertTrue(left_cali._single_point_offset.is_valid)
+        self.assertTrue(left_cali._kabsch_rotation.is_valid)
+
+        right_cali = self.mover.left_calibration
+        self.assertTrue(right_cali._axes_rotation.is_valid)
+        self.assertTrue(right_cali._single_point_offset.is_valid)
+        self.assertTrue(right_cali._kabsch_rotation.is_valid)
+
+        self.assertEqual(self.mover.speed_xy, self.config["settings"]["speed_xy"])
+        self.assertEqual(self.mover.speed_z, self.config["settings"]["speed_z"])
+        self.assertEqual(self.mover.acceleration_xy, self.config["settings"]["acceleration_xy"])
+        self.assertEqual(self.mover.z_lift, self.config["settings"]["z_lift"])

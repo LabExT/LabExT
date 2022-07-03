@@ -13,6 +13,7 @@ from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RA
 from typing import Any, Dict, Tuple, Type, List
 from functools import wraps
 from os.path import join
+from inspect import getmodule
 
 from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
@@ -128,23 +129,30 @@ class MoverNew:
         with open(file_path, 'r') as fp:
             settings = json.load(fp)
 
-        calibrations = settings.get("calibrations")
-        if not calibrations:
+        if "calibrations" not in settings:
             raise ValueError("No Stages defined. Cannot load settings.")
 
         self.reset()
-        for cali_settings in calibrations:
-            calibration = Calibration.from_file_format(self, cali_settings)
+        for calibration_config in settings.get("calibrations", []):
+            stage_module = calibration_config.get("stage_module")
+            stage_cls = calibration_config.get("stage_cls")
+            stage_address = calibration_config.get("stage_address")
 
-            self._add_port_orientation_mapping(
-                calibration.orientation, calibration._device_port)
+            try:
+                stage = next(
+                    s for s in self._filter_available_stages_by_module(stage_module, stage_cls)
+                    if s.address_string == stage_address)
 
-            self._calibrations.put(
-                (calibration.orientation, calibration._device_port),
-                calibration,
-                OnDup(key=RAISE))
+                calibration = self.add_stage_calibration(
+                    stage=stage,
+                    orientation=Orientation[calibration_config["orientation"]],
+                    port=DevicePort[calibration_config["device_port"]])
 
-            calibration.connect_to_stage()
+                calibration.load_transformations(calibration_config.get("transformations", {}))
+                calibration.connect_to_stage()
+            except StopIteration:
+                print(f"Could not find stage for stored calibration.\
+                    Stage module: {stage_module}, stage class: {stage_cls}, stage address: {stage_address}")
 
         mover_settings = settings.get("settings", {})
         self.speed_xy = mover_settings.get("speed_xy", self.DEFAULT_SPEED_XY)
@@ -171,6 +179,13 @@ class MoverNew:
                 "calibrations": calibration_settings
             }, fp)
 
+    def _filter_available_stages_by_module(
+        self, stage_module, stage_cls
+    ) -> List[Type[Stage]]:
+        return list(filter(lambda s: (
+            getmodule(s).__name__ == stage_module
+            and s.__class__.__name__ == stage_cls),
+            self.available_stages))
     #
     #   Properties
     #

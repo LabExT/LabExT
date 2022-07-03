@@ -73,54 +73,12 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    @classmethod
-    def from_file_format(
-            cls,
-            mover,
-            calibration_settings: dict) -> Type[Calibration]:
-        """
-        Creates a calibration from settings.
-        """
-        stages_module = import_module(calibration_settings["stage_module"])
-        stage_cls = getattr(stages_module, calibration_settings["stage_cls"])
-        stage = stage_cls(address=calibration_settings["stage_address"])
-
-        if calibration_settings["axes_rotation"]:
-            axes_rotation = AxesRotation.from_storable_format(
-                calibration_settings["axes_rotation"])
-
-            if calibration_settings["single_point_offset"]:
-                single_point_offset = SinglePointOffset.from_storable_format(
-                    calibration_settings["single_point_offset"], axes_rotation)
-            else:
-                single_point_offset = None
-
-            if calibration_settings["kabsch_rotation"]:
-                kabsch_rotation = KabschRotation.from_storable_format(
-                    calibration_settings["kabsch_rotation"], axes_rotation)
-            else:
-                kabsch_rotation = None
-        else:
-            axes_rotation = None
-
-        return cls(
-            mover,
-            stage,
-            orientation=Orientation[calibration_settings["orientation"]],
-            device_port=DevicePort[calibration_settings["device_port"]],
-            axes_rotation=axes_rotation,
-            single_point_offset=single_point_offset,
-            kabsch_rotation=kabsch_rotation)
-
     def __init__(
         self,
         mover,
         stage,
         orientation: Orientation,
-        device_port: DevicePort,
-        axes_rotation: Type[AxesRotation] = None,
-        single_point_offset: Type[SinglePointOffset] = None,
-        kabsch_rotation: Type[KabschRotation] = None
+        device_port: DevicePort
     ) -> None:
         self.mover: Type[MoverNew] = mover
         self.stage: Type[Stage] = stage
@@ -133,10 +91,30 @@ class Calibration:
 
         self._coordinate_system = None
 
-        self._axes_rotation = axes_rotation if axes_rotation else AxesRotation()
-        self._single_point_offset = single_point_offset if single_point_offset else SinglePointOffset(
-            self._axes_rotation)
-        self._kabsch_rotation = kabsch_rotation if kabsch_rotation else KabschRotation(self._axes_rotation)
+        self._axes_rotation = AxesRotation()
+        self._single_point_offset = SinglePointOffset(self._axes_rotation)
+        self._kabsch_rotation = KabschRotation(self._axes_rotation)
+
+    #
+    #   Load from file
+    #
+
+    def load_transformations(self, transformations_settings: dict) -> Type[Calibration]:
+        """
+        Creates transformatiosns for calibration from settings.
+        """
+        if transformations_settings["axes_rotation"]:
+            self._axes_rotation = AxesRotation.from_storable_format(
+                transformations_settings["axes_rotation"])
+
+        if transformations_settings["single_point_offset"]:
+            self._single_point_offset = SinglePointOffset.from_storable_format(
+                transformations_settings["single_point_offset"], self._axes_rotation)
+            
+        if transformations_settings["kabsch_rotation"]:
+            self._kabsch_rotation = KabschRotation.from_storable_format(
+                transformations_settings["kabsch_rotation"], self._axes_rotation)
+
 
     #
     #   Representation
@@ -161,9 +139,10 @@ class Calibration:
             "stage_address": self.stage.address,
             "orientation": self.orientation.name,
             "device_port": self._device_port.name,
-            "axes_rotation": self._axes_rotation.to_storable_format(),
-            "single_point_offset": self._single_point_offset.to_storable_format(),
-            "kabsch_rotation": self._kabsch_rotation.to_storable_format()}
+            "transformations": {
+                "axes_rotation": self._axes_rotation.to_storable_format(),
+                "single_point_offset": self._single_point_offset.to_storable_format(),
+                "kabsch_rotation": self._kabsch_rotation.to_storable_format()}}
     #
     #   Properties
     #

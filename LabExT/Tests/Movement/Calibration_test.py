@@ -650,13 +650,18 @@ class CalibrationTest(CalibrationTestCase):
         current_single_point_rotation = self.calibration._single_point_offset.axes_rotation.matrix
         current_single_point_offset = self.calibration._single_point_offset.stage_offset
 
-        current_kabsch_stage_offset = self.calibration._kabsch_rotation.stage_offset
-        current_kabsch_chip_offset = self.calibration._kabsch_rotation.chip_offset
-        current_kabsch_roation = self.calibration._kabsch_rotation.rotation.as_matrix()
+        current_kabsch_roation_1 = self.calibration._kabsch_rotation.rotation_to_chip
+        current_kabsch_roation_2 = self.calibration._kabsch_rotation.rotation_to_stage
+        current_kabsch_translation_1 = self.calibration._kabsch_rotation.translation_to_chip
+        current_kabsch_translation_2 = self.calibration._kabsch_rotation.translation_to_stage
 
-        new_calibration = Calibration.from_file_format(
+        config = self.calibration.to_file_format()
+        new_calibration = Calibration(
             self.mover,
-            self.calibration.to_file_format())
+            self.stage,
+            orientation=Orientation[config["orientation"]],
+            device_port=DevicePort[config["device_port"]])
+        new_calibration.load_transformations(config["transformations"])
 
         self.assertEqual(current_port, new_calibration._device_port)
         self.assertEqual(current_orientation, new_calibration.orientation)
@@ -676,11 +681,14 @@ class CalibrationTest(CalibrationTestCase):
             new_calibration._single_point_offset.stage_offset)
 
         assert_array_equal(
-            current_kabsch_stage_offset,
-            new_calibration._kabsch_rotation.stage_offset)
+            current_kabsch_roation_1,
+            new_calibration._kabsch_rotation.rotation_to_chip)
         assert_array_equal(
-            current_kabsch_chip_offset,
-            new_calibration._kabsch_rotation.chip_offset)
+            current_kabsch_roation_2,
+            new_calibration._kabsch_rotation.rotation_to_stage)
         assert_array_equal(
-            current_kabsch_roation,
-            new_calibration._kabsch_rotation.rotation.as_matrix())
+            current_kabsch_translation_1,
+            new_calibration._kabsch_rotation.translation_to_chip)
+        assert_array_equal(
+            current_kabsch_translation_2,
+            new_calibration._kabsch_rotation.translation_to_stage)
