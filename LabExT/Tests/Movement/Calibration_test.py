@@ -5,11 +5,11 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from shutil import move
 import unittest
 import numpy as np
 from unittest.mock import Mock, patch, call
 from parameterized import parameterized
+from  numpy.testing import assert_array_equal
 
 from LabExT.Tests.Utils import get_calibrations_from_file
 
@@ -635,3 +635,60 @@ class CalibrationTest(CalibrationTestCase):
         set_speed_z_mock.assert_has_calls([call(5000), call(current_speed_z)])
         set_speed_xy_mock.assert_has_calls(
             [call(5000), call(current_speed_xy)])
+
+    def test_to_file_from_file(self):
+        self.set_valid_axes_rotation()
+        self.set_valid_single_point_offset()
+        self.set_valid_kabsch_rotation()
+
+        current_port = self.calibration._device_port
+        current_orientation = self.calibration.orientation
+        current_stage = self.calibration.stage
+        
+        current_axes_rotation = self.calibration._axes_rotation.matrix
+
+        current_single_point_rotation = self.calibration._single_point_offset.axes_rotation.matrix
+        current_single_point_offset = self.calibration._single_point_offset.stage_offset
+
+        current_kabsch_roation_1 = self.calibration._kabsch_rotation.rotation_to_chip
+        current_kabsch_roation_2 = self.calibration._kabsch_rotation.rotation_to_stage
+        current_kabsch_translation_1 = self.calibration._kabsch_rotation.translation_to_chip
+        current_kabsch_translation_2 = self.calibration._kabsch_rotation.translation_to_stage
+
+        config = self.calibration.to_file_format()
+        new_calibration = Calibration(
+            self.mover,
+            self.stage,
+            orientation=Orientation[config["orientation"]],
+            device_port=DevicePort[config["device_port"]])
+        new_calibration.load_transformations(config["transformations"])
+
+        self.assertEqual(current_port, new_calibration._device_port)
+        self.assertEqual(current_orientation, new_calibration.orientation)
+
+        self.assertEqual(type(current_stage), type(new_calibration.stage))
+        self.assertEqual(current_stage.address, current_stage.address)
+
+        assert_array_equal(
+            current_axes_rotation,
+            new_calibration._axes_rotation.matrix)
+
+        assert_array_equal(
+            current_single_point_rotation,
+            new_calibration._single_point_offset.axes_rotation.matrix)
+        assert_array_equal(
+            current_single_point_offset,
+            new_calibration._single_point_offset.stage_offset)
+
+        assert_array_equal(
+            current_kabsch_roation_1,
+            new_calibration._kabsch_rotation.rotation_to_chip)
+        assert_array_equal(
+            current_kabsch_roation_2,
+            new_calibration._kabsch_rotation.rotation_to_stage)
+        assert_array_equal(
+            current_kabsch_translation_1,
+            new_calibration._kabsch_rotation.translation_to_chip)
+        assert_array_equal(
+            current_kabsch_translation_2,
+            new_calibration._kabsch_rotation.translation_to_stage)

@@ -6,16 +6,21 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from contextlib import contextmanager
+from datetime import datetime
+import json
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Any, Dict, Tuple, Type, List
 from functools import wraps
-from LabExT.Movement.PathPlanning import PathPlanning
+from os.path import join
+from inspect import getmodule
 
 from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Movement.PathPlanning import PathPlanning
+from LabExT.Utils import get_mover_settings_directory
 from LabExT.Wafer.Chip import Chip
 
 
@@ -81,6 +86,12 @@ class MoverNew:
         self._acceleration_xy = None
         self._z_lift = None
 
+        self._mover_settings_dir = get_mover_settings_directory(
+            makedir_if_needed=True)
+        self._settings_file = join(
+            self._mover_settings_dir,
+            f"mover_settings_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
+
         self.reload_stages()
         self.reload_stage_classes()
 
@@ -110,6 +121,71 @@ class MoverNew:
         """
         self._stage_classes = Stage.find_stage_classes()
 
+    #
+    #   Mover configuration to and from file
+    #
+
+    def load_settings_from_file(self, file_path: str) -> None:
+        with open(file_path, 'r') as fp:
+            settings = json.load(fp)
+
+        if "calibrations" not in settings:
+            raise ValueError("No Stages defined. Cannot load settings.")
+
+        self.reset()
+        for calibration_config in settings.get("calibrations", []):
+            stage_module = calibration_config.get("stage_module")
+            stage_cls = calibration_config.get("stage_cls")
+            stage_address = calibration_config.get("stage_address")
+
+            try:
+                stage = next(
+                    s for s in self._filter_available_stages_by_module(stage_module, stage_cls)
+                    if s.address_string == stage_address)
+
+                calibration = self.add_stage_calibration(
+                    stage=stage,
+                    orientation=Orientation[calibration_config["orientation"]],
+                    port=DevicePort[calibration_config["device_port"]])
+
+                calibration.load_transformations(calibration_config.get("transformations", {}))
+                calibration.connect_to_stage()
+            except StopIteration:
+                print(f"Could not find stage for stored calibration.\
+                    Stage module: {stage_module}, stage class: {stage_cls}, stage address: {stage_address}")
+
+        mover_settings = settings.get("settings", {})
+        self.speed_xy = mover_settings.get("speed_xy", self.DEFAULT_SPEED_XY)
+        self.speed_z = mover_settings.get("speed_z", self.DEFAULT_SPEED_Z)
+        self.acceleration_xy = mover_settings.get(
+            "acceleration_xy", self.DEFAULT_ACCELERATION_XY)
+        self.z_lift = mover_settings.get("z_lift", self.DEFAULT_SPEED_Z)
+
+    def make_configuration_snapshot(self) -> None:
+        """
+        Stores all mover settings in current config file
+        """
+        calibration_settings = [
+            c.to_file_format() for c in self.calibrations.values()]
+
+        with open(self._settings_file, "w+") as fp:
+            json.dump({
+                "settings": {
+                    "speed_xy": self.speed_xy,
+                    "speed_z": self.speed_z,
+                    "acceleration_xy": self.acceleration_xy,
+                    "z_lift": self.z_lift
+                },
+                "calibrations": calibration_settings
+            }, fp)
+
+    def _filter_available_stages_by_module(
+        self, stage_module, stage_cls
+    ) -> List[Type[Stage]]:
+        return list(filter(lambda s: (
+            getmodule(s).__name__ == stage_module
+            and s.__class__.__name__ == stage_cls),
+            self.available_stages))
     #
     #   Properties
     #
@@ -220,15 +296,7 @@ class MoverNew:
             raise ValueError(
                 "{} is an invalid orientation".format(orientation))
 
-        try:
-            self._port_by_orientation.put(
-                orientation, port, OnDup(key=RAISE))
-        except ValueDuplicationError:
-            raise MoverError(
-                "A stage has already been assigned for the {} port.".format(port))
-        except KeyDuplicationError:
-            raise MoverError(
-                "A stage has already been assigned for {}.".format(orientation))
+        self._add_port_orientation_mapping(orientation, port)
 
         calibration = Calibration(self, stage, orientation, port)
 
@@ -241,6 +309,25 @@ class MoverNew:
             (orientation, port), calibration, OnDup(
                 key=RAISE))
         return calibration
+
+    def _add_port_orientation_mapping(
+        self,
+        orientation: Orientation,
+        port: DevicePort
+    ) -> None:
+        """
+        Add port to orientation mapping
+        Raises MoverError if port or orientation is already used.
+        """
+        try:
+            self._port_by_orientation.put(
+                orientation, port, OnDup(key=RAISE))
+        except ValueDuplicationError:
+            raise MoverError(
+                "A stage has already been assigned for the {} port.".format(port))
+        except KeyDuplicationError:
+            raise MoverError(
+                "A stage has already been assigned for {}.".format(orientation))
 
     #
     #   Stage Settings Methods

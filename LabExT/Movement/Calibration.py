@@ -4,11 +4,14 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
+import inspect
 
 from typing import TYPE_CHECKING, Type, Union
 from functools import wraps
 from contextlib import contextmanager
 from time import sleep
+from importlib import import_module
 
 import numpy as np
 
@@ -21,6 +24,7 @@ from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
 
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
+    from LabExT.Movement.MoverNew import MoverNew
 
 
 class CalibrationError(RuntimeError):
@@ -69,8 +73,14 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    def __init__(self, mover, stage, orientation, device_port) -> None:
-        self.mover = mover
+    def __init__(
+        self,
+        mover,
+        stage,
+        orientation: Orientation,
+        device_port: DevicePort
+    ) -> None:
+        self.mover: Type[MoverNew] = mover
         self.stage: Type[Stage] = stage
 
         self.stage_polygon: Type[StagePolygon] = SingleModeFiber(orientation)
@@ -81,10 +91,30 @@ class Calibration:
 
         self._coordinate_system = None
 
-        self._axes_rotation: Type[AxesRotation] = AxesRotation()
-        self._single_point_offset: Type[SinglePointOffset] = SinglePointOffset(
-            self._axes_rotation)
-        self._kabsch_rotation: Type[KabschRotation] = KabschRotation(self._axes_rotation)
+        self._axes_rotation = AxesRotation()
+        self._single_point_offset = SinglePointOffset(self._axes_rotation)
+        self._kabsch_rotation = KabschRotation(self._axes_rotation)
+
+    #
+    #   Load from file
+    #
+
+    def load_transformations(self, transformations_settings: dict) -> Type[Calibration]:
+        """
+        Creates transformatiosns for calibration from settings.
+        """
+        if transformations_settings["axes_rotation"]:
+            self._axes_rotation = AxesRotation.from_storable_format(
+                transformations_settings["axes_rotation"])
+
+        if transformations_settings["single_point_offset"]:
+            self._single_point_offset = SinglePointOffset.from_storable_format(
+                transformations_settings["single_point_offset"], self._axes_rotation)
+            
+        if transformations_settings["kabsch_rotation"]:
+            self._kabsch_rotation = KabschRotation.from_storable_format(
+                transformations_settings["kabsch_rotation"], self._axes_rotation)
+
 
     #
     #   Representation
@@ -98,6 +128,21 @@ class Calibration:
         return "{} Stage ({})".format(
             str(self.orientation), str(self._device_port))
 
+    def to_file_format(self) -> dict:
+        """
+        Returns the calibration into file format.
+        """
+        return {
+            "stage_module": inspect.getmodule(
+                self.stage).__name__,
+            "stage_cls": self.stage.__class__.__name__,
+            "stage_address": self.stage.address,
+            "orientation": self.orientation.name,
+            "device_port": self._device_port.name,
+            "transformations": {
+                "axes_rotation": self._axes_rotation.to_storable_format(),
+                "single_point_offset": self._single_point_offset.to_storable_format(),
+                "kabsch_rotation": self._kabsch_rotation.to_storable_format()}}
     #
     #   Properties
     #

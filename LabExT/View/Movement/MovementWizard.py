@@ -91,6 +91,8 @@ class StageWizard(Wizard):
                     f"Connecting to stages failed: {e}",
                     parent=self)
 
+        self.mover.make_configuration_snapshot()
+
         messagebox.showinfo(
             "Stage Setup completed.",
             f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
@@ -162,6 +164,8 @@ class MoverWizard(Wizard):
                 self.mover.acceleration_xy = acceleration_xy
                 self.mover.z_lift = z_lift
 
+                self.mover.make_configuration_snapshot()
+
                 messagebox.showinfo(
                     "Mover Setup completed.",
                     f"Successfully configured mover.",
@@ -219,6 +223,7 @@ class CalibrationWizard(Wizard):
             master,
             width=1100,
             height=800,
+            on_finish=self._make_mover_snapshot,
             next_button_label="Next Step",
             previous_button_label="Previous Step",
             cancel_button_label="Cancel",
@@ -234,6 +239,19 @@ class CalibrationWizard(Wizard):
         self.coordinate_pairing_step.previous_step = self.calibrate_axes_step
 
         self.current_step = self.calibrate_axes_step
+
+    def _make_mover_snapshot(self) -> bool:
+        """
+        Stores current config to file
+        """
+        self.mover.make_configuration_snapshot()
+
+        messagebox.showinfo(
+            "Mover Calibration completed.",
+            f"Successfully calibrated mover.",
+            parent=self)
+
+        return True
 
 
 class StageDriverStep(Step):
@@ -618,8 +636,9 @@ class AxesCalibrationStep(Step):
         vars = {}
         for calibration in self.mover.calibrations.values():
             for chip_axis in Axis:
-                str_var = StringVar(
-                    self.wizard, (Direction.POSITIVE, chip_axis))
+                current_mapping = calibration._axes_rotation.mapping.get(
+                    chip_axis, (Direction.POSITIVE, chip_axis))
+                str_var = StringVar(self.wizard, current_mapping)
                 str_var.trace(
                     W,
                     lambda *_,
@@ -773,7 +792,9 @@ class CoordinatePairingStep(Step):
 
         self._coordinate_pairing_window = None
 
-        self.pairings = []
+        self.pairings = sum(
+            [c._kabsch_rotation.pairings for c in self.mover.calibrations.values()],
+            [])
 
     def build(self, frame: Type[CustomFrame]):
         """
