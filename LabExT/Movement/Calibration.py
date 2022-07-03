@@ -82,7 +82,7 @@ class Calibration:
         self._axes_rotation: Type[AxesRotation] = AxesRotation()
         self._single_point_offset: Type[SinglePointOffset] = SinglePointOffset(
             self._axes_rotation)
-        self._kabsch_rotation: Type[KabschRotation] = KabschRotation()
+        self._kabsch_rotation: Type[KabschRotation] = KabschRotation(self._axes_rotation)
 
     #
     #   Representation
