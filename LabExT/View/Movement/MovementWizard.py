@@ -879,11 +879,6 @@ class CoordinatePairingStep(Step):
             command=self._new_coordinate_pairing)
         self._full_calibration_new_pairing_button.pack(side=RIGHT)
 
-        Label(
-            frame,
-            text="RMSD: Root mean square distance between the set of chip coordinates and the set of stage coordinates after alignment."
-        ).pack(side=TOP, fill=X)
-
     def on_reload(self):
         """
         Callback, when wizard step gets reloaded.
