@@ -6,10 +6,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY;
 for details see LICENSE file.
 """
 
-from typing import Type
+from typing import List, Type
 import unittest
 from unittest.mock import Mock
 import numpy as np
+from random import seed, uniform
 from parameterized import parameterized
 from itertools import product, combinations, permutations
 from scipy.spatial.transform import Rotation
@@ -545,3 +546,88 @@ class KabschOrientationPerservationTest(unittest.TestCase):
             kabsch_stage_z_unit, user_stage_z_unit.to_numpy(),
             rtol=1e-5,
             atol=1)
+
+
+
+class KabschOrientationPerservationRandomTest(unittest.TestCase):
+
+    CHIP_LIMIT = [-5000, 5000]
+    STAGE_LIMIT = [-30000, 30000]
+
+    def create_pairings(
+        self,
+        axes_rotation: Type[AxesRotation],
+        noise=np.array([0,0,0]),
+        number_of_pairings=3
+    ) -> List[CoordinatePairing]:
+        pairings = []
+        init_pairing = CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([
+                uniform(self.STAGE_LIMIT[0], self.STAGE_LIMIT[1]),
+                uniform(self.STAGE_LIMIT[0], self.STAGE_LIMIT[1]),
+                uniform(self.STAGE_LIMIT[0], self.STAGE_LIMIT[1])]),
+            device=Mock(),
+            chip_coordinate=ChipCoordinate.from_list([
+                uniform(self.CHIP_LIMIT[0], self.CHIP_LIMIT[1]),
+                uniform(self.CHIP_LIMIT[0], self.CHIP_LIMIT[1]),
+                0]))
+
+        pairings.append(init_pairing)
+
+        stage_offset = axes_rotation.chip_to_stage(
+            init_pairing.chip_coordinate) - init_pairing.stage_coordinate + StageCoordinate.from_numpy(noise)
+
+        for _ in range(1, number_of_pairings):
+            new_chip_coord = StageCoordinate.from_list([
+                uniform(self.CHIP_LIMIT[0], self.CHIP_LIMIT[1]),
+                uniform(self.CHIP_LIMIT[0], self.CHIP_LIMIT[1]),
+                0])
+            new_stage_coord = axes_rotation.chip_to_stage(
+                new_chip_coord) - stage_offset
+            
+            pairings.append(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=new_stage_coord,
+                device=Mock(),
+                chip_coordinate=new_chip_coord))
+
+        return pairings
+
+
+    @parameterized.expand(POSSIBLE_AXIS_ROTATIONS)
+    def test_for_all_possible_axes_rotation(self, stage_axes, directions):
+        axes_rotation = AxesRotation()
+        for idx, chip_axis in enumerate(Axis):
+            axes_rotation.update(chip_axis, directions[idx], stage_axes[idx])
+
+        self.assertTrue(axes_rotation.is_valid)
+        
+        kabsch_rotation = KabschRotation(axes_rotation)
+        for pairing in self.create_pairings(
+            axes_rotation,
+            noise=np.random.normal(0, 50, 3),
+            number_of_pairings=3
+        ):
+            kabsch_rotation.update(pairing)
+
+        # Test x unit
+        x_unit_vector = np.array([1,0,0])
+        ground_truth = axes_rotation.matrix @ x_unit_vector
+        kabsch_transformed_vector = kabsch_rotation.rotation_to_stage @ x_unit_vector
+        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0, 
+            "X-Unit Vector orientation not perserved!")
+
+        # Test y unit
+        y_unit_vector = np.array([0,1,0])
+        ground_truth = axes_rotation.matrix @ y_unit_vector
+        kabsch_transformed_vector = kabsch_rotation.rotation_to_stage @ y_unit_vector
+        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0, 
+            "Y-Unit Vector orientation not perserved!")
+
+        # Test x unit
+        z_unit_vector = np.array([0,0,1])
+        ground_truth = axes_rotation.matrix @ z_unit_vector
+        kabsch_transformed_vector = kabsch_rotation.rotation_to_stage @ z_unit_vector
+        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0, 
+            "Z-Unit Vector orientation not perserved!")

@@ -665,7 +665,8 @@ def rigid_transform_with_orientation_preservation(
     # autocorrect orientation
     if axes_rotation is not None:
         correction_matrix = np.identity(3)
-        for i, unit_vector in enumerate(np.identity(3)):
+        for i, unit_vector in enumerate(
+                [np.array([1, 0, 0]), np.array([0, 1, 0]), np.array([0, 0, 1])]):
             ground_truth = axes_rotation @ unit_vector
             if ground_truth.dot(R @ unit_vector) < 0:
                 correction_matrix[i, i] = -1
