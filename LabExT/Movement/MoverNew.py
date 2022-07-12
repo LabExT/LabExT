@@ -415,10 +415,10 @@ class MoverNew:
 
                     if time() - busy_spinning_start >= wait_timeout:
                         raise RuntimeError(
-                            f"Stages did not stopped after {wait_timeout}")
+                            f"Stages did not stop after {wait_timeout} seconds. Abort.")
 
-                    if all(
-                            c.stage.is_stopped for c in calibration_waypoints.keys()):
+                    if all(c.stage.is_stopped
+                           for c in calibration_waypoints.keys()):
                         break
 
     @contextmanager
