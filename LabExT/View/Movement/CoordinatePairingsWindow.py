@@ -245,7 +245,7 @@ class CoordinatePairingsWindow(Toplevel):
 
         if not messagebox.askyesno(
                 title="Move to device?",
-                message="Your stages can move absolutely in the chip coordinate system. Do you want to move to the device?",
+                message="Do you want to move the stages close to the selected device using the available coarse calibration?",
                 parent=self):
             return
 
