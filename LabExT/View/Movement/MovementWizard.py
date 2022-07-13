@@ -674,7 +674,7 @@ class AxesCalibrationStep(Step):
                     text="Wiggle {}-Axis".format(
                         chip_axis.name),
                     command=lambda axis=chip_axis,
-                    calibration=calibration: self._wiggle_axis(
+                    calibration=calibration: self.wiggle_axis(
                         calibration,
                         axis),
                     state=NORMAL if calibration._axes_rotation.is_valid else DISABLED)

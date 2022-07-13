@@ -100,6 +100,10 @@ class DummyStage(Stage):
     def get_status(self) -> tuple:
         return ('STOP', 'STOP', 'STOP')
 
+    @property
+    def is_stopped(self) -> bool:
+        return all(s == 'STOP' for s in self.get_status())
+
     def wiggle_z_axis_positioner(self):
         pass
 
@@ -119,10 +123,20 @@ class DummyStage(Stage):
         return [0, 0]
 
     def get_position(self) -> list:
-        return [0,0,0]
+        return [0, 0, 0]
 
-    def move_relative(self, x: float = 0, y: float = 0, z: float = 0, wait_for_stopping: bool = True) -> None:
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
         pass
 
-    def move_absolute(self, x: float = None, y: float = None, z: float = None, wait_for_stopping: bool = True) -> None:
+    def move_absolute(
+            self,
+            x: float = None,
+            y: float = None,
+            z: float = None,
+            wait_for_stopping: bool = True) -> None:
         pass

@@ -6,14 +6,17 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from contextlib import contextmanager
+from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Any, Dict, Tuple, Type, List
 from functools import wraps
+from LabExT.Movement.PathPlanning import PathPlanning
 
-from LabExT.Movement.config import Orientation, DevicePort
+from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Wafer.Chip import Chip
 
 
 def assert_connected_stages(func):
@@ -159,6 +162,14 @@ class MoverNew:
         Returns True if any of the connected stage is connected (opened a connection to the stage).
         """
         return len(self.connected_stages) > 0
+
+    @property
+    def can_move_absolutely(self) -> bool:
+        """
+        Returns True if mover can move absolutely in chip coordinates.
+        """
+        return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
+                   State.FULLY_CALIBRATED for c in self.calibrations.values())
 
     @property
     def left_calibration(self): return self._get_calibration(
@@ -358,6 +369,69 @@ class MoverNew:
     #   Movement Methods
     #
 
+    @assert_connected_stages
+    def move_absolute(
+        self,
+        movement_commands: Dict[Orientation, Type[ChipCoordinate]],
+        chip: Type[Chip],
+        wait_for_stopping: bool = True,
+        wait_timeout: float = 2.0
+    ) -> None:
+        """
+        Moves the stages absolutely in the chip coordinate system.
+
+        A collision-free trajectory is calculated.
+
+        Parameters
+        ----------
+        movement_commands : Dict[Orientation, Type[ChipCoordinate]]
+            A mapping between orientation and target chip coordinate.
+            For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved to the chip co-ordinate x=1, y=2, z=3
+        wait_for_stopping: bool = True
+            Whether each stage should have completed its movement before the next one moves.
+
+        Raises
+        ------
+        MoverError
+            If an orientation has been given a target, but no stage exists for this orientation.
+        LocalMinimumError
+            If the path-finding algorithm makes no progress
+             i.e. does not converge to the target coordinate.
+        """
+        if not movement_commands:
+            return
+
+        path_planning = PathPlanning(chip)
+
+        # Set up Path Planning
+        for orientation, target in movement_commands.items():
+            calibration = self._get_calibration(orientation=orientation)
+            if calibration is None:
+                raise MoverError(
+                    f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
+
+            path_planning.set_stage_target(calibration, target)
+
+        # Move stages on safe trajectory
+        for calibration_waypoints in path_planning.trajectory():
+            for calibration, waypoint in calibration_waypoints.items():
+                with calibration.perform_in_chip_coordinates():
+                    calibration.move_absolute(waypoint, wait_for_stopping)
+
+            # Wait for all stages to stop if stages move simultaneously.
+            if not wait_for_stopping:
+                busy_spinning_start = time()
+                while True:
+                    sleep(0.05)
+
+                    if time() - busy_spinning_start >= wait_timeout:
+                        raise RuntimeError(
+                            f"Stages did not stop after {wait_timeout} seconds. Abort.")
+
+                    if all(c.stage.is_stopped
+                           for c in calibration_waypoints.keys()):
+                        break
+
     @contextmanager
     def lift_stages(self):
         """
@@ -378,6 +452,39 @@ class MoverNew:
             yield
         finally:
             _lift_lower_stages(-self.z_lift)
+
+    @assert_connected_stages
+    def move_to_device(self, chip: Type[Chip], device_id: Any):
+        """
+        Moves stages to device.
+
+        Parameters
+        ----------
+        chip: Chip
+            Instance of a imported chip.
+        device_id: Any
+            Device ID to which the stages should move.
+
+        Raises
+        ------
+        MoverError
+            If no device was found for the given ID.
+        """
+        device = chip._devices.get(device_id)
+        if device is None:
+            raise MoverError(
+                f"No device was found for the given chip for the given device ID {device_id}.")
+
+        movement_commands = {}
+        if self.input_calibration:
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
+                ChipCoordinate(z=self.z_lift)
+        if self.output_calibration:
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
+                ChipCoordinate(z=self.z_lift)
+
+        with self.lift_stages():
+            self.move_absolute(movement_commands, chip=chip)
 
     #
     #   Helpers
