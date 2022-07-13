@@ -535,6 +535,15 @@ class Stage3DSmarAct(Stage):
         """Returns the channel status codes translated to strings as tuple for each channel. """
         return tuple(ch.humanized_status for ch in self.channels.values())
 
+    @property
+    @assert_driver_loaded
+    @assert_stage_connected
+    def is_stopped(self) -> bool:
+        """
+        Returns true if all axis are stopped.
+        """
+        return all(s == 'SA_STOPPED_STATUS' for s in self.get_status())
+
     def invert_z_axis(self):
         """
         toggles the _z_axis_direction between -1 and +1
@@ -701,11 +710,10 @@ class Stage3DSmarAct(Stage):
         Attention: This method supports two method signatures to temporarily support the old version (v1)
         and the new version (v2).
         """
-        wait_for_stopping = kwargs.get('wait_for_stopping', True)
         if isinstance(args[0], list):
-            self._move_absolute_v1(args[0][:2], wait_for_stopping)
+            self._move_absolute_v1(*args, **kwargs)
         else:
-            self._move_absolute_v2(*args, wait_for_stopping)
+            self._move_absolute_v2(*args, **kwargs)
 
     # Stage control
 
@@ -802,5 +810,6 @@ class Stage3DSmarAct(Stage):
         """
         while True:
             time.sleep(delay)
-            if all(s == 'SA_STOPPED_STATUS' for s in self.get_status()):
+
+            if self.is_stopped:
                 break
