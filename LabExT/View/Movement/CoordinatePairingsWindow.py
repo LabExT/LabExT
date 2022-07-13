@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from tkinter import Frame, Toplevel, Button, Label, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y
 from typing import Callable, Type
+from LabExT.Utils import run_with_wait_window
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.DeviceTable import DeviceTable
 from LabExT.View.Controls.CoordinateWidget import CoordinateWidget, StagePositionWidget
@@ -224,6 +225,8 @@ class CoordinatePairingsWindow(Toplevel):
                 parent=self)
             return
 
+        self._ask_user_move_to_device()
+
         self.__reload__()
 
     def _on_device_selection_clear(self) -> None:
@@ -232,6 +235,24 @@ class CoordinatePairingsWindow(Toplevel):
         """
         self._device = None
         self.__reload__()
+
+    def _ask_user_move_to_device(self):
+        """
+        Asks the user whether to move to the device after selecting the device. This is possible after a single pairing.
+        """
+        if self._device is None or not self.mover.can_move_absolutely:
+            return
+
+        if not messagebox.askyesno(
+                title="Move to device?",
+                message="Do you want to move the stages close to the selected device using the available coarse calibration?",
+                parent=self):
+            return
+
+        run_with_wait_window(
+            self, description="Move to device {}".format(
+                self._device.short_str()), function=lambda: self.mover.move_to_device(
+                self.chip, self._device._id))
 
     #
     #   Helpers
