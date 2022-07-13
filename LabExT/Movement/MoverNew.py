@@ -8,11 +8,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from contextlib import contextmanager
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Any, Dict, Tuple, Type, List
 from functools import wraps
 from LabExT.Movement.PathPlanning import PathPlanning
 
-from LabExT.Movement.config import Orientation, DevicePort
+from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
@@ -162,6 +162,14 @@ class MoverNew:
         Returns True if any of the connected stage is connected (opened a connection to the stage).
         """
         return len(self.connected_stages) > 0
+
+    @property
+    def can_move_absolutely(self) -> bool:
+        """
+        Returns True if mover can move absolutely in chip coordinates.
+        """
+        return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
+                   State.FULLY_CALIBRATED for c in self.calibrations.values())
 
     @property
     def left_calibration(self): return self._get_calibration(
@@ -390,6 +398,9 @@ class MoverNew:
             If the path-finding algorithm makes no progress
              i.e. does not converge to the target coordinate.
         """
+        if not movement_commands:
+            return
+
         path_planning = PathPlanning(chip)
 
         # Set up Path Planning
@@ -441,6 +452,39 @@ class MoverNew:
             yield
         finally:
             _lift_lower_stages(-self.z_lift)
+
+    @assert_connected_stages
+    def move_to_device(self, chip: Type[Chip], device_id: Any):
+        """
+        Moves stages to device.
+
+        Parameters
+        ----------
+        chip: Chip
+            Instance of a imported chip.
+        device_id: Any
+            Device ID to which the stages should move.
+
+        Raises
+        ------
+        MoverError
+            If no device was found for the given ID.
+        """
+        device = chip._devices.get(device_id)
+        if device is None:
+            raise MoverError(
+                f"No device was found for the given chip for the given device ID {device_id}.")
+
+        movement_commands = {}
+        if self.input_calibration:
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
+                ChipCoordinate(z=self.z_lift)
+        if self.output_calibration:
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
+                ChipCoordinate(z=self.z_lift)
+
+        with self.lift_stages():
+            self.move_absolute(movement_commands, chip=chip)
 
     #
     #   Helpers
