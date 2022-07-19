@@ -595,7 +595,7 @@ class KabschRotation(Transformation):
 def rigid_transform_with_orientation_preservation(
     S: np.ndarray,
     T: np.ndarray,
-    axes_rotation: np.ndarray = np.identity(3)
+    axes_rotation: np.ndarray = None
 ) -> None:
     """
     Calculates a rotation matrix that provides optimal rotation with respect
@@ -620,7 +620,7 @@ def rigid_transform_with_orientation_preservation(
 
     More details: https://github.com/nghiaho12/rigid_transform_3D/blob/master/rigid_transform_3D.py
     """
-    if axes_rotation.shape != (3, 3):
+    if axes_rotation is not None and axes_rotation.shape != (3, 3):
         raise ValueError(
             f"Axes rotation matrix must be 3x3, got shape {axes_rotation.shape}")
 
@@ -662,14 +662,15 @@ def rigid_transform_with_orientation_preservation(
         R = V.T @ U.T
 
     # autocorrect orientation
-    correction_matrix = np.identity(3)
-    for i, unit_vector in enumerate(
-            [np.array([1, 0, 0]), np.array([0, 1, 0]), np.array([0, 0, 1])]):
-        ground_truth = axes_rotation @ unit_vector
-        if ground_truth.dot(R @ unit_vector) < 0:
-            correction_matrix[i, i] = -1
+    if axes_rotation is not None:
+        correction_matrix = np.identity(3)
+        for i, unit_vector in enumerate(
+                [np.array([1, 0, 0]), np.array([0, 1, 0]), np.array([0, 0, 1])]):
+            ground_truth = axes_rotation @ unit_vector
+            if ground_truth.dot(R @ unit_vector) < 0:
+                correction_matrix[i, i] = -1
 
-    R = R @ correction_matrix
+        R = R @ correction_matrix
 
     R_inv = np.linalg.inv(R)
 
