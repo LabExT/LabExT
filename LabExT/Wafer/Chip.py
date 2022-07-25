@@ -39,19 +39,22 @@ class Chip:
 
     @property
     def path(self) -> str:
+        """ Return the filepath of the chip file. """
         return self._path
 
     @property
     def name(self) -> str:
+        """ Return the name of the chip. """
         return self._name
 
     @property
     def devices(self) -> dict:
+        """ Return a dictionary of all devices with device ID as keys. """
         return {device.id: device for device in self._devices}
 
     @classmethod
     def from_file(cls, filepath: str, name: str = None):
-        """ Create Chip-instance from chip file. """
+        """ Create a Chip-instance from a chip file. """
         chip = cls(name=name)
         chip._path = filepath
         chip._load_information()
