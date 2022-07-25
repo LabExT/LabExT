@@ -31,11 +31,11 @@ Take note where you cloned this repo to. Lets assume the repo is at `<labext-pat
 Open the "Anaconda Prompt" console via the start menu and create a separate Python environment for LabExT and activate
 it.
 ```
-conda create -n LabExT_env python=3.8
+conda create -n LabExT_env python=3.9
 conda activate LabExT_env
 ```
 We name this environment `LabExT_env`, but you may also choose your own name. LabExT is currently tested with
-Python 3.7 and 3.8. Make sure to specify one of those versions in your environment.
+Python 3.8 and 3.9. Make sure to specify one of those versions in your environment.
 
 ### Install LabExT
 
@@ -81,7 +81,7 @@ pip install pytest tox --upgrade
 ### Running Testsuits
 Test cases in LabExT are divided into lab tests and normal tests. Lab tests require lab equipment and are therefore skipped when the test suite is running in CI.
 
-- To run the complete CI test suite with Python version 3.7, 3.8 and 3.9 use:
+- To run the complete CI test suite with Python version 3.8 and 3.9 use:
 ```
 cd <labext-path>
 tox
