@@ -100,24 +100,24 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertTrue(isinstance(dev_subwindow, DeviceWindow))
         all_rows = dev_subwindow._device_table.get_tree().get_children()
         self.assertEqual(len(all_rows), 49)
-        for cdev, tdev in zip(self.expm.chip._devices.values(),
+        for cdev, tdev in zip(self.expm.chip.devices.values(),
                               (dev_subwindow._device_table.get_tree().item(_id) for _id in all_rows)):
-            self.assertEqual(cdev._id, tdev['values'][1])
-            self.assertEqual(cdev._in_position[0], float(tdev['values'][2].split(' ')[0]))
-            self.assertEqual(cdev._in_position[1], float(tdev['values'][2].split(' ')[1]))
-            self.assertEqual(cdev._out_position[0], float(tdev['values'][3].split(' ')[0]))
-            self.assertEqual(cdev._out_position[1], float(tdev['values'][3].split(' ')[1]))
-            self.assertEqual(cdev._type, tdev['values'][4])
+            self.assertEqual(cdev.id, str(tdev['values'][1]))
+            self.assertEqual(cdev.in_position[0], float(tdev['values'][2].split(' ')[0]))
+            self.assertEqual(cdev.in_position[1], float(tdev['values'][2].split(' ')[1]))
+            self.assertEqual(cdev.out_position[0], float(tdev['values'][3].split(' ')[0]))
+            self.assertEqual(cdev.out_position[1], float(tdev['values'][3].split(' ')[1]))
+            self.assertEqual(cdev.type, tdev['values'][4])
 
-        sel_these_device_ids = random.sample([k for k in self.expm.chip._devices.keys()], 3)
+        sel_these_device_ids = random.sample([k for k in self.expm.chip.devices.keys()], 3)
         for d in sel_these_device_ids:
             dev_subwindow._select_unselect_by_devid(d)
         self.pump_events()
 
         # double check that the table updated first column
-        for cdev, tdev in zip(self.expm.chip._devices.values(),
+        for cdev, tdev in zip(self.expm.chip.devices.values(),
                               (dev_subwindow._device_table.get_tree().item(_id) for _id in all_rows)):
-            if cdev._id in sel_these_device_ids:
+            if cdev.id in sel_these_device_ids:
                 self.assertEqual(tdev['values'][0], 'marked')
             else:
                 self.assertEqual(tdev['values'][0], ' ')
@@ -240,7 +240,7 @@ class ExperimentWizardTest(TKinterTestCase):
         #
 
         # check amount of instantiated correct
-        dev_ids = [t.device._id for t in self.expm.exp.to_do_list]
+        dev_ids = [t.device.id for t in self.expm.exp.to_do_list]
         for dev_id in sel_these_device_ids:
             self.assertEqual(dev_ids.count(dev_id), 2)
         meas_names = [t.measurement.name for t in self.expm.exp.to_do_list]
@@ -252,7 +252,7 @@ class ExperimentWizardTest(TKinterTestCase):
         to_dos_copied = self.expm.exp.to_do_list.copy()
         for cid, cmeas in all_combs:
             for t in self.expm.exp.to_do_list:
-                if t.device._id == cid and t.measurement.name == cmeas:
+                if t.device.id == cid and t.measurement.name == cmeas:
                     to_dos_copied.remove(t)
                     break
             else:
@@ -261,9 +261,9 @@ class ExperimentWizardTest(TKinterTestCase):
 
         # check that pointers in the ToDos actually point to the devices loaded as part of chip
         for dev_id in sel_these_device_ids:
-            todo_devs_with_this_id = [t.device for t in self.expm.exp.to_do_list if t.device._id == dev_id]
+            todo_devs_with_this_id = [t.device for t in self.expm.exp.to_do_list if t.device.id == dev_id]
             for tdev in todo_devs_with_this_id:
-                self.assertIs(tdev, self.expm.chip._devices[dev_id])
+                self.assertIs(tdev, self.expm.chip.devices[dev_id])
 
         # check that the measurements have the correct parameters set
         all_ilm_meas = [t.measurement for t in self.expm.exp.to_do_list if t.measurement.name == 'InsertionLossSweep']
@@ -318,7 +318,7 @@ class ExperimentWizardTest(TKinterTestCase):
 
         # to check with the meta-data checker, we need to extract the device props into a dict
         dev_props = {
-            did: {'id': did, 'type': self.expm.chip._devices[did]._type} for did in sel_these_device_ids
+            did: {'id': did, 'type': self.expm.chip.devices[did].type} for did in sel_these_device_ids
         }
 
         # check metadata and data of the recorded files

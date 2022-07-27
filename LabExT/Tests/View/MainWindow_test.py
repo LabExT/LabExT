@@ -96,7 +96,7 @@ class MainWindowTest(TKinterTestCase):
 
             # stage 0: ad-hoc device with randomly generated params
             random_dev_props = {
-                'id': int(random.randint(0, 99999)),
+                'id': randomword(random.randint(5, 25)),
                 'type': randomword(random.randint(5, 25))
             }
             new_meas_wizard_c.view.s0_adhoc_frame._entry_id.delete(0, "end")
@@ -165,8 +165,8 @@ class MainWindowTest(TKinterTestCase):
 
             new_dev = new_to_do.device
             self.assertTrue(isinstance(new_dev, LabExT.Wafer.Device.Device))
-            self.assertEqual(new_dev._id, random_dev_props['id'])
-            self.assertEqual(new_dev._type, random_dev_props['type'])
+            self.assertEqual(new_dev.id, random_dev_props['id'])
+            self.assertEqual(new_dev.type, random_dev_props['type'])
 
             new_meas = new_to_do.measurement
             self.assertTrue(isinstance(new_meas, LabExT.Measurements.MeasAPI.Measurement))

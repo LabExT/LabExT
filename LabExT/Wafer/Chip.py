@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 import logging
+from typing import List
 
 import numpy as np
 
@@ -16,42 +17,63 @@ from LabExT.Wafer.Device import Device
 class Chip:
     """Chip is the implementation of a chip with devices."""
 
-    def __init__(self, path, name=None, devices=None):
+    def __init__(self, name: str = None, devices: List[Device] = None):
         """Constructor.
 
         Parameters
         ----------
-        path : string
-            Path to the chip file.
         name : string, optional
             Name of the Chip.
-        devices : dictionary, optional
-            Holds all devices, key=ID of device, value=device object
+        devices : List[Device], optional
+            Holds all devices objects
         """
-        self.logger = logging.getLogger()
-        self.logger.debug('Initialised Chip with path: %s, name: %s', path, name)
-        self._path = path
+        self._logger = logging.getLogger()
+        self._logger.debug('Initialised Chip with name: %s', name)
+        self._path = None
         self._name = name
+        self._devices = devices
         if not devices:
-            self._devices = dict()
-        else:
-            self._devices = devices  # dictionary, keys: devID values: devices
-        self.load_information()
+            self._devices = []
 
-        self.logger.debug('Number of devices in chip: %s', len(self._devices))
+        self._logger.debug('Number of devices in chip: %s', len(self._devices))
 
-    def load_information(self):
+    @property
+    def path(self) -> str:
+        """ Return the filepath of the chip file. """
+        return self._path
+
+    @property
+    def name(self) -> str:
+        """ Return the name of the chip. """
+        return self._name
+
+    @property
+    def devices(self) -> dict:
+        """ Return a dictionary of all devices with device ID as keys. """
+        return {device.id: device for device in self._devices}
+
+    @classmethod
+    def from_file(cls, filepath: str, name: str = None):
+        """ Create a Chip-instance from a chip file. """
+        chip = cls(name=name)
+        chip._path = filepath
+        chip._load_information()
+        return chip
+
+    def _load_information(self):
         """Loads the information contained in chip file and creates
         devices accordingly, adds them to the internal dictionary.
         """
-        self.logger.debug('Starting to load information of chip from file.')
+        if self._path is None:
+            raise ValueError('There is no file path to load the chip data.')
 
+        self._logger.debug('Starting to load information of chip from file.')
         try:
             with open(self._path) as fp:
                 self._load_json_device_info(file_pointer=fp)
             return
         except json.decoder.JSONDecodeError:
-            self.logger.info("File {:s} is not JSON format, trying CSV format.".format(self._path))
+            self._logger.info("File {:s} is not JSON format, trying CSV format.".format(self._path))
 
         self._load_csv_device_info(file_path=self._path)
         return
@@ -79,7 +101,7 @@ class Chip:
                 break
             except Exception as exc:
                 last_exc = repr(exc)
-                self.logger.warning("CSV reading error when using encoding {:s}. Error: {:s}".format(
+                self._logger.warning("CSV reading error when using encoding {:s}. Error: {:s}".format(
                     txt_encoding, last_exc
                 ))
         else:
@@ -91,7 +113,7 @@ class Chip:
 
             # extract id number and type string from first element in tuple
             id_type_strs = row_tuple[0].split(']')
-            dev_id = int(id_type_strs[0].replace('[', '').replace(']', '').strip())
+            dev_id = str(id_type_strs[0].replace('[', '').replace(']', '').strip())
             dev_type = str(id_type_strs[1].strip())
 
             # input and output GC coordinates
@@ -100,7 +122,7 @@ class Chip:
 
             # create device object and store into dict
             dev = Device(dev_id, dev_inputs, dev_outputs, dev_type)
-            self._devices.update({dev._id: dev})
+            self._devices.append(dev)
 
     def _load_json_device_info(self, file_pointer):
         """
@@ -117,61 +139,37 @@ class Chip:
         # try decoding JSON
         raw_data = json.load(file_pointer)
 
-        self.logger.info("Loading device information from JSON based description file.")
+        self._logger.info("Loading device information from JSON based description file.")
         for device in raw_data:
             # pop parameters from device's dictionary
             try:
-                identifier = device.pop('ID')
+                identifier = str(device.pop('ID'))
             except KeyError:
-                self.logger.debug('Could not find ID in current device, skipping...')
+                self._logger.debug('Could not find ID in current device, skipping...')
                 continue
             try:
                 inputs = device.pop("Inputs")
                 if len(inputs) > 1:
-                    self.logger.warning("Found multiple input coordinates on device with ID: " + \
-                                        "{:s}, ignoring all but the first one.".format(str(identifier)))
+                    self._logger.warning("Found multiple input coordinates on device with ID: " +
+                                         "{:s}, ignoring all but the first one.".format(str(identifier)))
                 inputs = inputs[0]
             except KeyError:
-                self.logger.debug('Could not find any inputs, set to [0,0]')
+                self._logger.debug('Could not find any inputs, set to [0,0]')
                 inputs = [0.0, 0.0]
             try:
                 outputs = device.pop("Outputs")
                 if len(outputs) > 1:
-                    self.logger.warning("Found multiple output coordinates on device with ID: " + \
-                                        "{:s}, ignoring all but the first one.".format(str(identifier)))
+                    self._logger.warning("Found multiple output coordinates on device with ID: " +
+                                         "{:s}, ignoring all but the first one.".format(str(identifier)))
                 outputs = outputs[0]
             except KeyError:
-                self.logger.debug('Could not find any outputs, set to [0,0]')
+                self._logger.debug('Could not find any outputs, set to [0,0]')
                 outputs = [0.0, 0.0]
             try:
                 _type = device.pop("Type")
             except KeyError:
-                self.logger.debug('Could not find type, set to default')
+                self._logger.debug('Could not find type, set to default')
                 _type = 'No type'
 
             dev = Device(identifier, inputs, outputs, _type, device)
-
-            self.logger.debug('Added new device: %s', dev)
-            self._devices.update({dev._id: dev})
-
-    def get_first_device(self):
-        """
-        Returns
-        -------
-        Device
-            Returns the device with the smallest ID.
-        """
-        self.logger.debug('Get first device called.')
-        # sort the devices and return the first element of list
-        return sorted(list(self._devices.values()), key=lambda x: x._id, reverse=False)[0]
-
-    def get_last_device(self):
-        """
-        Returns
-        -------
-        Device
-            Returns the device with the biggest ID.
-        """
-        self.logger.debug('Get last device called.')
-        # sort the devices in reverse order and return the first element
-        return sorted(list(self._devices.values()), key=lambda x: x._id, reverse=True)[0]
+            self._devices.append(dev)

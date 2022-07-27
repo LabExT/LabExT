@@ -19,8 +19,8 @@ from LabExT.View.EditMeasurementWizard.EditMeasurementWizardView import EditMeas
 
 class EditMeasurementWizardController:
     """
-    Controller Class for the EditMeasurementWizard. Gets instanceiated and used from the main window.
-    Sets up model and view classes, contains controll logic, callback functions for the EditMeasurementWizard
+    Controller Class for the EditMeasurementWizard. Gets instantiated and used from the main window.
+    Sets up model and view classes, contains control logic, callback functions for the EditMeasurementWizard
     """
 
     def __init__(self, parent, experiment_manager):
@@ -36,7 +36,7 @@ class EditMeasurementWizardController:
         # set the proper reference in the model class
         self.model.set_view(self.view)
 
-        # setup the main window
+        # set up the main window
         self.view.setup_main_window()
 
         # start the GUI
@@ -98,9 +98,9 @@ class EditMeasurementWizardController:
                     # fill info-string to user since table does not autoscroll
                     dev = self.view.s0_device_table.get_selected_device()
                     if dev is not None:
-                        self.view.s0_selected_device_info['text'] = "Pre-selected device: " + str(dev.short_str())
+                        self.view.s0_selected_device_info['text'] = "Pre-selected device: " + str(dev)
                     else:
-                        msg = 'Device ID loaded from settings file ({:d}) is not available ' + \
+                        msg = 'Device ID loaded from settings file ({}) is not available ' + \
                               'in the current chip. Not setting a default.'
                         self.logger.info(msg.format(self.model.saved_s0_device_id))
             else:
@@ -156,7 +156,7 @@ class EditMeasurementWizardController:
                     self.show_error("No device selected",
                                     "No device selected. Please select a device to continue.")
                     return
-                self.view.s0_selected_device_info['text'] = "Selected device: " + str(self.model.s0_device.short_str())
+                self.view.s0_selected_device_info['text'] = "Selected device: " + str(self.model.s0_device)
             else:
                 # adhoc device, serialize
                 try:
@@ -253,7 +253,7 @@ class EditMeasurementWizardController:
 
         # read current parameters to save dict
         if self.model.s0_device is not None:
-            data['device_id'] = self.model.s0_device._id
+            data['device_id'] = self.model.s0_device.id
         if self.model.s1_measurement is not None:
             data['measurement_name'] = self.model.s1_measurement.name
 

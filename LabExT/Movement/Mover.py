@@ -5,11 +5,9 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-import json
 import logging
 import os
 import pickle
-import sys
 import time
 from tkinter import Toplevel, messagebox
 
@@ -20,7 +18,9 @@ from LabExT.Movement.StageTrajectory import StageTrajectory
 from LabExT.Utils import run_with_wait_window, get_configuration_file_path
 from LabExT.View.ChooseStageWindow import ChooseStageWindow
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
+from LabExT.Wafer.Device import Device
 from LabExT.transformations import Transformation2D
+
 
 class Mover:
     """Handles everything related to the movement of the stages.
@@ -353,7 +353,7 @@ class Mover:
     # lateral x-y movement
     #
 
-    def move_to_device(self, device):
+    def move_to_device(self, device: Device):
         """Moves to a specific device on the chip.
 
         Parameters
@@ -375,9 +375,9 @@ class Mover:
         self._check_stage_status()
 
         # get transformed in- and outputs
-        in_ = self._transformer_left.chip_to_stage_coord(device._in_position)
+        in_ = self._transformer_left.chip_to_stage_coord(device.in_position)
         if self.num_stages == 2:
-            out_ = self._transformer_right.chip_to_stage_coord(device._out_position)
+            out_ = self._transformer_right.chip_to_stage_coord(device.out_position)
         else:
             out_ = None
 
@@ -434,7 +434,7 @@ class Mover:
                 t1 = time.time()
                 print(t1 - t0)
         else:
-            if float(args[0])<=0:
+            if float(args[0]) <= 0:
                 # move left stage
                 if not (np.isclose(float(args[0]), 0.0) and np.isclose(float(args[1]), 0.0)):
                     if lift_z_dir:
@@ -620,8 +620,8 @@ class Mover:
                     return
 
                 if num_stages_old != self.num_stages:
-                    message = ('The current number of stages ({}) is not equal to the number of stages ({}) ' \
-                               + 'the old transformation was made for!\n' \
+                    message = ('The current number of stages ({}) is not equal to the number of stages ({}) '
+                               + 'the old transformation was made for!\n'
                                + 'Do you still want to continue?').format(self.num_stages, num_stages_old)
                     answer = messagebox.askyesno("Warning", message)
                     if not answer:
@@ -661,7 +661,6 @@ class Mover:
         :return: settings
         """
         # load stage settings
-        piezo_warning = False
         settings = {}
         try:
             with open(self.savefilename_settings, 'rb') as settings_file:
@@ -773,9 +772,10 @@ class Mover:
         self._experiment_manager.root.wait_window(new_window)
 
         device = d.selection
-        first_device_id = device._id
         if device is None:
             raise RuntimeError('Aborted by user')
+
+        first_device_id = device.id
 
         # query position of stage
         pos_1_stage_left = self.left_stage.get_current_position()
@@ -783,8 +783,8 @@ class Mover:
             pos_1_stage_right = self.right_stage.get_current_position()
 
         # position of first device
-        pos_1_chip_in = device._in_position
-        pos_1_chip_out = device._out_position
+        pos_1_chip_in = device.in_position
+        pos_1_chip_out = device.out_position
 
         # order the user to move the stages to the second device
         while True:
@@ -797,7 +797,7 @@ class Mover:
             if device is None:
                 raise RuntimeError('Aborted by user')
 
-            if device._id == first_device_id:
+            if device.id == first_device_id:
                 messagebox.showerror('Coordinate transformation error!',
                                      'You selected the same device as first and second calibration device. ' +
                                      'You must select two different devices for calibration!')
@@ -810,8 +810,8 @@ class Mover:
             pos_2_stage_right = self.right_stage.get_current_position()
 
         # position of second device
-        pos_2_chip_in = device._in_position
-        pos_2_chip_out = device._out_position
+        pos_2_chip_in = device.in_position
+        pos_2_chip_out = device.out_position
 
         self.logger.debug(
             'Transformation about to begin left with: ' +

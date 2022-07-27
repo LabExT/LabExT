@@ -29,7 +29,9 @@ class CustomDeviceWindow(Frame):
         super(CustomDeviceWindow, self).__init__(parent)
 
         self.logger = logging.getLogger()
-        self.logger.debug('Initialised CustomDeviceWindow with parent:%s experiment_manager:%s', parent, experiment_manager)
+        self.logger.debug('Initialised CustomDeviceWindow with parent:%s experiment_manager:%s',
+                          parent,
+                          experiment_manager)
 
         self.callback = callback
 
@@ -122,7 +124,7 @@ class CustomDeviceWindow(Frame):
             custom_params.update({tup[0].get(): tup[1].get()})
 
         # create new device
-        custom_device = Device(int(_id), _in, _out, _type, custom_params)
+        custom_device = Device(_id, _in, _out, _type, custom_params)
 
         self.logger.debug('Created device:%s', custom_device)
         self._experiment_manager.exp.device_list.append(custom_device)
