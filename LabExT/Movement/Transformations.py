@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY;
 for details see LICENSE file.
 """
 from __future__ import annotations
+import logging
 
 from typing import TYPE_CHECKING, NamedTuple, Type
 from abc import ABC, abstractmethod, abstractproperty
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
     from LabExT.Wafer.Chip import Chip
 
+
+logger = logging.getLogger()
 
 class Coordinate(ABC):
     """
@@ -537,9 +540,10 @@ class KabschRotation(Transformation):
         # Calculate the rotation. Note: The first argument is the start set,
         # the second argument is the target set.
         #
-        # We use the chip coordinates as the start set and the stage coordinates as the target set.
-        # This means that R and t are calculated so that a chip coordinate
-        # given a stage coordinate is calculated as input.
+        # INPUT: chip coordinates as start set and stage coordinate as target set
+        # OUTPUT: R, t, R^-1, t' s.t. 
+        # -> R * Chip-Coordinates + t = Stage-Coordinates
+        # -> R^-1 * Stage-Coordinates + t' = Chip-Coordinates
 
         self.rotation_to_stage, self.translation_to_stage, self.rotation_to_chip, self.translation_to_chip = rigid_transform_with_orientation_preservation(
             S=self.chip_coordinates, T=self.stage_coordinates, axes_rotation=self.axes_rotation.matrix)
@@ -657,7 +661,7 @@ def rigid_transform_with_orientation_preservation(
 
     # special reflection case
     if np.linalg.det(R) < 0:
-        print("det(R) < R, reflection detected!, correcting for it ...")
+        logger.info("det(R) < R, reflection detected!, correcting for it ...")
         V[2, :] *= -1
         R = V.T @ U.T
 
