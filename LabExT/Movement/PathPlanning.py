@@ -432,8 +432,8 @@ class PathPlanning:
             Grid size that must not be exceeded.
         """
         all_points = np.concatenate([
-            [d._in_position for d in self.chip._devices.values()],
-            [d._out_position for d in self.chip._devices.values()]
+            [d.in_position for d in self.chip.devices.values()],
+            [d.out_position for d in self.chip.devices.values()]
         ], axis=0)
 
         xs = all_points[:, 0]

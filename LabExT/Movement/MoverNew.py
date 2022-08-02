@@ -17,6 +17,7 @@ from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
 from LabExT.Wafer.Chip import Chip
+from LabExT.Wafer.Device import Device
 
 
 def assert_connected_stages(func):
@@ -454,7 +455,7 @@ class MoverNew:
             _lift_lower_stages(-self.z_lift)
 
     @assert_connected_stages
-    def move_to_device(self, chip: Type[Chip], device_id: Any):
+    def move_to_device(self, chip: Type[Chip], device: Type[Device]):
         """
         Moves stages to device.
 
@@ -462,19 +463,14 @@ class MoverNew:
         ----------
         chip: Chip
             Instance of a imported chip.
-        device_id: Any
-            Device ID to which the stages should move.
+        device: Device
+            Device to which the stages should move.
 
         Raises
         ------
         MoverError
             If no device was found for the given ID.
         """
-        device = chip._devices.get(device_id)
-        if device is None:
-            raise MoverError(
-                f"No device was found for the given chip for the given device ID {device_id}.")
-
         movement_commands = {}
         if self.input_calibration:
             movement_commands[self.input_calibration.orientation] = device.input_coordinate + \

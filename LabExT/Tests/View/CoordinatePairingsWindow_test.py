@@ -19,7 +19,7 @@ from LabExT.Wafer.Device import Device
 from LabExT.Wafer.Chip import Chip
 
 
-@flaky(max_runs=3)
+# @flaky(max_runs=3)
 class CoordinatePairingsWindowTest(TKinterTestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:
@@ -27,8 +27,8 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         available_stages_mock.return_value = []
         stage_classes_mock.return_value = []
 
-        self.device = Device(0, [0, 0], [1, 1], "My Device 1")
-        self.chip = Chip(devices={0: self.device})
+        self.device = Device("101", [0,0], [1,1], "My Device 1")
+        self.chip = Chip("My Chip", [self.device])
         self.mover = MoverNew(None)
 
         self.stage_1 = Mock(spec=Stage)
@@ -93,7 +93,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         self.setup_calibrations()
         window = self.setup_window()
 
-        window._device_table.set_selected_device(0)
+        window._device_table.set_selected_device(101)
         window._select_device_button.invoke()
 
         self.assertEqual(window._device, self.device)
@@ -102,7 +102,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         self.setup_calibrations()
         window = self.setup_window()
 
-        window._device_table.set_selected_device(0)
+        window._device_table.set_selected_device(101)
         window._select_device_button.invoke()
         self.assertEqual(window._device, self.device)
 
@@ -115,7 +115,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             with_input_stage=True,
             with_output_stage=False)
 
-        window._device_table.set_selected_device(0)
+        window._device_table.set_selected_device(101)
         window._select_device_button.invoke()
         window._finish_button.invoke()
 
@@ -138,7 +138,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             with_input_stage=False,
             with_output_stage=True)
 
-        window._device_table.set_selected_device(0)
+        window._device_table.set_selected_device(101)
         window._select_device_button.invoke()
         window._finish_button.invoke()
 
@@ -161,7 +161,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             with_input_stage=True,
             with_output_stage=True)
 
-        window._device_table.set_selected_device(0)
+        window._device_table.set_selected_device(101)
         window._select_device_button.invoke()
         window._finish_button.invoke()
 
