@@ -67,7 +67,7 @@ class MoveStagesDeviceWindow(Toplevel):
         self._main_frame.pack(side=TOP, fill=BOTH, expand=True, padx=10)
 
         hint = "Automatically move the stages to a device selected below.\n"\
-               "The stages are lifted before and lowered again later."
+               f"The stages are z-lifted by {self.mover.z_lift:.0f}nm before the lateral movement and lowered again afterwards.\n"
         Label(self._main_frame, text=hint).pack(side=TOP, fill=X)
 
         self._buttons_frame = Frame(
