@@ -10,6 +10,7 @@ from typing import List, Type
 import unittest
 from unittest.mock import Mock
 import numpy as np
+from numpy.testing import assert_array_equal
 from random import seed, uniform
 from parameterized import parameterized
 from itertools import product, combinations, permutations
@@ -279,6 +280,65 @@ class AxesRotationTest(unittest.TestCase):
         self.assertEqual(self.rotation.stage_to_chip(stage_coord), chip_coord)
         self.assertEqual(self.rotation.chip_to_stage(chip_coord), stage_coord)
 
+
+    def test_dump(self):
+        self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Y)
+        self.rotation.update(Axis.Y, Direction.POSITIVE, Axis.Z)
+        self.rotation.update(Axis.Z, Direction.NEGATIVE, Axis.X)
+
+        self.assertTrue(self.rotation.is_valid)
+
+        self.assertDictEqual(
+            self.rotation.dump(),
+            {
+                'X': ('NEGATIVE', 'Y'),
+                'Y': ('POSITIVE', 'Z'),
+                'Z': ('NEGATIVE', 'X')
+            })
+
+    def test_load_invalid_mapping(self):
+        # Z Axis get assigned twice
+        invalid_mapping = {
+            'X': ('NEGATIVE', 'Z'),
+            'Y': ('NEGATIVE', 'X'),
+            'Z': ('POSITIVE', 'Z')
+        }
+
+        with self.assertRaises(TransformationError):
+            AxesRotation.load(invalid_mapping)
+        
+
+    def test_load(self):
+        mapping = {
+             'Z': ('NEGATIVE', 'Z'),
+             'Y': ('NEGATIVE', 'X'),
+             'X': ('POSITIVE', 'Y')
+         }
+
+        rotation = AxesRotation.load(mapping)
+
+        self.assertTrue(rotation.is_valid)
+        assert_array_equal(rotation.matrix, [
+             [0, -1, 0],
+             [1,0,0],
+             [0,0,-1]
+        ])
+
+    def test_dump_and_load(self):
+        self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Z)
+        self.rotation.update(Axis.Y, Direction.NEGATIVE, Axis.X)
+        self.rotation.update(Axis.Z, Direction.POSITIVE, Axis.Y)
+
+        matrix_before = self.rotation.matrix
+        mapping_before = self.rotation.mapping
+
+        restored_rotation = AxesRotation.load(self.rotation.dump())
+
+        self.assertFalse(restored_rotation == self.rotation)
+        
+        self.assertTrue(restored_rotation.is_valid)
+        assert_array_equal(matrix_before, restored_rotation.matrix)
+        self.assertDictEqual(mapping_before, restored_rotation.mapping)
 
 class SinglePointOffsetTest(unittest.TestCase):
     def setUp(self) -> None:
