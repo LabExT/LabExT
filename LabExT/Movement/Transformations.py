@@ -17,7 +17,7 @@ from LabExT.Movement.config import Axis, Direction
 
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
-    from LabExT.Wafer.Chip import Chip
+    from LabExT.Wafer.Device import Device
 
 
 logger = logging.getLogger()
@@ -151,8 +151,64 @@ class ChipCoordinate(Coordinate):
 class CoordinatePairing(NamedTuple):
     calibration: Type[Calibration]
     stage_coordinate: Type[StageCoordinate]
-    device: Type[Chip]
+    device: Type[Device]
     chip_coordinate: Type[ChipCoordinate]
+
+    @classmethod
+    def load(
+        cls,
+        pairing: dict,
+        device: Type[Device] = None,
+        calibration: Type[Calibration] = None
+    ) -> Type[CoordinatePairing]:
+        """
+        Creates a new coordinate pairing for given data.
+
+        Parameters
+        ----------
+        pairing : dict
+            Pairing consisting of stage and chip coordinate
+        device : Device = None
+            Devices associated with the pairing
+        calibration : Calibration
+            Calibration associated with the pairing
+
+        Raises
+        ------
+        ValueError
+            If pairing is not well-formed.
+
+        Returns
+        -------
+        CoordinatePairing based on the given data
+        """
+        if "stage_coordinate" not in pairing or "chip_coordinate" not in pairing:
+            raise ValueError(
+                f"Cannot create coordinate paring. Stage and Chip coordinate are required.")
+
+        return cls(
+            calibration=calibration,
+            stage_coordinate=StageCoordinate.from_list(
+                pairing["stage_coordinate"]),
+            device=device,
+            chip_coordinate=StageCoordinate.from_list(
+                pairing["chip_coordinate"]))
+
+    def dump(self, include_device_id: bool = True) -> dict:
+        """
+        Returns the pairing as dict.
+
+        Includes device ID if required.
+        """
+        pairing = {
+            "stage_coordinate": self.stage_coordinate.to_list(),
+            "chip_coordinate": self.chip_coordinate.to_list()}
+
+        if not include_device_id:
+            return pairing
+
+        pairing["device_id"] = self.device.id
+        return pairing
 
 
 class Transformation(ABC):
@@ -205,7 +261,7 @@ class Transformation(ABC):
         """
         pass
 
-    def dump(self) -> Any:
+    def dump(self, *args, **kwargs) -> Any:
         """
         Dumps transformation into storable format.
         """
@@ -429,6 +485,13 @@ class SinglePointOffset(Transformation):
     Note: The transformation assumes that the stage and chip axes are parallel. This is not the case in reality, so this transformation is only an approximation.
     """
 
+    @classmethod
+    def load(cls, pairing: Any) -> Type[SinglePointOffset]:
+        """
+
+        """
+        pass
+
     def __init__(self, axes_rotation: Type[AxesRotation]) -> None:
         self.axes_rotation: Type[AxesRotation] = axes_rotation
         self.initialize()
@@ -522,6 +585,20 @@ class SinglePointOffset(Transformation):
         """
         return self.axes_rotation.stage_to_chip(
             stage_coordinate + self.stage_offset)
+
+    def dump(self, with_axes_rotation: bool = True) -> dict:
+        """
+        Returns the single point transformation as pairing and with axes rotation.
+        """
+        if not self.pairing:
+            return {}
+
+        # breakpoint()
+        pairing = {
+            "stage_coordinate"
+        }
+
+        return super().dump()
 
 
 class KabschRotation(Transformation):
