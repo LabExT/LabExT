@@ -8,8 +8,8 @@ for details see LICENSE file.
 from __future__ import annotations
 import logging
 
-from typing import TYPE_CHECKING, NamedTuple, Type
-from abc import ABC, abstractmethod, abstractproperty
+from typing import TYPE_CHECKING, Any, NamedTuple, Type
+from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from functools import wraps
 import numpy as np
 
@@ -162,6 +162,13 @@ class Transformation(ABC):
     The base class cannot be initialised directly.
     """
 
+    @abstractclassmethod
+    def load(cls, data: Any) -> Type[Transformation]:
+        """
+        Creates a new Transformation from data
+        """
+        pass
+
     @abstractmethod
     def __init__(self) -> None:
         pass
@@ -195,6 +202,13 @@ class Transformation(ABC):
             stage_coordinate: Type[StageCoordinate]) -> Type[ChipCoordinate]:
         """
         Transforms a coordinate in stage space to chip space.
+        """
+        pass
+
+    @abstractmethod
+    def dump(self) -> Any:
+        """
+        Dumps transformation into storable format.
         """
         pass
 
