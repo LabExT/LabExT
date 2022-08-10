@@ -162,7 +162,7 @@ class Transformation(ABC):
     The base class cannot be initialised directly.
     """
 
-    @abstractclassmethod
+    @classmethod
     def load(cls, data: Any) -> Type[Transformation]:
         """
         Creates a new Transformation from data
@@ -205,7 +205,6 @@ class Transformation(ABC):
         """
         pass
 
-    @abstractmethod
     def dump(self) -> Any:
         """
         Dumps transformation into storable format.
@@ -246,6 +245,51 @@ class AxesRotation(Transformation):
     - Chip-to-Stage: Given a chip coordinate, this is multiplied on the right by the matrix to obtain a stage coordinate.
     - Stage-to-Chip: Given a stage coordinate, this is multiplied on the right by the inverse matrix to obtain a chip coordinate.
     """
+
+    @classmethod
+    def load(cls, mapping: dict) -> Type[AxesRotation]:
+        """
+        Creates a new axes rotation transformation based on axes mapping.
+
+        Parameters
+        ----------
+        mapping: Dict[str, (str, str)]
+            Mapping from a chip axis to a tuple with direction and stage axis
+
+        Raises
+        ------
+        TransformationError
+            If mapping is not well-formed
+            If mapping does not define a valid axes rotation
+
+        Returns
+        -------
+        AxesRotation
+            A valid axes rotation based on the mapping.
+        """
+        if len(mapping) != 3:
+            raise TransformationError(
+                "Cannot create axes rotation. "
+                f"Axis mapping must consist of 3 mappings, got mapping with {len(mapping)} mappings.")
+
+        axes_rotation = cls()
+        for chip_axis, (direction, stage_axis) in mapping.items():
+            try:
+                chip_axis = Axis[chip_axis]
+                direction = Direction[direction]
+                stage_axis = Axis[stage_axis]
+            except KeyError as err:
+                raise TransformationError(
+                    f"The parameter is not defined: {err}. "
+                    "Make sure to pass a mapping of valid directions and axes.")
+
+            axes_rotation.update(chip_axis, direction, stage_axis)
+
+        if not axes_rotation.is_valid:
+            raise TransformationError(
+                "Cannot create axes rotation from stored mapping. Mapping is invalid")
+
+        return axes_rotation
 
     def __init__(self) -> None:
         self.initialize()
@@ -360,6 +404,14 @@ class AxesRotation(Transformation):
         """
         return ChipCoordinate.from_numpy(
             np.linalg.inv(self.matrix).dot(stage_coordinate.to_numpy()))
+
+    def dump(self) -> dict:
+        """
+        Returns the axes rotation as an axis mapping in a dict
+        """
+        return {
+            chip_axis.name: (direction.name, stage_axis.name)
+            for chip_axis, (direction, stage_axis) in self.mapping.items()}
 
 
 class SinglePointOffset(Transformation):
