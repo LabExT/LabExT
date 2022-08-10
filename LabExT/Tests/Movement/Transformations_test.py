@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import Mock
 import numpy as np
 from numpy.testing import assert_array_equal
-from random import uniform
+from random import seed, uniform
 from parameterized import parameterized
 from itertools import product, combinations, permutations
 from scipy.spatial.transform import Rotation
@@ -29,9 +29,7 @@ POSSIBLE_AXIS_ROTATIONS = list(product(
     permutations(Axis), product(
         Direction, repeat=3)))
 
-VACHERIN_ROTATION, VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS = get_calibrations_from_file(
-    "vacherin.json", "left")
-
+VACHERIN_ROTATION, VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS = get_calibrations_from_file("vacherin.json", "left")
 
 class CoordinateTest(unittest.TestCase):
 
@@ -208,42 +206,38 @@ class ChipCoordinateTest(CoordinateTest):
 
 class CoordinatePairingTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.device = Device(
-            id='1', in_position=[
-                1., 1.], out_position=[
-                2., 2.], type='test')
+        self.device = Device(id='1', in_position=[1., 1.], out_position=[2., 2.], type='test')
         self.pairing = CoordinatePairing(
             calibration=Mock(),
-            stage_coordinate=StageCoordinate(7, 8, 9),
+            stage_coordinate=StageCoordinate(7,8,9),
             device=self.device,
-            chip_coordinate=ChipCoordinate(1, 2, 3))
+            chip_coordinate=ChipCoordinate(1,2,3))
 
     def test_dump_with_device(self):
         pairing_data = self.pairing.dump(include_device_id=True)
 
         self.assertDictEqual(pairing_data, {
-            "stage_coordinate": [7, 8, 9],
-            "chip_coordinate": [1, 2, 3],
+            "stage_coordinate": [7,8,9],
+            "chip_coordinate": [1,2,3],
             "device_id": '1'})
 
     def test_dump_without_device(self):
         pairing_data = self.pairing.dump(include_device_id=False)
 
         self.assertDictEqual(pairing_data, {
-            "stage_coordinate": [7, 8, 9],
-            "chip_coordinate": [1, 2, 3]})
+            "stage_coordinate": [7,8,9],
+            "chip_coordinate": [1,2,3]})
 
     def test_load(self):
         pairing_data = {
-            "stage_coordinate": [4, 2, 1],
-            "chip_coordinate": [6, 5, 9]}
+            "stage_coordinate": [4,2,1],
+            "chip_coordinate": [6,5,9]}
 
         calibration = Mock()
-        pairing = CoordinatePairing.load(
-            pairing_data, self.device, calibration)
+        pairing = CoordinatePairing.load(pairing_data, self.device, calibration)
 
-        self.assertEqual(pairing.stage_coordinate.to_list(), [4, 2, 1])
-        self.assertEqual(pairing.chip_coordinate.to_list(), [6, 5, 9])
+        self.assertEqual(pairing.stage_coordinate.to_list(), [4,2,1])
+        self.assertEqual(pairing.chip_coordinate.to_list(), [6,5,9])
         self.assertEqual(pairing.device, self.device)
         self.assertEqual(pairing.calibration, calibration)
 
@@ -306,12 +300,9 @@ class AxesRotationTest(unittest.TestCase):
             self.rotation.stage_to_chip(stage_axis_unit),
             chip_axis_unit * direction.value)
 
-    @parameterized.expand(zip(POSSIBLE_AXIS_ROTATIONS,
-                              [np.array(d) * np.array(p) for p in permutations([1,
-                                                                                2,
-                                                                                3]) for d in product([-1,
-                                                                                                      1],
-                                                                                                     repeat=3)]))
+    @parameterized.expand(zip(
+        POSSIBLE_AXIS_ROTATIONS,
+        [np.array(d) * np.array(p) for p in permutations([1,2,3]) for d in product([-1,1],repeat=3)]))
     def test_possible_axes_assignments(
             self,
             stage_axes_mapping,
@@ -327,6 +318,7 @@ class AxesRotationTest(unittest.TestCase):
 
         self.assertEqual(self.rotation.stage_to_chip(stage_coord), chip_coord)
         self.assertEqual(self.rotation.chip_to_stage(chip_coord), stage_coord)
+
 
     def test_dump(self):
         self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Y)
@@ -353,21 +345,22 @@ class AxesRotationTest(unittest.TestCase):
 
         with self.assertRaises(TransformationError):
             AxesRotation.load(invalid_mapping)
+        
 
     def test_load(self):
         mapping = {
-            'Z': ('NEGATIVE', 'Z'),
-            'Y': ('NEGATIVE', 'X'),
-            'X': ('POSITIVE', 'Y')
-        }
+             'Z': ('NEGATIVE', 'Z'),
+             'Y': ('NEGATIVE', 'X'),
+             'X': ('POSITIVE', 'Y')
+         }
 
         rotation = AxesRotation.load(mapping)
 
         self.assertTrue(rotation.is_valid)
         assert_array_equal(rotation.matrix, [
-            [0, -1, 0],
-            [1, 0, 0],
-            [0, 0, -1]
+             [0, -1, 0],
+             [1,0,0],
+             [0,0,-1]
         ])
 
     def test_dump_and_load(self):
@@ -381,11 +374,10 @@ class AxesRotationTest(unittest.TestCase):
         restored_rotation = AxesRotation.load(self.rotation.dump())
 
         self.assertFalse(restored_rotation == self.rotation)
-
+        
         self.assertTrue(restored_rotation.is_valid)
         assert_array_equal(matrix_before, restored_rotation.matrix)
         self.assertDictEqual(mapping_before, restored_rotation.mapping)
-
 
 class SinglePointOffsetTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -463,7 +455,38 @@ class SinglePointOffsetTest(unittest.TestCase):
             rtol=1,
             atol=1))
 
+    
     def test_dump(self):
+        chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
+        stage_coordinate = StageCoordinate.from_list(
+             [23236.35, -7888.67, 18956.06])
+
+        device = Mock()
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=stage_coordinate,
+            device=device,
+            chip_coordinate=chip_coordinate))   
+
+        self.assertDictEqual(self.transformation.dump(), {
+            "stage_coordinate": [23236.35, -7888.67, 18956.06],
+            "chip_coordinate": [-1550, 1120, 0],
+            "device_id": device.id
+        })
+
+    def test_load(self):
+        stored_format = {
+            "stage_coordinate": [19,293.03,1029.02],
+            "chip_coordinate": [110203,29342,0],
+        }
+
+        transformation = SinglePointOffset.load(stored_format, self.rotation)
+
+        assert_array_equal(
+            transformation.stage_offset.to_numpy(),
+            np.array([110203,29342,0]) - np.array([19,293.03,1029.02]))
+
+    def test_dump_and_load(self):
         chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
         stage_coordinate = StageCoordinate.from_list(
             [23236.35, -7888.67, 18956.06])
@@ -474,32 +497,37 @@ class SinglePointOffsetTest(unittest.TestCase):
             device=Mock(),
             chip_coordinate=chip_coordinate))
 
-        self.transformation.dump()
+        current_offset = self.transformation.stage_offset.to_numpy()
+
+        from_stored_offset = SinglePointOffset.load(
+            self.transformation.dump(),
+            self.transformation.axes_rotation)
+
+        assert_array_equal(current_offset, from_stored_offset.stage_offset.to_numpy())
 
 
 class RigidTransformationTest(unittest.TestCase):
-
+    
     def assert_rmse_less_than(self, set_a, set_b, bound):
         _, n = set_a.shape
         diff = np.array(set_a) - np.array(set_b)
         rmsd = np.sqrt((diff * diff).sum() / n)
 
-        self.assertLess(
-            rmsd,
-            bound,
+        self.assertLess(rmsd, bound,
             f"Difference between start dataset and end dataset is greater than {bound} after recovery.")
 
     def test_with_random_rotation_and_translation(self):
         N = 10
 
         R = Rotation.random().as_matrix()
-        t = np.random.rand(3, 1)
+        t = np.random.rand(3,1)
 
         start_dataset = np.random.rand(3, N)
         target_dataset = (R @ start_dataset) + t
 
         R_ret, t_ret, R_inv_ret, t_inv_ret = rigid_transform_with_orientation_preservation(
-            S=start_dataset, T=target_dataset)
+            S=start_dataset,
+            T=target_dataset)
 
         target_dataset_ret = R_ret @ start_dataset + t_ret
         start_dataset_ret = R_inv_ret @ target_dataset + t_inv_ret
@@ -525,23 +553,14 @@ class KabschRotationTest(unittest.TestCase):
 
         self.assertFalse(self.transformation.is_valid)
 
-    @parameterized.expand(
-        [
-            (CoordinatePairing(
-                None, None, None, None),), (CoordinatePairing(
-                    None, StageCoordinate(
-                        1, 2, 3), None, None),), (CoordinatePairing(
-                            None, None, None, ChipCoordinate(
-                                1, 2, 3)),), (CoordinatePairing(
-                                    None, StageCoordinate(
-                                        1, 2, 3), None, ChipCoordinate(
-                                        1, 2, 3)),), (CoordinatePairing(
-                                            Mock(), StageCoordinate(
-                                                1, 2, 3), None, ChipCoordinate(
-                                                    1, 2, 3)),), (CoordinatePairing(
-                                                        None, StageCoordinate(
-                                                            1, 2, 3), Mock(), ChipCoordinate(
-                                                                1, 2, 3)),), ])
+    @parameterized.expand([
+        (CoordinatePairing(None, None, None, None),),
+        (CoordinatePairing(None, StageCoordinate(1, 2, 3), None, None),),
+        (CoordinatePairing(None, None, None, ChipCoordinate(1, 2, 3)),),
+        (CoordinatePairing(None, StageCoordinate(1, 2, 3), None, ChipCoordinate(1, 2, 3)),),
+        (CoordinatePairing(Mock(), StageCoordinate(1, 2, 3), None, ChipCoordinate(1, 2, 3)),),
+        (CoordinatePairing(None, StageCoordinate(1, 2, 3), Mock(), ChipCoordinate(1, 2, 3)),),
+    ])
     def test_update_with_invalid_pairing(self, invalid_pairing):
         with self.assertRaises(ValueError):
             self.transformation.update(invalid_pairing)
@@ -552,43 +571,27 @@ class KabschRotationTest(unittest.TestCase):
         device = Mock()
         pairing = CoordinatePairing(
             calibration=self.calibration,
-            stage_coordinate=StageCoordinate(1, 2, 3),
+            stage_coordinate=StageCoordinate(1,2,3),
             device=device,
-            chip_coordinate=ChipCoordinate(4, 5, 6))
+            chip_coordinate=ChipCoordinate(4,5,6))
 
         self.transformation.update(pairing)
         self.assertIn(pairing, self.transformation.pairings)
 
         pairing_2 = CoordinatePairing(
             calibration=self.calibration,
-            stage_coordinate=StageCoordinate(7, 8, 9),
+            stage_coordinate=StageCoordinate(7,8,9),
             device=device,
-            chip_coordinate=ChipCoordinate(8, 7, 6))
+            chip_coordinate=ChipCoordinate(8,7,6))
 
         with self.assertRaises(ValueError):
             self.transformation.update(pairing_2)
 
         self.assertNotIn(pairing_2, self.transformation.pairings)
 
-    @parameterized.expand([(np.delete(VACHERIN_STAGE_COORDS,
-                                      (i),
-                                      axis=0),
-                            np.delete(VACHERIN_CHIP_COORDS,
-                                      (i),
-                                      axis=0),
-                            VACHERIN_STAGE_COORDS[i,
-                                                  :],
-                            VACHERIN_CHIP_COORDS[i,
-                                                 :]) for i in range(0,
-                                                                    4)])
-    def test_transformation_estimates_fourth_variable(
-            self,
-            stage_coordinates,
-            chip_coordinates,
-            test_stage_coordinate,
-            test_chip_coordinate):
-        for stage_coord, chip_coord in zip(
-                stage_coordinates, chip_coordinates):
+    @parameterized.expand([(np.delete(VACHERIN_STAGE_COORDS, (i), axis=0), np.delete(VACHERIN_CHIP_COORDS, (i), axis=0), VACHERIN_STAGE_COORDS[i,:], VACHERIN_CHIP_COORDS[i,:]) for i in range(0,4)])
+    def test_transformation_estimates_fourth_variable(self, stage_coordinates, chip_coordinates, test_stage_coordinate, test_chip_coordinate):
+        for stage_coord, chip_coord in zip(stage_coordinates, chip_coordinates):
             pairing = CoordinatePairing(
                 calibration=Mock(),
                 stage_coordinate=StageCoordinate.from_numpy(stage_coord),
@@ -600,48 +603,34 @@ class KabschRotationTest(unittest.TestCase):
 
         self.assertTrue(self.transformation.is_valid)
 
-        test_stage_coordinate = StageCoordinate.from_numpy(
-            test_stage_coordinate)
+        test_stage_coordinate = StageCoordinate.from_numpy(test_stage_coordinate)
         test_chip_coordinate = ChipCoordinate.from_numpy(test_chip_coordinate)
 
-        ret_stage_coordinate = self.transformation.chip_to_stage(
-            test_chip_coordinate)
-        ret_chip_coordinate = self.transformation.stage_to_chip(
-            test_stage_coordinate)
+        ret_stage_coordinate = self.transformation.chip_to_stage(test_chip_coordinate)
+        ret_chip_coordinate = self.transformation.stage_to_chip(test_stage_coordinate)
 
-        np.testing.assert_allclose(
-            test_stage_coordinate.to_numpy(),
-            ret_stage_coordinate.to_numpy(),
-            atol=20,
-            rtol=1e-3)
-        np.testing.assert_allclose(
-            test_chip_coordinate.to_numpy(),
-            ret_chip_coordinate.to_numpy(),
-            atol=20,
-            rtol=1e-3)
+        np.testing.assert_allclose(test_stage_coordinate.to_numpy(), ret_stage_coordinate.to_numpy(), atol=20, rtol=1e-3)
+        np.testing.assert_allclose(test_chip_coordinate.to_numpy(), ret_chip_coordinate.to_numpy(), atol=20, rtol=1e-3)
 
+    
     def test_reversibility(self):
-        for stage_coord, chip_coord in zip(
-                VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
             self.transformation.update(CoordinatePairing(
                 calibration=Mock(),
                 stage_coordinate=StageCoordinate.from_numpy(stage_coord),
                 device=Mock(),
                 chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
 
-        chip_coordinate = ChipCoordinate(1, 2, 3)
-        stage_coordinate = StageCoordinate(4, 5, 6)
+        chip_coordinate = ChipCoordinate(1,2,3)
+        stage_coordinate = StageCoordinate(4,5,6)
 
-        self.assertTrue(
-            np.allclose(
-                self.transformation.stage_to_chip(
-                    self.transformation.chip_to_stage(chip_coordinate)).to_numpy(),
-                chip_coordinate.to_numpy()))
-        self.assertTrue(
-            np.allclose(
-                self.transformation.chip_to_stage(
-                    self.transformation.stage_to_chip(stage_coordinate)).to_numpy(),
-                stage_coordinate.to_numpy()))
+        self.assertTrue(np.allclose(
+            self.transformation.stage_to_chip(self.transformation.chip_to_stage(chip_coordinate)).to_numpy(),
+            chip_coordinate.to_numpy()))
+        self.assertTrue(np.allclose(
+            self.transformation.chip_to_stage(self.transformation.stage_to_chip(stage_coordinate)).to_numpy(),
+            stage_coordinate.to_numpy()))
+
 
 
 class KabschOrientationPerservationTest(unittest.TestCase):
@@ -659,9 +648,9 @@ class KabschOrientationPerservationTest(unittest.TestCase):
             ChipCoordinate(*[2295.00, -2650, 0])]
 
         cls.axes_rotation_matrix = np.array([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, -1]
+            [1,0,0],
+            [0,1,0],
+            [0,0,-1]
         ])
 
         cls.axes_rotation = AxesRotation()
@@ -669,24 +658,16 @@ class KabschOrientationPerservationTest(unittest.TestCase):
 
         cls.kabsch = KabschRotation(cls.axes_rotation)
         for stage_coord, chip_coord in zip(stage_coords, chip_coords):
-            cls.kabsch.update(
-                CoordinatePairing(
-                    Mock(),
-                    stage_coord,
-                    Mock(),
-                    chip_coord))
+            cls.kabsch.update(CoordinatePairing(Mock(), stage_coord, Mock(), chip_coord))
 
     def test_axes_sanity_check(self):
-        np.testing.assert_array_equal(
-            self.axes_rotation.matrix,
-            self.axes_rotation_matrix)
+        np.testing.assert_array_equal(self.axes_rotation.matrix, self.axes_rotation_matrix)
 
     def test_x_unit_direction(self):
-        chip_x_unit = [1, 0, 0]
+        chip_x_unit = [1,0,0]
 
         kabsch_stage_x_unit = self.kabsch.rotation_to_stage.dot(chip_x_unit)
-        user_stage_x_unit = self.axes_rotation.chip_to_stage(
-            ChipCoordinate(*chip_x_unit))
+        user_stage_x_unit = self.axes_rotation.chip_to_stage(ChipCoordinate(*chip_x_unit))
 
         np.testing.assert_allclose(
             kabsch_stage_x_unit, user_stage_x_unit.to_numpy(),
@@ -694,11 +675,10 @@ class KabschOrientationPerservationTest(unittest.TestCase):
             atol=1)
 
     def test_y_unit_direction(self):
-        chip_y_unit = [0, 1, 0]
+        chip_y_unit = [0,1,0]
 
         kabsch_stage_y_unit = self.kabsch.rotation_to_stage.dot(chip_y_unit)
-        user_stage_y_unit = self.axes_rotation.chip_to_stage(
-            ChipCoordinate(*chip_y_unit))
+        user_stage_y_unit = self.axes_rotation.chip_to_stage(ChipCoordinate(*chip_y_unit))
 
         np.testing.assert_allclose(
             kabsch_stage_y_unit, user_stage_y_unit.to_numpy(),
@@ -706,16 +686,16 @@ class KabschOrientationPerservationTest(unittest.TestCase):
             atol=1)
 
     def test_z_unit_direction(self):
-        chip_z_unit = [0, 0, 1]
+        chip_z_unit = [0,0,1]
 
         kabsch_stage_z_unit = self.kabsch.rotation_to_stage.dot(chip_z_unit)
-        user_stage_z_unit = self.axes_rotation.chip_to_stage(
-            ChipCoordinate(*chip_z_unit))
-
+        user_stage_z_unit = self.axes_rotation.chip_to_stage(ChipCoordinate(*chip_z_unit))
+        
         np.testing.assert_allclose(
             kabsch_stage_z_unit, user_stage_z_unit.to_numpy(),
             rtol=1e-5,
             atol=1)
+
 
 
 class KabschOrientationPerservationRandomTest(unittest.TestCase):
@@ -726,7 +706,7 @@ class KabschOrientationPerservationRandomTest(unittest.TestCase):
     def create_pairings(
         self,
         axes_rotation: Type[AxesRotation],
-        noise=np.array([0, 0, 0]),
+        noise=np.array([0,0,0]),
         number_of_pairings=3
     ) -> List[CoordinatePairing]:
         pairings = []
@@ -754,7 +734,7 @@ class KabschOrientationPerservationRandomTest(unittest.TestCase):
                 0])
             new_stage_coord = axes_rotation.chip_to_stage(
                 new_chip_coord) - stage_offset
-
+            
             pairings.append(CoordinatePairing(
                 calibration=Mock(),
                 stage_coordinate=new_stage_coord,
@@ -763,6 +743,7 @@ class KabschOrientationPerservationRandomTest(unittest.TestCase):
 
         return pairings
 
+
     @parameterized.expand(POSSIBLE_AXIS_ROTATIONS)
     def test_for_all_possible_axes_rotation(self, stage_axes, directions):
         axes_rotation = AxesRotation()
@@ -770,7 +751,7 @@ class KabschOrientationPerservationRandomTest(unittest.TestCase):
             axes_rotation.update(chip_axis, directions[idx], stage_axes[idx])
 
         self.assertTrue(axes_rotation.is_valid)
-
+        
         kabsch_rotation = KabschRotation(axes_rotation)
         for pairing in self.create_pairings(
             axes_rotation,
@@ -780,22 +761,22 @@ class KabschOrientationPerservationRandomTest(unittest.TestCase):
             kabsch_rotation.update(pairing)
 
         # Test x unit
-        x_unit_vector = np.array([1, 0, 0])
+        x_unit_vector = np.array([1,0,0])
         ground_truth = axes_rotation.matrix @ x_unit_vector
         kabsch_transformed_vector = kabsch_rotation.rotation_to_stage @ x_unit_vector
-        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0,
-                           "X-Unit Vector orientation not perserved!")
+        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0, 
+            "X-Unit Vector orientation not perserved!")
 
         # Test y unit
-        y_unit_vector = np.array([0, 1, 0])
+        y_unit_vector = np.array([0,1,0])
         ground_truth = axes_rotation.matrix @ y_unit_vector
         kabsch_transformed_vector = kabsch_rotation.rotation_to_stage @ y_unit_vector
-        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0,
-                           "Y-Unit Vector orientation not perserved!")
+        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0, 
+            "Y-Unit Vector orientation not perserved!")
 
         # Test x unit
-        z_unit_vector = np.array([0, 0, 1])
+        z_unit_vector = np.array([0,0,1])
         ground_truth = axes_rotation.matrix @ z_unit_vector
         kabsch_transformed_vector = kabsch_rotation.rotation_to_stage @ z_unit_vector
-        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0,
-                           "Z-Unit Vector orientation not perserved!")
+        self.assertGreater(ground_truth.dot(kabsch_transformed_vector), 0, 
+            "Z-Unit Vector orientation not perserved!")

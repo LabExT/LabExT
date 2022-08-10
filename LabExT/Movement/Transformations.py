@@ -219,7 +219,7 @@ class Transformation(ABC):
     """
 
     @classmethod
-    def load(cls, data: Any) -> Type[Transformation]:
+    def load(cls, data: Any, *args, **kwargs) -> Type[Transformation]:
         """
         Creates a new Transformation from data
         """
@@ -486,11 +486,46 @@ class SinglePointOffset(Transformation):
     """
 
     @classmethod
-    def load(cls, pairing: Any) -> Type[SinglePointOffset]:
+    def load(
+        cls,
+        pairing: Any,
+        axes_rotation: Type[AxesRotation]
+    ) -> Type[SinglePointOffset]:
         """
+        Creates a new single point transformation based on pairing.
 
+        Parameters
+        ----------
+        pairing : dict
+            pairing for stage and chip coordinate
+        axes_rotation : AxesRotation
+            axes rotation associated with the transformation
+
+        Raises
+        ------
+        TransformationError
+            If pairing is not well-formed
+            If pairing does not define a valid transformation
+
+        Returns
+        -------
+        SinglePointOffset
+            A valid single point transformation based on the pairing.
         """
-        pass
+        try:
+            pairing = CoordinatePairing.load(pairing)
+        except Exception as err:
+            raise TransformationError(
+                f"Could not create pairing for {pairing}: {err}")
+
+        transformation = cls(axes_rotation)
+        transformation.update(pairing)
+
+        if not transformation.is_valid:
+            raise TransformationError(
+                "Cannot create single point offset from stored pairing. Mapping is pairing")
+
+        return transformation
 
     def __init__(self, axes_rotation: Type[AxesRotation]) -> None:
         self.axes_rotation: Type[AxesRotation] = axes_rotation
@@ -586,19 +621,14 @@ class SinglePointOffset(Transformation):
         return self.axes_rotation.stage_to_chip(
             stage_coordinate + self.stage_offset)
 
-    def dump(self, with_axes_rotation: bool = True) -> dict:
+    def dump(self) -> dict:
         """
-        Returns the single point transformation as pairing and with axes rotation.
+        Returns the single point transformation as pairing.
         """
         if not self.pairing:
             return {}
 
-        # breakpoint()
-        pairing = {
-            "stage_coordinate"
-        }
-
-        return super().dump()
+        return self.pairing.dump()
 
 
 class KabschRotation(Transformation):
