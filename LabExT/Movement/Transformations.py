@@ -642,6 +642,35 @@ class KabschRotation(Transformation):
 
     MIN_POINTS = 3
 
+    @classmethod
+    def load(
+        cls,
+        pairing: list,
+        axes_rotation: Type[KabschRotation]
+    ) -> Type[Transformation]:
+        """
+        Creates a new kabsch rotation based on pairings.
+
+        Parameters
+        ----------
+        pairings : list
+            pairings for stage and chip coordinates
+        axes_rotation : AxesRotation
+            axes rotation associated with the transformation
+
+        Raises
+        ------
+        TransformationError
+            If pairings are not well-formed
+            If pairings do not define a valid transformation
+
+        Returns
+        -------
+        KabschRotation
+            A valid kabsch rotation based on the pairings.
+        """
+        pass
+
     def __init__(self, axes_rotation: Type[AxesRotation] = None) -> None:
         self.initialize(axes_rotation)
 
@@ -775,6 +804,12 @@ class KabschRotation(Transformation):
         return ChipCoordinate.from_numpy((
             self.rotation_to_chip.dot(stage_coordinate.to_numpy()) +
             self.translation_to_chip.T).flatten())
+
+    def dump(self, *args, **kwargs) -> Any:
+        """
+        Returns a list of pairings defining the rotation.
+        """
+        return super().dump(*args, **kwargs)
 
 
 def rigid_transform_with_orientation_preservation(
