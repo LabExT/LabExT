@@ -68,6 +68,10 @@ class MainWindowContextMenu(Menu):
         self._movement_new.add_command(
             label="Calibrate Stages...",
             command=self._menu_listener.client_calibrate_stage)
+        self._movement_new.add_separator()
+        self._movement_new.add_command(
+            label="Move Stages Relative",
+            command=self._menu_listener.client_move_stages)
 
         self._movement.add_command(
             label="Configure Stages",
@@ -75,9 +79,6 @@ class MainWindowContextMenu(Menu):
         self._movement.add_command(
             label="Define Chip-Stage Coordinate Transformation",
             command=self._menu_listener.client_transformation)
-        self._movement.add_command(
-            label="Move Stages Relative",
-            command=self._menu_listener.client_move_stages)
         self._movement.add_command(
             label="Move Stages to Device",
             command=self._menu_listener.client_move_device)

@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger()
 
+
 class Coordinate(ABC):
     """
     Abstract base class of a coordinate with X, Y and Z values.
@@ -108,6 +109,13 @@ class Coordinate(ABC):
         Returns a new coordinate of the same type.
         """
         return self.type.from_numpy(self.to_numpy() * scalar)
+
+    @property
+    def is_zero(self) -> bool:
+        """
+        Returns True if the coordinate is equal to [0,0,0]
+        """
+        return np.all(self.to_numpy() == 0)
 
     def to_list(self) -> list:
         """
@@ -541,7 +549,7 @@ class KabschRotation(Transformation):
         # the second argument is the target set.
         #
         # INPUT: chip coordinates as start set and stage coordinate as target set
-        # OUTPUT: R, t, R^-1, t' s.t. 
+        # OUTPUT: R, t, R^-1, t' s.t.
         # -> R * Chip-Coordinates + t = Stage-Coordinates
         # -> R^-1 * Stage-Coordinates + t' = Chip-Coordinates
 
