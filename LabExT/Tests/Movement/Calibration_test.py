@@ -20,6 +20,7 @@ from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Transformations import ChipCoordinate, CoordinatePairing, StageCoordinate
 from LabExT.Movement.Calibration import Calibration, CalibrationError, assert_minimum_state_for_coordinate_system
+from ...Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
 EXPECTED_TO_REJECT = [
@@ -694,3 +695,91 @@ class CalibrationTest(CalibrationTestCase):
                 'chip_coordinate': [1046.25, 1287.5, 0.0],
                 'device_id': 3
             }])
+
+
+    def test_load_with_axes_rotation(self):
+        self.stage.connect()
+        calibration_data = {
+            "orientation": "LEFT",
+            "device_port": "INPUT",
+            "axes_rotation": {
+                'X': ('NEGATIVE', 'Z'),
+                'Y': ('POSITIVE', 'X'),
+                'Z': ('NEGATIVE', 'Y')
+            }
+        }
+
+        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data)
+        self.assertEqual(restored_calibration.state, State.COORDINATE_SYSTEM_FIXED)
+
+    def test_load_with_single_point_offset(self):
+        self.stage.connect()
+        calibration_data = {
+            "orientation": "LEFT",
+            "device_port": "INPUT",
+            "axes_rotation": {
+                'X': ('NEGATIVE', 'Z'),
+                'Y': ('POSITIVE', 'X'),
+                'Z': ('NEGATIVE', 'Y')
+            },
+            "single_point_offset": {
+                'stage_coordinate': [23236.35, -7888.67, 18956.06],
+                'chip_coordinate': [-1550.0, 1120.0, 0.0],
+                'device_id': 1
+            }
+        }
+
+        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data)
+        self.assertEqual(restored_calibration.state, State.SINGLE_POINT_FIXED)
+
+    def test_load_with_kabsch_rotation(self):
+        self.stage.connect()
+        chip = Chip(
+            name="Dummy Chip",
+            devices=[
+                Device(0, [0,0], [1,1]),
+                Device(1, [2,2], [3,3]),
+                Device(2, [4,4], [5,5]),
+                Device(3, [6,6], [7,7])
+            ])
+
+        calibration_data = {
+            "orientation": "LEFT",
+            "device_port": "INPUT",
+            "axes_rotation": {
+                'X': ('NEGATIVE', 'Z'),
+                'Y': ('POSITIVE', 'X'),
+                'Z': ('NEGATIVE', 'Y')
+            },
+            "single_point_offset": {
+                'stage_coordinate': [23236.35, -7888.67, 18956.06],
+                'chip_coordinate': [-1550.0, 1120.0, 0.0],
+                'device_id': 1
+            },
+            "kabsch_rotation": [
+                {
+                    'stage_coordinate': [23236.35, -7888.67, 18956.06],
+                    'chip_coordinate': [-1550.0, 1120.0, 0.0],
+                    'device_id': 0
+                },
+                {
+                    'stage_coordinate': [23744.6, -9172.55, 18956.1],
+                    'chip_coordinate': [-1050.0, -160.0, 0.0],
+                    'device_id': 1
+                },
+                {
+                    'stage_coordinate': [25846.07, -10348.82, 18955.11],
+                    'chip_coordinate': [1046.25, -1337.5, 0.0],
+                    'device_id': 2
+                },
+                {
+                    'stage_coordinate': [25837.8, -7721.47, 18972.08],
+                    'chip_coordinate': [1046.25, 1287.5, 0.0],
+                    'device_id': 3
+                }   
+            ]
+        }
+
+        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
+        self.assertEqual(restored_calibration.state, State.FULLY_CALIBRATED)
+

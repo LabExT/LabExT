@@ -4,6 +4,8 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
+import logging
 
 from typing import TYPE_CHECKING, Type, Union
 from functools import wraps
@@ -19,6 +21,8 @@ from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
 
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
+    from LabExT.Movement.MoverNew import MoverNew
+    from LabExT.Wafer.Chip import Chip
 
 
 class CalibrationError(RuntimeError):
@@ -67,23 +71,110 @@ class Calibration:
     Represents a calibration of one stage.
     """
 
-    def __init__(self, mover, stage, orientation, device_port) -> None:
+    _logger = logging.getLogger()
+
+    @classmethod
+    def load(
+        cls,
+        mover: Type[MoverNew],
+        stage: Type[Stage],
+        calibration_data: dict,
+        chip: Type[Chip] = None
+    ) -> Type[Calibration]:
+        """
+        Creates a new calibration based on calibration data.
+
+        Parameters
+        ----------
+        mover : Mover
+            Instance of mover associated with this calibration.
+        stage : Stage
+            Instance of a stage
+        calibration_data : dict
+            Dumped calibration data
+
+        Returns
+        -------
+        Calibration
+            Instance of calibration
+        """
+        try:
+            orientation = Orientation[calibration_data["orientation"]]
+            device_port = DevicePort[calibration_data["device_port"]]
+        except KeyError as err:
+            raise CalibrationError(
+                f"The parameter is not defined: {err}. "
+                "Make sure to pass a valid orientation and device port.")
+
+        axes_rotation = None
+        if "axes_rotation" in calibration_data:
+            axes_rotation = AxesRotation.load(
+                calibration_data["axes_rotation"])
+
+        single_point_offset = None
+        if "single_point_offset" in calibration_data:
+            if axes_rotation is not None:
+                single_point_offset = SinglePointOffset.load(
+                    calibration_data["single_point_offset"], axes_rotation=axes_rotation)
+            else:
+                cls._logger.debug(
+                    "Cannot set single point offset when axes rotation is not defined")
+
+        kabsch_rotation = None
+        if "kabsch_rotation" in calibration_data:
+            if axes_rotation is not None and chip is not None:
+                kabsch_rotation = KabschRotation.load(
+                    calibration_data["kabsch_rotation"], chip=chip, axes_rotation=axes_rotation)
+            else:
+                cls._logger.debug(
+                    "Cannot set kabsch rotation when axes rotation or chip is not defined")
+
+        return cls(
+            mover,
+            stage,
+            orientation,
+            device_port,
+            axes_rotation,
+            single_point_offset,
+            kabsch_rotation)
+
+    def __init__(
+        self,
+        mover: Type[MoverNew],
+        stage: Type[Stage],
+        orientation: Orientation,
+        device_port: DevicePort,
+        axes_rotation: Type[AxesRotation] = None,
+        single_point_offset: Type[SinglePointOffset] = None,
+        kabsch_rotation: Type[KabschRotation] = None
+    ) -> None:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
         self.stage_polygon: Type[StagePolygon] = SingleModeFiber(orientation)
 
-        self._state = State.CONNECTED if stage.connected else State.UNINITIALIZED
         self._orientation = orientation
         self._device_port = device_port
 
         self._coordinate_system = None
 
-        self._axes_rotation: Type[AxesRotation] = AxesRotation()
-        self._single_point_offset: Type[SinglePointOffset] = SinglePointOffset(
-            self._axes_rotation)
-        self._kabsch_rotation: Type[KabschRotation] = KabschRotation(
-            self._axes_rotation)
+        self._axes_rotation = axes_rotation
+        if axes_rotation is None:
+            self._axes_rotation = AxesRotation()
+
+        self._single_point_offset = single_point_offset
+        if single_point_offset is None:
+            self._single_point_offset = SinglePointOffset(self._axes_rotation)
+
+        self._kabsch_rotation = kabsch_rotation
+        if kabsch_rotation is None:
+            self._kabsch_rotation = KabschRotation(self._axes_rotation)
+
+        assert self._single_point_offset.axes_rotation == self._axes_rotation, "Axes rotation for single point offset must be the same than for the calibration."
+        assert self._kabsch_rotation.axes_rotation == self._axes_rotation, "Axes rotation for kabsch rotation must be the same than for the calibration"
+
+        self._state = State.UNINITIALIZED
+        self.determine_state(skip_connection=False)
 
     #
     #   Representation
@@ -511,7 +602,8 @@ class Calibration:
             calibration_dump["axes_rotation"] = self._axes_rotation.dump()
 
         if self._single_point_offset.is_valid:
-            calibration_dump["single_point_offset"] = self._single_point_offset.dump()
+            calibration_dump["single_point_offset"] = self._single_point_offset.dump(
+            )
 
         if self._kabsch_rotation.is_valid:
             calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()

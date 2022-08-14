@@ -219,7 +219,7 @@ class Transformation(ABC):
     The base class cannot be initialised directly.
     """
 
-    @classmethod
+    @abstractclassmethod
     def load(cls, data: Any, *args, **kwargs) -> Type[Transformation]:
         """
         Creates a new Transformation from data
