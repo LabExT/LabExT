@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from shutil import move
+from typing import Any
 import unittest
 import numpy as np
 from unittest.mock import Mock, patch, call
@@ -19,6 +20,7 @@ from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Transformations import ChipCoordinate, CoordinatePairing, StageCoordinate
 from LabExT.Movement.Calibration import Calibration, CalibrationError, assert_minimum_state_for_coordinate_system
+from LabExT.Wafer.Device import Device
 
 EXPECTED_TO_REJECT = [
     (State.UNINITIALIZED, [State.CONNECTED, State.COORDINATE_SYSTEM_FIXED, State.SINGLE_POINT_FIXED, State.FULLY_CALIBRATED]),
@@ -71,17 +73,17 @@ class CalibrationTestCase(unittest.TestCase):
         self.calibration.update_single_point_offset(CoordinatePairing(
             self.calibration,
             StageCoordinate.from_numpy(VACHERIN_STAGE_COORDS[0]),
-            Mock(),
+            Device(id=1, in_position=[0,0], out_position=[1,1]),
             ChipCoordinate.from_numpy(VACHERIN_CHIP_COORDS[0])
         ))
 
     def set_valid_kabsch_rotation(self):
-        for stage_coord, chip_coord in zip(
-                VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+        for device_id, (stage_coord, chip_coord) in enumerate(zip(
+                VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS)):
             self.calibration.update_kabsch_rotation(CoordinatePairing(
                 calibration=self.calibration,
                 stage_coordinate=StageCoordinate.from_numpy(stage_coord),
-                device=Mock(),
+                device=Device(device_id, [0,0], [1,1]),
                 chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
 
 
@@ -635,3 +637,60 @@ class CalibrationTest(CalibrationTestCase):
         set_speed_z_mock.assert_has_calls([call(5000), call(current_speed_z)])
         set_speed_xy_mock.assert_has_calls(
             [call(5000), call(current_speed_xy)])
+
+    def test_dump_includes_orientation_and_port(self):
+        calibration = Calibration(self.mover, self.stage, Orientation.BOTTOM, DevicePort.INPUT)
+        calibration_dump = calibration.dump()
+
+        self.assertEqual(calibration_dump["orientation"], "BOTTOM")
+        self.assertEqual(calibration_dump["device_port"], "INPUT")
+
+
+    def test_dump_with_no_single_point_offset(self):
+        self.assertFalse(self.calibration._single_point_offset.is_valid)
+        self.assertFalse("single_point_offset" in self.calibration.dump())
+
+    def test_dump_with_single_point_offset(self):
+        self.set_valid_single_point_offset()
+
+        self.assertTrue(self.calibration._single_point_offset.is_valid)
+        self.assertDictEqual(self.calibration.dump()["single_point_offset"], {
+            'stage_coordinate': [23236.35, -7888.67, 18956.06],
+            'chip_coordinate': [-1550.0, 1120.0, 0.0],
+            'device_id': 1
+        })
+
+    def test_dump_with_axes_rotation(self):
+        self.set_valid_axes_rotation()
+
+        self.assertTrue(self.calibration._axes_rotation.is_valid)
+        self.assertDictEqual(self.calibration.dump()["axes_rotation"], {
+            'X': ('NEGATIVE', 'Z'),
+            'Y': ('POSITIVE', 'X'),
+            'Z': ('NEGATIVE', 'Y')
+        })
+
+    def test_dump_with_kabsch_rotation(self):
+        self.set_valid_kabsch_rotation()
+        self.assertTrue(self.calibration._kabsch_rotation.is_valid)
+        self.assertListEqual(self.calibration.dump()["kabsch_rotation"], [
+            {
+                'stage_coordinate': [23236.35, -7888.67, 18956.06],
+                'chip_coordinate': [-1550.0, 1120.0, 0.0],
+                'device_id': 0
+            },
+            {
+                'stage_coordinate': [23744.6, -9172.55, 18956.1],
+                'chip_coordinate': [-1050.0, -160.0, 0.0],
+                'device_id': 1
+            },
+            {
+                'stage_coordinate': [25846.07, -10348.82, 18955.11],
+                'chip_coordinate': [1046.25, -1337.5, 0.0],
+                'device_id': 2
+            },
+            {
+                'stage_coordinate': [25837.8, -7721.47, 18972.08],
+                'chip_coordinate': [1046.25, 1287.5, 0.0],
+                'device_id': 3
+            }])

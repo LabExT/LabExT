@@ -82,7 +82,8 @@ class Calibration:
         self._axes_rotation: Type[AxesRotation] = AxesRotation()
         self._single_point_offset: Type[SinglePointOffset] = SinglePointOffset(
             self._axes_rotation)
-        self._kabsch_rotation: Type[KabschRotation] = KabschRotation(self._axes_rotation)
+        self._kabsch_rotation: Type[KabschRotation] = KabschRotation(
+            self._axes_rotation)
 
     #
     #   Representation
@@ -497,3 +498,22 @@ class Calibration:
 
         self.stage.set_speed_xy(current_speed_xy)
         self.stage.set_speed_z(current_speed_z)
+
+    def dump(self) -> dict:
+        """
+        Returns a dict of all calibration properties.
+        """
+        calibration_dump = {
+            "orientation": self.orientation.value,
+            "device_port": self._device_port.value}
+
+        if self._axes_rotation.is_valid:
+            calibration_dump["axes_rotation"] = self._axes_rotation.dump()
+
+        if self._single_point_offset.is_valid:
+            calibration_dump["single_point_offset"] = self._single_point_offset.dump()
+
+        if self._kabsch_rotation.is_valid:
+            calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()
+
+        return calibration_dump
