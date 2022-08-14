@@ -18,6 +18,7 @@ from LabExT.Movement.config import Axis, Direction
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
     from LabExT.Wafer.Device import Device
+    from LabExT.Wafer.Chip import Chip
 
 
 logger = logging.getLogger()
@@ -523,7 +524,7 @@ class SinglePointOffset(Transformation):
 
         if not transformation.is_valid:
             raise TransformationError(
-                "Cannot create single point offset from stored pairing. Mapping is pairing")
+                "Cannot create single point offset from stored pairing. Pairing is invalid")
 
         return transformation
 
@@ -645,7 +646,8 @@ class KabschRotation(Transformation):
     @classmethod
     def load(
         cls,
-        pairing: list,
+        pairings: list,
+        chip: Type[Chip],
         axes_rotation: Type[KabschRotation]
     ) -> Type[Transformation]:
         """
@@ -669,7 +671,26 @@ class KabschRotation(Transformation):
         KabschRotation
             A valid kabsch rotation based on the pairings.
         """
-        pass
+        kabsch_rotation = cls(axes_rotation)
+        for pairing in pairings:
+            device = chip.devices.get(pairing["device_id"])
+            if device is None:
+                raise TransformationError(
+                    f"Could not find Device with ID {pairing['device_id']} for given chip {chip}")
+
+            try:
+                pairing = CoordinatePairing.load(pairing, device=device)
+            except Exception as err:
+                raise TransformationError(
+                    f"Could not create pairing for {pairing}: {err}")
+
+            kabsch_rotation.update(pairing)
+
+        if not kabsch_rotation.is_valid:
+            raise TransformationError(
+                "Cannot create kabsch rotation from stored pairings. Rotation is invalid.")
+
+        return kabsch_rotation
 
     def __init__(self, axes_rotation: Type[AxesRotation] = None) -> None:
         self.initialize(axes_rotation)
@@ -725,7 +746,8 @@ class KabschRotation(Transformation):
         ValueError
            If the pairing is not well defined or a pairing for the chip has already been set.
         """
-        if not isinstance(pairing, CoordinatePairing) or not all(pairing):
+        if not isinstance(pairing, CoordinatePairing) or (
+                pairing.device is None or pairing.chip_coordinate is None or pairing.stage_coordinate is None):
             raise ValueError(
                 "Use a complete CoordinatePairing object to update the rotation. ")
 
@@ -805,11 +827,12 @@ class KabschRotation(Transformation):
             self.rotation_to_chip.dot(stage_coordinate.to_numpy()) +
             self.translation_to_chip.T).flatten())
 
-    def dump(self, *args, **kwargs) -> Any:
+    def dump(self) -> Any:
         """
         Returns a list of pairings defining the rotation.
         """
-        return super().dump(*args, **kwargs)
+        return [
+            p.dump(include_device_id=True) for p in self.pairings]
 
 
 def rigid_transform_with_orientation_preservation(
