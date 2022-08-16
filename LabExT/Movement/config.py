@@ -41,6 +41,13 @@ class Orientation(BaseEnum):
     BOTTOM = auto()
 
 
+CLOCKWISE_ORDERING = [
+    Orientation.TOP,
+    Orientation.RIGHT,
+    Orientation.BOTTOM,
+    Orientation.LEFT]
+
+
 class DevicePort(BaseEnum):
     """Enumerate different device ports."""
     INPUT = auto()
