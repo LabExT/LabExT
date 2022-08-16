@@ -23,11 +23,16 @@ from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
-from LabExT.View.Movement.MovementWizard import CalibrationWizard, MoverWizard, StageWizard
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
-
+from LabExT.View.Movement import (
+    CalibrationWizard,
+    MoverWizard,
+    StageWizard,
+    MoveStagesRelativeWindow,
+    MoveStagesDeviceWindow
+)
 
 class MListener:
     """Listens to the events triggered by clicks on the menu bar.
@@ -231,99 +236,28 @@ class MListener:
         ConfigureStageWindow(self.stage_configure_toplevel, self._experiment_manager)
 
     def client_move_stages(self):
-        """Called when the user wants to move the stages manually.
+        """
+        Called when the user wants to move the stages manually.
         Opens a window with parameters for relative movement.
         """
         if try_to_lift_window(self.stage_movement_toplevel):
             return
 
-        self.logger.debug('Client wants to move stages manually')
-
-        # create new window
-        self.stage_movement_toplevel = Toplevel(self._root)
-        self.stage_movement_toplevel.attributes('-topmost', 'true')
-
-        self._params = {}
-        for dim_name in self._experiment_manager.mover.dimension_names:
-            self._params[dim_name] = ConfigParameter(self.stage_movement_toplevel, unit='um', parameter_type='number_float')
-
-        param_table = ParameterTable(self.stage_movement_toplevel)
-        param_table.grid(row=0, column=0, padx=5, pady=50)
-        param_table.title = 'Relative movement of stages'
-        param_table.parameter_source = self._params
-
-        if len(self._params) == 0:
-            lbl = Label(self.stage_movement_toplevel, text='Mover not initialized yet.')
-            lbl.grid(row=0, column=0)
-        else:
-            ok_button = Button(self.stage_movement_toplevel, text='Move stages', command=self._move_relative)
-            ok_button.grid(row=1, column=0, sticky='e')
-
-    def _move_relative(self):
-        """Called when the user presses on button 'Move stages' in
-        client_move_stages. Calls mover to perform a relative movement.
-        """
-        # get values from input fields
-        relative_moves = []
-        for dim_name in self._experiment_manager.mover.dimension_names:
-            relative_moves.append(self._params[dim_name].value)
-        self.logger.info('Client wants to move stages manually - %s', relative_moves)
-
-        try:
-            self._experiment_manager.mover.move_relative(*relative_moves, lift_z_dir=True)
-        except Exception as exc:
-            msg = 'Could not move stages manually! Reason: ' + repr(exc)
-            messagebox.showinfo('Error', msg)
-            self.logger.exception(msg)
+        self.stage_movement_toplevel = MoveStagesRelativeWindow(
+            self._root, self._experiment_manager.mover_new)
 
     def client_move_device(self):
-        """Called when the user wants to move the stages to a specific device.
+        """
+        Called when the user wants to move the stages to a specific device.
         Opens a MoveDeviceWindow and uses mover to perform the movement.
         """
-        self.logger.debug('client wants to move to specific device')
-
-        if not self._experiment_manager.chip:
-            msg = 'No chip file imported before moving to device. Cannot move to device without chip file present.'
-            messagebox.showerror('No chip layout', msg)
-            self.logger.error(msg)
-            return
-        if not self._experiment_manager.mover.trafo_enabled:
-            msg = 'Stage coordinates not calibrated to chip. ' + \
-                  'Please calibrate the coordinate transformation first before moving the stages automatically.'
-            messagebox.showerror('Error: No transformation', msg)
-            self.logger.error(msg)
-            return
-
         if try_to_lift_window(self.stage_device_toplevel):
             return
 
-        # open a new window
-        self.stage_device_toplevel = Toplevel(self._root)
-        # place the table inside
-        dev_window = MoveDeviceWindow(self.stage_device_toplevel,
-                                      self._experiment_manager,
-                                      'Please select the device to which you would like to move')
-        self._root.wait_window(self.stage_device_toplevel)
-
-        # get the selected device
-        device = dev_window.selection
-
-        # catch case where no device is selected
-        if device is None:
-            msg = 'No device selected. Aborting move.'
-            messagebox.showwarning("No Device Selected", msg)
-            self.logger.warning(msg)
-            return
-
-        # perform movement
-        run_with_wait_window(
+        self.stage_device_toplevel = MoveStagesDeviceWindow(
             self._root,
-            "Moving to device...",
-            lambda: self._experiment_manager.mover.move_to_device(device))
-
-        msg = 'Successfully moved to device with ID: ' + str(device._id)
-        messagebox.showinfo('Success', msg)
-        self.logger.info(msg)
+            self._experiment_manager.mover_new,
+            self._experiment_manager.chip)
 
     def client_transformation(self):
         """Called when user wants to perform a coordinate transformation.

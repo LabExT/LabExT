@@ -5,19 +5,23 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY;
 for details see LICENSE file.
 """
-
 from __future__ import annotations
-from typing import TYPE_CHECKING, NamedTuple, Type
-from abc import ABC, abstractmethod, abstractproperty
+import logging
+
+from typing import TYPE_CHECKING, Any, NamedTuple, Type
+from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from functools import wraps
 import numpy as np
-from scipy.spatial.transform import Rotation
 
 from LabExT.Movement.config import Axis, Direction
 
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
+    from LabExT.Wafer.Device import Device
     from LabExT.Wafer.Chip import Chip
+
+
+logger = logging.getLogger()
 
 
 class Coordinate(ABC):
@@ -107,6 +111,13 @@ class Coordinate(ABC):
         """
         return self.type.from_numpy(self.to_numpy() * scalar)
 
+    @property
+    def is_zero(self) -> bool:
+        """
+        Returns True if the coordinate is equal to [0,0,0]
+        """
+        return np.all(self.to_numpy() == 0)
+
     def to_list(self) -> list:
         """
         Returns the coordinate as a list.
@@ -141,8 +152,64 @@ class ChipCoordinate(Coordinate):
 class CoordinatePairing(NamedTuple):
     calibration: Type[Calibration]
     stage_coordinate: Type[StageCoordinate]
-    device: Type[Chip]
+    device: Type[Device]
     chip_coordinate: Type[ChipCoordinate]
+
+    @classmethod
+    def load(
+        cls,
+        pairing: dict,
+        device: Type[Device] = None,
+        calibration: Type[Calibration] = None
+    ) -> Type[CoordinatePairing]:
+        """
+        Creates a new coordinate pairing for given data.
+
+        Parameters
+        ----------
+        pairing : dict
+            Pairing consisting of stage and chip coordinate
+        device : Device = None
+            Devices associated with the pairing
+        calibration : Calibration
+            Calibration associated with the pairing
+
+        Raises
+        ------
+        ValueError
+            If pairing is not well-formed.
+
+        Returns
+        -------
+        CoordinatePairing based on the given data
+        """
+        if "stage_coordinate" not in pairing or "chip_coordinate" not in pairing:
+            raise ValueError(
+                f"Cannot create coordinate paring. Stage and Chip coordinate are required.")
+
+        return cls(
+            calibration=calibration,
+            stage_coordinate=StageCoordinate.from_list(
+                pairing["stage_coordinate"]),
+            device=device,
+            chip_coordinate=StageCoordinate.from_list(
+                pairing["chip_coordinate"]))
+
+    def dump(self, include_device_id: bool = True) -> dict:
+        """
+        Returns the pairing as dict.
+
+        Includes device ID if required.
+        """
+        pairing = {
+            "stage_coordinate": self.stage_coordinate.to_list(),
+            "chip_coordinate": self.chip_coordinate.to_list()}
+
+        if not include_device_id:
+            return pairing
+
+        pairing["device_id"] = self.device.id
+        return pairing
 
 
 class Transformation(ABC):
@@ -151,6 +218,13 @@ class Transformation(ABC):
 
     The base class cannot be initialised directly.
     """
+
+    @abstractclassmethod
+    def load(cls, data: Any, *args, **kwargs) -> Type[Transformation]:
+        """
+        Creates a new Transformation from data
+        """
+        pass
 
     @abstractmethod
     def __init__(self) -> None:
@@ -188,6 +262,12 @@ class Transformation(ABC):
         """
         pass
 
+    def dump(self, *args, **kwargs) -> Any:
+        """
+        Dumps transformation into storable format.
+        """
+        pass
+
 
 class TransformationError(RuntimeError):
     pass
@@ -222,6 +302,51 @@ class AxesRotation(Transformation):
     - Chip-to-Stage: Given a chip coordinate, this is multiplied on the right by the matrix to obtain a stage coordinate.
     - Stage-to-Chip: Given a stage coordinate, this is multiplied on the right by the inverse matrix to obtain a chip coordinate.
     """
+
+    @classmethod
+    def load(cls, mapping: dict) -> Type[AxesRotation]:
+        """
+        Creates a new axes rotation transformation based on axes mapping.
+
+        Parameters
+        ----------
+        mapping: Dict[str, (str, str)]
+            Mapping from a chip axis to a tuple with direction and stage axis
+
+        Raises
+        ------
+        TransformationError
+            If mapping is not well-formed
+            If mapping does not define a valid axes rotation
+
+        Returns
+        -------
+        AxesRotation
+            A valid axes rotation based on the mapping.
+        """
+        if len(mapping) != 3:
+            raise TransformationError(
+                "Cannot create axes rotation. "
+                f"Axis mapping must consist of 3 mappings, got mapping with {len(mapping)} mappings.")
+
+        axes_rotation = cls()
+        for chip_axis, (direction, stage_axis) in mapping.items():
+            try:
+                chip_axis = Axis[chip_axis]
+                direction = Direction[direction]
+                stage_axis = Axis[stage_axis]
+            except KeyError as err:
+                raise TransformationError(
+                    f"The parameter is not defined: {err}. "
+                    "Make sure to pass a mapping of valid directions and axes.")
+
+            axes_rotation.update(chip_axis, direction, stage_axis)
+
+        if not axes_rotation.is_valid:
+            raise TransformationError(
+                "Cannot create axes rotation from stored mapping. Mapping is invalid")
+
+        return axes_rotation
 
     def __init__(self) -> None:
         self.initialize()
@@ -337,6 +462,14 @@ class AxesRotation(Transformation):
         return ChipCoordinate.from_numpy(
             np.linalg.inv(self.matrix).dot(stage_coordinate.to_numpy()))
 
+    def dump(self) -> dict:
+        """
+        Returns the axes rotation as an axis mapping in a dict
+        """
+        return {
+            chip_axis.name: (direction.name, stage_axis.name)
+            for chip_axis, (direction, stage_axis) in self.mapping.items()}
+
 
 class SinglePointOffset(Transformation):
     """
@@ -352,6 +485,48 @@ class SinglePointOffset(Transformation):
 
     Note: The transformation assumes that the stage and chip axes are parallel. This is not the case in reality, so this transformation is only an approximation.
     """
+
+    @classmethod
+    def load(
+        cls,
+        pairing: Any,
+        axes_rotation: Type[AxesRotation]
+    ) -> Type[SinglePointOffset]:
+        """
+        Creates a new single point transformation based on pairing.
+
+        Parameters
+        ----------
+        pairing : dict
+            pairing for stage and chip coordinate
+        axes_rotation : AxesRotation
+            axes rotation associated with the transformation
+
+        Raises
+        ------
+        TransformationError
+            If pairing is not well-formed
+            If pairing does not define a valid transformation
+
+        Returns
+        -------
+        SinglePointOffset
+            A valid single point transformation based on the pairing.
+        """
+        try:
+            pairing = CoordinatePairing.load(pairing)
+        except Exception as err:
+            raise TransformationError(
+                f"Could not create pairing for {pairing}: {err}")
+
+        transformation = cls(axes_rotation)
+        transformation.update(pairing)
+
+        if not transformation.is_valid:
+            raise TransformationError(
+                "Cannot create single point offset from stored pairing. Pairing is invalid")
+
+        return transformation
 
     def __init__(self, axes_rotation: Type[AxesRotation]) -> None:
         self.axes_rotation: Type[AxesRotation] = axes_rotation
@@ -447,6 +622,15 @@ class SinglePointOffset(Transformation):
         return self.axes_rotation.stage_to_chip(
             stage_coordinate + self.stage_offset)
 
+    def dump(self) -> dict:
+        """
+        Returns the single point transformation as pairing.
+        """
+        if not self.pairing:
+            return {}
+
+        return self.pairing.dump()
+
 
 class KabschRotation(Transformation):
     """
@@ -459,31 +643,86 @@ class KabschRotation(Transformation):
 
     MIN_POINTS = 3
 
-    def __init__(self) -> None:
-        self.initialize()
+    @classmethod
+    def load(
+        cls,
+        pairings: list,
+        chip: Type[Chip],
+        axes_rotation: Type[KabschRotation]
+    ) -> Type[Transformation]:
+        """
+        Creates a new kabsch rotation based on pairings.
 
-    def initialize(self) -> None:
+        Parameters
+        ----------
+        pairings : list
+            pairings for stage and chip coordinates
+        axes_rotation : AxesRotation
+            axes rotation associated with the transformation
+
+        Raises
+        ------
+        TransformationError
+            If pairings are not well-formed
+            If pairings do not define a valid transformation
+
+        Returns
+        -------
+        KabschRotation
+            A valid kabsch rotation based on the pairings.
+        """
+        kabsch_rotation = cls(axes_rotation)
+        for pairing in pairings:
+            device = chip.devices.get(pairing["device_id"])
+            if device is None:
+                raise TransformationError(
+                    f"Could not find Device with ID {pairing['device_id']} for given chip {chip}")
+
+            try:
+                pairing = CoordinatePairing.load(pairing, device=device)
+            except Exception as err:
+                raise TransformationError(
+                    f"Could not create pairing for {pairing}: {err}")
+
+            kabsch_rotation.update(pairing)
+
+        if not kabsch_rotation.is_valid:
+            raise TransformationError(
+                "Cannot create kabsch rotation from stored pairings. Rotation is invalid.")
+
+        return kabsch_rotation
+
+    def __init__(self, axes_rotation: Type[AxesRotation] = None) -> None:
+        self.initialize(axes_rotation)
+
+    def initialize(self, axes_rotation: Type[AxesRotation] = None) -> None:
         """
         Initalises the transformation by unsetting all coordinates and offsets.
         """
         self.pairings = []
 
-        self.chip_coordinates = np.empty((0, 3), float)
-        self.stage_coordinates = np.empty((0, 3), float)
+        # Both will be 3xN matrices
+        self.chip_coordinates = np.empty((3, 0), float)
+        self.stage_coordinates = np.empty((3, 0), float)
 
-        self.chip_offset = None
-        self.stage_offset = None
+        self.rotation_to_chip = None
+        self.translation_to_chip = None
 
-        self.rotation = None
-        self._rmsd = None
+        self.rotation_to_stage = None
+        self.translation_to_stage = None
+
+        # Take the given axes rotation or sets it to a identity rotation
+        self.axes_rotation = axes_rotation if axes_rotation else AxesRotation()
+
+        if not self.axes_rotation.is_valid:
+            raise RuntimeError("The given axes rotation is invalid.")
 
     def __str__(self) -> str:
         if not self.is_valid:
             return "No valid rotation defined ({}/{} Points set)".format(
                 len(self.pairings), self.MIN_POINTS)
 
-        return "Rotation defined with {} Points (RMSD: {})".format(
-            len(self.pairings), self.rmsd)
+        return f"Rotation defined with {len(self.pairings)} Points"
 
     @property
     def is_valid(self) -> bool:
@@ -491,13 +730,6 @@ class KabschRotation(Transformation):
         Returns True if Kabsch transformation is defined, i.e. if more than 3 pairings are defined.
         """
         return len(self.pairings) >= self.MIN_POINTS
-
-    @property
-    def rmsd(self):
-        """
-        Returns RMSD of rotation.
-        """
-        return self._rmsd if self.is_valid else None
 
     def update(self, pairing: Type[CoordinatePairing]) -> None:
         """
@@ -514,7 +746,8 @@ class KabschRotation(Transformation):
         ValueError
            If the pairing is not well defined or a pairing for the chip has already been set.
         """
-        if not isinstance(pairing, CoordinatePairing) or not all(pairing):
+        if not isinstance(pairing, CoordinatePairing) or (
+                pairing.device is None or pairing.chip_coordinate is None or pairing.stage_coordinate is None):
             raise ValueError(
                 "Use a complete CoordinatePairing object to update the rotation. ")
 
@@ -526,27 +759,26 @@ class KabschRotation(Transformation):
 
         self.chip_coordinates = np.append(
             self.chip_coordinates,
-            [pairing.chip_coordinate.to_numpy()],
-            axis=0)
+            np.array([pairing.chip_coordinate.to_numpy()]).T,
+            axis=1)
         self.stage_coordinates = np.append(
             self.stage_coordinates,
-            [pairing.stage_coordinate.to_numpy()],
-            axis=0)
+            np.array([pairing.stage_coordinate.to_numpy()]).T,
+            axis=1)
 
         if not self.is_valid:
             return
 
-        # Calculate mean for each set
-        self.chip_offset = ChipCoordinate.from_numpy(
-            self.chip_coordinates.mean(axis=0))
-        self.stage_offset = StageCoordinate.from_numpy(
-            self.stage_coordinates.mean(axis=0))
+        # Calculate the rotation. Note: The first argument is the start set,
+        # the second argument is the target set.
+        #
+        # INPUT: chip coordinates as start set and stage coordinate as target set
+        # OUTPUT: R, t, R^-1, t' s.t.
+        # -> R * Chip-Coordinates + t = Stage-Coordinates
+        # -> R^-1 * Stage-Coordinates + t' = Chip-Coordinates
 
-
-        # Create Rotation with centered vectors
-        self.rotation, self._rmsd = Rotation.align_vectors(
-            (self.chip_coordinates - self.chip_offset.to_numpy()),
-            (self.stage_coordinates - self.stage_offset.to_numpy()))
+        self.rotation_to_stage, self.translation_to_stage, self.rotation_to_chip, self.translation_to_chip = rigid_transform_with_orientation_preservation(
+            S=self.chip_coordinates, T=self.stage_coordinates, axes_rotation=self.axes_rotation.matrix)
 
     @assert_valid_transformation
     def chip_to_stage(
@@ -554,8 +786,6 @@ class KabschRotation(Transformation):
             chip_coordinate: Type[ChipCoordinate]) -> Type[StageCoordinate]:
         """
         Transforms a chip coordinate into a stage coordinate.
-        Centres the given chip coordinate by substracting the chip offset
-        and applies inverse rotation, then adds the stage offset.
 
         Parameters
         ----------
@@ -570,19 +800,15 @@ class KabschRotation(Transformation):
         TransformationError: RuntimeError
             If transformation is not valid.
         """
-        centered_chip_coordinate = chip_coordinate - self.chip_offset
-
-        return StageCoordinate.from_numpy(
-            self.rotation.apply(centered_chip_coordinate.to_numpy(),
-                                inverse=True)) + self.stage_offset
+        return StageCoordinate.from_numpy((
+            self.rotation_to_stage.dot(chip_coordinate.to_numpy()) +
+            self.translation_to_stage.T).flatten())
 
     def stage_to_chip(
             self,
             stage_coordinate: Type[StageCoordinate]) -> Type[ChipCoordinate]:
         """
         Transforms a stage coordinate into a chip coordinate.
-        Centres the given stage coordinate by substracting the stage offset
-        and applies rotation, then adds the chip offset.
 
         Parameters
         ----------
@@ -597,7 +823,104 @@ class KabschRotation(Transformation):
         TransformationError: RuntimeError
             If transformation is not valid.
         """
-        centered_stage_coordinate = stage_coordinate - self.stage_offset
+        return ChipCoordinate.from_numpy((
+            self.rotation_to_chip.dot(stage_coordinate.to_numpy()) +
+            self.translation_to_chip.T).flatten())
 
-        return ChipCoordinate.from_numpy(self.rotation.apply(
-            centered_stage_coordinate.to_numpy())) + self.chip_offset
+    def dump(self) -> Any:
+        """
+        Returns a list of pairings defining the rotation.
+        """
+        return [
+            p.dump(include_device_id=True) for p in self.pairings]
+
+
+def rigid_transform_with_orientation_preservation(
+    S: np.ndarray,
+    T: np.ndarray,
+    axes_rotation: np.ndarray = None
+) -> None:
+    """
+    Calculates a rotation matrix that provides optimal rotation with respect
+    to least squares error between two sets of 3D coordinates.
+
+    The algorithm tries to maintain the orientation of the unit vectors after rotation.
+    The axis rotation previously defined by the user is taken as the ground truth.
+    Each unit vector is applied from the matrix and the scalar point is used to determine
+    whether the unit vector points in the same direction after the axis rotation and after the rotation. If not, it is inverted.
+
+    Parameters
+    ----------
+    target_dataset : np.ndarray
+        3xN dataset of N 3-D coordinates (later referenced as T)
+    start_dataset : np.ndarray
+        3xN dataset of N-3D coordinates (later referenced as S)
+    axes_rotation : np.ndarray
+        3x3 ground truth axes rotation used for orientation preservation
+
+    The algorihm computes a matrix R and translation vector t, such that:
+        RS + t = T
+
+    More details: https://github.com/nghiaho12/rigid_transform_3D/blob/master/rigid_transform_3D.py
+    """
+    if axes_rotation is not None and axes_rotation.shape != (3, 3):
+        raise ValueError(
+            f"Axes rotation matrix must be 3x3, got shape {axes_rotation.shape}")
+
+    if not S.shape == T.shape:
+        raise ValueError("Start and target dataset must have the same shape")
+
+    target_num_rows, target_num_cols = T.shape
+    start_num_rows, start_num_cols = S.shape
+
+    if target_num_rows != 3:
+        raise ValueError(
+            f"Target dataset is not Nx3, got shape {target_num_rows}x{target_num_cols}")
+
+    if start_num_rows != 3:
+        raise ValueError(
+            f"Start dataset is not Nx3, got shape {start_num_rows}x{start_num_cols}")
+
+    # Centroid col wise
+    t_centroid = np.mean(T, axis=1, keepdims=True)
+    s_centroid = np.mean(S, axis=1, keepdims=True)
+
+    # Subtract Centroid
+    T_c = T - t_centroid
+    S_c = S - s_centroid
+
+    # Calculate accumulating matrix H = ST^T
+    H = S_c @ np.transpose(T_c)
+
+    # Calculate SVD: [U, S, V] = SVD(H)
+    U, _, V = np.linalg.svd(H)
+
+    # Calculate R
+    R = V.T @ U.T
+
+    # special reflection case
+    if np.linalg.det(R) < 0:
+        logger.info("det(R) < R, reflection detected!, correcting for it ...")
+        V[2, :] *= -1
+        R = V.T @ U.T
+
+    # autocorrect orientation
+    if axes_rotation is not None:
+        correction_matrix = np.identity(3)
+        for i, unit_vector in enumerate(
+                [np.array([1, 0, 0]), np.array([0, 1, 0]), np.array([0, 0, 1])]):
+            ground_truth = axes_rotation @ unit_vector
+            if ground_truth.dot(R @ unit_vector) < 0:
+                correction_matrix[i, i] = -1
+
+        R = R @ correction_matrix
+
+    R_inv = np.linalg.inv(R)
+
+    # Find translation for start to target: RS + t = T <=> t = T - RS
+    t_start_to_target = t_centroid - R @ s_centroid
+
+    # Find translation for traget to start: R^-1T + t = S <=> t = S - R^-1T
+    t_target_to_start = s_centroid - R_inv @ t_centroid
+
+    return R, t_start_to_target, R_inv, t_target_to_start

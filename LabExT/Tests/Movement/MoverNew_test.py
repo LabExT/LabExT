@@ -6,11 +6,14 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, call
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Calibration import DevicePort, Orientation
 
 from LabExT.Movement.MoverNew import MoverError, MoverNew, Stage, assert_connected_stages
+from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Movement.config import Axis, Direction
+from LabExT.Tests.Utils import with_stage_discovery_patch
 
 
 class AssertConnectedStagesTest(unittest.TestCase):
@@ -325,3 +328,154 @@ class MoverStageSettingsTest(unittest.TestCase):
         self.mover.z_lift = 50
 
         self.assertEqual(self.mover.z_lift, 50)
+
+
+class CanMoveRelativelyTest(unittest.TestCase):
+
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+        available_stages_mock.return_value = []
+        stage_classes_mock.return_value = []
+
+        self.stage = DummyStage('usb:123456789')
+        self.stage2 = DummyStage('usb:9887654321')
+
+        self.mover = MoverNew(None)
+
+    def test_with_no_calibrations(self):
+        self.assertFalse(self.mover.can_move_relatively)
+
+    def test_with_one_valid_calibration(self):
+        calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration.connect_to_stage()
+
+        self.assertTrue(
+            calibration._axes_rotation.is_valid)
+
+        self.assertTrue(self.mover.can_move_relatively)
+
+    def test_with_one_invalid_calibration(self):
+        calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration.connect_to_stage()
+
+        calibration.update_axes_rotation(Axis.X, Direction.NEGATIVE, Axis.Y)
+        self.assertFalse(
+            calibration._axes_rotation.is_valid)
+
+        self.assertFalse(self.mover.can_move_relatively)
+
+    def test_with_one_valid_and_one_invalid_calibration(self):
+        valid_calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        valid_calibration.connect_to_stage()
+
+        self.assertTrue(
+            valid_calibration._axes_rotation.is_valid)
+
+        invalid_calibration = self.mover.add_stage_calibration(
+            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+        invalid_calibration.connect_to_stage()
+
+        invalid_calibration.update_axes_rotation(
+            Axis.X, Direction.NEGATIVE, Axis.Y)
+        self.assertFalse(
+            invalid_calibration._axes_rotation.is_valid)
+
+        self.assertFalse(self.mover.can_move_relatively)
+
+
+class RelativeMovementTest(unittest.TestCase):
+
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+        available_stages_mock.return_value = []
+        stage_classes_mock.return_value = []
+
+        self.stage = DummyStage('usb:123456789')
+        self.stage2 = DummyStage('usb:9887654321')
+
+        self.mover = MoverNew(None)
+
+        self.left_calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.right_calibration = self.mover.add_stage_calibration(
+            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+
+        self.left_calibration.connect_to_stage()
+        self.right_calibration.connect_to_stage()
+
+    def test_raises_error_if_axes_rotation_in_valid(self):
+        self.left_calibration.update_axes_rotation(
+            Axis.X, Direction.NEGATIVE, Axis.Y)
+        self.assertFalse(self.left_calibration._axes_rotation.is_valid)
+
+        movement_command = {Orientation.LEFT: ChipCoordinate(1, 2, 3)}
+        with self.assertRaises(MoverError):
+            self.mover.move_relative(movement_command)
+
+    def test_raises_error_if_stage_is_disconnected(self):
+        self.right_calibration.disconnect_to_stage()
+
+        movement_command = {Orientation.RIGHT: ChipCoordinate(1, 2, 3)}
+        with self.assertRaises(MoverError):
+            self.mover.move_relative(movement_command)
+
+    def test_raises_error_if_requested_stage_is_unavailable(self):
+        movement_commands = {Orientation.TOP: ChipCoordinate(1, 2, 3)}
+        with self.assertRaises(MoverError):
+            self.mover.move_relative(movement_commands)
+
+    @patch.object(DummyStage, "move_relative")
+    def test_move_relative_with_ordering(self, move_relative_mock):
+        self.left_calibration.update_axes_rotation(
+            Axis.X, Direction.NEGATIVE, Axis.Z)
+        self.left_calibration.update_axes_rotation(
+            Axis.Y, Direction.POSITIVE, Axis.X)
+        self.left_calibration.update_axes_rotation(
+            Axis.Z, Direction.NEGATIVE, Axis.Y)
+
+        self.assertTrue(self.left_calibration._axes_rotation.is_valid)
+
+        self.right_calibration.update_axes_rotation(
+            Axis.X, Direction.POSITIVE, Axis.Y)
+        self.right_calibration.update_axes_rotation(
+            Axis.Y, Direction.POSITIVE, Axis.Z)
+        self.right_calibration.update_axes_rotation(
+            Axis.Z, Direction.NEGATIVE, Axis.X)
+
+        self.assertTrue(self.right_calibration._axes_rotation.is_valid)
+
+        left_requested_offset = ChipCoordinate(42, 8, -17)
+        right_requested_offset = ChipCoordinate(72, -42, 31)
+
+        expected_left_offset = self.left_calibration._axes_rotation.chip_to_stage(
+            left_requested_offset)
+        expected_right_offset = self.right_calibration._axes_rotation.chip_to_stage(
+            right_requested_offset)
+
+        requested_ordering = [
+            Orientation.BOTTOM,
+            Orientation.RIGHT,
+            Orientation.TOP,
+            Orientation.LEFT]
+
+        self.mover.move_relative(
+            {Orientation.LEFT: left_requested_offset, Orientation.RIGHT: right_requested_offset},
+            requested_ordering)
+
+        move_relative_mock.assert_has_calls(
+            [
+                call(
+                    x=expected_right_offset.x,
+                    y=expected_right_offset.y,
+                    z=expected_right_offset.z,
+                    wait_for_stopping=True),
+                call(
+                    x=expected_left_offset.x,
+                    y=expected_left_offset.y,
+                    z=expected_left_offset.z,
+                    wait_for_stopping=True),
+            ],
+            any_order=False)
