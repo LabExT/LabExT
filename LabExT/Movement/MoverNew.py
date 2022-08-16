@@ -169,6 +169,9 @@ class MoverNew:
         """
         Returns True if mover can move absolutely in chip coordinates.
         """
+        if not self.calibrations:
+            return False
+
         return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
                    State.FULLY_CALIBRATED for c in self.calibrations.values())
 

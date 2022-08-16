@@ -10,6 +10,7 @@ from typing import List, Type
 import unittest
 from unittest.mock import Mock
 import numpy as np
+from numpy.testing import assert_array_equal
 from random import seed, uniform
 from parameterized import parameterized
 from itertools import product, combinations, permutations
@@ -21,6 +22,8 @@ from LabExT.Movement.Transformations import Coordinate, ChipCoordinate, KabschRo
     StageCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, Transformation, TransformationError,\
     assert_valid_transformation, rigid_transform_with_orientation_preservation
 from LabExT.Tests.Utils import get_calibrations_from_file
+from ...Wafer.Chip import Chip
+from LabExT.Wafer.Device import Device
 
 
 POSSIBLE_AXIS_ROTATIONS = list(product(
@@ -202,6 +205,44 @@ class ChipCoordinateTest(CoordinateTest):
         self.assertEqual(mult.to_list(), [2, 4, 6])
 
 
+class CoordinatePairingTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.device = Device(id='1', in_position=[1., 1.], out_position=[2., 2.], type='test')
+        self.pairing = CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate(7,8,9),
+            device=self.device,
+            chip_coordinate=ChipCoordinate(1,2,3))
+
+    def test_dump_with_device(self):
+        pairing_data = self.pairing.dump(include_device_id=True)
+
+        self.assertDictEqual(pairing_data, {
+            "stage_coordinate": [7,8,9],
+            "chip_coordinate": [1,2,3],
+            "device_id": '1'})
+
+    def test_dump_without_device(self):
+        pairing_data = self.pairing.dump(include_device_id=False)
+
+        self.assertDictEqual(pairing_data, {
+            "stage_coordinate": [7,8,9],
+            "chip_coordinate": [1,2,3]})
+
+    def test_load(self):
+        pairing_data = {
+            "stage_coordinate": [4,2,1],
+            "chip_coordinate": [6,5,9]}
+
+        calibration = Mock()
+        pairing = CoordinatePairing.load(pairing_data, self.device, calibration)
+
+        self.assertEqual(pairing.stage_coordinate.to_list(), [4,2,1])
+        self.assertEqual(pairing.chip_coordinate.to_list(), [6,5,9])
+        self.assertEqual(pairing.device, self.device)
+        self.assertEqual(pairing.calibration, calibration)
+
+
 class TransformationTest(unittest.TestCase):
     pass
 
@@ -280,6 +321,65 @@ class AxesRotationTest(unittest.TestCase):
         self.assertEqual(self.rotation.chip_to_stage(chip_coord), stage_coord)
 
 
+    def test_dump(self):
+        self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Y)
+        self.rotation.update(Axis.Y, Direction.POSITIVE, Axis.Z)
+        self.rotation.update(Axis.Z, Direction.NEGATIVE, Axis.X)
+
+        self.assertTrue(self.rotation.is_valid)
+
+        self.assertDictEqual(
+            self.rotation.dump(),
+            {
+                'X': ('NEGATIVE', 'Y'),
+                'Y': ('POSITIVE', 'Z'),
+                'Z': ('NEGATIVE', 'X')
+            })
+
+    def test_load_invalid_mapping(self):
+        # Z Axis get assigned twice
+        invalid_mapping = {
+            'X': ('NEGATIVE', 'Z'),
+            'Y': ('NEGATIVE', 'X'),
+            'Z': ('POSITIVE', 'Z')
+        }
+
+        with self.assertRaises(TransformationError):
+            AxesRotation.load(invalid_mapping)
+        
+
+    def test_load(self):
+        mapping = {
+             'Z': ('NEGATIVE', 'Z'),
+             'Y': ('NEGATIVE', 'X'),
+             'X': ('POSITIVE', 'Y')
+         }
+
+        rotation = AxesRotation.load(mapping)
+
+        self.assertTrue(rotation.is_valid)
+        assert_array_equal(rotation.matrix, [
+             [0, -1, 0],
+             [1,0,0],
+             [0,0,-1]
+        ])
+
+    def test_dump_and_load(self):
+        self.rotation.update(Axis.X, Direction.NEGATIVE, Axis.Z)
+        self.rotation.update(Axis.Y, Direction.NEGATIVE, Axis.X)
+        self.rotation.update(Axis.Z, Direction.POSITIVE, Axis.Y)
+
+        matrix_before = self.rotation.matrix
+        mapping_before = self.rotation.mapping
+
+        restored_rotation = AxesRotation.load(self.rotation.dump())
+
+        self.assertFalse(restored_rotation == self.rotation)
+        
+        self.assertTrue(restored_rotation.is_valid)
+        assert_array_equal(matrix_before, restored_rotation.matrix)
+        self.assertDictEqual(mapping_before, restored_rotation.mapping)
+
 class SinglePointOffsetTest(unittest.TestCase):
     def setUp(self) -> None:
         self.rotation = AxesRotation()
@@ -356,6 +456,56 @@ class SinglePointOffsetTest(unittest.TestCase):
             rtol=1,
             atol=1))
 
+    
+    def test_dump(self):
+        chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
+        stage_coordinate = StageCoordinate.from_list(
+             [23236.35, -7888.67, 18956.06])
+
+        device = Mock()
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=stage_coordinate,
+            device=device,
+            chip_coordinate=chip_coordinate))   
+
+        self.assertDictEqual(self.transformation.dump(), {
+            "stage_coordinate": [23236.35, -7888.67, 18956.06],
+            "chip_coordinate": [-1550, 1120, 0],
+            "device_id": device.id
+        })
+
+    def test_load(self):
+        stored_format = {
+            "stage_coordinate": [19,293.03,1029.02],
+            "chip_coordinate": [110203,29342,0],
+        }
+
+        transformation = SinglePointOffset.load(stored_format, self.rotation)
+
+        assert_array_equal(
+            transformation.stage_offset.to_numpy(),
+            np.array([110203,29342,0]) - np.array([19,293.03,1029.02]))
+
+    def test_dump_and_load(self):
+        chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
+        stage_coordinate = StageCoordinate.from_list(
+            [23236.35, -7888.67, 18956.06])
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=stage_coordinate,
+            device=Mock(),
+            chip_coordinate=chip_coordinate))
+
+        current_offset = self.transformation.stage_offset.to_numpy()
+
+        from_stored_offset = SinglePointOffset.load(
+            self.transformation.dump(),
+            self.transformation.axes_rotation)
+
+        assert_array_equal(current_offset, from_stored_offset.stage_offset.to_numpy())
+
 
 class RigidTransformationTest(unittest.TestCase):
     
@@ -410,7 +560,6 @@ class KabschRotationTest(unittest.TestCase):
         (CoordinatePairing(None, None, None, ChipCoordinate(1, 2, 3)),),
         (CoordinatePairing(None, StageCoordinate(1, 2, 3), None, ChipCoordinate(1, 2, 3)),),
         (CoordinatePairing(Mock(), StageCoordinate(1, 2, 3), None, ChipCoordinate(1, 2, 3)),),
-        (CoordinatePairing(None, StageCoordinate(1, 2, 3), Mock(), ChipCoordinate(1, 2, 3)),),
     ])
     def test_update_with_invalid_pairing(self, invalid_pairing):
         with self.assertRaises(ValueError):
@@ -481,6 +630,83 @@ class KabschRotationTest(unittest.TestCase):
         self.assertTrue(np.allclose(
             self.transformation.chip_to_stage(self.transformation.stage_to_chip(stage_coordinate)).to_numpy(),
             stage_coordinate.to_numpy()))
+
+    def test_dump(self):
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([23236.35, -7888.67, 18956.06]),
+            device=Device(1, in_position=[0,0], out_position=[1,1]),
+            chip_coordinate=ChipCoordinate.from_list([-1550.0, 1120.0, 0.0])))
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([23744.6, -9172.55, 18956.1]),
+            device=Device(2, in_position=[0,0], out_position=[1,1]),
+            chip_coordinate=ChipCoordinate.from_list([-1050.0, -160.0, 0.0])))
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([25846.07, -10348.82, 18955.11]),
+            device=Device(3, in_position=[0,0], out_position=[1,1]),
+            chip_coordinate=ChipCoordinate.from_list([1046.25, -1337.5, 0.0])))
+
+        self.assertListEqual(self.transformation.dump(), [
+            {
+                'stage_coordinate': [23236.35, -7888.67, 18956.06],
+                'chip_coordinate': [-1550.0, 1120.0, 0.0],
+                'device_id': 1
+            },
+            {
+                'stage_coordinate': [23744.6, -9172.55, 18956.1],
+                'chip_coordinate': [-1050.0, -160.0, 0.0],
+                'device_id': 2
+            }, 
+            {
+                'stage_coordinate': [25846.07, -10348.82, 18955.11],
+                'chip_coordinate': [1046.25, -1337.5, 0.0],
+                'device_id': 3
+            }])
+
+
+    def test_load_and_dump(self):
+        chip = Chip("Test Chip", devices=[
+            Device(1, in_position=[0,0], out_position=[1,1]),
+            Device(2, in_position=[0,0], out_position=[1,1]),
+            Device(3, in_position=[0,0], out_position=[1,1]),
+        ])
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([23236.35, -7888.67, 18956.06]),
+            device=chip.devices.get(1),
+            chip_coordinate=ChipCoordinate.from_list([-1550.0, 1120.0, 0.0])))
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([23744.6, -9172.55, 18956.1]),
+            device=chip.devices.get(2),
+            chip_coordinate=ChipCoordinate.from_list([-1050.0, -160.0, 0.0])))
+
+        self.transformation.update(CoordinatePairing(
+            calibration=Mock(),
+            stage_coordinate=StageCoordinate.from_list([25846.07, -10348.82, 18955.11]),
+            device=chip.devices.get(3),
+            chip_coordinate=ChipCoordinate.from_list([1046.25, -1337.5, 0.0])))
+
+
+        current_rotation_to_chip = self.transformation.rotation_to_chip
+        current_translation_to_chip = self.transformation.translation_to_chip
+
+        current_rotation_to_stage = self.transformation.rotation_to_stage
+        current_translation_to_stage = self.transformation.translation_to_stage
+
+        restored_rotation = KabschRotation.load(
+            self.transformation.dump(), chip, self.transformation.axes_rotation)
+
+
+        assert_array_equal(current_rotation_to_chip, restored_rotation.rotation_to_chip)
+        assert_array_equal(current_translation_to_chip, restored_rotation.translation_to_chip)
+        assert_array_equal(current_rotation_to_stage, restored_rotation.rotation_to_stage)
+        assert_array_equal(current_translation_to_stage, restored_rotation.translation_to_stage)
 
 
 

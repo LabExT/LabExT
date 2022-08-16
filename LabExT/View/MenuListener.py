@@ -30,7 +30,8 @@ from LabExT.View.Movement import (
     CalibrationWizard,
     MoverWizard,
     StageWizard,
-    MoveStagesRelativeWindow
+    MoveStagesRelativeWindow,
+    MoveStagesDeviceWindow
 )
 
 class MListener:
@@ -246,53 +247,17 @@ class MListener:
             self._root, self._experiment_manager.mover_new)
 
     def client_move_device(self):
-        """Called when the user wants to move the stages to a specific device.
+        """
+        Called when the user wants to move the stages to a specific device.
         Opens a MoveDeviceWindow and uses mover to perform the movement.
         """
-        self.logger.debug('client wants to move to specific device')
-
-        if not self._experiment_manager.chip:
-            msg = 'No chip file imported before moving to device. Cannot move to device without chip file present.'
-            messagebox.showerror('No chip layout', msg)
-            self.logger.error(msg)
-            return
-        if not self._experiment_manager.mover.trafo_enabled:
-            msg = 'Stage coordinates not calibrated to chip. ' + \
-                  'Please calibrate the coordinate transformation first before moving the stages automatically.'
-            messagebox.showerror('Error: No transformation', msg)
-            self.logger.error(msg)
-            return
-
         if try_to_lift_window(self.stage_device_toplevel):
             return
 
-        # open a new window
-        self.stage_device_toplevel = Toplevel(self._root)
-        # place the table inside
-        dev_window = MoveDeviceWindow(self.stage_device_toplevel,
-                                      self._experiment_manager,
-                                      'Please select the device to which you would like to move')
-        self._root.wait_window(self.stage_device_toplevel)
-
-        # get the selected device
-        device = dev_window.selection
-
-        # catch case where no device is selected
-        if device is None:
-            msg = 'No device selected. Aborting move.'
-            messagebox.showwarning("No Device Selected", msg)
-            self.logger.warning(msg)
-            return
-
-        # perform movement
-        run_with_wait_window(
+        self.stage_device_toplevel = MoveStagesDeviceWindow(
             self._root,
-            "Moving to device...",
-            lambda: self._experiment_manager.mover.move_to_device(device))
-
-        msg = 'Successfully moved to device with ID: ' + str(device._id)
-        messagebox.showinfo('Success', msg)
-        self.logger.info(msg)
+            self._experiment_manager.mover_new,
+            self._experiment_manager.chip)
 
     def client_transformation(self):
         """Called when user wants to perform a coordinate transformation.
