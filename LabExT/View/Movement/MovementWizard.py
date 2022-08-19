@@ -101,6 +101,16 @@ class StageWizard(Wizard):
                 parent=self)
             return False
 
+        try:
+            self.mover.dump_calibrations()
+        except Exception as err:
+            self.mover.reset()
+            messagebox.showerror(
+                "Error",
+                f"Could not store calibration settings to disk: {err}",
+                parent=self)
+            return False
+
         messagebox.showinfo(
             "Stage Setup completed.",
             f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
@@ -172,6 +182,8 @@ class MoverWizard(Wizard):
                 self.mover.acceleration_xy = acceleration_xy
                 self.mover.z_lift = z_lift
 
+                self.mover.dump_settings()
+
                 messagebox.showinfo(
                     "Mover Setup completed.",
                     f"Successfully configured mover.",
@@ -229,6 +241,7 @@ class CalibrationWizard(Wizard):
             master,
             width=1100,
             height=800,
+            on_finish=self.finish,
             next_button_label="Next Step",
             previous_button_label="Previous Step",
             cancel_button_label="Cancel",
@@ -244,6 +257,21 @@ class CalibrationWizard(Wizard):
         self.coordinate_pairing_step.previous_step = self.calibrate_axes_step
 
         self.current_step = self.calibrate_axes_step
+
+    def finish(self):
+        """
+        Callback when user wants to finish the calibration.
+        """
+        try:
+            self.mover.dump_calibrations()
+        except Exception as err:
+            messagebox.showerror(
+                "Error",
+                f"Could not store calibration settings to disk: {err}",
+                parent=self)
+            return False
+
+        return True
 
 
 class StageDriverStep(Step):

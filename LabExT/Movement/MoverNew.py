@@ -522,18 +522,23 @@ class MoverNew:
             _chip_name = self._chip.name
 
         with open(self.CALIBRATIONS_SETTINGS_FILE, "w+") as fp:
-            json.dump(
-                {
-                    "chip_name": _chip_name,
-                    "calibrations": [
-                        c.dump() for c in self.calibrations.values()]
-                }, fp)
+            json.dump({
+                "chip_name": _chip_name,
+                "calibrations": [
+                    c.dump() for c in self.calibrations.values()]
+            }, fp)
 
     def dump_settings(self) -> None:
         """
         Stores mover settings to file.
         """
-        pass
+        with open(self.MOVER_SETTINGS_FILE, "w+") as fp:
+            json.dump({
+                "speed_xy": self._speed_xy,
+                "speed_z": self._speed_z,
+                "acceleration_xy": self._acceleration_xy,
+                "z_lift": self._z_lift
+            }, fp)
 
     #
     #   Helpers
