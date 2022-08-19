@@ -368,6 +368,20 @@ class Calibration:
         finally:
             self.determine_state(skip_connection=True)
 
+    def reset_single_point_offset(self) -> None:
+        """
+        Resets the single point offset transformation
+        """
+        self._single_point_offset.initialize()
+        self.determine_state(skip_connection=True)
+
+    def reset_kabsch_rotation(self) -> None:
+        """
+        Resets the kabsch rotation
+        """
+        self._kabsch_rotation.initialize()
+        self.determine_state(skip_connection=True)
+
     def determine_state(self, skip_connection=False) -> None:
         """
         Determines the status of the calibration independently of the status variables of the instance.
