@@ -5,17 +5,21 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import json
+
 from contextlib import contextmanager
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Any, Dict, Tuple, Type, List
+from typing import Dict, Tuple, Type, List
 from functools import wraps
-from LabExT.Movement.PathPlanning import PathPlanning
 
-from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort
+from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Movement.PathPlanning import PathPlanning
+
+from LabExT.Utils import get_configuration_file_path
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -61,15 +65,28 @@ class MoverNew:
     DEFAULT_ACCELERATION_XY = 0.0
     DEFAULT_Z_LIFT = 20.0
 
-    def __init__(self, experiment_manager):
+    # Settings files
+    MOVER_SETTINGS_FILE = get_configuration_file_path(
+        config_file_path_in_settings_dir="mover_settings.json")
+    CALIBRATIONS_SETTINGS_FILE = get_configuration_file_path(
+        config_file_path_in_settings_dir="mover_calibrations.json")
+
+    def __init__(
+        self,
+        experiment_manager=None,
+        chip=None
+    ) -> None:
         """Constructor.
 
         Parameters
         ----------
-        experiment_manager : ExperimentManager
+        experiment_manager : ExperimentManager = None
             Current instance of ExperimentManager.
+        chip : Chip = None
+            Current instance of imported chip.
         """
         self.experiment_manager = experiment_manager
+        self._chip: Type[Chip] = chip
 
         self._stage_classes: List[Stage] = []
         self._available_stages: List[Type[Stage]] = []
@@ -169,22 +186,8 @@ class MoverNew:
         """
         Returns True if mover can move absolutely in chip coordinates.
         """
-        if not self.calibrations:
-            return False
-
         return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
                    State.FULLY_CALIBRATED for c in self.calibrations.values())
-
-    @property
-    def can_move_relatively(self) -> bool:
-        """
-        Returns True if mover can move relatively in chip coordinates.
-        """
-        if not self.calibrations:
-            return False
-
-        return all(
-            c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
 
     @property
     def left_calibration(self): return self._get_calibration(
@@ -457,60 +460,6 @@ class MoverNew:
                            for c in calibration_waypoints.keys()):
                         break
 
-    @assert_connected_stages
-    def move_relative(
-        self,
-        movement_commands: Dict[Orientation, Type[ChipCoordinate]],
-        ordering: List[Orientation] = CLOCKWISE_ORDERING,
-        wait_for_stopping: bool = True
-    ) -> None:
-        """
-        Moves the stages relatively in the chip coordinate system.
-        Note: There is no collision-free algorithm, the stages are moved
-        based on the given ordering (default clockwise).
-        Parameters
-        ----------
-        movement_commands : Dict[Orientation, Type[ChipCoordinate]]
-            A mapping between orientation and requested offset in chip coordinates.
-            For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved relatively
-            with an offset of x=1, y=2, z=3.
-        wait_for_stopping: bool = True
-            Whether each stage should have completed its movement before the next one moves.
-        Raises
-        ------
-        MoverError
-            If an orientation has been given a target, but no stage exists for this orientation.
-            If Mover cannot move relatively.
-        """
-        if not self.can_move_relatively:
-            raise MoverError(
-                f"Cannot perform relative movement, not all active stages are calibrated correctly."
-                "Note for each stage the coordinate system must be fixed.")
-
-        if not movement_commands:
-            return
-
-        # Makes sure that a calibration exists for each movement command.
-        resolved_calibrations = {}
-        for orientation in movement_commands:
-            calibration = self._get_calibration(orientation=orientation)
-            if calibration is None:
-                raise MoverError(
-                    f"No {orientation} stage configured, but offset for {orientation} passed.")
-
-            resolved_calibrations[orientation] = calibration
-
-        # Move stages w.r.t the ordering.
-        for orientation in ordering:
-            if orientation not in movement_commands:
-                continue
-
-            calibration = resolved_calibrations[orientation]
-            requested_target = movement_commands[orientation]
-
-            with calibration.perform_in_chip_coordinates():
-                calibration.move_relative(requested_target, wait_for_stopping)
-
     @contextmanager
     def lift_stages(self):
         """
@@ -559,6 +508,32 @@ class MoverNew:
 
         with self.lift_stages():
             self.move_absolute(movement_commands, chip=chip)
+
+    #
+    #   Load and store mover settings
+    #
+
+    def dump_calibrations(self) -> None:
+        """
+        Stores current calibrations to file.
+        """
+        _chip_name = None
+        if self._chip:
+            _chip_name = self._chip.name
+
+        with open(self.CALIBRATIONS_SETTINGS_FILE, "w+") as fp:
+            json.dump(
+                {
+                    "chip_name": _chip_name,
+                    "calibrations": [
+                        c.dump() for c in self.calibrations.values()]
+                }, fp)
+
+    def dump_settings(self) -> None:
+        """
+        Stores mover settings to file.
+        """
+        pass
 
     #
     #   Helpers

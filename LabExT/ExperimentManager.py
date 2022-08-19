@@ -65,7 +65,7 @@ class ExperimentManager:
         self.addon_settings = None
         self.chip = chip
         self.mover = Mover(self)
-        self.mover_new = MoverNew(self)
+        self.mover_new = MoverNew(experiment_manager=self, chip=chip)
         self.peak_searcher = PeakSearcher(None, self, mover=self.mover, parent=self.root)
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
