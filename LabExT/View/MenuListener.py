@@ -31,7 +31,8 @@ from LabExT.View.Movement import (
     MoverWizard,
     StageWizard,
     MoveStagesRelativeWindow,
-    MoveStagesDeviceWindow
+    MoveStagesDeviceWindow,
+    LoadStoredCalibrationWindow
 )
 
 class MListener:
@@ -71,6 +72,7 @@ class MListener:
         self.stage_setup_toplevel = None
         self.mover_setup_toplevel = None
         self.calibration_setup_toplevel = None
+        self.calibration_restore_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
@@ -255,6 +257,18 @@ class MListener:
             return
 
         self.stage_device_toplevel = MoveStagesDeviceWindow(
+            self._root,
+            self._experiment_manager.mover_new,
+            self._experiment_manager.chip)
+
+    def client_restore_calibration(self):
+        """
+        Opens a window to restore calibrations.
+        """
+        if try_to_lift_window(self.calibration_restore_toplevel):
+            return
+
+        self.calibration_restore_toplevel = LoadStoredCalibrationWindow(
             self._root,
             self._experiment_manager.mover_new,
             self._experiment_manager.chip)

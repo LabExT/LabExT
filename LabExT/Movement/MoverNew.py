@@ -12,6 +12,7 @@ from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
+from os.path import exists
 
 from LabExT.Movement.config import State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
@@ -111,6 +112,24 @@ class MoverNew:
         self._speed_xy = None
         self._speed_z = None
         self._acceleration_xy = None
+
+    #
+    #   Set chip
+    #
+
+    def set_chip(self, chip: Type[Chip]) -> None:
+        """
+        Sets the the current chip.
+        This method will reset single point offset and kabsch rotation.
+        """
+        if self._chip == chip:
+            return
+
+        for calibration in self.calibrations.values():
+            calibration.reset_single_point_offset()
+            calibration.reset_kabsch_rotation()
+
+        self._chip = chip
 
     #
     #   Reload properties
@@ -258,6 +277,36 @@ class MoverNew:
         self._calibrations.put(
             (orientation, port), calibration, OnDup(
                 key=RAISE))
+        return calibration
+
+    def restore_stage_calibration(
+        self,
+        stage: Type[Stage],
+        calibration_data: dict
+    ) -> Type[Calibration]:
+        """
+        Restores a calibration for given stage and calibration data.
+        """
+        if stage in self.active_stages:
+            raise MoverError(
+                "Stage {} has already an assignment.".format(stage))
+
+        calibration = Calibration.load(
+            self, stage, calibration_data, self._chip)
+
+        self._port_by_orientation.put(
+            calibration._orientation,
+            calibration._device_port,
+            OnDup(
+                key=RAISE))
+
+        self._calibrations.put(
+            (calibration._orientation,
+             calibration._device_port),
+            calibration,
+            OnDup(
+                key=RAISE))
+
         return calibration
 
     #
@@ -539,6 +588,32 @@ class MoverNew:
                 "acceleration_xy": self._acceleration_xy,
                 "z_lift": self._z_lift
             }, fp)
+
+    def has_chip_stored_calibration(self, chip: Type[Chip]) -> bool:
+        """
+        Checks if for given chip exists a stored calibration.
+        """
+        if chip is None or chip.name is None:
+            return False
+
+        if not exists(self.CALIBRATIONS_SETTINGS_FILE):
+            return False
+
+        with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
+            try:
+                calibration_settings = json.load(fp)
+            except json.JSONDecodeError:
+                return False
+            _chip_name = calibration_settings.get("chip_name")
+            _calibrations = calibration_settings.get("calibrations", [])
+            return _chip_name == chip.name and len(_calibrations) > 0
+
+    @property
+    def calibration_settings_file(self) -> str:
+        """
+        Returns the calibration settings file.
+        """
+        return self.CALIBRATIONS_SETTINGS_FILE
 
     #
     #   Helpers

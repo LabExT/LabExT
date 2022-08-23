@@ -113,12 +113,12 @@ class Calibration:
 
         single_point_offset = None
         if "single_point_offset" in calibration_data:
-            if axes_rotation is not None:
+            if axes_rotation is not None and chip is not None:
                 single_point_offset = SinglePointOffset.load(
-                    calibration_data["single_point_offset"], axes_rotation=axes_rotation)
+                    calibration_data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
             else:
                 cls._logger.debug(
-                    "Cannot set single point offset when axes rotation is not defined")
+                    "Cannot set single point offset when axes rotation or chip is not defined")
 
         kabsch_rotation = None
         if "kabsch_rotation" in calibration_data:

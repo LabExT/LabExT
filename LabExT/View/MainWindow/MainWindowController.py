@@ -555,6 +555,12 @@ class MainWindowController:
 
         self.root.destroy()
 
+    def restore_calibrations(self):
+        """
+        Restore calibrations.
+        """
+        self.view.frame.menu_listener.client_restore_calibration()
+
     def _register_keyboard_shortcuts(self):
         self.root.bind("<F1>",
                        self.experiment_manager.show_documentation)

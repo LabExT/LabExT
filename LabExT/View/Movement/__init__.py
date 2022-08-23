@@ -12,3 +12,4 @@ from .MovementWizard import (
 from .CoordinatePairingsWindow import CoordinatePairingsWindow
 from .MoveStagesRelativeWindow import MoveStagesRelativeWindow
 from .MoveStagesDeviceWindow import MoveStagesDeviceWindow
+from .LoadStoredCalibrationWindow import LoadStoredCalibrationWindow

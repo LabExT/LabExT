@@ -192,6 +192,13 @@ class ExperimentManager:
                 self.mover.trafo_enabled = False
                 self.main_window.model.status_transformation_enabled.set(False)
 
+            if self.mover_new is not None:
+                self.mover_new.set_chip(self.chip)
+                if self.mover_new.has_chip_stored_calibration(self.chip):
+                    self.main_window.restore_calibrations()
+                else:
+                    self.mover_new.dump_calibrations()
+
     def show_documentation(self, event):
         if self.docu.docu_available:
             webbrowser.open(self.docu.temp_file)

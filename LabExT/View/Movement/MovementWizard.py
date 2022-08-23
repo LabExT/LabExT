@@ -101,16 +101,6 @@ class StageWizard(Wizard):
                 parent=self)
             return False
 
-        try:
-            self.mover.dump_calibrations()
-        except Exception as err:
-            self.mover.reset()
-            messagebox.showerror(
-                "Error",
-                f"Could not store calibration settings to disk: {err}",
-                parent=self)
-            return False
-
         messagebox.showinfo(
             "Stage Setup completed.",
             f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
