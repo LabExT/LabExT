@@ -59,6 +59,8 @@ class ExperimentManager:
         self.logger = logging.getLogger()
         self.logger.info('Initialise ExperimentManager with chip: %s', chip)
 
+        self._skip_setup = skip_setup
+
         self._root = root
         self.root = root
         self._log_file_name = log_file_path
@@ -194,6 +196,10 @@ class ExperimentManager:
 
             if self.mover_new is not None:
                 self.mover_new.set_chip(self.chip)
+
+                if self._skip_setup:
+                    return
+
                 if self.mover_new.has_chip_stored_calibration(self.chip):
                     self.main_window.restore_calibrations()
                 else:
