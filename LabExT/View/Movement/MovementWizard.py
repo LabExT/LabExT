@@ -779,7 +779,24 @@ class CoordinatePairingStep(Step):
 
         self._coordinate_pairing_window = None
 
-        self.pairings = []
+        self.pairings = self._build_pairings()
+
+    def _build_pairings(self) -> list:
+        """
+        Returns a list of current pairings.
+        """
+        pairings = []
+        for calibration in self.mover.calibrations.values():
+            _kabsch_rotation = calibration._kabsch_rotation
+            if _kabsch_rotation and _kabsch_rotation.is_valid:
+                pairings += _kabsch_rotation.pairings
+
+            _single_point_offset = calibration._single_point_offset
+            if _single_point_offset and _single_point_offset.is_valid:
+                if _single_point_offset.pairing not in pairings:
+                    pairings.append(_single_point_offset.pairing)
+
+        return pairings
 
     def build(self, frame: Type[CustomFrame]):
         """
