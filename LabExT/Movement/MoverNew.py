@@ -205,8 +205,22 @@ class MoverNew:
         """
         Returns True if mover can move absolutely in chip coordinates.
         """
+        if not self.calibrations:
+            return False
+
         return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
                    State.FULLY_CALIBRATED for c in self.calibrations.values())
+
+    @property
+    def can_move_relatively(self) -> bool:
+        """
+        Returns True if mover can move relatively in chip coordinates.
+        """
+        if not self.calibrations:
+            return False
+
+        return all(
+            c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
 
     @property
     def left_calibration(self): return self._get_calibration(
