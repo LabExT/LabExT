@@ -714,6 +714,12 @@ class CalibrationTest(CalibrationTestCase):
 
     def test_load_with_single_point_offset(self):
         self.stage.connect()
+        chip = Chip(
+            name="Dummy Chip",
+            devices=[
+                Device(0, [23236.35, -7888.67, 18956.06], [0,0])
+            ])
+
         calibration_data = {
             "orientation": "LEFT",
             "device_port": "INPUT",
@@ -725,11 +731,11 @@ class CalibrationTest(CalibrationTestCase):
             "single_point_offset": {
                 'stage_coordinate': [23236.35, -7888.67, 18956.06],
                 'chip_coordinate': [-1550.0, 1120.0, 0.0],
-                'device_id': 1
+                'device_id': 0
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data)
+        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip=chip)
         self.assertEqual(restored_calibration.state, State.SINGLE_POINT_FIXED)
 
     def test_load_with_kabsch_rotation(self):
