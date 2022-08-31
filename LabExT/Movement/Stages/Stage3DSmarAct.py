@@ -62,7 +62,7 @@ class Stage3DSmarAct(Stage):
     @classmethod
     def load_driver(cls, parent) -> bool:
         """
-        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the MovementWizardController.
+        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the StageWizard.
         """
         if cls.driver_path_dialog is not None:
             try:
