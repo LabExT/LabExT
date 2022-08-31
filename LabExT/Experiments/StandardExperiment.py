@@ -17,9 +17,11 @@ from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
+from typing import Type
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
+from LabExT.Movement.MoverNew import MoverNew
 from LabExT.PluginLoader import PluginLoader
 from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.Controls.ParameterTable import ConfigParameter
@@ -46,7 +48,7 @@ class StandardExperiment:
         self._experiment_manager = experiment_manager  # LabExT main class
         self._parent = parent  # Tk parent object, needed for Tkinter variables in ConfigParameters and cursor change
 
-        self._mover = mover  # stage mover class, used to move to device in automated sweeps
+        self._mover: Type[MoverNew] = mover  # stage mover class, used to move to device in automated sweeps
         self._peak_searcher = experiment_manager.peak_searcher  # peak server, used to SfP in automated sweeps
 
         # addon loading
@@ -187,7 +189,7 @@ class StandardExperiment:
 
             # only move if automatic movement is enabled
             if self.exctrl_auto_move_stages:
-                self._mover.move_to_device(device)
+                self._mover.move_to_device(self._chip, device)
                 self.logger.info('Automatically moved to device:' + str(device))
 
             # execute automatic search for peak

@@ -175,6 +175,7 @@ class Calibration:
 
         self._state = State.UNINITIALIZED
         self.determine_state(skip_connection=False)
+        self.mover.update_main_model()
 
     #
     #   Representation
@@ -302,6 +303,7 @@ class Calibration:
             self.stage.connect()
         finally:
             self.determine_state(skip_connection=False)
+            self.mover.update_main_model()
 
     def disconnect_to_stage(self) -> None:
         """
@@ -311,6 +313,7 @@ class Calibration:
             self.stage.disconnect()
         finally:
             self.determine_state(skip_connection=False)
+            self.mover.update_main_model()
 
     def update_axes_rotation(
             self,
@@ -336,6 +339,7 @@ class Calibration:
             self._axes_rotation.update(chip_axis, direction, stage_axis)
         finally:
             self.determine_state(skip_connection=True)
+            self.mover.update_main_model()
 
     def update_single_point_offset(
             self, pairing: Type[CoordinatePairing]) -> None:
@@ -352,6 +356,7 @@ class Calibration:
             self._single_point_offset.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
+            self.mover.update_main_model()
 
     def update_kabsch_rotation(self, pairing: Type[CoordinatePairing]) -> None:
         """
@@ -367,6 +372,7 @@ class Calibration:
             self._kabsch_rotation.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
+            self.mover.update_main_model()
 
     def reset_single_point_offset(self) -> None:
         """
@@ -374,6 +380,7 @@ class Calibration:
         """
         self._single_point_offset.initialize()
         self.determine_state(skip_connection=True)
+        self.mover.update_main_model()
 
     def reset_kabsch_rotation(self) -> None:
         """
@@ -381,6 +388,7 @@ class Calibration:
         """
         self._kabsch_rotation.initialize()
         self.determine_state(skip_connection=True)
+        self.mover.update_main_model()
 
     def determine_state(self, skip_connection=False) -> None:
         """

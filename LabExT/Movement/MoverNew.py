@@ -132,6 +132,21 @@ class MoverNew:
 
         self._chip = chip
 
+    def update_main_model(self) -> None:
+        """
+        Update main model
+        """
+        if not self.experiment_manager:
+            return
+
+        _main_window = self.experiment_manager.main_window
+        if not _main_window:
+            return
+
+        _main_window.model.status_mover_connected_stages.set(self.has_connected_stages)
+        _main_window.model.status_mover_fully_calibrated.set(self.can_move_absolutely)
+
+
     #
     #   Reload properties
     #
