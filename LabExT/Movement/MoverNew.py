@@ -261,6 +261,16 @@ class MoverNew:
     #   Stage Settings Methods
     #
 
+    @assert_connected_stages
+    def set_default_settings(self) -> None:
+        """
+        Set mover default settings
+        """
+        self.speed_xy = self.DEFAULT_SPEED_XY
+        self.speed_z = self.DEFAULT_SPEED_Z
+        self.acceleration_xy = self.DEFAULT_ACCELERATION_XY
+        self.z_lift = self.DEFAULT_Z_LIFT
+
     @property
     @assert_connected_stages
     def speed_xy(self) -> float:

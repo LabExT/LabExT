@@ -90,6 +90,16 @@ class StageWizard(Wizard):
                     "Error",
                     f"Connecting to stages failed: {e}",
                     parent=self)
+                return False
+
+        try:
+            self.mover.set_default_settings()
+        except Exception as err:
+            messagebox.showerror(
+                "Error",
+                f"Failed to set default setting: {err}",
+                parent=self)
+            return False
 
         messagebox.showinfo(
             "Stage Setup completed.",
