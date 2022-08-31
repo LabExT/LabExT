@@ -476,18 +476,26 @@ class SinglePointOffsetTest(unittest.TestCase):
         })
 
     def test_load(self):
+        chip = Chip("Test Chip", devices=[
+            Device(1, in_position=[19,293.03,1029.02], out_position=[1,1])
+        ])
         stored_format = {
             "stage_coordinate": [19,293.03,1029.02],
             "chip_coordinate": [110203,29342,0],
+            'device_id': 1
         }
 
-        transformation = SinglePointOffset.load(stored_format, self.rotation)
+        transformation = SinglePointOffset.load(stored_format, chip, self.rotation)
 
         assert_array_equal(
             transformation.stage_offset.to_numpy(),
             np.array([110203,29342,0]) - np.array([19,293.03,1029.02]))
 
     def test_dump_and_load(self):
+        chip = Chip("Test Chip", devices=[
+            Device(1, in_position=[0,0], out_position=[1,1])
+        ])
+
         chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
         stage_coordinate = StageCoordinate.from_list(
             [23236.35, -7888.67, 18956.06])
@@ -495,13 +503,14 @@ class SinglePointOffsetTest(unittest.TestCase):
         self.transformation.update(CoordinatePairing(
             calibration=Mock(),
             stage_coordinate=stage_coordinate,
-            device=Mock(),
+            device=chip.devices.get(1),
             chip_coordinate=chip_coordinate))
 
         current_offset = self.transformation.stage_offset.to_numpy()
 
         from_stored_offset = SinglePointOffset.load(
             self.transformation.dump(),
+            chip,
             self.transformation.axes_rotation)
 
         assert_array_equal(current_offset, from_stored_offset.stage_offset.to_numpy())

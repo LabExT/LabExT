@@ -503,6 +503,8 @@ class SinglePointOffset(Transformation):
             pairing for stage and chip coordinate
         axes_rotation : AxesRotation
             axes rotation associated with the transformation
+        chip : Chip
+            chip instance associated with this transformation
 
         Raises
         ------
@@ -667,6 +669,8 @@ class KabschRotation(Transformation):
             pairings for stage and chip coordinates
         axes_rotation : AxesRotation
             axes rotation associated with the transformation
+        chip : Chip
+            chip instance associated with this rotation
 
         Raises
         ------

@@ -575,8 +575,7 @@ class MoverNew:
             requested_target = movement_commands[orientation]
 
             with calibration.perform_in_chip_coordinates():
-                calibration.move_relative(
-                    requested_target, wait_for_stopping)
+                calibration.move_relative(requested_target, wait_for_stopping)
 
     @contextmanager
     def lift_stages(self):
