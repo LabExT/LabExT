@@ -617,9 +617,15 @@ class AxesCalibrationStep(Step):
         """
         vars = {}
         for calibration in self.mover.calibrations.values():
+            # Get current mapping
+            _current_mapping = {}
+            if calibration._axes_rotation and calibration._axes_rotation.is_valid:
+                _current_mapping = calibration._axes_rotation.mapping
+
             for chip_axis in Axis:
-                str_var = StringVar(
-                    self.wizard, (Direction.POSITIVE, chip_axis))
+                _current_value = _current_mapping.get(
+                    chip_axis, (Direction.POSITIVE, chip_axis))
+                str_var = StringVar(self.wizard, _current_value)
                 str_var.trace(
                     W,
                     lambda *_,
