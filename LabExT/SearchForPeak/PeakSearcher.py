@@ -97,9 +97,6 @@ class PeakSearcher(Measurement):
         self._left_calibration = self.mover.left_calibration
         self._right_calibration = self.mover.right_calibration
 
-        if self._left_calibration is None and self._right_calibration is None:
-            raise ValueError("The Search for Peak requires at least one left or right stage configured.")
-
         if self._left_calibration and self._right_calibration:
             self._dimension_names = self.DIMENSION_NAMES_TWO_STAGES
         else:
@@ -235,6 +232,9 @@ class PeakSearcher(Measurement):
         # double check if mover is actually enabled
         if not self.mover.has_connected_stages:
             raise RuntimeError('Mover has no connected stages! Cannot do automatic search for peak.')
+
+        if self._left_calibration is None and self._right_calibration is None:
+            raise RuntimeError("The Search for Peak requires at least one left or right stage configured.")
 
         # load laser and powermeter
         self.instr_powermeter = self.get_instrument('Power Meter')
