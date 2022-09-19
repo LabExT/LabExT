@@ -9,12 +9,15 @@ import json
 import logging
 import os
 import time
+from typing import Type
 
 import numpy as np
 from scipy.optimize import curve_fit
 
 from LabExT.Measurements.MeasAPI import *
 from LabExT.Movement.MotorProfiles import trapezoidal_velocity_profile_by_integration
+from LabExT.Movement.MoverNew import MoverNew
+from LabExT.Movement.Transformations import StageCoordinate
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
@@ -73,6 +76,9 @@ class PeakSearcher(Measurement):
     All parameters labelled `stepped SfP only` are ignored when choosing the swept SfP, all parameters labelled `swept SfP only` are ignored when choosing the stepped SfP.
     """
 
+    DIMENSION_NAMES_TWO_STAGES = ['Left X', 'Left Y', 'Right X', 'Right Y']
+    DIMENSION_NAMES_SINGLE_STAGE = ['X', 'Y']
+
     def __init__(self, *args, mover=None, parent=None, **kwargs):
         """Constructor
 
@@ -86,7 +92,18 @@ class PeakSearcher(Measurement):
         self._parent = parent
         self.name = "SearchForPeak-2DGaussianFit"
         self.settings_filename = "PeakSearcher_settings.json"
-        self.mover = mover
+        self.mover: Type[MoverNew] = mover
+
+        self._left_calibration = self.mover.left_calibration
+        self._right_calibration = self.mover.right_calibration
+
+        if self._left_calibration is None and self._right_calibration is None:
+            raise ValueError("The Search for Peak requires at least one left or right stage configured.")
+
+        if self._left_calibration and self._right_calibration:
+            self._dimension_names = self.DIMENSION_NAMES_TWO_STAGES
+        else:
+            self._dimension_names = self.DIMENSION_NAMES_SINGLE_STAGE
 
         self.logger = logging.getLogger()
 
@@ -216,8 +233,8 @@ class PeakSearcher(Measurement):
             and gaussian fitting information.
         """
         # double check if mover is actually enabled
-        if not self.mover.mover_enabled:
-            raise RuntimeError('Mover class is disabled! Cannot do automatic search for peak.')
+        if not self.mover.has_connected_stages:
+            raise RuntimeError('Mover has no connected stages! Cannot do automatic search for peak.')
 
         # load laser and powermeter
         self.instr_powermeter = self.get_instrument('Power Meter')
@@ -263,11 +280,17 @@ class PeakSearcher(Measurement):
         self.instr_powermeter.range = self.parameters['Power Meter range'].value
 
         # get stage speed for later reference
-        v0 = self.mover.get_speed_of_stages_xy()
-        acc0 = self.mover.get_acceleration_of_stages_xy()
+        v0 = self.mover.speed_xy
+        acc0 = self.mover.acceleration_xy
 
         # stop all previous logging
         self.instr_powermeter.logging_stop()
+
+        # Set coordinate system to Stage coordinates for left, right stage
+        if self._left_calibration:
+            self._left_calibration.coordinate_system = StageCoordinate
+        if self._right_calibration:
+            self._right_calibration.coordinate_system = StageCoordinate
 
         # switch on laser
         with self.instr_laser:
@@ -289,9 +312,17 @@ class PeakSearcher(Measurement):
             v_sweep_ums = 2 * radius_us / t_sweep
             avg_time = t_sweep / float(no_points)
             unit = 'dBm'
+
             # find the current positions of the stages as starting point for SFP
-            start_coordinates = self.mover.get_absolute_stage_coords()
+            _left_start_coordinates = []
+            _right_start_coordinates = []
+            if self._left_calibration:
+                _left_start_coordinates = self._left_calibration.get_position().to_list()
+            if self._right_calibration:
+                _right_start_coordinates = self._right_calibration.get_position().to_list()
+            start_coordinates = _left_start_coordinates + _right_start_coordinates
             current_coordinates = start_coordinates.copy()
+
             estimated_through_power = -99.0
 
             # get start statistics
@@ -302,7 +333,7 @@ class PeakSearcher(Measurement):
             color_strings = ['C' + str(i) for i in range(10)]  # color cycle strings for matplotlib
             for dimidx, p_start in enumerate(start_coordinates):
 
-                dimension_name = self.mover.dimension_names[dimidx]
+                dimension_name = self._dimension_names[dimidx]
 
                 # create new plotting dataset for measurement
                 meas_plot = PlotData(ObservableList(), ObservableList(),
@@ -331,7 +362,8 @@ class PeakSearcher(Measurement):
                         )
                     # move stage to initial position and setup
                     current_coordinates[dimidx] = p_start - radius_us
-                    self.mover.move_absolute(*current_coordinates, safe_movement=False, lift_z_dir=False)
+                    self._move_stages_absolute(current_coordinates)
+                    
                     # setup power meter logging feature
                     self.instr_powermeter.autogain = False  # autogain attribute exists only for N7744A, no effect on other
                     self.instr_powermeter.range = self.parameters['Power Meter range'].value
@@ -348,12 +380,12 @@ class PeakSearcher(Measurement):
                     current_coordinates[dimidx] = p_start + radius_us
                     # empirically determined acceleration
                     acc_umps2 = 50
-                    self.mover.set_speed_of_stages_xy(v_sweep_ums)
-                    self.mover.set_acceleration_of_stages_xy(acc_umps2)
+                    self.mover.speed_xy = v_sweep_ums
+                    self.mover.acceleration_xy = acc_umps2
                     # start logging at powermeter
                     self.instr_powermeter.trigger()
                     # mover_time_lower = time.time()
-                    self.mover.move_absolute(*current_coordinates, safe_movement=False, lift_z_dir=False)
+                    self._move_stages_absolute(current_coordinates)
                     # mover_time_upper = time.time()
 
                     while self.instr_powermeter.logging_busy():
@@ -384,7 +416,7 @@ class PeakSearcher(Measurement):
                     for measidx, d_current in enumerate(d_range):
                         # move stages to currently probed coordinate
                         current_coordinates[dimidx] = d_current + p_start
-                        self.mover.move_absolute(*current_coordinates, safe_movement=False, lift_z_dir=False)
+                        self._move_stages_absolute(current_coordinates)
 
                         # take a break to let fiber-vibration die off
                         time.sleep(pause_time_ms / 1000)
@@ -467,16 +499,22 @@ class PeakSearcher(Measurement):
                 }
 
                 # reset speed and acceleration to original
-                self.mover.set_speed_of_stages_xy(v0)
-                self.mover.set_acceleration_of_stages_xy(acc0)
+                self.mover.speed_xy = v0
+                self.mover.acceleration_xy = acc0
 
                 # final move of fiber in this dimensions final decision
                 current_coordinates[dimidx] = optimized_target + p_start
-                self.mover.move_absolute(*current_coordinates)
+                self._move_stages_absolute(current_coordinates)
 
         # close instruments
         self.instr_laser.close()
         self.instr_powermeter.close()
+
+        # Reset coordinate system for left, right stage
+        if self._left_calibration:
+            self._left_calibration.coordinate_system = None
+        if self._right_calibration:
+            self._right_calibration.coordinate_system = None
 
         # save final result to log
         loc_str = " x ".join(["{:.3f}um".format(p) for p in current_coordinates])
@@ -488,6 +526,21 @@ class PeakSearcher(Measurement):
         results['optimized through power'] = estimated_through_power
 
         return results
+
+    def _move_stages_absolute(self, coordinates: list):
+        if self._left_calibration and self._right_calibration:
+            assert len(coordinates) == 4
+            self._left_calibration.move_absolute(StageCoordinate.from_list(coordinates[:2]))
+            self._right_calibration.move_absolute(StageCoordinate.from_list(coordinates[2:]))
+        elif self._left_calibration:
+            assert len(coordinates) == 2
+            self._left_calibration.move_absolute(StageCoordinate.from_list(coordinates))
+        elif self._right_calibration:
+            assert len(coordinates) == 2
+            self._right_calibration.move_absolute(StageCoordinate.from_list(coordinates))
+        else:
+            raise RuntimeError()
+
 
     def update_params_from_savefile(self):
         if not os.path.isfile(self.settings_path_full):
