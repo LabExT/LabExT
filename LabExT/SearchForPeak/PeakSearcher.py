@@ -79,7 +79,7 @@ class PeakSearcher(Measurement):
     DIMENSION_NAMES_TWO_STAGES = ['Left X', 'Left Y', 'Right X', 'Right Y']
     DIMENSION_NAMES_SINGLE_STAGE = ['X', 'Y']
 
-    def __init__(self, *args, mover=None, parent=None, **kwargs):
+    def __init__(self, *args, mover: Type[MoverNew] = None, parent = None, **kwargs):
         """Constructor
 
         Parameters
@@ -92,7 +92,7 @@ class PeakSearcher(Measurement):
         self._parent = parent
         self.name = "SearchForPeak-2DGaussianFit"
         self.settings_filename = "PeakSearcher_settings.json"
-        self.mover: Type[MoverNew] = mover
+        self.mover = mover
 
         self._left_calibration = self.mover.left_calibration
         self._right_calibration = self.mover.right_calibration
@@ -322,6 +322,8 @@ class PeakSearcher(Measurement):
                 _right_start_coordinates = self._right_calibration.get_position().to_list()
             start_coordinates = _left_start_coordinates + _right_start_coordinates
             current_coordinates = start_coordinates.copy()
+
+            self.logger.debug(f"Start Position: {start_coordinates}")
 
             estimated_through_power = -99.0
 

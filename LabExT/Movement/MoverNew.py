@@ -239,27 +239,27 @@ class MoverNew:
             c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
 
     @property
-    def left_calibration(self): return self._get_calibration(
+    def left_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.LEFT)
 
     @property
-    def right_calibration(self): return self._get_calibration(
+    def right_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.RIGHT)
 
     @property
-    def top_calibration(self): return self._get_calibration(
+    def top_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.TOP)
 
     @property
-    def bottom_calibration(self): return self._get_calibration(
+    def bottom_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.BOTTOM)
 
     @property
-    def input_calibration(self): return self._get_calibration(
+    def input_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.INPUT)
 
     @property
-    def output_calibration(self): return self._get_calibration(
+    def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.OUTPUT)
 
     #
@@ -704,7 +704,7 @@ class MoverNew:
     #   Helpers
     #
 
-    def _get_calibration(self, port=None, orientation=None, default=None):
+    def _get_calibration(self, port=None, orientation=None, default=None) -> Type[Calibration]:
         """
         Get safely calibration by port and orientation.
         """
