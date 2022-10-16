@@ -337,6 +337,8 @@ class Calibration:
         """
         try:
             self._axes_rotation.update(chip_axis, direction, stage_axis)
+            print(
+                f"Calibration {str(self)} Axes Rotation update: {vars(self._axes_rotation)}")
         finally:
             self.determine_state(skip_connection=True)
             self.mover.update_main_model()
@@ -354,6 +356,8 @@ class Calibration:
         """
         try:
             self._single_point_offset.update(pairing)
+            print(
+                f"Calibration {str(self)} SP update: {vars(self._single_point_offset)}")
         finally:
             self.determine_state(skip_connection=True)
             self.mover.update_main_model()
@@ -370,6 +374,8 @@ class Calibration:
         """
         try:
             self._kabsch_rotation.update(pairing)
+            print(
+                f"Calibration {str(self)} Kabsch update: {vars(self._kabsch_rotation)}")
         finally:
             self.determine_state(skip_connection=True)
             self.mover.update_main_model()
@@ -527,7 +533,7 @@ class Calibration:
     def move_absolute(self,
                       coordinate: Union[Type[StageCoordinate],
                                         Type[ChipCoordinate]],
-                      wait_for_stopping: bool = True) -> None:
+                      wait_for_stopping: bool = False) -> None:
         """
         Moves the stage absolute to the given coordinate.
         The coordinate can be passed in stage or chip coordinates,
