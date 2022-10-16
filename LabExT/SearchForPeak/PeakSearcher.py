@@ -79,7 +79,12 @@ class PeakSearcher(Measurement):
     DIMENSION_NAMES_TWO_STAGES = ['Left X', 'Left Y', 'Right X', 'Right Y']
     DIMENSION_NAMES_SINGLE_STAGE = ['X', 'Y']
 
-    def __init__(self, *args, mover: Type[MoverNew] = None, parent = None, **kwargs):
+    def __init__(
+            self,
+            *args,
+            mover: Type[MoverNew] = None,
+            parent=None,
+            **kwargs):
         """Constructor
 
         Parameters
@@ -94,14 +99,6 @@ class PeakSearcher(Measurement):
         self.settings_filename = "PeakSearcher_settings.json"
         self.mover = mover
 
-        self._left_calibration = self.mover.left_calibration
-        self._right_calibration = self.mover.right_calibration
-
-        if self._left_calibration and self._right_calibration:
-            self._dimension_names = self.DIMENSION_NAMES_TWO_STAGES
-        else:
-            self._dimension_names = self.DIMENSION_NAMES_SINGLE_STAGE
-
         self.logger = logging.getLogger()
 
         # gather all plots for the plotting GUIs
@@ -113,7 +110,8 @@ class PeakSearcher(Measurement):
         self.instr_powermeter = None
         self.initialized = False
 
-        self.logger.info('Initialized Search for Peak with method: ' + str(self.name))
+        self.logger.info(
+            'Initialized Search for Peak with method: ' + str(self.name))
 
     @property
     def settings_path_full(self):
@@ -138,7 +136,8 @@ class PeakSearcher(Measurement):
         # mu_init = np.sum(x_data * y_data) / np.sum(y_data)
         mu_init = x_data[np.argmax(y_data)]
         # sigma_init = np.sqrt(np.sum(y_data * (x_data - mu_init) ** 2 / np.sum(y_data)))
-        sigma_init = x_data.max() - x_data.min()  # assume that sigma spans the sampled interval
+        # assume that sigma spans the sampled interval
+        sigma_init = x_data.max() - x_data.min()
         offset_init = y_data.min()
 
         return [a_init, mu_init, sigma_init, offset_init]
@@ -176,13 +175,22 @@ class PeakSearcher(Measurement):
         pinit = PeakSearcher._gaussian_param_initial_guess(x_data, y_data)
 
         # define bounds for the fitting parameters
-        a_bounds = (0, np.inf)  # allow only positive gaussians, i.e. hills, not valleys
+        # allow only positive gaussians, i.e. hills, not valleys
+        a_bounds = (0, np.inf)
         mu_bounds = (-np.inf, np.inf)
         sigma_bounds = (0, np.inf)
         offset_bounds = (-np.inf, np.inf)
 
-        lower_bounds = (a_bounds[0], mu_bounds[0], sigma_bounds[0], offset_bounds[0])
-        upper_bounds = (a_bounds[1], mu_bounds[1], sigma_bounds[1], offset_bounds[1])
+        lower_bounds = (
+            a_bounds[0],
+            mu_bounds[0],
+            sigma_bounds[0],
+            offset_bounds[0])
+        upper_bounds = (
+            a_bounds[1],
+            mu_bounds[1],
+            sigma_bounds[1],
+            offset_bounds[1])
 
         # fit a gaussian to the data
         popt, cov = curve_fit(PeakSearcher._gaussian,
@@ -230,11 +238,14 @@ class PeakSearcher(Measurement):
             and gaussian fitting information.
         """
         # double check if mover is actually enabled
-        if not self.mover.has_connected_stages:
-            raise RuntimeError('Mover has no connected stages! Cannot do automatic search for peak.')
+        if self.mover.left_calibration is None and self.mover.right_calibration is None:
+            raise RuntimeError(
+                "The Search for Peak requires at least one left or right stage configured.")
 
-        if self._left_calibration is None and self._right_calibration is None:
-            raise RuntimeError("The Search for Peak requires at least one left or right stage configured.")
+        if self.mover.left_calibration and self.mover.right_calibration:
+            self._dimension_names = self.DIMENSION_NAMES_TWO_STAGES
+        else:
+            self._dimension_names = self.DIMENSION_NAMES_SINGLE_STAGE
 
         # load laser and powermeter
         self.instr_powermeter = self.get_instrument('Power Meter')
@@ -270,7 +281,8 @@ class PeakSearcher(Measurement):
             'fitting information': {}
         }
         for param_name, cfg_param in self.parameters.items():
-            results['parameter'][param_name] = str(cfg_param.value) + str(cfg_param.unit)
+            results['parameter'][param_name] = str(
+                cfg_param.value) + str(cfg_param.unit)
 
         # send user specified parameters to instruments
         self.instr_laser.wavelength = self.parameters['Laser wavelength'].value
@@ -287,10 +299,10 @@ class PeakSearcher(Measurement):
         self.instr_powermeter.logging_stop()
 
         # Set coordinate system to Stage coordinates for left, right stage
-        if self._left_calibration:
-            self._left_calibration.coordinate_system = StageCoordinate
-        if self._right_calibration:
-            self._right_calibration.coordinate_system = StageCoordinate
+        if self.mover.left_calibration and self.mover.left_calibration.coordinate_system is None:
+            self.mover.left_calibration.coordinate_system = StageCoordinate
+        if self.mover.right_calibration and self.mover.right_calibration.coordinate_system is None:
+            self.mover.right_calibration.coordinate_system = StageCoordinate
 
         # switch on laser
         with self.instr_laser:
@@ -305,21 +317,26 @@ class PeakSearcher(Measurement):
 
             # parameters specifically for swept SfP
             t_sweep = self.parameters.get('(swept SfP only) Search time').value
-            no_points = int(self.parameters.get('(swept SfP only) Number of points').value)
+            no_points = int(self.parameters.get(
+                '(swept SfP only) Number of points').value)
 
             # define parameters
-            # the sweep velocity is the distance passed (twice the search radius) divided by the sweep time
+            # the sweep velocity is the distance passed (twice the search
+            # radius) divided by the sweep time
             v_sweep_ums = 2 * radius_us / t_sweep
             avg_time = t_sweep / float(no_points)
             unit = 'dBm'
 
-            # find the current positions of the stages as starting point for SFP
+            # find the current positions of the stages as starting point for
+            # SFP
             _left_start_coordinates = []
             _right_start_coordinates = []
-            if self._left_calibration:
-                _left_start_coordinates = self._left_calibration.get_position().to_list()
-            if self._right_calibration:
-                _right_start_coordinates = self._right_calibration.get_position().to_list()
+            if self.mover.left_calibration:
+                _left_start_coordinates = self.mover.left_calibration.get_position().to_list()[
+                    :2]
+            if self.mover.right_calibration:
+                _right_start_coordinates = self.mover.right_calibration.get_position().to_list()[
+                    :2]
             start_coordinates = _left_start_coordinates + _right_start_coordinates
             current_coordinates = start_coordinates.copy()
 
@@ -332,7 +349,8 @@ class PeakSearcher(Measurement):
             results['start through power'] = self.instr_powermeter.power
 
             # do sweep for every dimension
-            color_strings = ['C' + str(i) for i in range(10)]  # color cycle strings for matplotlib
+            # color cycle strings for matplotlib
+            color_strings = ['C' + str(i) for i in range(10)]
             for dimidx, p_start in enumerate(start_coordinates):
 
                 dimension_name = self._dimension_names[dimidx]
@@ -340,10 +358,17 @@ class PeakSearcher(Measurement):
                 # create new plotting dataset for measurement
                 meas_plot = PlotData(ObservableList(), ObservableList(),
                                      'scatter', color=color_strings[dimidx])
-                fit_plot = PlotData(ObservableList(), ObservableList(),
-                                    color=color_strings[dimidx], label=dimension_name)
-                opt_pos_plot = PlotData(ObservableList(), ObservableList(),
-                                        marker='x', markersize=10, color=color_strings[dimidx])
+                fit_plot = PlotData(
+                    ObservableList(),
+                    ObservableList(),
+                    color=color_strings[dimidx],
+                    label=dimension_name)
+                opt_pos_plot = PlotData(
+                    ObservableList(),
+                    ObservableList(),
+                    marker='x',
+                    markersize=10,
+                    color=color_strings[dimidx])
                 if dimidx < len(start_coordinates) / 2:
                     self.plots_left.append(meas_plot)
                     self.plots_left.append(fit_plot)
@@ -355,25 +380,29 @@ class PeakSearcher(Measurement):
 
                 # differentiate between the two types of SfP
                 if sfp_type == 'swept SfP (FA & N7744a PM models only)':
-                    allowed_pm_classes = ['PowerMeterN7744A', 'PowerMeterSimulator']
-                    # complain if user selects a Power Meter that is not compatible with new Search for Peak
-                    if self.instr_powermeter.__class__.__name__ not in allowed_pm_classes :
+                    allowed_pm_classes = [
+                        'PowerMeterN7744A', 'PowerMeterSimulator']
+                    # complain if user selects a Power Meter that is not
+                    # compatible with new Search for Peak
+                    if self.instr_powermeter.__class__.__name__ not in allowed_pm_classes:
                         raise RuntimeError(
                             'swept SfP is only compatible with Keysight N7744A PM models, not {}'.format(
-                            self.instr_powermeter.__class__.__name__)
-                        )
+                                self.instr_powermeter.__class__.__name__))
                     # move stage to initial position and setup
                     current_coordinates[dimidx] = p_start - radius_us
                     self._move_stages_absolute(current_coordinates)
-                    
+
                     # setup power meter logging feature
-                    self.instr_powermeter.autogain = False  # autogain attribute exists only for N7744A, no effect on other
+                    # autogain attribute exists only for N7744A, no effect on
+                    # other
+                    self.instr_powermeter.autogain = False
                     self.instr_powermeter.range = self.parameters['Power Meter range'].value
                     self.instr_powermeter.unit = unit
                     self.instr_powermeter.averagetime = avg_time
-                    self.instr_powermeter.logging_setup(n_measurement_points=no_points,
-                                                        triggered=True,
-                                                        trigger_each_meas_separately=False)
+                    self.instr_powermeter.logging_setup(
+                        n_measurement_points=no_points,
+                        triggered=True,
+                        trigger_each_meas_separately=False)
                     self.instr_powermeter.logging_start()
 
                     # take a tiny break
@@ -397,7 +426,8 @@ class PeakSearcher(Measurement):
                     # pay attention to unit here
                     IL_meas = pm_data
 
-                    # calculate the estimated movement profile, given constant acceleration of the stages
+                    # calculate the estimated movement profile, given constant
+                    # acceleration of the stages
                     _, d_range, _, _ = trapezoidal_velocity_profile_by_integration(start_position_m=-radius_us,
                                                                                    stop_position_m=radius_us,
                                                                                    max_speed_mps=v_sweep_ums,
@@ -409,10 +439,13 @@ class PeakSearcher(Measurement):
                     meas_plot.y = IL_meas
 
                 elif sfp_type == 'stepped SfP':
-                    #  create range of N measurement points from x-Delta to x+Delta
-                    d_range = np.arange(-radius_us, radius_us + stepsize_us, stepsize_us)
+                    # create range of N measurement points from x-Delta to
+                    # x+Delta
+                    d_range = np.arange(-radius_us, radius_us +
+                                        stepsize_us, stepsize_us)
 
-                    # go through all measurement points for this coordinate and record IL
+                    # go through all measurement points for this coordinate and
+                    # record IL
                     IL_meas = np.empty(len(d_range))
 
                     for measidx, d_current in enumerate(d_range):
@@ -427,13 +460,15 @@ class PeakSearcher(Measurement):
                         loss = self.instr_powermeter.power
 
                         # save data
-                        meas_plot.x.extend([d_current])  # do not trigger plot update just yet
+                        # do not trigger plot update just yet
+                        meas_plot.x.extend([d_current])
                         meas_plot.y.append(loss)
 
                         IL_meas[measidx] = loss
 
                 else:
-                    raise ValueError('invalid SfP type given! Options are `stepped SfP` or `swept SfP`.')
+                    raise ValueError(
+                        'invalid SfP type given! Options are `stepped SfP` or `swept SfP`.')
 
                 self.logger.debug('SFP results:')
                 self.logger.debug('coordinates:' + str(d_range))
@@ -454,12 +489,14 @@ class PeakSearcher(Measurement):
                 else:
                     # 2nd decision: fit the gauss and see if it works
                     try:
-                        popt, perr_std_dev = self.fit_gaussian(d_range, IL_meas)
+                        popt, perr_std_dev = self.fit_gaussian(
+                            d_range, IL_meas)
                         fit_msg = "Gauss fitting successful."
                     except RuntimeError:  # thrown from scipy optimizer if algorithm did not converge
                         # if convergence fails, we estimate the parameters crudly, i.e. just get the point with
                         # maximum transmission
-                        popt = PeakSearcher._gaussian_param_initial_guess(d_range, IL_meas)
+                        popt = PeakSearcher._gaussian_param_initial_guess(
+                            d_range, IL_meas)
                         fit_msg = "Gauss fitting did not converge. Using point with maximum transmission."
                         self.logger.warning(fit_msg)
 
@@ -474,31 +511,38 @@ class PeakSearcher(Measurement):
 
                     # plot the gaussian, if gaussian was successfully fitted
                     if perr_std_dev is not None:
-                        # interpolate between the fitted values to get a nice smooth line
-                        d_range_highres = np.linspace(d_range.min(), d_range.max(), num=len(meas_plot.x) * 5)
-                        IL_fit_fctn = PeakSearcher._gaussian(d_range_highres, *popt)
+                        # interpolate between the fitted values to get a nice
+                        # smooth line
+                        d_range_highres = np.linspace(
+                            d_range.min(), d_range.max(), num=len(
+                                meas_plot.x) * 5)
+                        IL_fit_fctn = PeakSearcher._gaussian(
+                            d_range_highres, *popt)
                         # plot fit data
                         fit_plot.x.extend(d_range_highres)
                         fit_plot.y.extend(IL_fit_fctn[0:-1])
-                        fit_plot.y.append(IL_fit_fctn[-1])  # trigger plot update
+                        # trigger plot update
+                        fit_plot.y.append(IL_fit_fctn[-1])
 
                     # mark the point where we move to in any case
-                    estimated_through_power = self._gaussian(optimized_target, *popt)
-                    opt_pos_plot.x.extend([optimized_target])  # do not trigger plot update just yet
+                    estimated_through_power = self._gaussian(
+                        optimized_target, *popt)
+                    # do not trigger plot update just yet
+                    opt_pos_plot.x.extend([optimized_target])
                     opt_pos_plot.y.append(estimated_through_power)
 
                 # inform user and store the fitting information
-                self.logger.debug(f"Search for peak for dimension {dimension_name} finished. "
-                                  f"Fitter message: {fit_msg} -- SFP decision: {sfp_msg} "
-                                  f"Moving to location: {optimized_target:.3f}um with estimated through power"
-                                  f" of {estimated_through_power:.1f}dBm.")
+                self.logger.debug(
+                    f"Search for peak for dimension {dimension_name} finished. "
+                    f"Fitter message: {fit_msg} -- SFP decision: {sfp_msg} "
+                    f"Moving to location: {optimized_target:.3f}um with estimated through power"
+                    f" of {estimated_through_power:.1f}dBm.")
 
                 results['fitting information'][dimension_name] = {
                     'optimized parameters': list(popt) if popt is not None else None,
                     'parameter estimation error std dev': list(perr_std_dev) if perr_std_dev is not None else None,
                     'fitter message': str(fit_msg),
-                    'sfp decision': str(sfp_msg)
-                }
+                    'sfp decision': str(sfp_msg)}
 
                 # reset speed and acceleration to original
                 self.mover.speed_xy = v0
@@ -513,15 +557,17 @@ class PeakSearcher(Measurement):
         self.instr_powermeter.close()
 
         # Reset coordinate system for left, right stage
-        if self._left_calibration:
-            self._left_calibration.coordinate_system = None
-        if self._right_calibration:
-            self._right_calibration.coordinate_system = None
+        if self.mover.left_calibration:
+            self.mover.left_calibration.coordinate_system = None
+        if self.mover.right_calibration:
+            self.mover.right_calibration.coordinate_system = None
 
         # save final result to log
-        loc_str = " x ".join(["{:.3f}um".format(p) for p in current_coordinates])
-        self.logger.info(f"Search for peak finished: maximum estimated output power of {estimated_through_power:.1f}dBm"
-                         f" at {loc_str:s}.")
+        loc_str = " x ".join(["{:.3f}um".format(p)
+                             for p in current_coordinates])
+        self.logger.info(
+            f"Search for peak finished: maximum estimated output power of {estimated_through_power:.1f}dBm"
+            f" at {loc_str:s}.")
 
         # save end result and return
         results['optimized location'] = current_coordinates.copy()
@@ -530,31 +576,40 @@ class PeakSearcher(Measurement):
         return results
 
     def _move_stages_absolute(self, coordinates: list):
-        if self._left_calibration and self._right_calibration:
+        if self.mover.left_calibration and self.mover.right_calibration:
+            leftz = self.mover.left_calibration.get_position().z
+            rightz = self.mover.right_calibration.get_position().z
             assert len(coordinates) == 4
-            self._left_calibration.move_absolute(StageCoordinate.from_list(coordinates[:2]))
-            self._right_calibration.move_absolute(StageCoordinate.from_list(coordinates[2:]))
-        elif self._left_calibration:
+            self.mover.left_calibration.move_absolute(
+                StageCoordinate.from_list(coordinates[:2] + [leftz]))
+            self.mover.right_calibration.move_absolute(
+                StageCoordinate.from_list(coordinates[2:] + [rightz]))
+        elif self.mover.left_calibration:
+            leftz = self.mover.left_calibration.get_position().z
             assert len(coordinates) == 2
-            self._left_calibration.move_absolute(StageCoordinate.from_list(coordinates))
-        elif self._right_calibration:
+            self.mover.left_calibration.move_absolute(
+                StageCoordinate.from_list(coordinates + [leftz]))
+        elif self.mover.right_calibration:
+            rightz = self.mover.right_calibration.get_position().z
             assert len(coordinates) == 2
-            self._right_calibration.move_absolute(StageCoordinate.from_list(coordinates))
+            self.mover.right_calibration.move_absolute(
+                StageCoordinate.from_list(coordinates + [rightz]))
         else:
             raise RuntimeError()
 
-
     def update_params_from_savefile(self):
         if not os.path.isfile(self.settings_path_full):
-            self.logger.info("SFP Parameter save file at {:s} not found. Using default parameters.".format(
-                self.settings_path_full
-            ))
+            self.logger.info(
+                "SFP Parameter save file at {:s} not found. Using default parameters.".format(
+                    self.settings_path_full))
             return
         with open(self.settings_path_full, 'r') as json_file:
             data = json.loads(json_file.read())
         for parameter_name in data:
             self.parameters[parameter_name].value = data[parameter_name]
-        self.logger.info("SearchForPeak parameters loaded from file: {:s}.".format(self.settings_path_full))
+        self.logger.info(
+            "SearchForPeak parameters loaded from file: {:s}.".format(
+                self.settings_path_full))
 
     def algorithm(self, device, data, instruments, parameters):
         raise NotImplementedError()

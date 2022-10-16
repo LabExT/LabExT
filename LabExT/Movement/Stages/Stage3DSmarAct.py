@@ -703,54 +703,13 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_absolute(self, *args, **kwargs) -> None:
-        """
-        Perfoms an absolute movement to the specified position in units of micrometers.
-
-        Attention: This method supports two method signatures to temporarily support the old version (v1)
-        and the new version (v2).
-        """
-        if isinstance(args[0], list):
-            self._move_absolute_v1(*args, **kwargs)
-        else:
-            self._move_absolute_v2(*args, **kwargs)
-
-    # Stage control
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def stop(self):
-        for channel in self.channels.values():
-            channel.stop()
-
-    # Move absolute methods
-    # Temporarily, two different methods for absolute movement are supported.
-
-    def _move_absolute_v1(self, pos, wait_for_stopping: bool = True):
-        warnings.warn(
-            "This method is deprecated and will be removed in the future. Please use the new signature.",
-            category=DeprecationWarning)
-
-        self._logger.debug(
-            'Want to absolute move %s to x = %s um and y = %s um',
-            self.address,
-            pos[0],
-            pos[1])
-
-        self.channels[Axis.X].move(
-            diff=pos[0], mode=MovementType.ABSOLUTE)
-        self.channels[Axis.Y].move(
-            diff=pos[1], mode=MovementType.ABSOLUTE)
-
-        if wait_for_stopping:
-            self._wait_for_stopping()
-
-    def _move_absolute_v2(
-            self,
-            x: float = None,
-            y: float = None,
-            z: float = None,
-            wait_for_stopping: bool = True) -> None:
+    def move_absolute(
+        self,
+        x: float = None,
+        y: float = None,
+        z: float = None,
+        wait_for_stopping: bool = True
+    ) -> None:
         self._logger.debug(
             'Want to absolute move %s to x = %s um, y = %s um and z = %s um',
             self.address,
@@ -767,6 +726,14 @@ class Stage3DSmarAct(Stage):
 
         if wait_for_stopping:
             self._wait_for_stopping()
+
+    # Stage control
+
+    @assert_driver_loaded
+    @assert_stage_connected
+    def stop(self):
+        for channel in self.channels.values():
+            channel.stop()
 
     # Helper methods
 
