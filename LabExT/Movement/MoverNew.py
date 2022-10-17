@@ -13,6 +13,7 @@ from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RA
 from typing import Dict, Tuple, Type, List
 from functools import wraps
 from os.path import exists
+from datetime import datetime
 
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort
 from LabExT.Movement.Calibration import Calibration
@@ -641,6 +642,7 @@ class MoverNew:
         with open(self.CALIBRATIONS_SETTINGS_FILE, "w+") as fp:
             json.dump({
                 "chip_name": _chip_name,
+                "last_updated_at": datetime.now().isoformat(),
                 "calibrations": [
                     c.dump() for c in self.calibrations.values()]
             }, fp)

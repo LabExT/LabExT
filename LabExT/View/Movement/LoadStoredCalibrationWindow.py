@@ -4,6 +4,7 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from datetime import datetime
 import json
 
 from tkinter import W, Frame, Label, OptionMenu, StringVar, Toplevel, Button, messagebox, RIGHT, TOP, X, BOTH, FLAT, Y, LEFT
@@ -37,7 +38,7 @@ class LoadStoredCalibrationWindow(Toplevel):
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
-        mover : Chip
+        chip : Chip
             Instance of the current chip.
 
         Raises
@@ -48,11 +49,6 @@ class LoadStoredCalibrationWindow(Toplevel):
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
 
-        if not messagebox.askyesno(
-            "Restore calibration",
-                f"Found mover calibration for chip: {self.chip.name}. Do you want to restore it?"):
-            return
-
         self.calibration_settings = None
         if not exists(self.mover.calibration_settings_file):
             raise RuntimeError(
@@ -60,6 +56,22 @@ class LoadStoredCalibrationWindow(Toplevel):
 
         with open(self.mover.calibration_settings_file, "r") as fp:
             self.calibration_settings = json.load(fp)
+
+        if self.calibration_settings.get("chip_name") != self.chip.name:
+            raise RuntimeError(
+                f"There is no stored calibrarion for the chip name '{self.chip.name}'."
+                f"Instead found one for chip name '{self.calibration_settings.get('chip_name')}'")
+
+        last_updated_at = "Unknown"
+        if "last_updated_at" in self.calibration_settings:
+            last_updated_at = datetime.fromisoformat(
+                self.calibration_settings["last_updated_at"]).strftime("%d.%m.%Y %H:%M:%S")
+
+        if not messagebox.askyesno(
+            "Restore calibration",
+                f"Found mover calibration for chip: {self.chip.name}. \n Last updated at: {last_updated_at}. \n"
+                "Do you want to restore it?"):
+            return
 
         self.stored_calibrations = self.calibration_settings.get(
             "calibrations", [])
