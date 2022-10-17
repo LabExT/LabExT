@@ -126,7 +126,7 @@ class ExperimentManager:
 
         # update status the first time
         self.main_window.model.status_mover_connected_stages.set(self.mover.has_connected_stages)
-        self.main_window.model.status_mover_fully_calibrated.set(self.mover.can_move_absolutely)
+        self.main_window.model.status_mover_can_move_to_device.set(self.mover.can_move_absolutely)
         self.main_window.model.status_sfp_initialized.set(self.peak_searcher.initialized)
 
         # inform user where to find the log file

@@ -74,7 +74,7 @@ class ExperimentWizardTest(TKinterTestCase):
         self.main_window_setup()
 
         # full transformation and sfp need initialization before usage
-        self.assertFalse(self.mwm.status_mover_fully_calibrated.get())
+        self.assertFalse(self.mwm.status_mover_can_move_to_device.get())
         self.assertFalse(self.mwm.status_sfp_initialized.get())
 
         # no ToDos and now loaded measurements at beginning

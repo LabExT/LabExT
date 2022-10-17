@@ -144,7 +144,7 @@ class MoverNew:
             return
 
         _main_window.model.status_mover_connected_stages.set(self.has_connected_stages)
-        _main_window.model.status_mover_fully_calibrated.set(self.can_move_absolutely)
+        _main_window.model.status_mover_can_move_to_device.set(self.can_move_absolutely)
 
 
     #
