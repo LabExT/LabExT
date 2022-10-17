@@ -727,14 +727,6 @@ class Stage3DSmarAct(Stage):
         if wait_for_stopping:
             self._wait_for_stopping()
 
-    # Stage control
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def stop(self):
-        for channel in self.channels.values():
-            channel.stop()
-
     # Helper methods
 
     @classmethod
