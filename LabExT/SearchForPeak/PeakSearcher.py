@@ -80,11 +80,12 @@ class PeakSearcher(Measurement):
     DIMENSION_NAMES_SINGLE_STAGE = ['X', 'Y']
 
     def __init__(
-            self,
-            *args,
-            mover: Type[MoverNew] = None,
-            parent=None,
-            **kwargs):
+        self,
+        *args,
+        mover: Type[MoverNew] = None,
+        parent=None,
+        **kwargs
+    ) -> None:
         """Constructor
 
         Parameters
@@ -175,22 +176,13 @@ class PeakSearcher(Measurement):
         pinit = PeakSearcher._gaussian_param_initial_guess(x_data, y_data)
 
         # define bounds for the fitting parameters
-        # allow only positive gaussians, i.e. hills, not valleys
-        a_bounds = (0, np.inf)
+        a_bounds = (0, np.inf)  # allow only positive gaussians, i.e. hills, not valleys
         mu_bounds = (-np.inf, np.inf)
         sigma_bounds = (0, np.inf)
         offset_bounds = (-np.inf, np.inf)
 
-        lower_bounds = (
-            a_bounds[0],
-            mu_bounds[0],
-            sigma_bounds[0],
-            offset_bounds[0])
-        upper_bounds = (
-            a_bounds[1],
-            mu_bounds[1],
-            sigma_bounds[1],
-            offset_bounds[1])
+        lower_bounds = (a_bounds[0], mu_bounds[0], sigma_bounds[0], offset_bounds[0])
+        upper_bounds = (a_bounds[1], mu_bounds[1], sigma_bounds[1], offset_bounds[1])
 
         # fit a gaussian to the data
         popt, cov = curve_fit(PeakSearcher._gaussian,
@@ -281,8 +273,7 @@ class PeakSearcher(Measurement):
             'fitting information': {}
         }
         for param_name, cfg_param in self.parameters.items():
-            results['parameter'][param_name] = str(
-                cfg_param.value) + str(cfg_param.unit)
+            results['parameter'][param_name] = str(cfg_param.value) + str(cfg_param.unit)
 
         # send user specified parameters to instruments
         self.instr_laser.wavelength = self.parameters['Laser wavelength'].value
@@ -317,8 +308,7 @@ class PeakSearcher(Measurement):
 
             # parameters specifically for swept SfP
             t_sweep = self.parameters.get('(swept SfP only) Search time').value
-            no_points = int(self.parameters.get(
-                '(swept SfP only) Number of points').value)
+            no_points = int(self.parameters.get('(swept SfP only) Number of points').value)
 
             # define parameters
             # the sweep velocity is the distance passed (twice the search
@@ -357,18 +347,11 @@ class PeakSearcher(Measurement):
 
                 # create new plotting dataset for measurement
                 meas_plot = PlotData(ObservableList(), ObservableList(),
-                                     'scatter', color=color_strings[dimidx])
-                fit_plot = PlotData(
-                    ObservableList(),
-                    ObservableList(),
-                    color=color_strings[dimidx],
-                    label=dimension_name)
-                opt_pos_plot = PlotData(
-                    ObservableList(),
-                    ObservableList(),
-                    marker='x',
-                    markersize=10,
-                    color=color_strings[dimidx])
+                                      'scatter', color=color_strings[dimidx])
+                fit_plot = PlotData(ObservableList(), ObservableList(),
+                                    color=color_strings[dimidx], label=dimension_name)
+                opt_pos_plot = PlotData(ObservableList(), ObservableList(),
+                                        marker='x', markersize=10, color=color_strings[dimidx])
                 if dimidx < len(start_coordinates) / 2:
                     self.plots_left.append(meas_plot)
                     self.plots_left.append(fit_plot)
@@ -380,14 +363,13 @@ class PeakSearcher(Measurement):
 
                 # differentiate between the two types of SfP
                 if sfp_type == 'swept SfP (FA & N7744a PM models only)':
-                    allowed_pm_classes = [
-                        'PowerMeterN7744A', 'PowerMeterSimulator']
+                    allowed_pm_classes = ['PowerMeterN7744A', 'PowerMeterSimulator']
                     # complain if user selects a Power Meter that is not
                     # compatible with new Search for Peak
                     if self.instr_powermeter.__class__.__name__ not in allowed_pm_classes:
                         raise RuntimeError(
                             'swept SfP is only compatible with Keysight N7744A PM models, not {}'.format(
-                                self.instr_powermeter.__class__.__name__))
+                            self.instr_powermeter.__class__.__name__))
                     # move stage to initial position and setup
                     current_coordinates[dimidx] = p_start - radius_us
                     self._move_stages_absolute(current_coordinates)
