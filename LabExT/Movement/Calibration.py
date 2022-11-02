@@ -252,6 +252,9 @@ class Calibration:
         CalibrationError
             If a coordinate system is already set.
         """
+        if system == self._coordinate_system:
+            return
+
         if system is None:
             self._coordinate_system = None
             return
