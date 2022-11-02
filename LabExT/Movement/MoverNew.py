@@ -6,11 +6,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import json
+import logging
+import numpy as np
 
 from contextlib import contextmanager
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Dict, Tuple, Type, List, Set
 from functools import wraps
 from os.path import exists
 from datetime import datetime
@@ -87,6 +89,8 @@ class MoverNew:
         chip : Chip = None
             Current instance of imported chip.
         """
+        self.logger = logging.getLogger()
+
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
@@ -100,6 +104,9 @@ class MoverNew:
         self._speed_z = None
         self._acceleration_xy = None
         self._z_lift = None
+
+        # Keeps track of lifted stages
+        self._lifted_stages: Set[Calibration] = set()
 
         self.reload_stages()
         self.reload_stage_classes()
@@ -143,9 +150,10 @@ class MoverNew:
         if not _main_window:
             return
 
-        _main_window.model.status_mover_connected_stages.set(self.has_connected_stages)
-        _main_window.model.status_mover_can_move_to_device.set(self.can_move_absolutely)
-
+        _main_window.model.status_mover_connected_stages.set(
+            self.has_connected_stages)
+        _main_window.model.status_mover_can_move_to_device.set(
+            self.can_move_absolutely)
 
     #
     #   Reload properties
@@ -517,7 +525,12 @@ class MoverNew:
                 raise MoverError(
                     f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
-            path_planning.set_stage_target(calibration, target)
+            current_stage_level = None
+            if calibration in self._lifted_stages:
+                current_stage_level = self.z_lift
+
+            path_planning.set_stage_target(
+                calibration, target, z_level=current_stage_level)
 
         # Move stages on safe trajectory
         for calibration_waypoints in path_planning.trajectory():
@@ -602,17 +615,40 @@ class MoverNew:
         Performs NO safe movement (i.e no Path planning)
         """
 
-        def _lift_lower_stages(lift):
+        def _toggle_stage_lift():
+            """
+            Moves all stages to z lift level.
+            Moves up if stages_are_lifted is false and vice versa.
+            """
             for calibration in self.calibrations.values():
+                _is_lifted = calibration in self._lifted_stages
+                target_z = self.z_lift if not _is_lifted else 0
                 with calibration.perform_in_chip_coordinates():
-                    calibration.move_absolute(
-                        calibration.get_position() + ChipCoordinate(z=lift))
+                    stage_start_pos = calibration.get_position()
+                    target_coordinate = ChipCoordinate(
+                        x=stage_start_pos.x, y=stage_start_pos.y, z=target_z)
+                    try:
+                        calibration.move_absolute(
+                            target_coordinate, wait_for_stopping=True)
+                    finally:
+                        stage_end_pos = calibration.get_position()
+                        lift_delta = stage_end_pos - stage_start_pos
 
-        _lift_lower_stages(self.z_lift)
+                        if not np.isclose(
+                                lift_delta.to_numpy(),
+                                np.array([0, 0, target_z]),
+                                rtol=1e-05,
+                                atol=1e-08).all():
+                            self.logger.error(
+                                f"{calibration} didn't not move properly to {target_z} while lifting/lowering stage.")
+
+                        self._lifted_stages.add(calibration)
+
+        _toggle_stage_lift()
         try:
             yield
         finally:
-            _lift_lower_stages(-self.z_lift)
+            _toggle_stage_lift()
 
     @assert_connected_stages
     def move_to_device(self, chip: Type[Chip], device: Type[Device]):
@@ -631,13 +667,14 @@ class MoverNew:
         MoverError
             If no device was found for the given ID.
         """
+        # Set up movement commands
+        # A movement command orders a calibration to move to a certain
+        # coordinate (here device port coordinates)
         movement_commands = {}
         if self.input_calibration:
-            movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
-                ChipCoordinate(z=self.z_lift)
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate
         if self.output_calibration:
-            movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
-                ChipCoordinate(z=self.z_lift)
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate
 
         with self.lift_stages():
             self.move_absolute(movement_commands, chip=chip)
@@ -704,7 +741,11 @@ class MoverNew:
     #   Helpers
     #
 
-    def _get_calibration(self, port=None, orientation=None, default=None) -> Type[Calibration]:
+    def _get_calibration(
+            self,
+            port=None,
+            orientation=None,
+            default=None) -> Type[Calibration]:
         """
         Get safely calibration by port and orientation.
         """
