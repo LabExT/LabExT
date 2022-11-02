@@ -641,8 +641,11 @@ class MoverNew:
                                 atol=1e-08).all():
                             self.logger.error(
                                 f"{calibration} didn't not move properly to {target_z} while lifting/lowering stage.")
-
-                        self._lifted_stages.add(calibration)
+                        
+                        if _is_lifted:
+                            self._lifted_stages.remove(calibration)
+                        else:
+                            self._lifted_stages.add(calibration)
 
         _toggle_stage_lift()
         try:
