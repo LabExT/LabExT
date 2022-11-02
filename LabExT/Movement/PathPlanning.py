@@ -371,9 +371,6 @@ class PathPlanning:
         ----------
         chip: Chip
             Instance of the a chip
-        z_level: float = None
-            Height of the z level on which the algorithm is to operate
-            If None, the current stage z coordinate is taken.
         """
         self.chip: Type[Chip] = chip
         self.grid_size, self.grid_outline = self._get_grid_properties(
@@ -382,13 +379,12 @@ class PathPlanning:
         self.potential_fields = {}
         self.last_moves = []
 
-        self._z_level = z_level
-
     def set_stage_target(
         self,
         calibration: Type["Calibration"],
-        target: Type[ChipCoordinate
-                     ]) -> None:
+        target: Type[ChipCoordinate],
+        z_level: float = None
+    ) -> None:
         """
         Registers a target for the given calibration.
 
@@ -398,13 +394,16 @@ class PathPlanning:
             Instance of a calibrated stage, such that the stage can move in chip coordinates.
         target : ChipCoordinate
             Target of the stage in chip coordinates.
+        z_level: float = None
+            Height of the z level on which the algorithm is to operate
+            If None, the current stage z coordinate is taken.
         """
         self.potential_fields[calibration] = PotentialField(
             calibration,
             target,
             self.grid_size,
             self.grid_outline,
-            z_level=self._z_level)
+            z_level=z_level)
 
     def trajectory(self, abort_local_minimum=3):
         """
