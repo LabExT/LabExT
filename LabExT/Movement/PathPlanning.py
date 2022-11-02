@@ -190,7 +190,8 @@ class PotentialField:
         grid_size: float = 50.0,
         grid_outline: tuple = ((-5000, 5000), (-5000, 5000)),
         repulsive_gain: float = 10000.0,
-        attractive_gain: float = 1.0
+        attractive_gain: float = 1.0,
+        z_level: float = None
     ) -> None:
         """
         Constructor for new Potential Field
@@ -209,9 +210,14 @@ class PotentialField:
             Repulsive gain in the potential field
         attractive_gain: tuple
             Attractive gain in the potential field
+        z_level: float = None
+            Height of the z level on which the algorithm is to operate
+            If None, the current stage
         """
         self.calibration = calibration
         self.target_position = target_position
+
+        self._z_level = z_level
 
         self.grid_size = grid_size
         self.grid_outline = grid_outline
@@ -236,8 +242,12 @@ class PotentialField:
             self.cx) + self.attractive_potential_field
 
         with self.calibration.perform_in_chip_coordinates():
-            self.start_coordinate = self.calibration.get_position()
-            self.target_position.z = self.start_coordinate.z
+            current_stage_pos = self.calibration.get_position()
+
+            self.start_coordinate = ChipCoordinate(
+                x=current_stage_pos.x,
+                y=current_stage_pos.y,
+                z=self.stage_z_level)
 
             self.current_idx = np.array(
                 [np.argmin(np.abs(self.x_coords - self.start_coordinate.x)),
@@ -246,7 +256,21 @@ class PotentialField:
             self.current_position = ChipCoordinate(
                 x=self.x_coords[self.current_idx[0]],
                 y=self.y_coords[self.current_idx[1]],
-                z=self.start_coordinate.z)
+                z=self.stage_z_level)
+
+    @property
+    def stage_z_level(self) -> float:
+        """
+        Returns the z-level height in which the stage should operate.
+
+        Returns requested level if given otherwise it returns the z coordinate of the current position.
+        """
+        if self._z_level is not None:
+            return self._z_level
+
+        with self.calibration.perform_in_chip_coordinates():
+            current_stage_pos = self.calibration.get_position()
+            return current_stage_pos.z
 
     def next_waypoint(self) -> list:
         """
@@ -270,7 +294,7 @@ class PotentialField:
             self.current_position = ChipCoordinate(
                 x=self.x_coords[self.current_idx[0]],
                 y=self.y_coords[self.current_idx[1]],
-                z=self.start_coordinate.z)
+                z=self.stage_z_level)
 
         return self.current_position
 
@@ -339,7 +363,7 @@ class PathPlanning:
     Main class for Path Planning
     """
 
-    def __init__(self, chip) -> None:
+    def __init__(self, chip, z_level: float = None) -> None:
         """
         Constructor for the Path Planning.
 
@@ -347,6 +371,9 @@ class PathPlanning:
         ----------
         chip: Chip
             Instance of the a chip
+        z_level: float = None
+            Height of the z level on which the algorithm is to operate
+            If None, the current stage z coordinate is taken.
         """
         self.chip: Type[Chip] = chip
         self.grid_size, self.grid_outline = self._get_grid_properties(
@@ -355,10 +382,13 @@ class PathPlanning:
         self.potential_fields = {}
         self.last_moves = []
 
+        self._z_level = z_level
+
     def set_stage_target(
-            self,
-            calibration: Type["Calibration"],
-            target: Type[ChipCoordinate]) -> None:
+        self,
+        calibration: Type["Calibration"],
+        target: Type[ChipCoordinate
+                     ]) -> None:
         """
         Registers a target for the given calibration.
 
@@ -373,7 +403,8 @@ class PathPlanning:
             calibration,
             target,
             self.grid_size,
-            self.grid_outline)
+            self.grid_outline,
+            z_level=self._z_level)
 
     def trajectory(self, abort_local_minimum=3):
         """
