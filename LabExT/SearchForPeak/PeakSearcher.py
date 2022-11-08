@@ -17,6 +17,7 @@ from scipy.optimize import curve_fit
 from LabExT.Measurements.MeasAPI import *
 from LabExT.Movement.MotorProfiles import trapezoidal_velocity_profile_by_integration
 from LabExT.Movement.MoverNew import MoverNew
+from LabExT.Movement.config import CoordinateSystem
 from LabExT.Movement.Transformations import StageCoordinate
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.PlotControl import PlotData
@@ -289,260 +290,248 @@ class PeakSearcher(Measurement):
         # stop all previous logging
         self.instr_powermeter.logging_stop()
 
-        # Set coordinate system to Stage coordinates for left, right stage
-        if self.mover.left_calibration and self.mover.left_calibration.coordinate_system is None:
-            self.mover.left_calibration.coordinate_system = StageCoordinate
-        if self.mover.right_calibration and self.mover.right_calibration.coordinate_system is None:
-            self.mover.right_calibration.coordinate_system = StageCoordinate
-
         # switch on laser
         with self.instr_laser:
+            with self.mover.set_stages_coordinate_system(CoordinateSystem.STAGE):
+                # read parameters for SFP
+                sfp_type = self.parameters.get('SfP type').value
+                radius_us = self.parameters.get('Search radius').value
 
-            # read parameters for SFP
-            sfp_type = self.parameters.get('SfP type').value
-            radius_us = self.parameters.get('Search radius').value
+                # parameters specifically for stepped sfp
+                stepsize_us = self.parameters['(stepped SfP only) Search step size'].value
+                pause_time_ms = self.parameters['(stepped SfP only) Search fiber stabilization time'].value
 
-            # parameters specifically for stepped sfp
-            stepsize_us = self.parameters['(stepped SfP only) Search step size'].value
-            pause_time_ms = self.parameters['(stepped SfP only) Search fiber stabilization time'].value
+                # parameters specifically for swept SfP
+                t_sweep = self.parameters.get('(swept SfP only) Search time').value
+                no_points = int(self.parameters.get('(swept SfP only) Number of points').value)
 
-            # parameters specifically for swept SfP
-            t_sweep = self.parameters.get('(swept SfP only) Search time').value
-            no_points = int(self.parameters.get('(swept SfP only) Number of points').value)
+                # define parameters
+                # the sweep velocity is the distance passed (twice the search
+                # radius) divided by the sweep time
+                v_sweep_ums = 2 * radius_us / t_sweep
+                avg_time = t_sweep / float(no_points)
+                unit = 'dBm'
 
-            # define parameters
-            # the sweep velocity is the distance passed (twice the search
-            # radius) divided by the sweep time
-            v_sweep_ums = 2 * radius_us / t_sweep
-            avg_time = t_sweep / float(no_points)
-            unit = 'dBm'
+                # find the current positions of the stages as starting point for
+                # SFP
+                _left_start_coordinates = []
+                _right_start_coordinates = []
+                if self.mover.left_calibration:
+                    _left_start_coordinates = self.mover.left_calibration.get_position().to_list()[
+                        :2]
+                if self.mover.right_calibration:
+                    _right_start_coordinates = self.mover.right_calibration.get_position().to_list()[
+                        :2]
+                start_coordinates = _left_start_coordinates + _right_start_coordinates
+                current_coordinates = start_coordinates.copy()
 
-            # find the current positions of the stages as starting point for
-            # SFP
-            _left_start_coordinates = []
-            _right_start_coordinates = []
-            if self.mover.left_calibration:
-                _left_start_coordinates = self.mover.left_calibration.get_position().to_list()[
-                    :2]
-            if self.mover.right_calibration:
-                _right_start_coordinates = self.mover.right_calibration.get_position().to_list()[
-                    :2]
-            start_coordinates = _left_start_coordinates + _right_start_coordinates
-            current_coordinates = start_coordinates.copy()
+                self.logger.debug(f"Start Position: {start_coordinates}")
 
-            self.logger.debug(f"Start Position: {start_coordinates}")
+                estimated_through_power = -99.0
 
-            estimated_through_power = -99.0
+                # get start statistics
+                results['start location'] = start_coordinates.copy()
+                results['start through power'] = self.instr_powermeter.power
 
-            # get start statistics
-            results['start location'] = start_coordinates.copy()
-            results['start through power'] = self.instr_powermeter.power
+                # do sweep for every dimension
+                # color cycle strings for matplotlib
+                color_strings = ['C' + str(i) for i in range(10)]
+                for dimidx, p_start in enumerate(start_coordinates):
 
-            # do sweep for every dimension
-            # color cycle strings for matplotlib
-            color_strings = ['C' + str(i) for i in range(10)]
-            for dimidx, p_start in enumerate(start_coordinates):
+                    dimension_name = self._dimension_names[dimidx]
 
-                dimension_name = self._dimension_names[dimidx]
+                    # create new plotting dataset for measurement
+                    meas_plot = PlotData(ObservableList(), ObservableList(),
+                                        'scatter', color=color_strings[dimidx])
+                    fit_plot = PlotData(ObservableList(), ObservableList(),
+                                        color=color_strings[dimidx], label=dimension_name)
+                    opt_pos_plot = PlotData(ObservableList(), ObservableList(),
+                                            marker='x', markersize=10, color=color_strings[dimidx])
+                    if dimidx < len(start_coordinates) / 2:
+                        self.plots_left.append(meas_plot)
+                        self.plots_left.append(fit_plot)
+                        self.plots_left.append(opt_pos_plot)
+                    else:
+                        self.plots_right.append(meas_plot)
+                        self.plots_right.append(fit_plot)
+                        self.plots_right.append(opt_pos_plot)
 
-                # create new plotting dataset for measurement
-                meas_plot = PlotData(ObservableList(), ObservableList(),
-                                      'scatter', color=color_strings[dimidx])
-                fit_plot = PlotData(ObservableList(), ObservableList(),
-                                    color=color_strings[dimidx], label=dimension_name)
-                opt_pos_plot = PlotData(ObservableList(), ObservableList(),
-                                        marker='x', markersize=10, color=color_strings[dimidx])
-                if dimidx < len(start_coordinates) / 2:
-                    self.plots_left.append(meas_plot)
-                    self.plots_left.append(fit_plot)
-                    self.plots_left.append(opt_pos_plot)
-                else:
-                    self.plots_right.append(meas_plot)
-                    self.plots_right.append(fit_plot)
-                    self.plots_right.append(opt_pos_plot)
-
-                # differentiate between the two types of SfP
-                if sfp_type == 'swept SfP (FA & N7744a PM models only)':
-                    allowed_pm_classes = ['PowerMeterN7744A', 'PowerMeterSimulator']
-                    # complain if user selects a Power Meter that is not
-                    # compatible with new Search for Peak
-                    if self.instr_powermeter.__class__.__name__ not in allowed_pm_classes:
-                        raise RuntimeError(
-                            'swept SfP is only compatible with Keysight N7744A PM models, not {}'.format(
-                            self.instr_powermeter.__class__.__name__))
-                    # move stage to initial position and setup
-                    current_coordinates[dimidx] = p_start - radius_us
-                    self._move_stages_absolute(current_coordinates)
-
-                    # setup power meter logging feature
-                    # autogain attribute exists only for N7744A, no effect on
-                    # other
-                    self.instr_powermeter.autogain = False
-                    self.instr_powermeter.range = self.parameters['Power Meter range'].value
-                    self.instr_powermeter.unit = unit
-                    self.instr_powermeter.averagetime = avg_time
-                    self.instr_powermeter.logging_setup(
-                        n_measurement_points=no_points,
-                        triggered=True,
-                        trigger_each_meas_separately=False)
-                    self.instr_powermeter.logging_start()
-
-                    # take a tiny break
-                    time.sleep(0.1)
-
-                    current_coordinates[dimidx] = p_start + radius_us
-                    # empirically determined acceleration
-                    acc_umps2 = 50
-                    self.mover.speed_xy = v_sweep_ums
-                    self.mover.acceleration_xy = acc_umps2
-                    # start logging at powermeter
-                    self.instr_powermeter.trigger()
-                    # mover_time_lower = time.time()
-                    self._move_stages_absolute(current_coordinates)
-                    # mover_time_upper = time.time()
-
-                    while self.instr_powermeter.logging_busy():
-                        time.sleep(0.1)
-                    pm_data = self.instr_powermeter.logging_get_data()
-
-                    # pay attention to unit here
-                    IL_meas = pm_data
-
-                    # calculate the estimated movement profile, given constant
-                    # acceleration of the stages
-                    _, d_range, _, _ = trapezoidal_velocity_profile_by_integration(start_position_m=-radius_us,
-                                                                                   stop_position_m=radius_us,
-                                                                                   max_speed_mps=v_sweep_ums,
-                                                                                   const_acceleration_mps2=acc_umps2,
-                                                                                   n_output_points=len(IL_meas))
-
-                    # plot it
-                    meas_plot.x = d_range
-                    meas_plot.y = IL_meas
-
-                elif sfp_type == 'stepped SfP':
-                    # create range of N measurement points from x-Delta to
-                    # x+Delta
-                    d_range = np.arange(-radius_us, radius_us +
-                                        stepsize_us, stepsize_us)
-
-                    # go through all measurement points for this coordinate and
-                    # record IL
-                    IL_meas = np.empty(len(d_range))
-
-                    for measidx, d_current in enumerate(d_range):
-                        # move stages to currently probed coordinate
-                        current_coordinates[dimidx] = d_current + p_start
+                    # differentiate between the two types of SfP
+                    if sfp_type == 'swept SfP (FA & N7744a PM models only)':
+                        allowed_pm_classes = ['PowerMeterN7744A', 'PowerMeterSimulator']
+                        # complain if user selects a Power Meter that is not
+                        # compatible with new Search for Peak
+                        if self.instr_powermeter.__class__.__name__ not in allowed_pm_classes:
+                            raise RuntimeError(
+                                'swept SfP is only compatible with Keysight N7744A PM models, not {}'.format(
+                                self.instr_powermeter.__class__.__name__))
+                        # move stage to initial position and setup
+                        current_coordinates[dimidx] = p_start - radius_us
                         self._move_stages_absolute(current_coordinates)
 
-                        # take a break to let fiber-vibration die off
-                        time.sleep(pause_time_ms / 1000)
+                        # setup power meter logging feature
+                        # autogain attribute exists only for N7744A, no effect on
+                        # other
+                        self.instr_powermeter.autogain = False
+                        self.instr_powermeter.range = self.parameters['Power Meter range'].value
+                        self.instr_powermeter.unit = unit
+                        self.instr_powermeter.averagetime = avg_time
+                        self.instr_powermeter.logging_setup(
+                            n_measurement_points=no_points,
+                            triggered=True,
+                            trigger_each_meas_separately=False)
+                        self.instr_powermeter.logging_start()
 
-                        # take IL measurement
-                        loss = self.instr_powermeter.power
+                        # take a tiny break
+                        time.sleep(0.1)
 
-                        # save data
-                        # do not trigger plot update just yet
-                        meas_plot.x.extend([d_current])
-                        meas_plot.y.append(loss)
+                        current_coordinates[dimidx] = p_start + radius_us
+                        # empirically determined acceleration
+                        acc_umps2 = 50
+                        self.mover.speed_xy = v_sweep_ums
+                        self.mover.acceleration_xy = acc_umps2
+                        # start logging at powermeter
+                        self.instr_powermeter.trigger()
+                        # mover_time_lower = time.time()
+                        self._move_stages_absolute(current_coordinates)
+                        # mover_time_upper = time.time()
 
-                        IL_meas[measidx] = loss
+                        while self.instr_powermeter.logging_busy():
+                            time.sleep(0.1)
+                        pm_data = self.instr_powermeter.logging_get_data()
 
-                else:
-                    raise ValueError(
-                        'invalid SfP type given! Options are `stepped SfP` or `swept SfP`.')
+                        # pay attention to unit here
+                        IL_meas = pm_data
 
-                self.logger.debug('SFP results:')
-                self.logger.debug('coordinates:' + str(d_range))
-                self.logger.debug('IL: ' + str(IL_meas))
+                        # calculate the estimated movement profile, given constant
+                        # acceleration of the stages
+                        _, d_range, _, _ = trapezoidal_velocity_profile_by_integration(start_position_m=-radius_us,
+                                                                                    stop_position_m=radius_us,
+                                                                                    max_speed_mps=v_sweep_ums,
+                                                                                    const_acceleration_mps2=acc_umps2,
+                                                                                    n_output_points=len(IL_meas))
 
-                # default assignments before SFP decision
-                optimized_target = 0
-                popt = None
-                perr_std_dev = None
-                fit_msg = None
-                sfp_msg = None
+                        # plot it
+                        meas_plot.x = d_range
+                        meas_plot.y = IL_meas
 
-                # 1st decision: did the power meter always return useful data?
-                if ~np.all(np.isfinite(IL_meas)):
-                    sfp_msg = f'SFP failed on dimension {dimension_name} because not all measured IL values are finite.' + \
-                              ' Change of power meter range required. Moving back to start point.'
-                    self.logger.warning(sfp_msg)
-                else:
-                    # 2nd decision: fit the gauss and see if it works
-                    try:
-                        popt, perr_std_dev = self.fit_gaussian(
-                            d_range, IL_meas)
-                        fit_msg = "Gauss fitting successful."
-                    except RuntimeError:  # thrown from scipy optimizer if algorithm did not converge
-                        # if convergence fails, we estimate the parameters crudly, i.e. just get the point with
-                        # maximum transmission
-                        popt = PeakSearcher._gaussian_param_initial_guess(
-                            d_range, IL_meas)
-                        fit_msg = "Gauss fitting did not converge. Using point with maximum transmission."
-                        self.logger.warning(fit_msg)
+                    elif sfp_type == 'stepped SfP':
+                        # create range of N measurement points from x-Delta to
+                        # x+Delta
+                        d_range = np.arange(-radius_us, radius_us +
+                                            stepsize_us, stepsize_us)
 
-                    # 3rd decision: judge feasibility of gaussian fit
-                    a_best, d_best = popt[0:2]
-                    if abs(d_best) > 1.5 * radius_us:
-                        sfp_msg = 'Movement would be more than 1.5x search radius. Moving back to start point.'
+                        # go through all measurement points for this coordinate and
+                        # record IL
+                        IL_meas = np.empty(len(d_range))
+
+                        for measidx, d_current in enumerate(d_range):
+                            # move stages to currently probed coordinate
+                            current_coordinates[dimidx] = d_current + p_start
+                            self._move_stages_absolute(current_coordinates)
+
+                            # take a break to let fiber-vibration die off
+                            time.sleep(pause_time_ms / 1000)
+
+                            # take IL measurement
+                            loss = self.instr_powermeter.power
+
+                            # save data
+                            # do not trigger plot update just yet
+                            meas_plot.x.extend([d_current])
+                            meas_plot.y.append(loss)
+
+                            IL_meas[measidx] = loss
+
+                    else:
+                        raise ValueError(
+                            'invalid SfP type given! Options are `stepped SfP` or `swept SfP`.')
+
+                    self.logger.debug('SFP results:')
+                    self.logger.debug('coordinates:' + str(d_range))
+                    self.logger.debug('IL: ' + str(IL_meas))
+
+                    # default assignments before SFP decision
+                    optimized_target = 0
+                    popt = None
+                    perr_std_dev = None
+                    fit_msg = None
+                    sfp_msg = None
+
+                    # 1st decision: did the power meter always return useful data?
+                    if ~np.all(np.isfinite(IL_meas)):
+                        sfp_msg = f'SFP failed on dimension {dimension_name} because not all measured IL values are finite.' + \
+                                ' Change of power meter range required. Moving back to start point.'
                         self.logger.warning(sfp_msg)
                     else:
-                        optimized_target = d_best
-                        sfp_msg = f'Moving to optimized fiber location.'
+                        # 2nd decision: fit the gauss and see if it works
+                        try:
+                            popt, perr_std_dev = self.fit_gaussian(
+                                d_range, IL_meas)
+                            fit_msg = "Gauss fitting successful."
+                        except RuntimeError:  # thrown from scipy optimizer if algorithm did not converge
+                            # if convergence fails, we estimate the parameters crudly, i.e. just get the point with
+                            # maximum transmission
+                            popt = PeakSearcher._gaussian_param_initial_guess(
+                                d_range, IL_meas)
+                            fit_msg = "Gauss fitting did not converge. Using point with maximum transmission."
+                            self.logger.warning(fit_msg)
 
-                    # plot the gaussian, if gaussian was successfully fitted
-                    if perr_std_dev is not None:
-                        # interpolate between the fitted values to get a nice
-                        # smooth line
-                        d_range_highres = np.linspace(
-                            d_range.min(), d_range.max(), num=len(
-                                meas_plot.x) * 5)
-                        IL_fit_fctn = PeakSearcher._gaussian(
-                            d_range_highres, *popt)
-                        # plot fit data
-                        fit_plot.x.extend(d_range_highres)
-                        fit_plot.y.extend(IL_fit_fctn[0:-1])
-                        # trigger plot update
-                        fit_plot.y.append(IL_fit_fctn[-1])
+                        # 3rd decision: judge feasibility of gaussian fit
+                        a_best, d_best = popt[0:2]
+                        if abs(d_best) > 1.5 * radius_us:
+                            sfp_msg = 'Movement would be more than 1.5x search radius. Moving back to start point.'
+                            self.logger.warning(sfp_msg)
+                        else:
+                            optimized_target = d_best
+                            sfp_msg = f'Moving to optimized fiber location.'
 
-                    # mark the point where we move to in any case
-                    estimated_through_power = self._gaussian(
-                        optimized_target, *popt)
-                    # do not trigger plot update just yet
-                    opt_pos_plot.x.extend([optimized_target])
-                    opt_pos_plot.y.append(estimated_through_power)
+                        # plot the gaussian, if gaussian was successfully fitted
+                        if perr_std_dev is not None:
+                            # interpolate between the fitted values to get a nice
+                            # smooth line
+                            d_range_highres = np.linspace(
+                                d_range.min(), d_range.max(), num=len(
+                                    meas_plot.x) * 5)
+                            IL_fit_fctn = PeakSearcher._gaussian(
+                                d_range_highres, *popt)
+                            # plot fit data
+                            fit_plot.x.extend(d_range_highres)
+                            fit_plot.y.extend(IL_fit_fctn[0:-1])
+                            # trigger plot update
+                            fit_plot.y.append(IL_fit_fctn[-1])
 
-                # inform user and store the fitting information
-                self.logger.debug(
-                    f"Search for peak for dimension {dimension_name} finished. "
-                    f"Fitter message: {fit_msg} -- SFP decision: {sfp_msg} "
-                    f"Moving to location: {optimized_target:.3f}um with estimated through power"
-                    f" of {estimated_through_power:.1f}dBm.")
+                        # mark the point where we move to in any case
+                        estimated_through_power = self._gaussian(
+                            optimized_target, *popt)
+                        # do not trigger plot update just yet
+                        opt_pos_plot.x.extend([optimized_target])
+                        opt_pos_plot.y.append(estimated_through_power)
 
-                results['fitting information'][dimension_name] = {
-                    'optimized parameters': list(popt) if popt is not None else None,
-                    'parameter estimation error std dev': list(perr_std_dev) if perr_std_dev is not None else None,
-                    'fitter message': str(fit_msg),
-                    'sfp decision': str(sfp_msg)}
+                    # inform user and store the fitting information
+                    self.logger.debug(
+                        f"Search for peak for dimension {dimension_name} finished. "
+                        f"Fitter message: {fit_msg} -- SFP decision: {sfp_msg} "
+                        f"Moving to location: {optimized_target:.3f}um with estimated through power"
+                        f" of {estimated_through_power:.1f}dBm.")
 
-                # reset speed and acceleration to original
-                self.mover.speed_xy = v0
-                self.mover.acceleration_xy = acc0
+                    results['fitting information'][dimension_name] = {
+                        'optimized parameters': list(popt) if popt is not None else None,
+                        'parameter estimation error std dev': list(perr_std_dev) if perr_std_dev is not None else None,
+                        'fitter message': str(fit_msg),
+                        'sfp decision': str(sfp_msg)}
 
-                # final move of fiber in this dimensions final decision
-                current_coordinates[dimidx] = optimized_target + p_start
-                self._move_stages_absolute(current_coordinates)
+                    # reset speed and acceleration to original
+                    self.mover.speed_xy = v0
+                    self.mover.acceleration_xy = acc0
+
+                    # final move of fiber in this dimensions final decision
+                    current_coordinates[dimidx] = optimized_target + p_start
+                    self._move_stages_absolute(current_coordinates)
 
         # close instruments
         self.instr_laser.close()
         self.instr_powermeter.close()
-
-        # Reset coordinate system for left, right stage
-        if self.mover.left_calibration:
-            self.mover.left_calibration.coordinate_system = None
-        if self.mover.right_calibration:
-            self.mover.right_calibration.coordinate_system = None
 
         # save final result to log
         loc_str = " x ".join(["{:.3f}um".format(p)
@@ -558,26 +547,27 @@ class PeakSearcher(Measurement):
         return results
 
     def _move_stages_absolute(self, coordinates: list):
-        if self.mover.left_calibration and self.mover.right_calibration:
-            leftz = self.mover.left_calibration.get_position().z
-            rightz = self.mover.right_calibration.get_position().z
-            assert len(coordinates) == 4
-            self.mover.left_calibration.move_absolute(
-                StageCoordinate.from_list(coordinates[:2] + [leftz]))
-            self.mover.right_calibration.move_absolute(
-                StageCoordinate.from_list(coordinates[2:] + [rightz]))
-        elif self.mover.left_calibration:
-            leftz = self.mover.left_calibration.get_position().z
-            assert len(coordinates) == 2
-            self.mover.left_calibration.move_absolute(
-                StageCoordinate.from_list(coordinates + [leftz]))
-        elif self.mover.right_calibration:
-            rightz = self.mover.right_calibration.get_position().z
-            assert len(coordinates) == 2
-            self.mover.right_calibration.move_absolute(
-                StageCoordinate.from_list(coordinates + [rightz]))
-        else:
-            raise RuntimeError()
+        with self.mover.set_stages_coordinate_system(CoordinateSystem.STAGE):
+            if self.mover.left_calibration and self.mover.right_calibration:
+                leftz = self.mover.left_calibration.get_position().z
+                rightz = self.mover.right_calibration.get_position().z
+                assert len(coordinates) == 4
+                self.mover.left_calibration.move_absolute(
+                    StageCoordinate.from_list(coordinates[:2] + [leftz]))
+                self.mover.right_calibration.move_absolute(
+                    StageCoordinate.from_list(coordinates[2:] + [rightz]))
+            elif self.mover.left_calibration:
+                leftz = self.mover.left_calibration.get_position().z
+                assert len(coordinates) == 2
+                self.mover.left_calibration.move_absolute(
+                    StageCoordinate.from_list(coordinates + [leftz]))
+            elif self.mover.right_calibration:
+                rightz = self.mover.right_calibration.get_position().z
+                assert len(coordinates) == 2
+                self.mover.right_calibration.move_absolute(
+                    StageCoordinate.from_list(coordinates + [rightz]))
+            else:
+                raise RuntimeError()
 
     def update_params_from_savefile(self):
         if not os.path.isfile(self.settings_path_full):

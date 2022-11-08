@@ -512,7 +512,7 @@ class Calibration:
     def move_absolute(self,
                       coordinate: Union[Type[StageCoordinate],
                                         Type[ChipCoordinate]],
-                      wait_for_stopping: bool = False) -> None:
+                      wait_for_stopping: bool = True) -> None:
         """
         Moves the stage absolute to the given coordinate.
         The coordinate can be passed in stage or chip coordinates,
