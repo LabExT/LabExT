@@ -157,6 +157,8 @@ class Calibration:
         self._device_port = device_port
 
         self._coordinate_system = CoordinateSystem.UNKNOWN
+        
+        self._is_lifted = False
 
         self._axes_rotation = axes_rotation
         if axes_rotation is None:
@@ -220,6 +222,13 @@ class Calibration:
         Returns True if the stage will move to the output of a device.
         """
         return self._device_port == DevicePort.OUTPUT
+
+    @property
+    def is_lifted(self) -> bool:
+        """
+        Returns True if stage is lifted.
+        """
+        return self._is_lifted
 
     #
     #   Coordinate System Control
