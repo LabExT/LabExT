@@ -157,7 +157,7 @@ class Calibration:
         self._device_port = device_port
 
         self._coordinate_system = CoordinateSystem.UNKNOWN
-        
+
         self._is_lifted = False
 
         self._axes_rotation = axes_rotation
@@ -560,6 +560,80 @@ class Calibration:
             y=stage_coordinate.y,
             z=stage_coordinate.z,
             wait_for_stopping=wait_for_stopping)
+
+    @assert_minimum_state_for_coordinate_system(
+        chip_coordinate_system=State.SINGLE_POINT_FIXED)
+    def lift_stage_absolute(self, z_lift: float) -> None:
+        """
+        Lifts the stage absolutely.
+        Moves the stage to a new z-plane in chip coordinate.
+
+        Suppose the current position of the stage is [x_curr, y_curr, z_curr] in chip coordinates.
+        The stage will be moved absolutely in chip coordinates to [x_curr, y_curr, z_lift]
+        while z_lift is the input of the method.
+
+        Does not lift the stage if the stage is in a lifted state.
+
+        Parameters
+        ----------
+        z_lift: float
+            Amount in um to move the stage up.
+        """
+        if self.is_lifted:
+            self._logger.warn(
+                f"Stage {self} is already lifted. Skipping lift.")
+            return
+
+        self._logger.debug(
+            f"Lifting {self} to {z_lift} z-plane (um)")
+
+        with self.perform_in_system(CoordinateSystem.CHIP):
+            current_chip_position = self.get_position()
+            target_lift_coordinate = ChipCoordinate(
+                x=current_chip_position.x, y=current_chip_position.y, z=z_lift)
+            try:
+                self.move_absolute(
+                    target_lift_coordinate,
+                    wait_for_stopping=True)
+            except BaseException:
+                self._is_lifted = False
+                raise
+
+            self._is_lifted = True
+
+    @assert_minimum_state_for_coordinate_system(
+        chip_coordinate_system=State.SINGLE_POINT_FIXED)
+    def lower_stage_absolute(self) -> None:
+        """
+        Lowers the stage absolutely.
+        Moves the stage to the zero z-plane in chip coordinate.
+
+        Suppose the current position of the stage is [x_curr, y_curr, z_curr] in chip coordinates.
+        The stage will be moved absolutely in chip coordinates to [x_curr, y_curr, 0].
+
+        Does not lower the stage if the stage is in a lifted state.
+        """
+        if not self.is_lifted:
+            self._logger.warn(
+                f"Stage {self} is not lifted. Skipping lowering.")
+            return
+
+        self._logger.debug(
+            f"Lowering {self} to zero z-plane.")
+
+        with self.perform_in_system(CoordinateSystem.CHIP):
+            current_chip_position = self.get_position()
+            target_lower_coordinate = ChipCoordinate(
+                x=current_chip_position.x, y=current_chip_position.y, z=0)
+            try:
+                self.move_absolute(
+                    target_lower_coordinate,
+                    wait_for_stopping=True)
+            except BaseException:
+                self._is_lifted = True
+                raise
+
+            self._is_lifted = False
 
     def wiggle_axis(
             self,

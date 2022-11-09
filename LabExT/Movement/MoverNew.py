@@ -615,31 +615,14 @@ class MoverNew:
             with calibration.perform_in_system(CoordinateSystem.CHIP):
                 calibration.move_relative(requested_target, wait_for_stopping)
 
-    @contextmanager
-    def lift_stages(self):
-        """
-        Lifts the stages to the configured value before the block is executed and lowers the stages again after the block.
-
-        Performs movement in chip coordinates.
-        Performs NO safe movement (i.e no Path planning)
-        """
-
-        def _lift_lower_stages(lift):
-            for calibration in self.calibrations.values():
-                with calibration.perform_in_system(CoordinateSystem.CHIP):
-                    calibration.move_absolute(
-                        calibration.get_position() + ChipCoordinate(z=lift))
-
-        _lift_lower_stages(self.z_lift)
-        try:
-            yield
-        finally:
-            _lift_lower_stages(-self.z_lift)
-
     @assert_connected_stages
     def move_to_device(self, chip: Type[Chip], device: Type[Device]):
         """
         Moves stages to device.
+
+        Lifts first all required stages by z_lift.
+        Moves stages absolute to coordinate with path planning.
+        Lowers stages in the end.
 
         Parameters
         ----------
@@ -647,22 +630,33 @@ class MoverNew:
             Instance of a imported chip.
         device: Device
             Device to which the stages should move.
-
-        Raises
-        ------
-        MoverError
-            If no device was found for the given ID.
         """
+        # Defines movement commands: Mapping from orientation to Chip
+        # coordinate
         movement_commands = {}
-        if self.input_calibration:
-            movement_commands[self.input_calibration.orientation] = device.input_coordinate + \
-                ChipCoordinate(z=self.z_lift)
-        if self.output_calibration:
-            movement_commands[self.output_calibration.orientation] = device.output_coordinate + \
-                ChipCoordinate(z=self.z_lift)
 
-        with self.lift_stages():
+        if self.input_calibration:
+            # Input stage is defined.
+            # Lift stage and add input coordinate to movement commands
+            self.input_calibration.lift_stage_absolute(self.z_lift)
+            movement_commands[self.input_calibration.orientation] = device.input_coordinate
+
+        if self.output_calibration:
+            # Output stage is defined.
+            # Lift stage and add output coordinate to movement commands
+            self.output_calibration.lift_stage_absolute(self.z_lift)
+            movement_commands[self.output_calibration.orientation] = device.output_coordinate
+
+        try:
             self.move_absolute(movement_commands, chip=chip)
+        finally:
+            if self.input_calibration:
+                # Lower input stage
+                self.input_calibration.lower_stage_absolute()
+
+            if self.output_calibration:
+                # Lower output stage
+                self.output_calibration.lower_stage_absolute()
 
     #
     #   Load and store mover settings
@@ -726,7 +720,11 @@ class MoverNew:
     #   Helpers
     #
 
-    def _get_calibration(self, port=None, orientation=None, default=None) -> Type[Calibration]:
+    def _get_calibration(
+            self,
+            port=None,
+            orientation=None,
+            default=None) -> Type[Calibration]:
         """
         Get safely calibration by port and orientation.
         """
