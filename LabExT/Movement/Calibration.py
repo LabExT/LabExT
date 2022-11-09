@@ -51,15 +51,25 @@ def assert_minimum_state_for_coordinate_system(
                     "Function {} needs a cooridnate system to operate in. Please use the context to set the system.".format(
                         func.__name__))
 
-            if calibration.coordinate_system == CoordinateSystem.CHIP and calibration.state < chip_coordinate_system:
-                raise CalibrationError(
-                    "Function {} needs at least a calibration state of {} to operate in chip coordinate system".format(
-                        func.__name__, chip_coordinate_system))
+            if calibration.coordinate_system == CoordinateSystem.CHIP:
+                if chip_coordinate_system is None:
+                    raise CalibrationError(
+                        "Function {} does not support the chip coordinate system.".format(func.__name__))
+                
+                if calibration.state < chip_coordinate_system:
+                    raise CalibrationError(
+                        "Function {} needs at least a calibration state of {} to operate in chip coordinate system".format(
+                            func.__name__, chip_coordinate_system))
 
-            if calibration.coordinate_system == CoordinateSystem.STAGE and calibration.state < stage_coordinate_system:
-                raise CalibrationError(
-                    "Function {} needs at least a calibration state of {} to operate in stage coordinate system".format(
-                        func.__name__, stage_coordinate_system))
+            if calibration.coordinate_system == CoordinateSystem.STAGE:
+                if stage_coordinate_system is None:
+                    raise CalibrationError(
+                        "Function {} does not support the stage coordinate system.".format(func.__name__))
+                
+                if calibration.state < stage_coordinate_system:
+                    raise CalibrationError(
+                        "Function {} needs at least a calibration state of {} to operate in stage coordinate system".format(
+                            func.__name__, stage_coordinate_system))
 
             return func(calibration, *args, **kwargs)
         return wrap

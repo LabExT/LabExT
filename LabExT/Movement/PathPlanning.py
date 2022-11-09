@@ -186,7 +186,7 @@ class PotentialField:
     def __init__(
         self,
         calibration: Type["Calibration"],
-        target_position: Type[ChipCoordinate],
+        target_coordinate: Type[ChipCoordinate],
         grid_size: float = 50.0,
         grid_outline: tuple = ((-5000, 5000), (-5000, 5000)),
         repulsive_gain: float = 10000.0,
@@ -210,14 +210,21 @@ class PotentialField:
         attractive_gain: tuple
             Attractive gain in the potential field
         """
+        # Stage calibration for this potential field
         self.calibration = calibration
-        self.target_position = target_position
 
+        # Fields settings
         self.grid_size = grid_size
         self.grid_outline = grid_outline
         self.repulsive_gain = repulsive_gain
         self.attractive_gain = attractive_gain
 
+        # Read current stage position
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
+            self.start_coordinate = self.calibration.get_position()
+            self.stage_z_level = self.start_coordinate.z
+        
+        # Set up field tiles
         self.x_coords = np.arange(
             self.grid_outline[0][0],
             self.grid_outline[0][1] +
@@ -230,23 +237,28 @@ class PotentialField:
             self.grid_size)
         self.cx, self.cy = np.meshgrid(self.x_coords, self.y_coords)
 
+        # Get current Idx of field tile
+        self.current_idx = np.array(
+            [np.argmin(np.abs(self.x_coords - self.start_coordinate.x)),
+                np.argmin(np.abs(self.y_coords - self.start_coordinate.y))])
+
+        # current position in terms of field tiles
+        self.current_position = ChipCoordinate(
+            x=self.x_coords[self.current_idx[0]],
+            y=self.y_coords[self.current_idx[1]],
+            z=self.stage_z_level)
+        
+        # field target, note: z-coordinate remains unchanged
+        self.target_coordinate = ChipCoordinate(
+            x=target_coordinate.x,
+            y=target_coordinate.y,
+            z=self.stage_z_level)
+
+        # Calculate potential field
         self.attractive_potential_field = self.attractive_gain * \
-            np.hypot(self.cx - self.target_position.x, self.cy - self.target_position.y)
+            np.hypot(self.cx - self.target_coordinate.x, self.cy - self.target_coordinate.y)
         self.potential_field = np.zeros_like(
             self.cx) + self.attractive_potential_field
-
-        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
-            self.start_coordinate = self.calibration.get_position()
-            self.target_position.z = self.start_coordinate.z
-
-            self.current_idx = np.array(
-                [np.argmin(np.abs(self.x_coords - self.start_coordinate.x)),
-                 np.argmin(np.abs(self.y_coords - self.start_coordinate.y))])
-
-            self.current_position = ChipCoordinate(
-                x=self.x_coords[self.current_idx[0]],
-                y=self.y_coords[self.current_idx[1]],
-                z=self.start_coordinate.z)
 
     def next_waypoint(self) -> list:
         """
@@ -259,18 +271,18 @@ class PotentialField:
         Returns a 2D coordinate as next potential field waypoint.
         """
         distance_to_target = np.hypot(
-            self.current_position.x - self.target_position.x,
-            self.current_position.y - self.target_position.y)
+            self.current_position.x - self.target_coordinate.x,
+            self.current_position.y - self.target_coordinate.y)
 
         if distance_to_target <= self.grid_size:
-            self.current_position = self.target_position
+            self.current_position = self.target_coordinate
         else:
             self.current_idx = self._find_lowest_potential()
 
             self.current_position = ChipCoordinate(
                 x=self.x_coords[self.current_idx[0]],
                 y=self.y_coords[self.current_idx[1]],
-                z=self.start_coordinate.z)
+                z=self.stage_z_level)
 
         return self.current_position
 
@@ -394,7 +406,7 @@ class PathPlanning:
             If no progress has been made.
         """
         while not all(f.current_position ==
-                      f.target_position for f in self.potential_fields.values()):
+                      f.target_coordinate for f in self.potential_fields.values()):
 
             next_move = {}
 
