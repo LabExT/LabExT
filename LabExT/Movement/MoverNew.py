@@ -633,30 +633,31 @@ class MoverNew:
         """
         # Defines movement commands: Mapping from orientation to Chip
         # coordinate
-        movement_commands = {}
+        with self.set_stages_coordinate_system(CoordinateSystem.CHIP):
+            movement_commands = {}
 
-        if self.input_calibration:
-            # Input stage is defined.
-            # Lift stage and add input coordinate to movement commands
-            self.input_calibration.lift_stage_absolute(self.z_lift)
-            movement_commands[self.input_calibration.orientation] = device.input_coordinate
-
-        if self.output_calibration:
-            # Output stage is defined.
-            # Lift stage and add output coordinate to movement commands
-            self.output_calibration.lift_stage_absolute(self.z_lift)
-            movement_commands[self.output_calibration.orientation] = device.output_coordinate
-
-        try:
-            self.move_absolute(movement_commands, chip=chip)
-        finally:
             if self.input_calibration:
-                # Lower input stage
-                self.input_calibration.lower_stage_absolute()
+                # Input stage is defined.
+                # Lift stage and add input coordinate to movement commands
+                self.input_calibration.lift_stage_absolute(self.z_lift)
+                movement_commands[self.input_calibration.orientation] = device.input_coordinate
 
             if self.output_calibration:
-                # Lower output stage
-                self.output_calibration.lower_stage_absolute()
+                # Output stage is defined.
+                # Lift stage and add output coordinate to movement commands
+                self.output_calibration.lift_stage_absolute(self.z_lift)
+                movement_commands[self.output_calibration.orientation] = device.output_coordinate
+
+            try:
+                self.move_absolute(movement_commands, chip=chip)
+            finally:
+                if self.input_calibration:
+                    # Lower input stage
+                    self.input_calibration.lower_stage_absolute()
+
+                if self.output_calibration:
+                    # Lower output stage
+                    self.output_calibration.lower_stage_absolute()
 
     #
     #   Load and store mover settings
