@@ -535,6 +535,7 @@ class MoverNew:
             return
 
         path_planning = PathPlanning(chip)
+        path_finding_z_lift = self.z_lift if stages_are_lifted else None
 
         # Set up Path Planning
         for orientation, target in movement_commands.items():
@@ -544,7 +545,7 @@ class MoverNew:
                     f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
             path_planning.set_stage_target(
-                calibration, target, z_lift=self.z_lift if stages_are_lifted else None)
+                calibration, target, z_lift=path_finding_z_lift)
 
         # Move stages on safe trajectory
         for calibration_waypoints in path_planning.trajectory():
@@ -654,7 +655,10 @@ class MoverNew:
                 movement_commands[self.output_calibration.orientation] = device.output_coordinate
 
             try:
-                self.move_absolute(movement_commands, chip=chip)
+                self.move_absolute(
+                    movement_commands,
+                    chip=chip,
+                    stages_are_lifted=True)
             finally:
                 if self.input_calibration:
                     # Lower input stage
