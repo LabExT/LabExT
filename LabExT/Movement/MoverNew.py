@@ -504,7 +504,8 @@ class MoverNew:
         movement_commands: Dict[Orientation, Type[ChipCoordinate]],
         chip: Type[Chip],
         wait_for_stopping: bool = True,
-        wait_timeout: float = 2.0
+        wait_timeout: float = 2.0,
+        stages_are_lifted: bool = False
     ) -> None:
         """
         Moves the stages absolutely in the chip coordinate system.
@@ -518,6 +519,9 @@ class MoverNew:
             For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved to the chip co-ordinate x=1, y=2, z=3
         wait_for_stopping: bool = True
             Whether each stage should have completed its movement before the next one moves.
+        stages_are_lifted: bool = False
+            Indicates whether the stage has been raised before.
+            If so, the path-finding algorithm is told to keep the stored z-lift constant.
 
         Raises
         ------
@@ -539,7 +543,8 @@ class MoverNew:
                 raise MoverError(
                     f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
-            path_planning.set_stage_target(calibration, target)
+            path_planning.set_stage_target(
+                calibration, target, z_lift=self.z_lift if stages_are_lifted else None)
 
         # Move stages on safe trajectory
         for calibration_waypoints in path_planning.trajectory():

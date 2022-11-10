@@ -187,6 +187,7 @@ class PotentialField:
         self,
         calibration: Type["Calibration"],
         target_coordinate: Type[ChipCoordinate],
+        start_z_lift: float = None,
         grid_size: float = 50.0,
         grid_outline: tuple = ((-5000, 5000), (-5000, 5000)),
         repulsive_gain: float = 10000.0,
@@ -201,6 +202,10 @@ class PotentialField:
             Instance of a calibration
         target_coordinate: ChipCoordinate
             Target in chip coordinates
+        start_z_lift : float = None
+            Original z-lift.
+            If this is not None, this value is taken as the z-level for all movements.
+            If None, the z-coordinate of the starting coordinate is taken.
         grid_size: float
             Size of the potential field grid
         grid_outline: tuple
@@ -222,8 +227,11 @@ class PotentialField:
         # Read current stage position
         with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.start_coordinate = self.calibration.get_position()
+
+        self.stage_z_level = start_z_lift
+        if self.stage_z_level is None:
             self.stage_z_level = self.start_coordinate.z
-        
+
         # Set up field tiles
         self.x_coords = np.arange(
             self.grid_outline[0][0],
@@ -247,7 +255,7 @@ class PotentialField:
             x=self.x_coords[self.current_idx[0]],
             y=self.y_coords[self.current_idx[1]],
             z=self.stage_z_level)
-        
+
         # field target, note: z-coordinate remains unchanged
         self.target_coordinate = ChipCoordinate(
             x=target_coordinate.x,
@@ -370,7 +378,8 @@ class PathPlanning:
     def set_stage_target(
             self,
             calibration: Type["Calibration"],
-            target: Type[ChipCoordinate]) -> None:
+            target: Type[ChipCoordinate],
+            z_lift: float = None) -> None:
         """
         Registers a target for the given calibration.
 
@@ -380,12 +389,17 @@ class PathPlanning:
             Instance of a calibrated stage, such that the stage can move in chip coordinates.
         target : ChipCoordinate
             Target of the stage in chip coordinates.
+        z_lift : float
+            Original z-lift.
+            If this is not None, this value is taken as the z-level for all movements.
+            If None, the z-coordinate of the starting coordinate is taken.
         """
         self.potential_fields[calibration] = PotentialField(
             calibration,
             target,
-            self.grid_size,
-            self.grid_outline)
+            start_z_lift=z_lift,
+            grid_size=self.grid_size,
+            grid_outline=self.grid_outline)
 
     def trajectory(self, abort_local_minimum=3):
         """
