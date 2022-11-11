@@ -636,9 +636,7 @@ class MoverNew:
         """
         Moves stages to device.
 
-        Lifts first all required stages by z_lift.
-        Moves stages absolute to coordinate with path planning.
-        Lowers stages in the end.
+        Moves stages absolute to coordinate with path planning and lifted stages.
 
         Parameters
         ----------
