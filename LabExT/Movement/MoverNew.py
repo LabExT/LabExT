@@ -503,9 +503,9 @@ class MoverNew:
         self,
         movement_commands: Dict[Orientation, Type[ChipCoordinate]],
         chip: Type[Chip],
+        with_lifted_stages: bool = False,
         wait_for_stopping: bool = True,
-        wait_timeout: float = 2.0,
-        stages_are_lifted: bool = False
+        wait_timeout: float = 2.0
     ) -> None:
         """
         Moves the stages absolutely in the chip coordinate system.
@@ -519,9 +519,8 @@ class MoverNew:
             For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved to the chip co-ordinate x=1, y=2, z=3
         wait_for_stopping: bool = True
             Whether each stage should have completed its movement before the next one moves.
-        stages_are_lifted: bool = False
-            Indicates whether the stage has been raised before.
-            If so, the path-finding algorithm is told to keep the stored z-lift constant.
+        with_lifted_stages: bool = False
+            Indicates whether the stages should be lifted before movement.
 
         Raises
         ------
@@ -534,38 +533,49 @@ class MoverNew:
         if not movement_commands:
             return
 
-        path_planning = PathPlanning(chip)
-        path_finding_z_lift = self.z_lift if stages_are_lifted else None
+        with self.set_stages_coordinate_system(CoordinateSystem.CHIP):
+            path_planning = PathPlanning(chip)
 
-        # Set up Path Planning
-        for orientation, target in movement_commands.items():
-            calibration = self._get_calibration(orientation=orientation)
-            if calibration is None:
-                raise MoverError(
-                    f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
+            # Resolves movement commands
+            # Checks if for each orientation a calibration exits
+            # Set ups Path Planning
+            resolved_calibrations = {}
+            for orientation, target in movement_commands.items():
+                calibration = self._get_calibration(orientation=orientation)
+                if calibration is None:
+                    raise MoverError(
+                        f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
-            path_planning.set_stage_target(
-                calibration, target, z_lift=path_finding_z_lift)
+                if with_lifted_stages:
+                    calibration.lift_stage_absolute(self.z_lift)
 
-        # Move stages on safe trajectory
-        for calibration_waypoints in path_planning.trajectory():
-            for calibration, waypoint in calibration_waypoints.items():
-                with calibration.perform_in_system(CoordinateSystem.CHIP):
+                resolved_calibrations[orientation] = calibration
+                path_planning.set_stage_target(calibration, target)
+
+            # Move stages on safe trajectory
+            for calibration_waypoints in path_planning.trajectory():
+                for calibration, waypoint in calibration_waypoints.items():
                     calibration.move_absolute(waypoint, wait_for_stopping)
 
-            # Wait for all stages to stop if stages move simultaneously.
-            if not wait_for_stopping:
-                busy_spinning_start = time()
-                while True:
-                    sleep(0.05)
+                # Wait for all stages to stop if stages move simultaneously.
+                if not wait_for_stopping:
+                    busy_spinning_start = time()
+                    while True:
+                        sleep(0.05)
 
-                    if time() - busy_spinning_start >= wait_timeout:
-                        raise RuntimeError(
-                            f"Stages did not stop after {wait_timeout} seconds. Abort.")
+                        if time() - busy_spinning_start >= wait_timeout:
+                            raise RuntimeError(
+                                f"Stages did not stop after {wait_timeout} seconds. Abort.")
 
-                    if all(c.stage.is_stopped
-                           for c in calibration_waypoints.keys()):
-                        break
+                        if all(c.stage.is_stopped
+                               for c in calibration_waypoints.keys()):
+                            break
+
+            # Movement complete and lower stages (if requested)
+            # Lift stages if requested
+            if with_lifted_stages:
+                for c in resolved_calibrations.values():
+                    c.lower_stage_absolute()
 
     @assert_connected_stages
     def move_relative(
@@ -637,36 +647,23 @@ class MoverNew:
         device: Device
             Device to which the stages should move.
         """
-        # Defines movement commands: Mapping from orientation to Chip
-        # coordinate
-        with self.set_stages_coordinate_system(CoordinateSystem.CHIP):
-            movement_commands = {}
+        movement_commands = {}
 
-            if self.input_calibration:
-                # Input stage is defined.
-                # Lift stage and add input coordinate to movement commands
-                self.input_calibration.lift_stage_absolute(self.z_lift)
-                movement_commands[self.input_calibration.orientation] = device.input_coordinate
+        input_orientation = self._port_by_orientation.inverse.get(
+            DevicePort.INPUT)
+        output_orientation = self._port_by_orientation.inverse.get(
+            DevicePort.OUTPUT)
 
-            if self.output_calibration:
-                # Output stage is defined.
-                # Lift stage and add output coordinate to movement commands
-                self.output_calibration.lift_stage_absolute(self.z_lift)
-                movement_commands[self.output_calibration.orientation] = device.output_coordinate
+        if input_orientation:
+            movement_commands[input_orientation] = device.input_coordinate
 
-            try:
-                self.move_absolute(
-                    movement_commands,
-                    chip=chip,
-                    stages_are_lifted=True)
-            finally:
-                if self.input_calibration:
-                    # Lower input stage
-                    self.input_calibration.lower_stage_absolute()
+        if output_orientation:
+            movement_commands[output_orientation] = device.output_coordinate
 
-                if self.output_calibration:
-                    # Lower output stage
-                    self.output_calibration.lower_stage_absolute()
+        self.move_absolute(
+            movement_commands,
+            chip=chip,
+            with_lifted_stages=True)
 
     #
     #   Load and store mover settings
