@@ -7,15 +7,15 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 
-from contextlib import contextmanager
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
 from os.path import exists
 from datetime import datetime
+from contextlib import contextmanager
 
-from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort
+from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
@@ -132,6 +132,22 @@ class MoverNew:
 
         self._chip = chip
 
+    def update_main_model(self) -> None:
+        """
+        Update main model
+        """
+        if not self.experiment_manager:
+            return
+
+        _main_window = self.experiment_manager.main_window
+        if not _main_window:
+            return
+
+        _main_window.model.status_mover_connected_stages.set(
+            self.has_connected_stages)
+        _main_window.model.status_mover_can_move_to_device.set(
+            self.can_move_absolutely)
+
     #
     #   Reload properties
     #
@@ -224,27 +240,27 @@ class MoverNew:
             c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
 
     @property
-    def left_calibration(self): return self._get_calibration(
+    def left_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.LEFT)
 
     @property
-    def right_calibration(self): return self._get_calibration(
+    def right_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.RIGHT)
 
     @property
-    def top_calibration(self): return self._get_calibration(
+    def top_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.TOP)
 
     @property
-    def bottom_calibration(self): return self._get_calibration(
+    def bottom_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.BOTTOM)
 
     @property
-    def input_calibration(self): return self._get_calibration(
+    def input_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.INPUT)
 
     @property
-    def output_calibration(self): return self._get_calibration(
+    def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.OUTPUT)
 
     #
@@ -323,6 +339,27 @@ class MoverNew:
                 key=RAISE))
 
         return calibration
+
+    #
+    #   Coordinate System Control
+    #
+
+    @contextmanager
+    def set_stages_coordinate_system(self, system: CoordinateSystem):
+        """
+        Sets the coordinate system of all connected stages to the requested one.
+        """
+        prior_coordinate_systems = {
+            c: c.coordinate_system for c in self.calibrations.values()}
+
+        for calibration in self.calibrations.values():
+            calibration.set_coordinate_system(system)
+
+        try:
+            yield
+        finally:
+            for calibration, prior_coordinate_system in prior_coordinate_systems.items():
+                calibration.set_coordinate_system(prior_coordinate_system)
 
     #
     #   Stage Settings Methods
@@ -507,7 +544,7 @@ class MoverNew:
         # Move stages on safe trajectory
         for calibration_waypoints in path_planning.trajectory():
             for calibration, waypoint in calibration_waypoints.items():
-                with calibration.perform_in_chip_coordinates():
+                with calibration.perform_in_system(CoordinateSystem.CHIP):
                     calibration.move_absolute(waypoint, wait_for_stopping)
 
             # Wait for all stages to stop if stages move simultaneously.
@@ -575,7 +612,7 @@ class MoverNew:
             calibration = resolved_calibrations[orientation]
             requested_target = movement_commands[orientation]
 
-            with calibration.perform_in_chip_coordinates():
+            with calibration.perform_in_system(CoordinateSystem.CHIP):
                 calibration.move_relative(requested_target, wait_for_stopping)
 
     @contextmanager
@@ -589,7 +626,7 @@ class MoverNew:
 
         def _lift_lower_stages(lift):
             for calibration in self.calibrations.values():
-                with calibration.perform_in_chip_coordinates():
+                with calibration.perform_in_system(CoordinateSystem.CHIP):
                     calibration.move_absolute(
                         calibration.get_position() + ChipCoordinate(z=lift))
 
@@ -689,7 +726,7 @@ class MoverNew:
     #   Helpers
     #
 
-    def _get_calibration(self, port=None, orientation=None, default=None):
+    def _get_calibration(self, port=None, orientation=None, default=None) -> Type[Calibration]:
         """
         Get safely calibration by port and orientation.
         """

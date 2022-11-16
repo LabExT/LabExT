@@ -17,7 +17,6 @@ from LabExT.DocumentationEngine.Engine import DocumentationEngine
 from LabExT.Experiments.StandardExperiment import StandardExperiment
 from LabExT.Instruments.InstrumentAPI import InstrumentAPI
 from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
-from LabExT.Movement.Mover import Mover
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
@@ -66,8 +65,7 @@ class ExperimentManager:
         self._log_file_name = log_file_path
         self.addon_settings = None
         self.chip = chip
-        self.mover = Mover(self)
-        self.mover_new = MoverNew(experiment_manager=self, chip=chip)
+        self.mover = MoverNew(experiment_manager=self, chip=chip)
         self.peak_searcher = PeakSearcher(None, self, mover=self.mover, parent=self.root)
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
@@ -127,13 +125,9 @@ class ExperimentManager:
             self.main_window.offer_chip_reload_possibility()
 
         # update status the first time
-        self.main_window.model.status_mover_driver_enabled.set(self.mover.mover_enabled)
-        self.main_window.model.status_transformation_enabled.set(self.mover.trafo_enabled)
+        self.main_window.model.status_mover_connected_stages.set(self.mover.has_connected_stages)
+        self.main_window.model.status_mover_can_move_to_device.set(self.mover.can_move_absolutely)
         self.main_window.model.status_sfp_initialized.set(self.peak_searcher.initialized)
-
-        # inform user about mover status
-        if not self.mover.mover_enabled:
-            self.logger.warning('Could not load piezo-stage driver. All movement through LabExT will be deactivated.')
 
         # inform user where to find the log file
         self.logger.info("Log file path: " + str(self._log_file_name))
@@ -189,21 +183,17 @@ class ExperimentManager:
             # update chip reference in subclasses
             if self.exp is not None:
                 self.exp.update_chip(self.chip)
-            if self.mover is not None:
-                self.mover._chip = self.chip
-                self.mover.trafo_enabled = False
-                self.main_window.model.status_transformation_enabled.set(False)
 
-            if self.mover_new is not None:
-                self.mover_new.set_chip(self.chip)
+            if self.mover is not None:
+                self.mover.set_chip(self.chip)
 
                 if self._skip_setup:
                     return
 
-                if self.mover_new.has_chip_stored_calibration(self.chip):
+                if self.mover.has_chip_stored_calibration(self.chip):
                     self.main_window.restore_calibrations()
                 else:
-                    self.mover_new.dump_calibrations()
+                    self.mover.dump_calibrations()
 
     def show_documentation(self, event):
         if self.docu.docu_available:

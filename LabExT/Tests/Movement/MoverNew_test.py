@@ -7,12 +7,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import unittest
 from unittest.mock import Mock, patch, call
+from parameterized import parameterized
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Calibration import DevicePort, Orientation
 
 from LabExT.Movement.MoverNew import MoverError, MoverNew, Stage, assert_connected_stages
 from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.config import Axis, Direction
+from LabExT.Movement.config import Axis, Direction, CoordinateSystem
 from LabExT.Tests.Utils import with_stage_discovery_patch
 
 
@@ -479,3 +480,86 @@ class RelativeMovementTest(unittest.TestCase):
                     wait_for_stopping=True),
             ],
             any_order=False)
+
+
+class CoordinateSystemControlTest(unittest.TestCase):
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+        available_stages_mock.return_value = []
+        stage_classes_mock.return_value = []
+
+        self.stage = DummyStage('usb:123456789')
+        self.stage2 = DummyStage('usb:9887654321')
+
+        self.mover = MoverNew(None)
+
+        self.left_calibration = self.mover.add_stage_calibration(
+            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.right_calibration = self.mover.add_stage_calibration(
+            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+
+        self.left_calibration.connect_to_stage()
+        self.right_calibration.connect_to_stage()
+
+    @parameterized.expand([(CoordinateSystem.CHIP,),
+                          (CoordinateSystem.STAGE,), (CoordinateSystem.UNKNOWN,)])
+    def test_set_valid_coordinate_system(self, valid_system):
+
+        left_calibration_prior = self.left_calibration.coordinate_system
+        right_calibration_prior = self.right_calibration.coordinate_system
+
+        with self.mover.set_stages_coordinate_system(valid_system):
+            self.assertEqual(
+                self.left_calibration.coordinate_system, valid_system)
+            self.assertEqual(
+                self.right_calibration.coordinate_system, valid_system)
+
+        self.assertEqual(
+            self.left_calibration.coordinate_system, left_calibration_prior)
+        self.assertEqual(
+            self.right_calibration.coordinate_system, right_calibration_prior)
+
+    def test_set_valid_coordinate_system_with_block_error(self):
+        func = Mock(side_effect=RuntimeError)
+
+        left_calibration_prior = self.left_calibration.coordinate_system
+        right_calibration_prior = self.right_calibration.coordinate_system
+
+        with self.assertRaises(RuntimeError):
+            with self.mover.set_stages_coordinate_system(CoordinateSystem.CHIP):
+                func()
+
+        self.assertEqual(
+            self.left_calibration.coordinate_system, left_calibration_prior)
+        self.assertEqual(
+            self.right_calibration.coordinate_system, right_calibration_prior)
+
+    def test_set_nested_coordinate_system(self):
+        self.left_calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
+        self.right_calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
+
+        with self.mover.set_stages_coordinate_system(CoordinateSystem.CHIP):
+            self.assertEqual(
+                self.left_calibration.coordinate_system, CoordinateSystem.CHIP)
+            self.assertEqual(
+                self.right_calibration.coordinate_system,
+                CoordinateSystem.CHIP)
+
+            with self.mover.set_stages_coordinate_system(CoordinateSystem.STAGE):
+                self.assertEqual(
+                    self.left_calibration.coordinate_system,
+                    CoordinateSystem.STAGE)
+                self.assertEqual(
+                    self.right_calibration.coordinate_system,
+                    CoordinateSystem.STAGE)
+
+            self.assertEqual(
+                self.left_calibration.coordinate_system, CoordinateSystem.CHIP)
+            self.assertEqual(
+                self.right_calibration.coordinate_system,
+                CoordinateSystem.CHIP)
+
+        self.assertEqual(
+            self.left_calibration.coordinate_system, CoordinateSystem.UNKNOWN)
+        self.assertEqual(
+            self.right_calibration.coordinate_system, CoordinateSystem.UNKNOWN)

@@ -5,8 +5,6 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from shutil import move
-from typing import Any
 import unittest
 import numpy as np
 from unittest.mock import Mock, patch, call
@@ -14,7 +12,7 @@ from parameterized import parameterized
 
 from LabExT.Tests.Utils import get_calibrations_from_file
 
-from LabExT.Movement.config import State, Orientation, DevicePort, Axis, Direction
+from LabExT.Movement.config import State, Orientation, DevicePort, Axis, Direction, CoordinateSystem
 from LabExT.Movement.Stage import StageError
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.MoverNew import MoverNew
@@ -100,7 +98,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
         return super().setUp()
 
     def test_raises_error_if_coordinate_system_is_not_fixed(self):
-        self.calibration.coordinate_system = None
+        self.calibration.coordinate_system = CoordinateSystem.UNKNOWN
 
         with self.assertRaises(CalibrationError):
             assert_minimum_state_for_coordinate_system()(self.func)(self.calibration)
@@ -112,7 +110,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
             self,
             given_state,
             required_states):
-        self.calibration.coordinate_system = ChipCoordinate
+        self.calibration.coordinate_system = CoordinateSystem.CHIP
         self.calibration.state = given_state
 
         for required_state in required_states:
@@ -128,7 +126,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
             self,
             given_state,
             required_states):
-        self.calibration.coordinate_system = StageCoordinate
+        self.calibration.coordinate_system = CoordinateSystem.STAGE
         self.calibration.state = given_state
 
         for required_state in required_states:
@@ -144,7 +142,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
             self,
             given_state,
             required_states):
-        self.calibration.coordinate_system = ChipCoordinate
+        self.calibration.coordinate_system = CoordinateSystem.CHIP
         self.calibration.state = given_state
 
         for required_state in required_states:
@@ -160,7 +158,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
             self,
             given_state,
             required_states):
-        self.calibration.coordinate_system = StageCoordinate
+        self.calibration.coordinate_system = CoordinateSystem.STAGE
         self.calibration.state = given_state
 
         for required_state in required_states:
@@ -173,69 +171,86 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
 
 
 class CoordinateSystemControlTest(CalibrationTestCase):
-    def test_set_chip_coordinate_system(self):
-        with self.calibration.perform_in_chip_coordinates():
-            self.assertEqual(
-                self.calibration.coordinate_system,
-                ChipCoordinate)
-
-        self.assertIsNone(self.calibration.coordinate_system)
-
-    def test_set_stage_coordinate_system(self):
-        with self.calibration.perform_in_stage_coordinates():
-            self.assertEqual(
-                self.calibration.coordinate_system,
-                StageCoordinate)
-
-        self.assertIsNone(self.calibration.coordinate_system)
-
-    def test_set_coordinate_system_twice(self):
-        with self.assertRaises(CalibrationError):
-            with self.calibration.perform_in_chip_coordinates():
-                self.calibration.coordinate_system = StageCoordinate
-
-        with self.assertRaises(CalibrationError):
-            with self.calibration.perform_in_stage_coordinates():
-                self.calibration.coordinate_system = ChipCoordinate
 
     @parameterized.expand([
-        ('chip',), ('stage',), (ChipCoordinate(),), (StageCoordinate(),)
+        (CoordinateSystem.CHIP,), (CoordinateSystem.STAGE,), (CoordinateSystem.UNKNOWN,)
+    ])
+    def test_set_valid_coordinate_system(self, valid_system):
+        self.calibration.set_coordinate_system(valid_system)
+        self.assertEqual(self.calibration.coordinate_system, valid_system)
+    
+    @parameterized.expand([
+        ("CHIP",), ("STAGE",), ("UNKNOWN",)
     ])
     def test_set_invalid_coordinate_system(self, invalid_system):
+        prior_system = self.calibration.coordinate_system
         with self.assertRaises(ValueError):
-            self.calibration.coordinate_system = invalid_system
+            self.calibration.set_coordinate_system(invalid_system)
 
-    def test_reset_coordinate_system(self):
-        self.calibration.coordinate_system = ChipCoordinate
-        self.assertEqual(self.calibration.coordinate_system, ChipCoordinate)
+        self.assertEqual(self.calibration.coordinate_system, prior_system)
 
-        self.calibration.coordinate_system = None
-        self.assertIsNone(self.calibration.coordinate_system)
+    @parameterized.expand([
+        (CoordinateSystem.CHIP,), (CoordinateSystem.STAGE,), (CoordinateSystem.UNKNOWN,)
+    ])
+    def test_perform_in_valid_system(self, valid_system):
+        prior_system = self.calibration.coordinate_system
+        with self.calibration.perform_in_system(valid_system):
+            self.assertEqual(
+                self.calibration.coordinate_system,
+                valid_system)
 
-    def test_set_chip_coordinate_system_with_block_error(self):
-        func = Mock(side_effect=RuntimeError)
+        self.assertEqual(self.calibration.coordinate_system, prior_system)
 
-        with self.assertRaises(RuntimeError):
-            with self.calibration.perform_in_chip_coordinates():
+    @parameterized.expand([
+        ("CHIP",), ("STAGE",), ("UNKNOWN",)
+    ])
+    def test_perform_in_invalid_system(self, invalid_system):
+        prior_system = self.calibration.coordinate_system
+        with self.assertRaises(ValueError):
+            with self.calibration.perform_in_system(invalid_system):
                 self.assertEqual(
                     self.calibration.coordinate_system,
-                    ChipCoordinate)
-                func()
+                    prior_system)
 
-        self.assertIsNone(self.calibration.coordinate_system)
+        self.assertEqual(self.calibration.coordinate_system, prior_system)
 
-    def test_set_stage_coordinate_system_with_block_error(self):
+    def test_perform_in_system_with_block_error(self):
         func = Mock(side_effect=RuntimeError)
+        self.calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
 
         with self.assertRaises(RuntimeError):
-            with self.calibration.perform_in_stage_coordinates():
+            with self.calibration.perform_in_system(CoordinateSystem.CHIP):
                 self.assertEqual(
                     self.calibration.coordinate_system,
-                    StageCoordinate)
+                    CoordinateSystem.CHIP)
                 func()
 
-        self.assertIsNone(self.calibration.coordinate_system)
+        self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.UNKNOWN)
 
+        with self.assertRaises(RuntimeError):
+            with self.calibration.perform_in_system(CoordinateSystem.STAGE):
+                self.assertEqual(
+                    self.calibration.coordinate_system,
+                    CoordinateSystem.STAGE)
+                func()
+
+        self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.UNKNOWN)
+
+
+    def test_perform_in_system_allows_nested_blocks(self):
+        self.calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
+        self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.UNKNOWN)
+
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
+            self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.CHIP)
+
+            with self.calibration.perform_in_system(CoordinateSystem.STAGE):
+                self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.STAGE)
+
+            self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.CHIP)
+
+
+        self.assertEqual(self.calibration.coordinate_system, CoordinateSystem.UNKNOWN)
 
 class DetermineStateTest(CalibrationTestCase):
     def test_uninitialized_state_if_stage_is_not_set(self):
@@ -325,7 +340,7 @@ class CalibrationTest(CalibrationTestCase):
         self.calibration.disconnect_to_stage()
         self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             with self.assertRaises(CalibrationError):
                 self.calibration.get_position()
 
@@ -335,7 +350,7 @@ class CalibrationTest(CalibrationTestCase):
         self.set_valid_axes_rotation()
         self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             with self.assertRaises(CalibrationError):
                 self.calibration.get_position()
 
@@ -344,7 +359,7 @@ class CalibrationTest(CalibrationTestCase):
         expected_position = [100, 200, 300]
         get_position_mock.return_value = expected_position
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             self.calibration.connect_to_stage()
             position = self.calibration.get_position()
 
@@ -362,7 +377,7 @@ class CalibrationTest(CalibrationTestCase):
             VACHERIN_STAGE_COORDS[1], VACHERIN_CHIP_COORDS[1])
         get_position_mock.return_value = expected_stage_pos
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.calibration.connect_to_stage()
             self.set_valid_single_point_offset()
             position = self.calibration.get_position()
@@ -386,7 +401,7 @@ class CalibrationTest(CalibrationTestCase):
             VACHERIN_STAGE_COORDS[3], VACHERIN_CHIP_COORDS[3])
         get_position_mock.return_value = expected_stage_pos
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.calibration.connect_to_stage()
             self.set_valid_single_point_offset()
             self.set_valid_kabsch_rotation()
@@ -409,7 +424,7 @@ class CalibrationTest(CalibrationTestCase):
         self.calibration.disconnect_to_stage()
         self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             with self.assertRaises(CalibrationError):
                 self.calibration.move_relative(StageCoordinate(1, 2, 3))
 
@@ -419,22 +434,8 @@ class CalibrationTest(CalibrationTestCase):
         self.set_invalid_axes_rotation()
         self.assertEqual(self.calibration.state, State.CONNECTED)
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             with self.assertRaises(CalibrationError):
-                self.calibration.move_relative(StageCoordinate(1, 2, 3))
-
-    def test_move_relative_in_stage_coordinate_raises_error_if_offset_type_invalid(
-            self):
-        self.calibration.connect_to_stage()
-        with self.calibration.perform_in_stage_coordinates():
-            with self.assertRaises(TypeError):
-                self.calibration.move_relative(ChipCoordinate(1, 2, 3))
-
-    def test_move_relative_in_chip_coordinate_raises_error_if_offset_type_invalid(
-            self):
-        self.calibration.connect_to_stage()
-        with self.calibration.perform_in_chip_coordinates():
-            with self.assertRaises(TypeError):
                 self.calibration.move_relative(StageCoordinate(1, 2, 3))
 
     @parameterized.expand([(True,), (False,)])
@@ -444,7 +445,7 @@ class CalibrationTest(CalibrationTestCase):
         self.set_invalid_axes_rotation()
         required_movement = [100.0, 200.0, 300.0]
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             self.calibration.connect_to_stage()
             self.calibration.move_relative(
                 StageCoordinate.from_list(required_movement),
@@ -464,7 +465,7 @@ class CalibrationTest(CalibrationTestCase):
         self.set_valid_axes_rotation()
         required_movement = [100.0, 200.0, 300.0]
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.calibration.connect_to_stage()
             self.calibration.move_relative(
                 ChipCoordinate.from_list(required_movement),
@@ -476,16 +477,13 @@ class CalibrationTest(CalibrationTestCase):
             y=-required_movement[2],
             z=-required_movement[0],
             wait_for_stopping=wait_for_stopping)
-    #
-    #
-    #
 
     def test_move_absolute_in_stage_coordinate_raises_error_if_unconnected(
             self):
         self.calibration.disconnect_to_stage()
         self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             with self.assertRaises(CalibrationError):
                 self.calibration.move_absolute(StageCoordinate(1, 2, 3))
 
@@ -495,24 +493,9 @@ class CalibrationTest(CalibrationTestCase):
         self.set_valid_axes_rotation()
         self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             with self.assertRaises(CalibrationError):
                 self.calibration.move_absolute(ChipCoordinate(1, 2, 3))
-
-    def test_move_absolute_in_stage_coordinate_raises_error_if_coord_type_invalid(
-            self):
-        self.calibration.connect_to_stage()
-        with self.calibration.perform_in_stage_coordinates():
-            with self.assertRaises(TypeError):
-                self.calibration.move_absolute(ChipCoordinate(1, 2, 3))
-
-    def test_move_absolute_in_chip_coordinate_raises_error_if_coord_type_invalid(
-            self):
-        self.calibration.connect_to_stage()
-        self.set_valid_single_point_offset()
-        with self.calibration.perform_in_chip_coordinates():
-            with self.assertRaises(TypeError):
-                self.calibration.move_absolute(StageCoordinate(1, 2, 3))
 
     @parameterized.expand([(True,), (False,)])
     @patch.object(DummyStage, "move_absolute")
@@ -521,7 +504,7 @@ class CalibrationTest(CalibrationTestCase):
         self.set_invalid_axes_rotation()
         required_movement = [100.0, 200.0, 300.0]
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             self.calibration.connect_to_stage()
             self.calibration.move_absolute(
                 StageCoordinate.from_list(required_movement),
@@ -541,7 +524,7 @@ class CalibrationTest(CalibrationTestCase):
         expected_stage_pos, expected_chip_pos = (
             VACHERIN_STAGE_COORDS[1], VACHERIN_CHIP_COORDS[1])
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.calibration.connect_to_stage()
             self.calibration.move_absolute(
                 ChipCoordinate.from_numpy(expected_chip_pos),
@@ -567,7 +550,7 @@ class CalibrationTest(CalibrationTestCase):
         expected_stage_pos, expected_chip_pos = (
             VACHERIN_STAGE_COORDS[3], VACHERIN_CHIP_COORDS[3])
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.calibration.connect_to_stage()
             self.calibration.move_absolute(
                 ChipCoordinate.from_numpy(expected_chip_pos),
