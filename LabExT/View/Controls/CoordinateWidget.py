@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from typing import Type
 from tkinter import LEFT, SUNKEN, Frame, Label
 
-from LabExT.Movement.config import Axis
+from LabExT.Movement.config import Axis, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Transformations import Coordinate
 
@@ -63,7 +63,7 @@ class StagePositionWidget(CoordinateWidget):
     def __init__(self, parent, calibration: Type[Calibration]):
         self.calibration = calibration
 
-        with self.calibration.perform_in_stage_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             super().__init__(parent, self.calibration.get_position())
 
         self._update_pos_job = self.after(
@@ -84,7 +84,7 @@ class StagePositionWidget(CoordinateWidget):
         Kills update job, if an error occurred.
         """
         try:
-            with self.calibration.perform_in_stage_coordinates():
+            with self.calibration.perform_in_system(CoordinateSystem.STAGE):
                 self.coordinate = self.calibration.get_position()
         except Exception as exc:
             self.after_cancel(self._update_pos_job)
