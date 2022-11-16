@@ -208,7 +208,8 @@ class CoordinatePairing(NamedTuple):
         if not include_device_id:
             return pairing
 
-        pairing["device_id"] = self.device.id
+        if self.device:
+            pairing["device_id"] = self.device.id
         return pairing
 
 
@@ -490,6 +491,7 @@ class SinglePointOffset(Transformation):
     def load(
         cls,
         pairing: Any,
+        chip: Type[Chip],
         axes_rotation: Type[AxesRotation]
     ) -> Type[SinglePointOffset]:
         """
@@ -501,6 +503,8 @@ class SinglePointOffset(Transformation):
             pairing for stage and chip coordinate
         axes_rotation : AxesRotation
             axes rotation associated with the transformation
+        chip : Chip
+            chip instance associated with this transformation
 
         Raises
         ------
@@ -513,8 +517,14 @@ class SinglePointOffset(Transformation):
         SinglePointOffset
             A valid single point transformation based on the pairing.
         """
+        _device_id = pairing.get("device_id")
+        device = chip.devices.get(_device_id)
+        if device is None:
+            raise TransformationError(
+                f"Could not find Device with ID {_device_id} for given chip {chip}")
+
         try:
-            pairing = CoordinatePairing.load(pairing)
+            pairing = CoordinatePairing.load(pairing, device=device)
         except Exception as err:
             raise TransformationError(
                 f"Could not create pairing for {pairing}: {err}")
@@ -629,7 +639,7 @@ class SinglePointOffset(Transformation):
         if not self.pairing:
             return {}
 
-        return self.pairing.dump()
+        return self.pairing.dump(include_device_id=True)
 
 
 class KabschRotation(Transformation):
@@ -659,6 +669,8 @@ class KabschRotation(Transformation):
             pairings for stage and chip coordinates
         axes_rotation : AxesRotation
             axes rotation associated with the transformation
+        chip : Chip
+            chip instance associated with this rotation
 
         Raises
         ------

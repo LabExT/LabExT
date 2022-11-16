@@ -12,7 +12,7 @@ import numpy as np
 from scipy.spatial.distance import pdist
 
 from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.config import Orientation
+from LabExT.Movement.config import CoordinateSystem, Orientation
 
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
@@ -235,7 +235,7 @@ class PotentialField:
         self.potential_field = np.zeros_like(
             self.cx) + self.attractive_potential_field
 
-        with self.calibration.perform_in_chip_coordinates():
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.start_coordinate = self.calibration.get_position()
             self.target_position.z = self.start_coordinate.z
 
@@ -293,7 +293,7 @@ class PotentialField:
             self.cx) + self.attractive_potential_field
 
         for calibration in calibrations:
-            with calibration.perform_in_chip_coordinates():
+            with calibration.perform_in_system(CoordinateSystem.CHIP):
                 stage_mask = calibration.stage_polygon.stage_in_meshgrid(
                     calibration.get_position(),
                     self.cx,

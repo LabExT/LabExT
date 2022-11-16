@@ -14,7 +14,7 @@ from time import sleep
 
 import numpy as np
 
-from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction
+from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction, CoordinateSystem
 from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
 from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
@@ -46,17 +46,17 @@ def assert_minimum_state_for_coordinate_system(
     def assert_state(func):
         @wraps(func)
         def wrap(calibration: Type["Calibration"], *args, **kwargs):
-            if calibration.coordinate_system is None:
+            if calibration.coordinate_system == CoordinateSystem.UNKNOWN:
                 raise CalibrationError(
                     "Function {} needs a cooridnate system to operate in. Please use the context to set the system.".format(
                         func.__name__))
 
-            if calibration.coordinate_system == ChipCoordinate and calibration.state < chip_coordinate_system:
+            if calibration.coordinate_system == CoordinateSystem.CHIP and calibration.state < chip_coordinate_system:
                 raise CalibrationError(
                     "Function {} needs at least a calibration state of {} to operate in chip coordinate system".format(
                         func.__name__, chip_coordinate_system))
 
-            if calibration.coordinate_system == StageCoordinate and calibration.state < stage_coordinate_system:
+            if calibration.coordinate_system == CoordinateSystem.STAGE and calibration.state < stage_coordinate_system:
                 raise CalibrationError(
                     "Function {} needs at least a calibration state of {} to operate in stage coordinate system".format(
                         func.__name__, stage_coordinate_system))
@@ -113,12 +113,12 @@ class Calibration:
 
         single_point_offset = None
         if "single_point_offset" in calibration_data:
-            if axes_rotation is not None:
+            if axes_rotation is not None and chip is not None:
                 single_point_offset = SinglePointOffset.load(
-                    calibration_data["single_point_offset"], axes_rotation=axes_rotation)
+                    calibration_data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
             else:
                 cls._logger.debug(
-                    "Cannot set single point offset when axes rotation is not defined")
+                    "Cannot set single point offset when axes rotation or chip is not defined")
 
         kabsch_rotation = None
         if "kabsch_rotation" in calibration_data:
@@ -156,7 +156,7 @@ class Calibration:
         self._orientation = orientation
         self._device_port = device_port
 
-        self._coordinate_system = None
+        self._coordinate_system = CoordinateSystem.UNKNOWN
 
         self._axes_rotation = axes_rotation
         if axes_rotation is None:
@@ -175,6 +175,7 @@ class Calibration:
 
         self._state = State.UNINITIALIZED
         self.determine_state(skip_connection=False)
+        self.mover.update_main_model()
 
     #
     #   Representation
@@ -225,70 +226,61 @@ class Calibration:
     #
 
     @property
-    def coordinate_system(
-            self) -> Union[None, StageCoordinate, ChipCoordinate]:
+    def coordinate_system(self) -> CoordinateSystem:
         """
         Returns the current coordinate system
         """
         return self._coordinate_system
 
-    @coordinate_system.setter
-    def coordinate_system(self, system) -> None:
+    @property
+    def is_chip_coordinate_system_set(self) -> bool:
+        """
+        Returns True if chip coordinate system is set.
+        """
+        return self.coordinate_system == CoordinateSystem.CHIP
+
+    @property
+    def is_stage_coordinate_system_set(self) -> bool:
+        """
+        Returns True if stage coordinate system is set.
+        """
+        return self.coordinate_system == CoordinateSystem.STAGE
+
+    def set_coordinate_system(
+        self,
+        system: CoordinateSystem
+    ) -> None:
         """
         Sets the current coordinate system
-
-        If None, the system will be reset.
-
-        Parameters
-        ----------
-        system : Coordinate
-            Coordinate system to be stored, either chip or stage system.
 
         Raises
         ------
         ValueError
             If the requested system is not supported.
-        CalibrationError
-            If a coordinate system is already set.
         """
-        if system is None:
-            self._coordinate_system = None
-            return
-
-        if system not in [ChipCoordinate, StageCoordinate]:
+        if not isinstance(system, CoordinateSystem):
             raise ValueError(
-                f"The requested coordinate system {system} is not supported.")
+                f"Requested coordinate system {system} for {self} is invalid.")
 
-        if self._coordinate_system is not None:
-            raise CalibrationError("A coordinate system is already set.")
+        self._logger.debug(
+            f"Set coordinate system for {self} to {system}")
 
         self._coordinate_system = system
 
     @contextmanager
-    def perform_in_chip_coordinates(self):
+    def perform_in_system(self, system: CoordinateSystem):
         """
-        Context manager to execute a block of instructions in chip coordinates.
+        Context manager to execute a block of instructions in requested coordinates.
 
-        Sets the coordinate system to chip system first and resets the system at the end.
+        Resets the system at the end.
         """
-        self.coordinate_system = ChipCoordinate
+        prior_coordinate_system = self.coordinate_system
+
+        self.set_coordinate_system(system)
         try:
             yield
         finally:
-            self.coordinate_system = None
-
-    @contextmanager
-    def perform_in_stage_coordinates(self):
-        """
-        Context manager to execute a block of instructions in stage coordinates.
-
-        Sets the coordinate system to stage system first and resets the system at the end.
-        """
-        self.coordinate_system = StageCoordinate
-        try:
-            yield
-        finally:
-            self.coordinate_system = None
+            self.set_coordinate_system(prior_coordinate_system)
 
     #
     #   Calibration Setup Methods
@@ -302,6 +294,7 @@ class Calibration:
             self.stage.connect()
         finally:
             self.determine_state(skip_connection=False)
+            self.mover.update_main_model()
 
     def disconnect_to_stage(self) -> None:
         """
@@ -311,6 +304,7 @@ class Calibration:
             self.stage.disconnect()
         finally:
             self.determine_state(skip_connection=False)
+            self.mover.update_main_model()
 
     def update_axes_rotation(
             self,
@@ -336,6 +330,7 @@ class Calibration:
             self._axes_rotation.update(chip_axis, direction, stage_axis)
         finally:
             self.determine_state(skip_connection=True)
+            self.mover.update_main_model()
 
     def update_single_point_offset(
             self, pairing: Type[CoordinatePairing]) -> None:
@@ -352,6 +347,7 @@ class Calibration:
             self._single_point_offset.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
+            self.mover.update_main_model()
 
     def update_kabsch_rotation(self, pairing: Type[CoordinatePairing]) -> None:
         """
@@ -367,6 +363,23 @@ class Calibration:
             self._kabsch_rotation.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
+            self.mover.update_main_model()
+
+    def reset_single_point_offset(self) -> None:
+        """
+        Resets the single point offset transformation
+        """
+        self._single_point_offset.initialize()
+        self.determine_state(skip_connection=True)
+        self.mover.update_main_model()
+
+    def reset_kabsch_rotation(self) -> None:
+        """
+        Resets the kabsch rotation
+        """
+        self._kabsch_rotation.initialize()
+        self.determine_state(skip_connection=True)
+        self.mover.update_main_model()
 
     def determine_state(self, skip_connection=False) -> None:
         """
@@ -437,9 +450,9 @@ class Calibration:
         """
         stage_position = StageCoordinate.from_list(self.stage.get_position())
 
-        if self.coordinate_system == StageCoordinate:
+        if self.is_stage_coordinate_system_set:
             return stage_position
-        elif self.coordinate_system == ChipCoordinate:
+        elif self.is_chip_coordinate_system_set:
             if self.state == State.FULLY_CALIBRATED:
                 return self._kabsch_rotation.stage_to_chip(stage_position)
             elif self.state == State.SINGLE_POINT_FIXED:
@@ -476,18 +489,12 @@ class Calibration:
         ------
         CalibrationError
             If the state of calibration is lower than the required one.
-        TypeError
-            If the passed offset does not have the correct type.
         RuntimeError
             If coordinate system is unsupported.
         """
-        if not isinstance(offset, self.coordinate_system):
-            raise TypeError(
-                f"Given offset is in {type(offset)}. Need offset in {self.coordinate_system} to move the stage relative in this system.")
-
-        if self.coordinate_system == StageCoordinate:
+        if self.is_stage_coordinate_system_set:
             stage_offset = offset
-        elif self.coordinate_system == ChipCoordinate:
+        elif self.is_chip_coordinate_system_set:
             stage_offset = self._axes_rotation.chip_to_stage(offset)
         else:
             RuntimeError(
@@ -520,18 +527,12 @@ class Calibration:
         ------
         CalibrationError
             If the state of calibration is lower than the required one.
-        TypeError
-            If the passed offset does not have the correct type.
         RuntimeError
             If coordinate system is unsupported.
         """
-        if not isinstance(coordinate, self.coordinate_system):
-            raise TypeError(
-                f"Given coordinate is in {type(coordinate)}. Need coordinate in {self.coordinate_system} to move the stage absolute in this system.")
-
-        if self.coordinate_system == StageCoordinate:
+        if self.is_stage_coordinate_system_set:
             stage_coordinate = coordinate
-        elif self.coordinate_system == ChipCoordinate:
+        elif self.is_chip_coordinate_system_set:
             if self.state == State.FULLY_CALIBRATED:
                 stage_coordinate = self._kabsch_rotation.chip_to_stage(
                     coordinate)
@@ -582,7 +583,8 @@ class Calibration:
 
         wiggle_difference = np.array(
             [wiggle_distance if wiggle_axis == axis else 0 for axis in Axis])
-        with self.perform_in_chip_coordinates():
+
+        with self.perform_in_system(CoordinateSystem.CHIP):
             self.move_relative(ChipCoordinate.from_numpy(wiggle_difference))
             sleep(wait_time)
             self.move_relative(ChipCoordinate.from_numpy(-wiggle_difference))

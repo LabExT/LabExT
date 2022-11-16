@@ -15,6 +15,7 @@ from LabExT.View.Controls.CoordinateWidget import CoordinateWidget, StagePositio
 from LabExT.Movement.Transformations import CoordinatePairing
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Calibration import Calibration
+from LabExT.Movement.config import CoordinateSystem
 from LabExT.Wafer.Chip import Chip
 
 
@@ -273,7 +274,7 @@ class CoordinatePairingsWindow(Toplevel):
         elif calibration.is_output_stage:
             chip_coord = self._device.output_coordinate
 
-        with calibration.perform_in_stage_coordinates():
+        with calibration.perform_in_system(CoordinateSystem.STAGE):
             return CoordinatePairing(
                 calibration,
                 calibration.get_position(),

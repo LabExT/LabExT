@@ -83,10 +83,10 @@ class MainWindowModel:
         self.var_imeas_wait_time_str.trace("w", self.exctrl_vars_changed)
 
         # status of various sub-modules
-        self.status_mover_driver_enabled = BooleanVar(self.root)
-        self.status_mover_driver_enabled.trace("w", self.submodule_status_updated)
-        self.status_transformation_enabled = BooleanVar(self.root)
-        self.status_transformation_enabled.trace("w", self.submodule_status_updated)
+        self.status_mover_connected_stages = BooleanVar(self.root)
+        self.status_mover_connected_stages.trace("w", self.submodule_status_updated)
+        self.status_mover_can_move_to_device = BooleanVar(self.root)
+        self.status_mover_can_move_to_device.trace("w", self.submodule_status_updated)
         self.status_sfp_initialized = BooleanVar(self.root)
         self.status_sfp_initialized.trace("w", self.submodule_status_updated)
 
@@ -191,9 +191,9 @@ class MainWindowModel:
             return
 
         # this variable should track Mover.mover_enabled
-        mover_ena = bool(self.status_mover_driver_enabled.get())
+        mover_ena = bool(self.status_mover_connected_stages.get())
         # this variable should track Mover.trafo_enabled
-        trafo_ena = bool(self.status_transformation_enabled.get())
+        trafo_ena = bool(self.status_mover_can_move_to_device.get())
         # this variable should track PeakSearcher.initialized
         sfp_init = bool(self.status_sfp_initialized.get())
 

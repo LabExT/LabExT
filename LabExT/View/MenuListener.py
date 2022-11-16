@@ -31,7 +31,8 @@ from LabExT.View.Movement import (
     MoverWizard,
     StageWizard,
     MoveStagesRelativeWindow,
-    MoveStagesDeviceWindow
+    MoveStagesDeviceWindow,
+    LoadStoredCalibrationWindow
 )
 
 class MListener:
@@ -71,6 +72,7 @@ class MListener:
         self.stage_setup_toplevel = None
         self.mover_setup_toplevel = None
         self.calibration_setup_toplevel = None
+        self.calibration_restore_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
@@ -201,7 +203,7 @@ class MListener:
         if try_to_lift_window(self.stage_setup_toplevel):
             return
         
-        self.stage_setup_toplevel = StageWizard(self._root, self._experiment_manager.mover_new)
+        self.stage_setup_toplevel = StageWizard(self._root, self._experiment_manager.mover)
 
     def client_setup_mover(self):
         """
@@ -210,7 +212,7 @@ class MListener:
         if try_to_lift_window(self.mover_setup_toplevel):
             return
         
-        self.mover_setup_toplevel = MoverWizard(self._root, self._experiment_manager.mover_new)
+        self.mover_setup_toplevel = MoverWizard(self._root, self._experiment_manager.mover)
 
     def client_calibrate_stage(self):
         """
@@ -221,7 +223,7 @@ class MListener:
         
         self.calibration_setup_toplevel = CalibrationWizard(
             self._root,
-            self._experiment_manager.mover_new,
+            self._experiment_manager.mover,
             self._experiment_manager.chip)
 
     def client_configure_stages(self):
@@ -244,7 +246,7 @@ class MListener:
             return
 
         self.stage_movement_toplevel = MoveStagesRelativeWindow(
-            self._root, self._experiment_manager.mover_new)
+            self._root, self._experiment_manager.mover)
 
     def client_move_device(self):
         """
@@ -256,32 +258,20 @@ class MListener:
 
         self.stage_device_toplevel = MoveStagesDeviceWindow(
             self._root,
-            self._experiment_manager.mover_new,
+            self._experiment_manager.mover,
             self._experiment_manager.chip)
 
-    def client_transformation(self):
-        """Called when user wants to perform a coordinate transformation.
-        Calls check_for_saved_transformation in mover to check for saved transformation.
-        The user can than decide if he wants to load the saved transformation or make a new one.
+    def client_restore_calibration(self):
         """
-        self.logger.debug('Client wants to perform transformation.')
+        Opens a window to restore calibrations.
+        """
+        if try_to_lift_window(self.calibration_restore_toplevel):
+            return
 
-        if self._experiment_manager.chip:
-            try:
-                self._experiment_manager.mover.check_for_saved_transformation()
-            except Exception as exc:
-                msg = 'Transformation raised Exception. Reason: ' + repr(exc)
-                messagebox.showinfo('Transformation aborted', msg)
-                self.logger.error(msg)
-
-            if not self._experiment_manager.mover.trafo_enabled:
-                msg = 'Error: Automatic movement not enabled.'
-                messagebox.showerror('Error', msg)
-                self.logger.error(msg)
-        else:
-            msg = 'No chip file imported. Cannot do coordinate transformation for stages with no chip file present.'
-            messagebox.showwarning('Error: No chip layout', msg)
-            self.logger.warning(msg)
+        self.calibration_restore_toplevel = LoadStoredCalibrationWindow(
+            self._root,
+            self._experiment_manager.mover,
+            self._experiment_manager.chip)
 
     def client_search_for_peak(self):
         """Called when user wants to open plotting window for search for peak observation."""

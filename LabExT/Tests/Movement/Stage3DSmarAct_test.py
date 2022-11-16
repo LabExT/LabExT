@@ -338,28 +338,6 @@ class BaseTest(SmarActTestCase):
             (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(200000), 0)
         )
 
-    @with_MCSControl_driver_patch
-    def test_move_absolute_v1_without_waiting(
-            self, mcsc_mock: MCSControlInterface):
-        mcsc_mock.SA_GotoPositionAbsolute_S.return_value = MCSC_STATUS_OK
-
-        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
-            with self.assert_exit_without_error(mcsc_mock):
-                self.stage.move_absolute([500, -1000], wait_for_stopping=False)
-
-        mcsc_mock.SA_GotoPositionRelative_S.assert_not_called()
-        mcsc_mock.SA_GetStatus_S.assert_not_called()
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionAbsolute_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(500000), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionAbsolute_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(-1000000), 0)
-        )
-
     @parameterized.expand([
         (100, 200, 300),
         (100, 200, None),
@@ -427,29 +405,6 @@ class BaseTest(SmarActTestCase):
         with self.successful_stage_connection(self.stage, mcsc_mock):
             with self.assert_exit_without_error(mcsc_mock):
                 self.stage.move_relative(-100, -200, wait_for_stopping=True)
-
-        sleep_mock.assert_called_once()
-        self.assertEqual(3, mcsc_mock.SA_GetStatus_S.call_count)
-
-    @with_MCSControl_driver_patch
-    @patch("LabExT.Movement.Stages.Stage3DSmarAct.time.sleep")
-    @patch.object(SmarActModule.Stage3DSmarAct._Channel, 'STATUS_CODES',
-                  {MCSControlInterface.SA_STOPPED_STATUS: 'SA_STOPPED_STATUS'})
-    def test_move_absolute_v1_with_waiting(
-            self, sleep_mock, mcsc_mock: MCSControlInterface):
-        """
-        Simple test, if sleep gets triggered when status is not stopped
-        """
-        mcsc_mock.SA_GotoPositionAbsolute_S.return_value = MCSC_STATUS_OK
-        mcsc_mock.SA_GetStatus_S.return_value = MCSC_STATUS_OK
-
-        mcsc_mock.SA_GetStatus_S.side_effect = update_by_reference({
-            2: ct.c_ulong(MCSControlInterface.SA_STOPPED_STATUS)
-        })
-
-        with self.successful_stage_connection(self.stage, mcsc_mock):
-            with self.assert_exit_without_error(mcsc_mock):
-                self.stage.move_absolute([-1000, 200], wait_for_stopping=True)
 
         sleep_mock.assert_called_once()
         self.assertEqual(3, mcsc_mock.SA_GetStatus_S.call_count)

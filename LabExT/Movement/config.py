@@ -54,6 +54,14 @@ class DevicePort(BaseEnum):
     OUTPUT = auto()
 
 
+class CoordinateSystem(BaseEnum):
+    """
+    Enumerate different coordinate systems
+    """
+    UNKNOWN = auto()
+    STAGE = auto()
+    CHIP = auto()
+
 @total_ordering
 class State(BaseEnum):
     """

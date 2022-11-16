@@ -5,17 +5,23 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from contextlib import contextmanager
+import json
+
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Any, Dict, Tuple, Type, List
+from typing import Dict, Tuple, Type, List
 from functools import wraps
-from LabExT.Movement.PathPlanning import PathPlanning
+from os.path import exists
+from datetime import datetime
+from contextlib import contextmanager
 
-from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort
+from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Movement.PathPlanning import PathPlanning
+
+from LabExT.Utils import get_configuration_file_path
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -61,15 +67,28 @@ class MoverNew:
     DEFAULT_ACCELERATION_XY = 0.0
     DEFAULT_Z_LIFT = 20.0
 
-    def __init__(self, experiment_manager):
+    # Settings files
+    MOVER_SETTINGS_FILE = get_configuration_file_path(
+        config_file_path_in_settings_dir="mover_settings.json")
+    CALIBRATIONS_SETTINGS_FILE = get_configuration_file_path(
+        config_file_path_in_settings_dir="mover_calibrations.json")
+
+    def __init__(
+        self,
+        experiment_manager=None,
+        chip=None
+    ) -> None:
         """Constructor.
 
         Parameters
         ----------
-        experiment_manager : ExperimentManager
+        experiment_manager : ExperimentManager = None
             Current instance of ExperimentManager.
+        chip : Chip = None
+            Current instance of imported chip.
         """
         self.experiment_manager = experiment_manager
+        self._chip: Type[Chip] = chip
 
         self._stage_classes: List[Stage] = []
         self._available_stages: List[Type[Stage]] = []
@@ -94,6 +113,40 @@ class MoverNew:
         self._speed_xy = None
         self._speed_z = None
         self._acceleration_xy = None
+
+    #
+    #   Set chip
+    #
+
+    def set_chip(self, chip: Type[Chip]) -> None:
+        """
+        Sets the the current chip.
+        This method will reset single point offset and kabsch rotation.
+        """
+        if self._chip == chip:
+            return
+
+        for calibration in self.calibrations.values():
+            calibration.reset_single_point_offset()
+            calibration.reset_kabsch_rotation()
+
+        self._chip = chip
+
+    def update_main_model(self) -> None:
+        """
+        Update main model
+        """
+        if not self.experiment_manager:
+            return
+
+        _main_window = self.experiment_manager.main_window
+        if not _main_window:
+            return
+
+        _main_window.model.status_mover_connected_stages.set(
+            self.has_connected_stages)
+        _main_window.model.status_mover_can_move_to_device.set(
+            self.can_move_absolutely)
 
     #
     #   Reload properties
@@ -187,27 +240,27 @@ class MoverNew:
             c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
 
     @property
-    def left_calibration(self): return self._get_calibration(
+    def left_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.LEFT)
 
     @property
-    def right_calibration(self): return self._get_calibration(
+    def right_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.RIGHT)
 
     @property
-    def top_calibration(self): return self._get_calibration(
+    def top_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.TOP)
 
     @property
-    def bottom_calibration(self): return self._get_calibration(
+    def bottom_calibration(self) -> Type[Calibration]: return self._get_calibration(
         orientation=Orientation.BOTTOM)
 
     @property
-    def input_calibration(self): return self._get_calibration(
+    def input_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.INPUT)
 
     @property
-    def output_calibration(self): return self._get_calibration(
+    def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.OUTPUT)
 
     #
@@ -256,6 +309,57 @@ class MoverNew:
             (orientation, port), calibration, OnDup(
                 key=RAISE))
         return calibration
+
+    def restore_stage_calibration(
+        self,
+        stage: Type[Stage],
+        calibration_data: dict
+    ) -> Type[Calibration]:
+        """
+        Restores a calibration for given stage and calibration data.
+        """
+        if stage in self.active_stages:
+            raise MoverError(
+                "Stage {} has already an assignment.".format(stage))
+
+        calibration = Calibration.load(
+            self, stage, calibration_data, self._chip)
+
+        self._port_by_orientation.put(
+            calibration._orientation,
+            calibration._device_port,
+            OnDup(
+                key=RAISE))
+
+        self._calibrations.put(
+            (calibration._orientation,
+             calibration._device_port),
+            calibration,
+            OnDup(
+                key=RAISE))
+
+        return calibration
+
+    #
+    #   Coordinate System Control
+    #
+
+    @contextmanager
+    def set_stages_coordinate_system(self, system: CoordinateSystem):
+        """
+        Sets the coordinate system of all connected stages to the requested one.
+        """
+        prior_coordinate_systems = {
+            c: c.coordinate_system for c in self.calibrations.values()}
+
+        for calibration in self.calibrations.values():
+            calibration.set_coordinate_system(system)
+
+        try:
+            yield
+        finally:
+            for calibration, prior_coordinate_system in prior_coordinate_systems.items():
+                calibration.set_coordinate_system(prior_coordinate_system)
 
     #
     #   Stage Settings Methods
@@ -440,7 +544,7 @@ class MoverNew:
         # Move stages on safe trajectory
         for calibration_waypoints in path_planning.trajectory():
             for calibration, waypoint in calibration_waypoints.items():
-                with calibration.perform_in_chip_coordinates():
+                with calibration.perform_in_system(CoordinateSystem.CHIP):
                     calibration.move_absolute(waypoint, wait_for_stopping)
 
             # Wait for all stages to stop if stages move simultaneously.
@@ -508,7 +612,7 @@ class MoverNew:
             calibration = resolved_calibrations[orientation]
             requested_target = movement_commands[orientation]
 
-            with calibration.perform_in_chip_coordinates():
+            with calibration.perform_in_system(CoordinateSystem.CHIP):
                 calibration.move_relative(requested_target, wait_for_stopping)
 
     @contextmanager
@@ -522,7 +626,7 @@ class MoverNew:
 
         def _lift_lower_stages(lift):
             for calibration in self.calibrations.values():
-                with calibration.perform_in_chip_coordinates():
+                with calibration.perform_in_system(CoordinateSystem.CHIP):
                     calibration.move_absolute(
                         calibration.get_position() + ChipCoordinate(z=lift))
 
@@ -561,10 +665,68 @@ class MoverNew:
             self.move_absolute(movement_commands, chip=chip)
 
     #
+    #   Load and store mover settings
+    #
+
+    def dump_calibrations(self) -> None:
+        """
+        Stores current calibrations to file.
+        """
+        _chip_name = None
+        if self._chip:
+            _chip_name = self._chip.name
+
+        with open(self.CALIBRATIONS_SETTINGS_FILE, "w+") as fp:
+            json.dump({
+                "chip_name": _chip_name,
+                "last_updated_at": datetime.now().isoformat(),
+                "calibrations": [
+                    c.dump() for c in self.calibrations.values()]
+            }, fp)
+
+    def dump_settings(self) -> None:
+        """
+        Stores mover settings to file.
+        """
+        with open(self.MOVER_SETTINGS_FILE, "w+") as fp:
+            json.dump({
+                "speed_xy": self._speed_xy,
+                "speed_z": self._speed_z,
+                "acceleration_xy": self._acceleration_xy,
+                "z_lift": self._z_lift
+            }, fp)
+
+    def has_chip_stored_calibration(self, chip: Type[Chip]) -> bool:
+        """
+        Checks if for given chip exists a stored calibration.
+        """
+        if chip is None or chip.name is None:
+            return False
+
+        if not exists(self.CALIBRATIONS_SETTINGS_FILE):
+            return False
+
+        with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
+            try:
+                calibration_settings = json.load(fp)
+            except json.JSONDecodeError:
+                return False
+            _chip_name = calibration_settings.get("chip_name")
+            _calibrations = calibration_settings.get("calibrations", [])
+            return _chip_name == chip.name and len(_calibrations) > 0
+
+    @property
+    def calibration_settings_file(self) -> str:
+        """
+        Returns the calibration settings file.
+        """
+        return self.CALIBRATIONS_SETTINGS_FILE
+
+    #
     #   Helpers
     #
 
-    def _get_calibration(self, port=None, orientation=None, default=None):
+    def _get_calibration(self, port=None, orientation=None, default=None) -> Type[Calibration]:
         """
         Get safely calibration by port and orientation.
         """
