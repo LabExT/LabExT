@@ -4,11 +4,12 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
-from datetime import datetime
 import json
+import logging
 
-from tkinter import W, Frame, Label, OptionMenu, StringVar, Toplevel, Button, messagebox, RIGHT, TOP, X, BOTH, FLAT, Y, LEFT
+from tkinter import Frame, Label, OptionMenu, StringVar, Toplevel, Button, messagebox, RIGHT, TOP, X, BOTH, FLAT, Y, LEFT
 from typing import Type
+from datetime import datetime
 from os.path import exists
 
 from LabExT.Utils import run_with_wait_window
@@ -49,6 +50,8 @@ class LoadStoredCalibrationWindow(Toplevel):
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
 
+        self.logger = logging.getLogger()
+
         self.calibration_settings = None
         if not exists(self.mover.calibration_settings_file):
             raise RuntimeError(
@@ -58,7 +61,7 @@ class LoadStoredCalibrationWindow(Toplevel):
             self.calibration_settings = json.load(fp)
 
         if self.calibration_settings.get("chip_name") != self.chip.name:
-            raise RuntimeError(
+            self.logger.warn(
                 f"There is no stored calibrarion for the chip name '{self.chip.name}'."
                 f"Instead found one for chip name '{self.calibration_settings.get('chip_name')}'")
 
