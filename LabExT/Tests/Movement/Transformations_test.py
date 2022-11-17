@@ -548,7 +548,8 @@ class RigidTransformationTest(unittest.TestCase):
 
 class KabschRotationTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.transformation = KabschRotation()
+        self.axes_rotation = AxesRotation()
+        self.transformation = KabschRotation(self.axes_rotation)
         self.calibration = Mock(spec=Calibration)
         return super().setUp()
 
