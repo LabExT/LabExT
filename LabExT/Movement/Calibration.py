@@ -571,8 +571,52 @@ class Calibration:
             z=stage_coordinate.z,
             wait_for_stopping=wait_for_stopping)
 
+    def lift_stage(self, z_lift: float) -> None:
+        """
+        Lifts the stage absolutely or relatively.
+        Lifts stage absolutely if calibration is fully calibrated.
+        Lifts stage relatively if calibration is single point fixex or coordinate system fixed.
+        Parameters
+        ----------
+        z_lift: float
+            Amount in um to move the stage up.
+        Raises
+        ------
+        CalibrationError
+            If stage cannot lifted in the current state.
+        """
+        if self.state == State.FULLY_CALIBRATED:
+            self.lift_stage_absolute(z_lift)
+        elif self.state == State.SINGLE_POINT_FIXED or self.state == State.COORDINATE_SYSTEM_FIXED:
+            self.lift_stage_relative(z_lift)
+        else:
+            raise CalibrationError(
+                f"Cannot lift stage {self}: Calibration must be at least in coordinate fixed state.")
+
+    def lower_stage(self, z_lift: float) -> None:
+        """
+        Lowers the stage absolutely or relatively.
+        Lowers stage absolutely if calibration is fully calibrated.
+        Lowers stage relatively if calibration is single point fixex or coordinate system fixed.
+        Parameters
+        ----------
+        z_lift: float
+            Amount in um to move the stage down.
+        Raises
+        ------
+        CalibrationError
+            If stage cannot lowered in the current state.
+        """
+        if self.state == State.FULLY_CALIBRATED:
+            self.lower_stage_absolute()
+        elif self.state == State.SINGLE_POINT_FIXED or self.state == State.COORDINATE_SYSTEM_FIXED:
+            self.lower_stage_relative(z_lift)
+        else:
+            raise CalibrationError(
+                f"Cannot lower stage {self}: Calibration must be at least in coordinate fixed state.")
+
     @assert_minimum_state_for_coordinate_system(
-        chip_coordinate_system=State.SINGLE_POINT_FIXED)
+        chip_coordinate_system=State.FULLY_CALIBRATED)
     def lift_stage_absolute(self, z_lift: float) -> None:
         """
         Lifts the stage absolutely.
@@ -612,7 +656,39 @@ class Calibration:
             self._is_lifted = True
 
     @assert_minimum_state_for_coordinate_system(
-        chip_coordinate_system=State.SINGLE_POINT_FIXED)
+        chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
+    def lift_stage_relative(self, z_lift: float) -> None:
+        """
+        Lifts the stage relatively.
+        Suppose the current position of the stage is [x_curr, y_curr, z_curr] in chip coordinates.
+        The stage will be moved relatively in chip coordinates to [x_curr, y_curr, z_curr + z_lift]
+        while z_lift is the input of the method.
+        Does not lift the stage if the stage is in a lifted state.
+        Parameters
+        ----------
+        z_lift: float
+            Amount in um to move the stage up.
+        """
+        if self.is_lifted:
+            self._logger.warn(
+                f"Stage {self} is already lifted. Skipping lift.")
+            return
+
+        self._logger.debug(
+            f"Lifting {self} relative up {z_lift} um")
+
+        with self.perform_in_system(CoordinateSystem.CHIP):
+            target_offset = ChipCoordinate(x=0, y=0, z=z_lift)
+            try:
+                self.move_relative(target_offset, wait_for_stopping=True)
+            except BaseException:
+                self._is_lifted = False
+                raise
+
+            self._is_lifted = True
+
+    @assert_minimum_state_for_coordinate_system(
+        chip_coordinate_system=State.FULLY_CALIBRATED)
     def lower_stage_absolute(self) -> None:
         """
         Lowers the stage absolutely.
@@ -639,6 +715,38 @@ class Calibration:
                 self.move_absolute(
                     target_lower_coordinate,
                     wait_for_stopping=True)
+            except BaseException:
+                self._is_lifted = True
+                raise
+
+            self._is_lifted = False
+
+    @assert_minimum_state_for_coordinate_system(
+        chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
+    def lower_stage_relative(self, z_lift: float) -> None:
+        """
+        Lowers the stage relatively.
+        Suppose the current position of the stage is [x_curr, y_curr, z_curr] in chip coordinates.
+        The stage will be moved relatively in chip coordinates to [x_curr, y_curr, z_curr - z_lift]
+        while z_lift is the input of the method.
+        Does not lower the stage if the stage is in a lowered state.
+        Parameters
+        ----------
+        z_lift: float
+            Amount in um to move the stage down.
+        """
+        if not self.is_lifted:
+            self._logger.warn(
+                f"Stage {self} is already lowered. Skipping lowering.")
+            return
+
+        self._logger.debug(
+            f"Lowering {self} relative by {z_lift} um")
+
+        with self.perform_in_system(CoordinateSystem.CHIP):
+            target_offset = ChipCoordinate(x=0, y=0, z=-z_lift)
+            try:
+                self.move_relative(target_offset, wait_for_stopping=True)
             except BaseException:
                 self._is_lifted = True
                 raise

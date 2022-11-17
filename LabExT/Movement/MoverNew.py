@@ -547,7 +547,7 @@ class MoverNew:
                         f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
                 if with_lifted_stages:
-                    calibration.lift_stage_absolute(self.z_lift)
+                    calibration.lift_stage(self.z_lift)
 
                 resolved_calibrations[orientation] = calibration
                 path_planning.set_stage_target(calibration, target)
@@ -575,7 +575,7 @@ class MoverNew:
             # Lift stages if requested
             if with_lifted_stages:
                 for c in resolved_calibrations.values():
-                    c.lower_stage_absolute()
+                    c.lower_stage(self.z_lift)
 
     @assert_connected_stages
     def move_relative(
