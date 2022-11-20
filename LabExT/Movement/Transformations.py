@@ -732,6 +732,8 @@ class KabschRotation(Transformation):
         self.rotation_to_stage = None
         self.translation_to_stage = None
 
+        self.z_tilt_angle: float = 0.0
+
     def __str__(self) -> str:
         if not self.is_valid:
             return "No valid rotation defined ({}/{} Points set)".format(
@@ -783,6 +785,8 @@ class KabschRotation(Transformation):
 
         if not self.is_valid:
             return
+
+        self.z_tilt_angle = z_plane_tilt(self.stage_coordinates[:, :3])
 
         # Calculate the rotation. Note: The first argument is the start set,
         # the second argument is the target set.
@@ -848,6 +852,42 @@ class KabschRotation(Transformation):
         """
         return [
             p.dump(include_device_id=True) for p in self.pairings]
+
+
+def z_plane_tilt(T: np.ndarray) -> float:
+    """
+    Calculates the angle between a plane defined by 3 points and the XY plane.
+
+    Let u be the normal vector of the plane and i_3 is the ith unit vector.
+    The 3rd unit vector is the normal vector of the XY plane.
+
+    cos(b) = |u x i_3| / (|u|*|i_3|) where x denotes the dot product
+        <=> b = arc(|u x i_3| / (|u|*|i_3|))
+
+    Parameters
+    ----------
+    T : np.ndarray
+        3x3 dataset defining the plane
+
+    Returns
+    -------
+    angle : float
+        Angle (in Radian) between given plane and XY plane.
+
+    Raises
+    ------
+    ValueError
+        If the shape of the data set is not 3x3
+    """
+    if T.shape != (3, 3):
+        raise ValueError(
+            f"Plane vectors must be of 3x3 shape, got shape {T.shape}")
+
+    xy_unit = np.array([0, 0, 1])
+    plane_normal = np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0])
+    cos = np.abs(np.dot(xy_unit, plane_normal)) / np.linalg.norm(plane_normal)
+
+    return np.arccos(cos)
 
 
 def rigid_transform_with_orientation_preservation(
