@@ -5,8 +5,10 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import logging
+
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, Generator
 
 import numpy as np
 from scipy.spatial.distance import pdist
@@ -18,6 +20,14 @@ if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
     from LabExT.Wafer.Chip import Chip
 
+
+MovementVectors = Dict[Orientation, ChipCoordinate]
+
+class PathPlanningError(RuntimeError):
+    """
+    Runtime Error for path planning
+    """
+    pass
 
 class StagePolygon(ABC):
     """
@@ -159,6 +169,34 @@ class SingleModeFiber(StagePolygon):
             y_min -= grid_size / 2 + grid_epsilon
 
         return x_min, x_max, y_min, y_max
+
+
+class PathPlanning(ABC):
+    """
+    Abstract base class for path planning.
+    """
+
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__()
+
+    @abstractmethod
+    def set_stage_target(
+        self,
+        calibration: Type["Calibration"],
+        target: Type[ChipCoordinate]
+    ) -> None:
+        """
+        Sets a new traget for given calibration
+        """
+        pass
+
+    @abstractmethod
+    def trajectory(self) -> Generator[MovementVectors, Any, Any]:
+        """
+        Generates the next waypoint of the path planner 
+        """
+        pass
 
 
 class PotentialField:
@@ -343,16 +381,18 @@ class PotentialField:
         return curr_idx
 
 
-class LocalMinimumError(RuntimeError):
-    pass
 
-
-class PathPlanning:
+class CollisionAvoidancePlanning(PathPlanning):
     """
-    Main class for Path Planning
+    Main class for collision avoidance path planning
+    using the potential field algorithm.
     """
 
-    def __init__(self, chip) -> None:
+    def __init__(
+        self,
+        chip,
+        abort_local_minimum: int = 3
+    ) -> None:
         """
         Constructor for the Path Planning.
 
@@ -360,10 +400,16 @@ class PathPlanning:
         ----------
         chip: Chip
             Instance of the a chip
+        abort_local_minimum: int = 3
+            Number of identical movements before an error is raised.
         """
+        super().__init__()
+
         self.chip: Type[Chip] = chip
         self.grid_size, self.grid_outline = self._get_grid_properties(
             padding=100)
+
+        self.abort_local_minimum = abort_local_minimum
 
         self.potential_fields = {}
         self.last_moves = []
@@ -388,7 +434,7 @@ class PathPlanning:
             self.grid_size,
             self.grid_outline)
 
-    def trajectory(self, abort_local_minimum=3):
+    def trajectory(self):
         """
         Generator to calculate a trajectory for all stages.
 
@@ -396,14 +442,9 @@ class PathPlanning:
 
         Updates the obstacles after each stage waypoint.
 
-        Parameters
-        ----------
-        abort_local_minimum: int = 3
-            Number of identical movements before an error is raised.
-
         Raises
         ------
-        LocalMinimumError
+        PathPlanningError
             If no progress has been made.
         """
         while not all(f.current_position ==
@@ -419,9 +460,9 @@ class PathPlanning:
                 next_move[calibration] = potential_field.next_waypoint()
 
             if self._last_moves_equal(
-                    self.last_moves[-abort_local_minimum:], next_move):
-                raise LocalMinimumError(
-                    f"Path-finding algorithm makes no progress. The last {abort_local_minimum} movements were identical!")
+                    self.last_moves[-self.abort_local_minimum:], next_move):
+                raise PathPlanningError(
+                    f"Path-finding algorithm makes no progress. The last {self.abort_local_minimum} movements were identical!")
 
             self.last_moves.append(next_move)
             yield next_move
@@ -480,3 +521,37 @@ class PathPlanning:
                     return False
 
         return True
+
+
+class SingleStagePlanning(PathPlanning):
+    """
+    Path planning for single stage movements.
+    """
+
+    def __init__(self, chip) -> None:
+        """
+        Constructor for the single stage path planning.
+
+        Parameters
+        ----------
+        chip: Chip
+            Instance of the a chip
+        """
+        super().__init__()
+        self.chip: Type[Chip] = chip
+
+        
+
+
+    def set_stage_target(self, calibration: Type["Calibration"], target: Type[ChipCoordinate]) -> None:
+        return super().set_stage_target(calibration, target)
+
+    def trajectory(self) -> Generator[MovementVectors, Any, Any]:
+        return super().trajectory()
+
+
+    def _get_chip_tilt(self) -> float:
+        """
+        Calculates the maximum chip tilt in all directions
+        """
+    

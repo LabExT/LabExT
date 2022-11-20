@@ -19,7 +19,7 @@ from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, Devic
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.PathPlanning import PathPlanning
+from LabExT.Movement.PathPlanning import CollisionAvoidancePlanning
 
 from LabExT.Utils import get_configuration_file_path
 from LabExT.Wafer.Chip import Chip
@@ -526,15 +526,15 @@ class MoverNew:
         ------
         MoverError
             If an orientation has been given a target, but no stage exists for this orientation.
-        LocalMinimumError
+        PathPlanningError
             If the path-finding algorithm makes no progress
-             i.e. does not converge to the target coordinate.
+            i.e. does not converge to the target coordinate.
         """
         if not movement_commands:
             return
 
         with self.set_stages_coordinate_system(CoordinateSystem.CHIP):
-            path_planning = PathPlanning(chip)
+            path_planning = CollisionAvoidancePlanning(chip, abort_local_minimum=3)
 
             # Resolves movement commands
             # Checks if for each orientation a calibration exits
