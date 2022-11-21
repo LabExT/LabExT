@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, Generator
 import numpy as np
 from scipy.spatial.distance import pdist
 
-from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.config import CoordinateSystem, Orientation
+from LabExT.Movement.Transformations import ChipCoordinate, StageCoordinate
+from LabExT.Movement.config import CoordinateSystem, Orientation, State
 
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
@@ -528,7 +528,12 @@ class SingleStagePlanning(PathPlanning):
     Path planning for single stage movements.
     """
 
-    def __init__(self, chip) -> None:
+    def __init__(
+        self,
+        chip,
+        max_lift_correction: float = 100,
+        correction_tolerance: float = 10
+    ) -> None:
         """
         Constructor for the single stage path planning.
 
@@ -540,15 +545,107 @@ class SingleStagePlanning(PathPlanning):
         super().__init__()
         self.chip: Type[Chip] = chip
 
-        
+        self.max_lift_correction = max_lift_correction
+        self.correction_tolerance = correction_tolerance
+
+        self.calibration = None
+        self.target = None
+
 
 
     def set_stage_target(self, calibration: Type["Calibration"], target: Type[ChipCoordinate]) -> None:
-        return super().set_stage_target(calibration, target)
+        """
+        Sets the traget coordinate for given calibrations.
+        """
+        if self.calibration is not None or self.target is not None:
+            raise PathPlanningError(
+                "A calibration and target coordinate is already set. This Path Planning does support only one stage.")
+
+        self.calibration = calibration
+        self.target = target
+
+
 
     def trajectory(self) -> Generator[MovementVectors, Any, Any]:
-        return super().trajectory()
+        """
+        
+        """
+        # Get stage position in chip coordinates
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
+            start_chip_coordinate = self.calibration.get_position()
 
+        # Get stage position in stage coordinates
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
+            start_stage_coordinate = self.calibration.get_position()
+
+        # Initial z level in stage and chip coordinates
+        z_lift_chip = start_chip_coordinate.z
+        z_lift_stage = start_stage_coordinate.z
+
+        # Target coordinate with initial z lift 
+        target_chip_coordinate = ChipCoordinate(
+            x=self.target.x, y=self.target.y, z=z_lift_chip)
+        target_stage_coordinate = self._translate_chip_to_stage_coordinate(
+            chip_coordinate=target_chip_coordinate)
+
+        z_delta = np.abs(z_lift_stage - target_stage_coordinate.z)
+
+        if z_delta > z_lift_chip:
+            print("Correcting z_lift..")
+            correction_z = np.floor(z_delta - z_lift_chip) + self.correction_tolerance
+
+            movement_vectors = [
+                ChipCoordinate(x=start_chip_coordinate.x, y=start_chip_coordinate.y, z=correction_z),
+                ChipCoordinate(x=self.target.x, y=self.target.y, z=correction_z),
+                ChipCoordinate(x=self.target.x, y=self.target.y, z=z_lift_chip)
+            ]
+
+        else:
+            movement_vectors = [target_chip_coordinate]
+
+        if correction_z > self.max_lift_correction:
+            raise PathPlanningError(
+                f"Correction lift of {correction_z} exceed max lift correction of {self.max_lift_correction}")
+
+        for vector in movement_vectors:
+            yield {self.calibration: vector}
+
+
+    def _z_delta(self):
+        """
+        
+        """
+
+    def _foo(self, bar):
+        """
+        
+        """
+        a = self._translate_chip_to_stage_coordinate(bar)
+        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
+            b = self.calibration.get_position()
+
+        print(a-b)
+
+
+    def _translate_chip_to_stage_coordinate(
+        self,
+        chip_coordinate: Type[ChipCoordinate]
+    ) -> Type[StageCoordinate]:
+        """
+        
+        """
+        if self.calibration.state == State.FULLY_CALIBRATED:
+            return self.calibration._kabsch_rotation.chip_to_stage(chip_coordinate)
+
+        if self.calibration.state == State.SINGLE_POINT_FIXED:
+            self.logger.warn(
+                "SingleStagePlanning does operate with single point transformation." \
+                "Chip slope is not included in the calculation.")
+            return self.calibration._single_point_offset.chip_to_stage(chip_coordinate)
+
+        raise PathPlanning(
+            f"State {self.calibration.state} of calibration {self.calibration} "\
+             "is insufficient to perform SingleStagePlanning")
 
     def _get_chip_tilt(self) -> float:
         """
