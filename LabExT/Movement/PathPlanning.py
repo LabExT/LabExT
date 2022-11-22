@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import logging
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, Generator
+from typing import TYPE_CHECKING, Any, List, NamedTuple, Tuple, Type, Generator
 
 import numpy as np
 from scipy.spatial.distance import pdist
@@ -21,13 +21,18 @@ if TYPE_CHECKING:
     from LabExT.Wafer.Chip import Chip
 
 
-MovementVectors = Dict[Orientation, ChipCoordinate]
+class Waypoint(NamedTuple):
+    calibration: Type["Calibration"]
+    coordinate: Type[ChipCoordinate]
+    wait_for_stopping: bool = False
+
 
 class PathPlanningError(RuntimeError):
     """
     Runtime Error for path planning
     """
     pass
+
 
 class StagePolygon(ABC):
     """
@@ -192,9 +197,9 @@ class PathPlanning(ABC):
         pass
 
     @abstractmethod
-    def trajectory(self) -> Generator[MovementVectors, Any, Any]:
+    def trajectory(self) -> Generator[List[Waypoint], Any, Any]:
         """
-        Generates the next waypoint of the path planner 
+        Generates the next waypoint of the path planner
         """
         pass
 
@@ -381,7 +386,6 @@ class PotentialField:
         return curr_idx
 
 
-
 class CollisionAvoidancePlanning(PathPlanning):
     """
     Main class for collision avoidance path planning
@@ -434,7 +438,7 @@ class CollisionAvoidancePlanning(PathPlanning):
             self.grid_size,
             self.grid_outline)
 
-    def trajectory(self):
+    def trajectory(self) -> Generator[List[Waypoint], None, None]:
         """
         Generator to calculate a trajectory for all stages.
 
@@ -549,106 +553,113 @@ class SingleStagePlanning(PathPlanning):
         self.correction_tolerance = correction_tolerance
 
         self.calibration = None
-        self.target = None
 
+        self.target_chip_coordinate = None
+        self.target_stage_coordinate = None
 
+        self.start_chip_coordinate = None
+        self.start_stage_coordinate = None
 
-    def set_stage_target(self, calibration: Type["Calibration"], target: Type[ChipCoordinate]) -> None:
+    def set_stage_target(
+            self,
+            calibration: Type["Calibration"],
+            target: Type[ChipCoordinate]) -> None:
         """
         Sets the traget coordinate for given calibrations.
         """
-        if self.calibration is not None or self.target is not None:
+        if self.calibration is not None:
             raise PathPlanningError(
                 "A calibration and target coordinate is already set. This Path Planning does support only one stage.")
 
         self.calibration = calibration
-        self.target = target
 
+        # Get current stage position in Stage and Chip coordinates
+        with calibration.perform_in_system(CoordinateSystem.STAGE):
+            self.start_stage_coordinate = calibration.get_position()
+            self.start_chip_coordinate = calibration.transform_stage_to_chip_coordinate(
+                stage_coordinate=self.start_stage_coordinate)
 
+        # Store target coordinate in Stage and Chip coordinates
+        # keeping the z level of start and target the same
+        self.target_chip_coordinate = ChipCoordinate(
+            x=target.x, y=target.y, z=self.start_chip_coordinate.z)
+        self.target_stage_coordinate = calibration.transform_chip_to_stage_coordinate(
+            chip_coordinate=self.target_chip_coordinate)
 
-    def trajectory(self) -> Generator[MovementVectors, Any, Any]:
+    def trajectory(self) -> Generator[List[Waypoint], Any, Any]:
         """
-        
+        Calculates waypoints for a simple stage from start to finish as a generator.
+
+        Checks beforehand whether the current z-lift is sufficient to compensate for the chip inclination without danger.
+        If not, the stage is first moved upwards and then lowered again.
         """
-        # Get stage position in chip coordinates
-        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
-            start_chip_coordinate = self.calibration.get_position()
+        z_level_correction = self._z_level_correction()
 
-        # Get stage position in stage coordinates
-        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
-            start_stage_coordinate = self.calibration.get_position()
-
-        # Initial z level in stage and chip coordinates
-        z_lift_chip = start_chip_coordinate.z
-        z_lift_stage = start_stage_coordinate.z
-
-        # Target coordinate with initial z lift 
-        target_chip_coordinate = ChipCoordinate(
-            x=self.target.x, y=self.target.y, z=z_lift_chip)
-        target_stage_coordinate = self._translate_chip_to_stage_coordinate(
-            chip_coordinate=target_chip_coordinate)
-
-        z_delta = np.abs(z_lift_stage - target_stage_coordinate.z)
-
-        if z_delta > z_lift_chip:
-            print("Correcting z_lift..")
-            correction_z = np.floor(z_delta - z_lift_chip) + self.correction_tolerance
-
-            movement_vectors = [
-                ChipCoordinate(x=start_chip_coordinate.x, y=start_chip_coordinate.y, z=correction_z),
-                ChipCoordinate(x=self.target.x, y=self.target.y, z=correction_z),
-                ChipCoordinate(x=self.target.x, y=self.target.y, z=z_lift_chip)
-            ]
-
+        if z_level_correction == 0.0:
+            # Do not correct z lift, move directly to target
+            waypoints = [
+                Waypoint(self.calibration, self.target_chip_coordinate)]
         else:
-            movement_vectors = [target_chip_coordinate]
+            # Do correct z lift
+            # Move first up with correction, than move to target and move down
+            # again
 
-        if correction_z > self.max_lift_correction:
+            waypoints = [
+                # Move up by z-correction from start coordinate, wait for
+                # stopping
+                Waypoint(self.calibration, ChipCoordinate(
+                    x=self.start_chip_coordinate.x, y=self.start_chip_coordinate.y, z=z_level_correction
+                ), wait_for_stopping=True),
+                # Move to target, keep z level on new level
+                Waypoint(self.calibration, ChipCoordinate(
+                    x=self.target_chip_coordinate.x, y=self.target_chip_coordinate.y, z=z_level_correction
+                ), wait_for_stopping=False),
+                # Move down by z-correction from target coordinate, wait for
+                # stopping
+                Waypoint(self.calibration, self.target_chip_coordinate, wait_for_stopping=True)]
+
+        yield waypoints
+
+    def _z_level_correction(self) -> float:
+        """
+        Calculates a new z-level height.
+
+        If the current lift of the stage is lower than the Z difference between the start and target,
+        we are in danger of driving into the chip.
+        We calculate a z level equal to the delta in Z between the start and target plus tolerance.
+
+        The height is limited upwards by max_lift_correction
+
+        Returns
+        ------
+        z_correction : float
+            New z level height
+
+        Raises
+        ------
+        PathPlanningError
+            If new z level height is greater than max_lift_correction
+        """
+        start_target_z_delta = np.ceil(np.abs(
+            self.target_stage_coordinate.z - self.start_stage_coordinate.z))
+
+        current_z_level = self.start_chip_coordinate.z
+
+        self.logger.debug(
+            f"[{self.calibration}] Z-delta between start and target: {start_target_z_delta} um")
+
+        if current_z_level >= start_target_z_delta:
+            self.logger.debug(
+                f"[{self.calibration}]: Start-Target z delta {start_target_z_delta} um is "
+                f"smaller than stage lift of {current_z_level} um. Do not correct.")
+            return 0.0
+
+        z_correction = start_target_z_delta + self.correction_tolerance
+        self.logger.debug(
+            f"[{self.calibration}] Calculated z correction of {z_correction} (Tolerance: {self.correction_tolerance})")
+
+        if z_correction > self.max_lift_correction:
             raise PathPlanningError(
-                f"Correction lift of {correction_z} exceed max lift correction of {self.max_lift_correction}")
+                f"Correction lift of {z_correction} exceed max lift correction of {self.max_lift_correction}")
 
-        for vector in movement_vectors:
-            yield {self.calibration: vector}
-
-
-    def _z_delta(self):
-        """
-        
-        """
-
-    def _foo(self, bar):
-        """
-        
-        """
-        a = self._translate_chip_to_stage_coordinate(bar)
-        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
-            b = self.calibration.get_position()
-
-        print(a-b)
-
-
-    def _translate_chip_to_stage_coordinate(
-        self,
-        chip_coordinate: Type[ChipCoordinate]
-    ) -> Type[StageCoordinate]:
-        """
-        
-        """
-        if self.calibration.state == State.FULLY_CALIBRATED:
-            return self.calibration._kabsch_rotation.chip_to_stage(chip_coordinate)
-
-        if self.calibration.state == State.SINGLE_POINT_FIXED:
-            self.logger.warn(
-                "SingleStagePlanning does operate with single point transformation." \
-                "Chip slope is not included in the calculation.")
-            return self.calibration._single_point_offset.chip_to_stage(chip_coordinate)
-
-        raise PathPlanning(
-            f"State {self.calibration.state} of calibration {self.calibration} "\
-             "is insufficient to perform SingleStagePlanning")
-
-    def _get_chip_tilt(self) -> float:
-        """
-        Calculates the maximum chip tilt in all directions
-        """
-    
+        return z_correction
