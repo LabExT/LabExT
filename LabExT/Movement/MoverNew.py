@@ -564,8 +564,9 @@ class MoverNew:
 
             # Move stages on safe trajectory
             for calibration_waypoints in path_planning.trajectory():
-                for calibration, waypoint in calibration_waypoints.items():
-                    calibration.move_absolute(waypoint, wait_for_stopping)
+                for waypoint in calibration_waypoints:
+                    waypoint.calibration.move_absolute(
+                        waypoint.coordinate, wait_for_stopping or waypoint.wait_for_stopping)
 
                 # Wait for all stages to stop if stages move simultaneously.
                 if not wait_for_stopping:
