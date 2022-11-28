@@ -72,6 +72,14 @@ class AddStageCalibrationTest(unittest.TestCase):
 
         return super().setUp()
 
+    def test_default_mover_settings_after_initialization(self):
+        self.assertEqual(self.mover._speed_xy, self.mover.DEFAULT_SPEED_XY)
+        self.assertEqual(self.mover._speed_z, self.mover.DEFAULT_SPEED_Z)
+        self.assertEqual(
+            self.mover._acceleration_xy,
+            self.mover.DEFAULT_ACCELERATION_XY)
+        self.assertEqual(self.mover._z_lift, self.mover.DEFAULT_Z_LIFT)
+
     def test_add_stage_calibration_reject_invalid_orientations(self):
         current_calibrations = self.mover.calibrations
 
@@ -180,6 +188,20 @@ class AddStageCalibrationTest(unittest.TestCase):
             self.stage, Orientation.BOTTOM, DevicePort.OUTPUT)
         self.assertEqual(calibration, self.mover.bottom_calibration)
         self.assertEqual(calibration, self.mover.output_calibration)
+
+    def test_set_stage_settings_successfully(self):
+        self.assertIsNone(self.stage.get_speed_xy())
+        self.assertIsNone(self.stage.get_speed_xy())
+        self.assertIsNone(self.stage.get_acceleration_xy())
+
+        self.mover.add_stage_calibration(
+            self.stage, Orientation.BOTTOM, DevicePort.OUTPUT)
+
+        self.assertEqual(self.stage.get_speed_xy(), self.mover._speed_xy)
+        self.assertEqual(self.stage.get_speed_z(), self.mover._speed_z)
+        self.assertEqual(
+            self.stage.get_acceleration_xy(),
+            self.mover._acceleration_xy)
 
 
 class MoverStageSettingsTest(unittest.TestCase):

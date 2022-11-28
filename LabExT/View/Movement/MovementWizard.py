@@ -72,7 +72,7 @@ class StageWizard(Wizard):
                 "Proceed?",
                 "You have already created stages. If you continue, they will be reset, including the calibrations. Proceed?",
                     parent=self):
-                self.mover.reset()
+                self.mover.reset_calibrations()
             else:
                 return False
 
@@ -85,21 +85,12 @@ class StageWizard(Wizard):
                     f"Connecting to stage {stage}",
                     lambda: calibration.connect_to_stage())
             except (ValueError, MoverError, StageError) as e:
-                self.mover.reset()
+                self.mover.reset_calibrations()
                 messagebox.showerror(
                     "Error",
                     f"Connecting to stages failed: {e}",
                     parent=self)
                 return False
-
-        try:
-            self.mover.set_default_settings()
-        except Exception as err:
-            messagebox.showerror(
-                "Error",
-                f"Failed to set default setting: {err}",
-                parent=self)
-            return False
 
         messagebox.showinfo(
             "Stage Setup completed.",
