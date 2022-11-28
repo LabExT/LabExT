@@ -6,13 +6,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import json
+import os
 import logging
 
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
-from os.path import exists
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -330,6 +330,7 @@ class MoverNew:
                 key=RAISE))
 
         # Stage successfully as stage registered
+        calibration.connect_to_stage()
         # Setting stage settings
         stage.set_speed_xy(self._speed_xy)
         stage.set_speed_z(self._speed_z)
@@ -719,7 +720,7 @@ class MoverNew:
         Updates internal state of stage speed, lift and acceleration.
         Sets these properties for all connected stages.
         """
-        if not exists(self.MOVER_SETTINGS_FILE):
+        if not os.path.exists(self.MOVER_SETTINGS_FILE):
             return
 
         try:
@@ -747,7 +748,7 @@ class MoverNew:
         if chip is None or chip.name is None:
             return False
 
-        if not exists(self.CALIBRATIONS_SETTINGS_FILE):
+        if not os.path.exists(self.CALIBRATIONS_SETTINGS_FILE):
             return False
 
         with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:

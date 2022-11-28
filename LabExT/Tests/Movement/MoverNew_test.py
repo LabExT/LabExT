@@ -37,6 +37,7 @@ class AssertConnectedStagesTest(unittest.TestCase):
             self):
         self.mover.add_stage_calibration(
             self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.stage.disconnect()
 
         func = Mock()
         func.__name__ = 'Dummy Function'
@@ -64,13 +65,14 @@ class AddStageCalibrationTest(unittest.TestCase):
     Tests adding new calibrations.
     """
 
-    def setUp(self) -> None:
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value=[]):
-                self.mover = MoverNew(None)
+        with patch.object(MoverNew, "MOVER_SETTINGS_FILE",
+                          return_value="/mocked/mover_settings.json"):
+            self.mover = MoverNew(None)
 
         return super().setUp()
 
@@ -211,13 +213,13 @@ class MoverStageSettingsTest(unittest.TestCase):
     Tests stage settings.
     """
 
-    def setUp(self) -> None:
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value=[]):
-                self.mover = MoverNew(None)
+        with patch.object(MoverNew, "MOVER_SETTINGS_FILE", "/mocked/mover_settings.json"):
+            self.mover = MoverNew(None)
 
         self.mover.add_stage_calibration(
             self.stage, Orientation.LEFT, DevicePort.INPUT)
@@ -388,13 +390,18 @@ class MoverStageSettingsTest(unittest.TestCase):
                 call('24.5'),
                 call('}')])
 
-    def test_load_settings(self):
+    @patch.object(MoverNew, "MOVER_SETTINGS_FILE",
+                  "/mocked/mover_settings.json")
+    @patch('os.path.exists')
+    def test_load_settings(self, mock_exists):
         settings = json.dumps({
             "speed_xy": 350,
             "speed_z": 100,
             "acceleration_xy": 10,
             "z_lift": 50
         })
+
+        mock_exists.return_value = True
 
         with patch("builtins.open", mock_open(read_data=settings)) as m:
             self.mover.load_settings()

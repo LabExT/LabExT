@@ -78,12 +78,12 @@ class StageWizard(Wizard):
 
         for stage, assignment in self.stage_assignment_step.assignment.items():
             try:
-                calibration = self.mover.add_stage_calibration(
-                    stage, *assignment)
                 run_with_wait_window(
                     self,
                     f"Connecting to stage {stage}",
-                    lambda: calibration.connect_to_stage())
+                    lambda: self.mover.add_stage_calibration(
+                        stage,
+                        *assignment))
             except (ValueError, MoverError, StageError) as e:
                 self.mover.reset_calibrations()
                 messagebox.showerror(
