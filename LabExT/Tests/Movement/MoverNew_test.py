@@ -6,7 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
-from unittest.mock import Mock, patch, call
+import json
+
+from unittest.mock import Mock, patch, call, mock_open
 from parameterized import parameterized
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Calibration import DevicePort, Orientation
@@ -350,6 +352,56 @@ class MoverStageSettingsTest(unittest.TestCase):
     def test_set_z_lift_stores_positive_lift(self):
         self.mover.z_lift = 50
 
+        self.assertEqual(self.mover.z_lift, 50)
+
+    @patch.object(MoverNew, "MOVER_SETTINGS_FILE",
+                  "/mocked/mover_settings.json")
+    def test_dump_settings(self):
+        self.mover.speed_xy = 1000
+        self.mover.speed_z = 50
+        self.mover.acceleration_xy = 200
+        self.mover.z_lift = 24.5
+
+        with patch('builtins.open', mock_open()) as m:
+            self.mover.dump_settings()
+
+        m.assert_called_once_with('/mocked/mover_settings.json', 'w+')
+
+        file_pointer = m()
+        file_pointer.write.assert_has_calls(
+            [
+                call('{'),
+                call('"speed_xy"'),
+                call(': '),
+                call('1000'),
+                call(', '),
+                call('"speed_z"'),
+                call(': '),
+                call('50'),
+                call(', '),
+                call('"acceleration_xy"'),
+                call(': '),
+                call('200'),
+                call(', '),
+                call('"z_lift"'),
+                call(': '),
+                call('24.5'),
+                call('}')])
+
+    def test_load_settings(self):
+        settings = json.dumps({
+            "speed_xy": 350,
+            "speed_z": 100,
+            "acceleration_xy": 10,
+            "z_lift": 50
+        })
+
+        with patch("builtins.open", mock_open(read_data=settings)) as m:
+            self.mover.load_settings()
+
+        self.assertEqual(self.mover.speed_xy, 350)
+        self.assertEqual(self.mover.speed_z, 100)
+        self.assertEqual(self.mover.acceleration_xy, 10)
         self.assertEqual(self.mover.z_lift, 50)
 
 
