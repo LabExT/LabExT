@@ -223,8 +223,6 @@ class PotentialField:
         with self.calibration.perform_in_system(CoordinateSystem.CHIP):
             self.start_coordinate = self.calibration.get_position()
 
-        self.stage_z_level = self.start_coordinate.z
-
         # Set up field tiles
         self.x_coords = np.arange(
             self.grid_outline[0][0],
@@ -247,13 +245,13 @@ class PotentialField:
         self.current_position = ChipCoordinate(
             x=self.x_coords[self.current_idx[0]],
             y=self.y_coords[self.current_idx[1]],
-            z=self.stage_z_level)
+            z=self.start_coordinate.z)
 
         # field target, note: z-coordinate remains unchanged
         self.target_coordinate = ChipCoordinate(
             x=target_coordinate.x,
             y=target_coordinate.y,
-            z=self.stage_z_level)
+            z=self.start_coordinate.z)
 
         # Calculate potential field
         self.attractive_potential_field = self.attractive_gain * \
@@ -283,7 +281,7 @@ class PotentialField:
             self.current_position = ChipCoordinate(
                 x=self.x_coords[self.current_idx[0]],
                 y=self.y_coords[self.current_idx[1]],
-                z=self.stage_z_level)
+                z=self.start_coordinate.z)
 
         return self.current_position
 
