@@ -207,9 +207,10 @@ class MoverWizard(Wizard):
 
 
 class CalibrationWizard(Wizard):
-    def __init__(self, master, mover, chip):
+    def __init__(self, master, mover, chip, experiment_manager=None):
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
+        self.experiment_manager = experiment_manager
 
         if len(self.mover.calibrations) == 0:
             raise RuntimeError(
@@ -972,6 +973,7 @@ class CoordinatePairingStep(Step):
                 self.wizard,
                 self.mover,
                 self.chip,
+                experiment_manager=self.wizard.experiment_manager,
                 on_finish=self._save_coordinate_pairing,
                 with_input_stage=with_input_stage,
                 with_output_stage=with_output_stage)

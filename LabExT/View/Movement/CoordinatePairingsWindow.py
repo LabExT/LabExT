@@ -7,10 +7,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from tkinter import Frame, Toplevel, Button, Label, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y
 from typing import Callable, Type
-from LabExT.Utils import run_with_wait_window
+from LabExT.Utils import run_with_wait_window, try_to_lift_window
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.DeviceTable import DeviceTable
 from LabExT.View.Controls.CoordinateWidget import CoordinateWidget, StagePositionWidget
+
+from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
+from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 
 from LabExT.Movement.Transformations import CoordinatePairing
 from LabExT.Movement.MoverNew import MoverNew
@@ -30,6 +33,7 @@ class CoordinatePairingsWindow(Toplevel):
             mover: Type[MoverNew],
             chip: Type[Chip],
             on_finish: Type[Callable],
+            experiment_manager=None,
             with_input_stage: bool = True,
             with_output_stage: bool = True) -> None:
         """
@@ -45,6 +49,8 @@ class CoordinatePairingsWindow(Toplevel):
             Instance of the current imported Chip.
         on_finish : Callable
             Callback function, when user completed the pairing.
+        experiment_manager : ExperimentManager = None
+            Optional reference to experiment manager to perform SfP and Live Viewer
         with_input_stage : bool = True
             Specifies whether the input stage is to be used.
         with_output_stage : bool = True
@@ -60,9 +66,14 @@ class CoordinatePairingsWindow(Toplevel):
 
         self.chip: Type[Chip] = chip
         self.mover: Type[MoverNew] = mover
+        self.experiment_manager = experiment_manager
+
         self.on_finish = on_finish
         self.with_input_stage = with_input_stage
         self.with_output_stage = with_output_stage
+
+        self._live_viewer_toplevel = None
+        self._search_for_peak_toplevel = None
 
         if self.chip is None:
             raise ValueError("Cannot create pairing without chip imported. ")
@@ -161,6 +172,24 @@ class CoordinatePairingsWindow(Toplevel):
                 frame, self.mover.output_calibration).pack(
                 side=TOP, fill=X)
 
+        if self.experiment_manager:
+            shortcuts_frame = CustomFrame(self._main_frame)
+            shortcuts_frame.pack(side=TOP, fill=X, pady=5)
+
+            search_for_peak_button = Button(
+                shortcuts_frame,
+                text="Perform Search for Peak...",
+                command=self._on_perform_search_for_peak)
+            search_for_peak_button.pack(
+                side=RIGHT, fill=Y, pady=5, expand=0)
+
+            live_viewer_button = Button(
+                shortcuts_frame,
+                text="Open Live Viewer...",
+                command=self._on_open_live_viewer)
+            live_viewer_button.pack(
+                side=RIGHT, fill=Y, pady=5, expand=0)
+
     def __reload__(self) -> None:
         """
         Reloads window.
@@ -252,7 +281,36 @@ class CoordinatePairingsWindow(Toplevel):
 
         run_with_wait_window(
             self, description="Move to device {}".format(
-                self._device.id), function=lambda: self.mover.move_to_device(self.chip, self._device))
+                self._device.id), function=lambda: self.mover.move_to_device(
+                self.chip, self._device))
+
+    def _on_open_live_viewer(self):
+        """
+        Callback when user wants to open the live viewer.
+        """
+        if not self.experiment_manager:
+            return
+
+        if try_to_lift_window(self._live_viewer_toplevel):
+            return
+
+        lv = LiveViewerController(self, self.experiment_manager)
+        self._live_viewer_toplevel = lv.current_window
+
+    def _on_perform_search_for_peak(self):
+        """
+        Callback when user wants to perform search for peak.
+        """
+        if not self.experiment_manager:
+            return
+
+        if try_to_lift_window(self._search_for_peak_toplevel):
+            return
+
+        sfpp = SearchForPeakPlotsWindow(
+            parent=self,
+            experiment_manager=self.experiment_manager)
+        self._search_for_peak_toplevel = sfpp.plot_window
 
     #
     #   Helpers
