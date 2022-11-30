@@ -283,6 +283,20 @@ class MoverNew:
     def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.OUTPUT)
 
+    @property
+    def has_input_calibration(self) -> bool:
+        """
+        Returns True if input calibration is defined.
+        """
+        return self.input_calibration is not None
+
+    @property
+    def has_output_calibration(self) -> bool:
+        """
+        Returns True if output calibration is defined.
+        """
+        return self.output_calibration is not None
+
     #
     #   Add new stage
     #
