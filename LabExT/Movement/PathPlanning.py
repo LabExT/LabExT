@@ -254,7 +254,7 @@ class PotentialField:
                 self.start_coordinate.z,
                 self.target_coordinate.z,
                 rtol=1.e-5,
-                atol=1.e-8):
+                atol=10e-3):
             raise ValueError(
                 f"Start z level {self.start_coordinate.z} is not close to target z level {self.target_coordinate.z}. "
                 "The Path Planning algorithm assumes that start and target are on the same z level.")
