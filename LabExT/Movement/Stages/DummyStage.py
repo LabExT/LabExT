@@ -50,6 +50,10 @@ class DummyStage(Stage):
     def address_string(self) -> str:
         return self.address
 
+    @property
+    def identifier(self) -> str:
+        return self.address_string
+
     def connect(self) -> bool:
         self.connected = True
         return True

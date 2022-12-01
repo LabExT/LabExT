@@ -389,6 +389,13 @@ class Stage3DSmarAct(Stage):
     def address_string(self) -> str:
         return self.address.decode('utf-8')
 
+    @property
+    def identifier(self) -> str:
+        """
+        Returns the address as identifier for a SmartAct stage
+        """
+        return self.address_string
+
     @assert_driver_loaded
     def connect(self) -> bool:
         """Connects to stage by calling SA_OpenSystem and initializes a system handle.
@@ -491,7 +498,7 @@ class Stage3DSmarAct(Stage):
         x_speed = self.channels[Axis.X].speed
         y_speed = self.channels[Axis.Y].speed
 
-        if(x_speed != y_speed):
+        if (x_speed != y_speed):
             self._logger.info(
                 "Speed settings of x and y channel are not equal.")
 
@@ -523,7 +530,7 @@ class Stage3DSmarAct(Stage):
         x_acceleration = self.channels[Axis.X].acceleration
         y_acceleration = self.channels[Axis.Y].acceleration
 
-        if(x_acceleration != y_acceleration):
+        if (x_acceleration != y_acceleration):
             self._logger.info(
                 'Acceleration settings of x and y channel are not equal.')
 
@@ -731,7 +738,7 @@ class Stage3DSmarAct(Stage):
 
     @classmethod
     def _exit_if_error(self, status: int) -> bool:
-        if(status == MCSC.SA_OK):
+        if (status == MCSC.SA_OK):
             return True
 
         error_message = ct.c_char_p()

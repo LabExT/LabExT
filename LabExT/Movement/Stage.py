@@ -127,6 +127,10 @@ class Stage(ABC):
     def address_string(self) -> str:
         raise NotImplementedError
 
+    @property
+    def identifier(self) -> str:
+        raise NotImplementedError
+
     @abstractmethod
     def connect(self) -> bool:
         pass
