@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
-from LabExT.Movement.Transformations import ChipCoordinate
+from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
 from LabExT.Movement.PathPlanning import PathPlanning
 
 from LabExT.Utils import get_configuration_file_path
@@ -71,6 +71,8 @@ class MoverNew:
     # Settings files
     MOVER_SETTINGS_FILE = get_configuration_file_path(
         config_file_path_in_settings_dir="mover_settings.json")
+    AXES_ROTATIONS_FILE = get_configuration_file_path(
+        config_file_path_in_settings_dir="mover_axes_rotations.json")
     CALIBRATIONS_SETTINGS_FILE = get_configuration_file_path(
         config_file_path_in_settings_dir="mover_calibrations.json")
 
@@ -332,7 +334,13 @@ class MoverNew:
             raise MoverError(
                 "A stage has already been assigned for {}.".format(orientation))
 
-        calibration = Calibration(self, stage, orientation, port)
+        calibration = Calibration(
+            mover=self,
+            stage=stage,
+            orientation=orientation,
+            device_port=port,
+            axes_rotation=self.load_stored_axes_rotation_for_stage(
+                stage=stage))
 
         if stage in self.active_stages:
             del self._port_by_orientation[orientation]
@@ -715,6 +723,17 @@ class MoverNew:
                     c.dump() for c in self.calibrations.values()]
             }, fp)
 
+    def dump_axes_rotations(self) -> None:
+        """
+        Stores all axes rotations of calibrations to file.
+        """
+        with open(self.AXES_ROTATIONS_FILE, "w+") as fp:
+            json.dump({
+                c.stage.identifier: c.dump(
+                    axes_rotation=True,
+                    single_point_offset=False,
+                    kabsch_rotation=False) for c in self.calibrations.values()}, fp)
+
     def dump_settings(self) -> None:
         """
         Stores mover settings to file.
@@ -754,6 +773,38 @@ class MoverNew:
         self.logger.debug(
             f"Restored mover settings: xy-speed = {self._speed_xy}; z-speed = {self._speed_z}; "
             f"xy-acceleration = {self._acceleration_xy}; z-lift = {self.z_lift}")
+
+    def load_stored_axes_rotation_for_stage(
+        self,
+        stage: Type[Stage]
+    ) -> Type[AxesRotation]:
+        """
+        Returns a restored AxesRotation from file if available.
+
+        If not available, returns a default identity rotation.
+        """
+        try:
+            with open(self.AXES_ROTATIONS_FILE, "r") as fp:
+                saved_axes_rotations = json.load(fp)
+        except (OSError, json.decoder.JSONDecodeError) as err:
+            self.logger.error(
+                f"Failed to load/decode axes rotation file {self.AXES_ROTATIONS_FILE}: {err}")
+            return AxesRotation()
+
+        if stage.identifier not in saved_axes_rotations:
+            return AxesRotation()
+
+        self.logger.debug(
+            f"Found saved axes rotation for {stage.identifier} in {self.AXES_ROTATIONS_FILE}. "
+            "Restoring it.")
+
+        try:
+            return AxesRotation.load(
+                mapping=saved_axes_rotations[stage.identifier]["axes_rotation"])
+        except Exception as err:
+            self.logger.error(
+                f"Failed to restore axes rotation for {stage.identifier} from {self.AXES_ROTATIONS_FILE}: {err}")
+            return AxesRotation()
 
     def has_chip_stored_calibration(self, chip: Type[Chip]) -> bool:
         """
