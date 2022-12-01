@@ -6,12 +6,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import json
+import os
+import logging
 
 from time import sleep, time
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
-from os.path import exists
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -87,32 +88,51 @@ class MoverNew:
         chip : Chip = None
             Current instance of imported chip.
         """
+        self.logger = logging.getLogger()
+
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
         self._stage_classes: List[Stage] = []
         self._available_stages: List[Type[Stage]] = []
 
-        # Mover state
+        # Mover calibrations
         self._calibrations = bidict()
         self._port_by_orientation = bidict()
-        self._speed_xy = None
-        self._speed_z = None
-        self._acceleration_xy = None
-        self._z_lift = None
 
+        # Mover settings
+        self._speed_xy = self.DEFAULT_SPEED_XY
+        self._speed_z = self.DEFAULT_SPEED_Z
+        self._acceleration_xy = self.DEFAULT_ACCELERATION_XY
+        self._z_lift = self.DEFAULT_Z_LIFT
+
+        # Check for loaded stage classes and connected stages
         self.reload_stages()
         self.reload_stage_classes()
 
+        # Check for mover settings
+        self.load_settings()
+
     def reset(self):
         """
-        Resets Mover state.
+        Resets complete mover stage.
         """
+        self.reset_calibrations()
+
+        self._speed_xy = self.DEFAULT_SPEED_XY
+        self._speed_z = self.DEFAULT_SPEED_Z
+        self._acceleration_xy = self.DEFAULT_ACCELERATION_XY
+        self._z_lift = self.DEFAULT_Z_LIFT
+
+    def reset_calibrations(self):
+        """
+        Resets all calibrations
+        """
+        for s in self.connected_stages:
+            s.disconnect()
+
         self._calibrations = bidict()
         self._port_by_orientation = bidict()
-        self._speed_xy = None
-        self._speed_z = None
-        self._acceleration_xy = None
 
     #
     #   Set chip
@@ -263,6 +283,20 @@ class MoverNew:
     def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
         port=DevicePort.OUTPUT)
 
+    @property
+    def has_input_calibration(self) -> bool:
+        """
+        Returns True if input calibration is defined.
+        """
+        return self.input_calibration is not None
+
+    @property
+    def has_output_calibration(self) -> bool:
+        """
+        Returns True if output calibration is defined.
+        """
+        return self.output_calibration is not None
+
     #
     #   Add new stage
     #
@@ -308,6 +342,14 @@ class MoverNew:
         self._calibrations.put(
             (orientation, port), calibration, OnDup(
                 key=RAISE))
+
+        # Stage successfully as stage registered
+        calibration.connect_to_stage()
+        # Setting stage settings
+        stage.set_speed_xy(self._speed_xy)
+        stage.set_speed_z(self._speed_z)
+        stage.set_acceleration_xy(self._acceleration_xy)
+
         return calibration
 
     def restore_stage_calibration(
@@ -364,16 +406,6 @@ class MoverNew:
     #
     #   Stage Settings Methods
     #
-
-    @assert_connected_stages
-    def set_default_settings(self) -> None:
-        """
-        Set mover default settings
-        """
-        self.speed_xy = self.DEFAULT_SPEED_XY
-        self.speed_z = self.DEFAULT_SPEED_Z
-        self.acceleration_xy = self.DEFAULT_ACCELERATION_XY
-        self.z_lift = self.DEFAULT_Z_LIFT
 
     @property
     @assert_connected_stages
@@ -547,7 +579,7 @@ class MoverNew:
                         f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
                 if with_lifted_stages:
-                    calibration.lift_stage_absolute(self.z_lift)
+                    calibration.lift_stage(self.z_lift)
 
                 resolved_calibrations[orientation] = calibration
                 path_planning.set_stage_target(calibration, target)
@@ -575,7 +607,7 @@ class MoverNew:
             # Lift stages if requested
             if with_lifted_stages:
                 for c in resolved_calibrations.values():
-                    c.lower_stage_absolute()
+                    c.lower_stage(self.z_lift)
 
     @assert_connected_stages
     def move_relative(
@@ -695,6 +727,34 @@ class MoverNew:
                 "z_lift": self._z_lift
             }, fp)
 
+    def load_settings(self) -> None:
+        """
+        Loads mover settings from file if available.
+
+        Updates internal state of stage speed, lift and acceleration.
+        Sets these properties for all connected stages.
+        """
+        if not os.path.exists(self.MOVER_SETTINGS_FILE):
+            return
+
+        try:
+            with open(self.MOVER_SETTINGS_FILE) as fp:
+                mover_settings = json.load(fp)
+        except (OSError, json.decoder.JSONDecodeError) as err:
+            self.logger.error(
+                f"Failed to load/decode settings file {self.MOVER_SETTINGS_FILE}: {err}")
+            return
+
+        self._speed_xy = mover_settings.get("speed_xy", self.DEFAULT_SPEED_XY)
+        self._speed_z = mover_settings.get("speed_z", self.DEFAULT_SPEED_Z)
+        self._acceleration_xy = mover_settings.get(
+            "acceleration_xy", self.DEFAULT_ACCELERATION_XY)
+        self._z_lift = mover_settings.get("z_lift", self.DEFAULT_SPEED_Z)
+
+        self.logger.debug(
+            f"Restored mover settings: xy-speed = {self._speed_xy}; z-speed = {self._speed_z}; "
+            f"xy-acceleration = {self._acceleration_xy}; z-lift = {self.z_lift}")
+
     def has_chip_stored_calibration(self, chip: Type[Chip]) -> bool:
         """
         Checks if for given chip exists a stored calibration.
@@ -702,7 +762,7 @@ class MoverNew:
         if chip is None or chip.name is None:
             return False
 
-        if not exists(self.CALIBRATIONS_SETTINGS_FILE):
+        if not os.path.exists(self.CALIBRATIONS_SETTINGS_FILE):
             return False
 
         with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:

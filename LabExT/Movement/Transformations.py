@@ -540,6 +540,10 @@ class SinglePointOffset(Transformation):
 
     def __init__(self, axes_rotation: Type[AxesRotation]) -> None:
         self.axes_rotation: Type[AxesRotation] = axes_rotation
+
+        if not self.axes_rotation.is_valid:
+            raise RuntimeError("The given axes rotation is invalid.")
+
         self.initialize()
 
     def initialize(self):
@@ -704,10 +708,15 @@ class KabschRotation(Transformation):
 
         return kabsch_rotation
 
-    def __init__(self, axes_rotation: Type[AxesRotation] = None) -> None:
-        self.initialize(axes_rotation)
+    def __init__(self, axes_rotation: Type[AxesRotation]) -> None:
+        self.axes_rotation = axes_rotation
 
-    def initialize(self, axes_rotation: Type[AxesRotation] = None) -> None:
+        if not self.axes_rotation.is_valid:
+            raise RuntimeError("The given axes rotation is invalid.")
+
+        self.initialize()
+
+    def initialize(self) -> None:
         """
         Initalises the transformation by unsetting all coordinates and offsets.
         """
@@ -722,12 +731,6 @@ class KabschRotation(Transformation):
 
         self.rotation_to_stage = None
         self.translation_to_stage = None
-
-        # Take the given axes rotation or sets it to a identity rotation
-        self.axes_rotation = axes_rotation if axes_rotation else AxesRotation()
-
-        if not self.axes_rotation.is_valid:
-            raise RuntimeError("The given axes rotation is invalid.")
 
     def __str__(self) -> str:
         if not self.is_valid:
