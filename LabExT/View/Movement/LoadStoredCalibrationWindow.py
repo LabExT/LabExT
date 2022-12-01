@@ -179,7 +179,7 @@ class LoadStoredCalibrationWindow(Toplevel):
             calibration_assignment[stage] = _stored_calibration
 
         # Apply calibrations
-        self.mover.reset()
+        self.mover.reset_calibrations()
         for stage, stored_calibration in calibration_assignment.items():
             try:
                 calibration = self.mover.restore_stage_calibration(
@@ -189,7 +189,7 @@ class LoadStoredCalibrationWindow(Toplevel):
                     "Error",
                     f"Failed to restored calibration: {err}",
                     parent=self)
-                self.mover.reset()
+                self.mover.reset_calibrations()
                 return
 
             run_with_wait_window(
