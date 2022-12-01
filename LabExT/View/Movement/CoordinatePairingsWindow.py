@@ -30,6 +30,7 @@ class CoordinatePairingsWindow(Toplevel):
             mover: Type[MoverNew],
             chip: Type[Chip],
             on_finish: Type[Callable],
+            experiment_manager=None,
             with_input_stage: bool = True,
             with_output_stage: bool = True) -> None:
         """
@@ -45,6 +46,8 @@ class CoordinatePairingsWindow(Toplevel):
             Instance of the current imported Chip.
         on_finish : Callable
             Callback function, when user completed the pairing.
+        experiment_manager : ExperimentManager = None
+            Optional reference to experiment manager to perform SfP and Live Viewer
         with_input_stage : bool = True
             Specifies whether the input stage is to be used.
         with_output_stage : bool = True
@@ -60,6 +63,8 @@ class CoordinatePairingsWindow(Toplevel):
 
         self.chip: Type[Chip] = chip
         self.mover: Type[MoverNew] = mover
+        self.experiment_manager = experiment_manager
+
         self.on_finish = on_finish
         self.with_input_stage = with_input_stage
         self.with_output_stage = with_output_stage
@@ -161,6 +166,24 @@ class CoordinatePairingsWindow(Toplevel):
                 frame, self.mover.output_calibration).pack(
                 side=TOP, fill=X)
 
+        if self.experiment_manager:
+            shortcuts_frame = CustomFrame(self._main_frame)
+            shortcuts_frame.pack(side=TOP, fill=X, pady=5)
+
+            search_for_peak_button = Button(
+                shortcuts_frame,
+                text="Perform Search for Peak...",
+                command=self.experiment_manager.main_window.open_peak_searcher)
+            search_for_peak_button.pack(
+                side=RIGHT, fill=Y, pady=5, expand=0)
+
+            live_viewer_button = Button(
+                shortcuts_frame,
+                text="Open Live Viewer...",
+                command=self.experiment_manager.main_window.open_live_viewer)
+            live_viewer_button.pack(
+                side=RIGHT, fill=Y, pady=5, expand=0)
+
     def __reload__(self) -> None:
         """
         Reloads window.
@@ -252,8 +275,8 @@ class CoordinatePairingsWindow(Toplevel):
 
         run_with_wait_window(
             self, description="Move to device {}".format(
-                self._device.id), function=lambda: self.mover.move_to_device(self.chip, self._device))
-
+                self._device.id), function=lambda: self.mover.move_to_device(
+                self.chip, self._device))
     #
     #   Helpers
     #

@@ -207,9 +207,10 @@ class MoverWizard(Wizard):
 
 
 class CalibrationWizard(Wizard):
-    def __init__(self, master, mover, chip):
+    def __init__(self, master, mover, chip, experiment_manager=None):
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
+        self.experiment_manager = experiment_manager
 
         if len(self.mover.calibrations) == 0:
             raise RuntimeError(
@@ -792,8 +793,10 @@ class CoordinatePairingStep(Step):
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
 
-        self._use_input_stage_var = BooleanVar(self.wizard, True)
-        self._use_output_stage_var = BooleanVar(self.wizard, True)
+        self._use_input_stage_var = BooleanVar(
+            self.wizard, self.mover.has_input_calibration)
+        self._use_output_stage_var = BooleanVar(
+            self.wizard, self.mover.has_output_calibration)
         self._full_calibration_new_pairing_button = None
 
         self._coordinate_pairing_window = None
@@ -904,16 +907,18 @@ class CoordinatePairingStep(Step):
         new_pairing_frame.title = "Create New Pairing"
         new_pairing_frame.pack(side=TOP, fill=X, pady=5)
 
-        Checkbutton(
-            new_pairing_frame,
-            text="Use Input-Stage for Pairing",
-            variable=self._use_input_stage_var
-        ).pack(side=LEFT)
-        Checkbutton(
-            new_pairing_frame,
-            text="Use Output-Stage for Pairing",
-            variable=self._use_output_stage_var
-        ).pack(side=LEFT)
+        if self.mover.has_input_calibration:
+            Checkbutton(
+                new_pairing_frame,
+                text="Use Input-Stage for Pairing",
+                variable=self._use_input_stage_var
+            ).pack(side=LEFT)
+        if self.mover.has_output_calibration:
+            Checkbutton(
+                new_pairing_frame,
+                text="Use Output-Stage for Pairing",
+                variable=self._use_output_stage_var
+            ).pack(side=LEFT)
 
         self._full_calibration_new_pairing_button = Button(
             new_pairing_frame,
@@ -952,14 +957,26 @@ class CoordinatePairingStep(Step):
         if self._check_for_exisiting_coordinate_window():
             return
 
+        with_input_stage = self._use_input_stage_var.get()
+        with_output_stage = self._use_output_stage_var.get()
+
+        if not with_input_stage and not with_output_stage:
+            messagebox.showwarning(
+                "No Stages selected",
+                "No stages have been selected with which to create a coordinate pairing. "
+                "At least one stage must be selected.",
+                parent=self.wizard)
+            return
+
         try:
             self._coordinate_pairing_window = CoordinatePairingsWindow(
                 self.wizard,
                 self.mover,
                 self.chip,
+                experiment_manager=self.wizard.experiment_manager,
                 on_finish=self._save_coordinate_pairing,
-                with_input_stage=self._use_input_stage_var.get(),
-                with_output_stage=self._use_output_stage_var.get())
+                with_input_stage=with_input_stage,
+                with_output_stage=with_output_stage)
         except Exception as e:
             messagebox.showerror(
                 "Error",
