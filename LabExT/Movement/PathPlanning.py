@@ -5,10 +5,12 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Tuple, Type
-
+import logging
 import numpy as np
+
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, List, Any, Dict, NamedTuple, Tuple, Type, Generator
+
 from scipy.spatial.distance import pdist
 
 from LabExT.Movement.Transformations import ChipCoordinate
@@ -17,6 +19,26 @@ from LabExT.Movement.config import CoordinateSystem, Orientation
 if TYPE_CHECKING:
     from LabExT.Movement.Calibration import Calibration
     from LabExT.Wafer.Chip import Chip
+
+
+class Waypoint(NamedTuple):
+    """
+    Represents one waypoint calculated by a path planning algorithm.
+    """
+    calibration: Type["Calibration"]
+    coordinate: Type[ChipCoordinate]
+    wait_for_stopping: bool = False
+
+
+# Type alias: Defines a mapping from calibration to waypoint
+WaypointCommand = Dict[Type["Calibration"], Type[Waypoint]]
+
+
+class PathPlanningError(RuntimeError):
+    """
+    Runtime Error for path planning
+    """
+    pass
 
 
 class StagePolygon(ABC):
@@ -161,6 +183,34 @@ class SingleModeFiber(StagePolygon):
         return x_min, x_max, y_min, y_max
 
 
+class PathPlanning(ABC):
+    """
+    Abstract base class for path planning.
+    """
+
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        super().__init__()
+
+    @abstractmethod
+    def set_stage_target(
+        self,
+        calibration: Type["Calibration"],
+        target: Type[ChipCoordinate]
+    ) -> None:
+        """
+        Sets a new traget for given calibration
+        """
+        pass
+
+    @abstractmethod
+    def trajectory(self) -> Generator[WaypointCommand, Any, Any]:
+        """
+        Generates the next waypoint of the path planner
+        """
+        pass
+
+
 class PotentialField:
     """
     Waypoint calculation with potential field algorithm.
@@ -265,7 +315,7 @@ class PotentialField:
         self.potential_field = np.zeros_like(
             self.cx) + self.attractive_potential_field
 
-    def next_waypoint(self) -> list:
+    def next_waypoint(self) -> Waypoint:
         """
         Generates iterativly the next waypoint in the given potential field.
 
@@ -289,7 +339,10 @@ class PotentialField:
                 y=self.y_coords[self.current_idx[1]],
                 z=self.start_coordinate.z)
 
-        return self.current_position
+        return Waypoint(
+            calibration=self.calibration,
+            coordinate=self.current_position,
+            wait_for_stopping=False)
 
     def set_stage_obstacles(
         self,
@@ -347,35 +400,40 @@ class PotentialField:
         return curr_idx
 
 
-class LocalMinimumError(RuntimeError):
-    pass
-
-
-class PathPlanning:
+class CollisionAvoidancePlanning(PathPlanning):
     """
-    Main class for Path Planning
+    Main class for collision avoidance path planning
+    using the potential field algorithm.
     """
 
-    def __init__(self, chip) -> None:
+    def __init__(
+        self,
+        chip,
+        abort_local_minimum: int = 3
+    ) -> None:
         """
         Constructor for the Path Planning.
-
         Parameters
         ----------
         chip: Chip
             Instance of the a chip
+        abort_local_minimum: int = 3
+            Number of identical movements before an error is raised.
         """
         self.chip: Type[Chip] = chip
         self.grid_size, self.grid_outline = self._get_grid_properties(
             padding=100)
 
+        self.abort_local_minimum = abort_local_minimum
+
         self.potential_fields = {}
         self.last_moves = []
 
     def set_stage_target(
-            self,
-            calibration: Type["Calibration"],
-            target: Type[ChipCoordinate]) -> None:
+        self,
+        calibration: Type["Calibration"],
+        target: Type[ChipCoordinate]
+    ) -> None:
         """
         Registers a target for the given calibration.
 
@@ -392,7 +450,7 @@ class PathPlanning:
             self.grid_size,
             self.grid_outline)
 
-    def trajectory(self, abort_local_minimum=3):
+    def trajectory(self) -> Generator[WaypointCommand, None, None]:
         """
         Generator to calculate a trajectory for all stages.
 
@@ -400,14 +458,9 @@ class PathPlanning:
 
         Updates the obstacles after each stage waypoint.
 
-        Parameters
-        ----------
-        abort_local_minimum: int = 3
-            Number of identical movements before an error is raised.
-
         Raises
         ------
-        LocalMinimumError
+        PathPlanningError
             If no progress has been made.
         """
         while not all(f.current_position ==
@@ -423,9 +476,9 @@ class PathPlanning:
                 next_move[calibration] = potential_field.next_waypoint()
 
             if self._last_moves_equal(
-                    self.last_moves[-abort_local_minimum:], next_move):
-                raise LocalMinimumError(
-                    f"Path-finding algorithm makes no progress. The last {abort_local_minimum} movements were identical!")
+                    self.last_moves[-self.abort_local_minimum:], next_move):
+                raise PathPlanningError(
+                    f"Path-finding algorithm makes no progress. The last {self.abort_local_minimum} movements were identical!")
 
             self.last_moves.append(next_move)
             yield next_move
