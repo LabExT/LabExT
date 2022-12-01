@@ -6,7 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import unittest
-from unittest.mock import Mock, patch, call
+import json
+
+from unittest.mock import Mock, patch, call, mock_open
 from parameterized import parameterized
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Calibration import DevicePort, Orientation
@@ -35,6 +37,7 @@ class AssertConnectedStagesTest(unittest.TestCase):
             self):
         self.mover.add_stage_calibration(
             self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.stage.disconnect()
 
         func = Mock()
         func.__name__ = 'Dummy Function'
@@ -62,15 +65,24 @@ class AddStageCalibrationTest(unittest.TestCase):
     Tests adding new calibrations.
     """
 
-    def setUp(self) -> None:
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value=[]):
-                self.mover = MoverNew(None)
+        with patch.object(MoverNew, "MOVER_SETTINGS_FILE",
+                          return_value="/mocked/mover_settings.json"):
+            self.mover = MoverNew(None)
 
         return super().setUp()
+
+    def test_default_mover_settings_after_initialization(self):
+        self.assertEqual(self.mover._speed_xy, self.mover.DEFAULT_SPEED_XY)
+        self.assertEqual(self.mover._speed_z, self.mover.DEFAULT_SPEED_Z)
+        self.assertEqual(
+            self.mover._acceleration_xy,
+            self.mover.DEFAULT_ACCELERATION_XY)
+        self.assertEqual(self.mover._z_lift, self.mover.DEFAULT_Z_LIFT)
 
     def test_add_stage_calibration_reject_invalid_orientations(self):
         current_calibrations = self.mover.calibrations
@@ -181,19 +193,33 @@ class AddStageCalibrationTest(unittest.TestCase):
         self.assertEqual(calibration, self.mover.bottom_calibration)
         self.assertEqual(calibration, self.mover.output_calibration)
 
+    def test_set_stage_settings_successfully(self):
+        self.assertIsNone(self.stage.get_speed_xy())
+        self.assertIsNone(self.stage.get_speed_xy())
+        self.assertIsNone(self.stage.get_acceleration_xy())
+
+        self.mover.add_stage_calibration(
+            self.stage, Orientation.BOTTOM, DevicePort.OUTPUT)
+
+        self.assertEqual(self.stage.get_speed_xy(), self.mover._speed_xy)
+        self.assertEqual(self.stage.get_speed_z(), self.mover._speed_z)
+        self.assertEqual(
+            self.stage.get_acceleration_xy(),
+            self.mover._acceleration_xy)
+
 
 class MoverStageSettingsTest(unittest.TestCase):
     """
     Tests stage settings.
     """
 
-    def setUp(self) -> None:
+    @with_stage_discovery_patch
+    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value=[]):
-                self.mover = MoverNew(None)
+        with patch.object(MoverNew, "MOVER_SETTINGS_FILE", "/mocked/mover_settings.json"):
+            self.mover = MoverNew(None)
 
         self.mover.add_stage_calibration(
             self.stage, Orientation.LEFT, DevicePort.INPUT)
@@ -328,6 +354,61 @@ class MoverStageSettingsTest(unittest.TestCase):
     def test_set_z_lift_stores_positive_lift(self):
         self.mover.z_lift = 50
 
+        self.assertEqual(self.mover.z_lift, 50)
+
+    @patch.object(MoverNew, "MOVER_SETTINGS_FILE",
+                  "/mocked/mover_settings.json")
+    def test_dump_settings(self):
+        self.mover.speed_xy = 1000
+        self.mover.speed_z = 50
+        self.mover.acceleration_xy = 200
+        self.mover.z_lift = 24.5
+
+        with patch('builtins.open', mock_open()) as m:
+            self.mover.dump_settings()
+
+        m.assert_called_once_with('/mocked/mover_settings.json', 'w+')
+
+        file_pointer = m()
+        file_pointer.write.assert_has_calls(
+            [
+                call('{'),
+                call('"speed_xy"'),
+                call(': '),
+                call('1000'),
+                call(', '),
+                call('"speed_z"'),
+                call(': '),
+                call('50'),
+                call(', '),
+                call('"acceleration_xy"'),
+                call(': '),
+                call('200'),
+                call(', '),
+                call('"z_lift"'),
+                call(': '),
+                call('24.5'),
+                call('}')])
+
+    @patch.object(MoverNew, "MOVER_SETTINGS_FILE",
+                  "/mocked/mover_settings.json")
+    @patch('os.path.exists')
+    def test_load_settings(self, mock_exists):
+        settings = json.dumps({
+            "speed_xy": 350,
+            "speed_z": 100,
+            "acceleration_xy": 10,
+            "z_lift": 50
+        })
+
+        mock_exists.return_value = True
+
+        with patch("builtins.open", mock_open(read_data=settings)) as m:
+            self.mover.load_settings()
+
+        self.assertEqual(self.mover.speed_xy, 350)
+        self.assertEqual(self.mover.speed_z, 100)
+        self.assertEqual(self.mover.acceleration_xy, 10)
         self.assertEqual(self.mover.z_lift, 50)
 
 

@@ -55,8 +55,8 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             self.mover,
             self.chip,
             self.on_finish,
-            with_input_stage,
-            with_output_stage)
+            with_input_stage=with_input_stage,
+            with_output_stage=with_output_stage)
 
     def test_raises_error_if_no_chip_is_imported(self):
         with self.assertRaises(ValueError):
