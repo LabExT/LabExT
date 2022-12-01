@@ -20,7 +20,7 @@ from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, Devic
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
-from LabExT.Movement.PathPlanning import CollisionAvoidancePlanning
+from LabExT.Movement.PathPlanning import CollisionAvoidancePlanning, SingleStagePlanning
 
 from LabExT.Utils import get_configuration_file_path
 from LabExT.Wafer.Chip import Chip
@@ -574,8 +574,7 @@ class MoverNew:
             return
 
         with self.set_stages_coordinate_system(CoordinateSystem.CHIP):
-            path_planning = CollisionAvoidancePlanning(
-                chip, abort_local_minimum=3)
+            path_planning = SingleStagePlanning()
 
             # Resolves movement commands
             # Checks if for each orientation a calibration exits
@@ -590,6 +589,7 @@ class MoverNew:
                 if with_lifted_stages:
                     calibration.lift_stage(self.z_lift)
 
+                target.z = calibration.get_position().z
                 resolved_calibrations[orientation] = calibration
 
                 target.z = calibration.get_position().z
