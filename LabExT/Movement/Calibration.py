@@ -54,9 +54,8 @@ def assert_minimum_state_for_coordinate_system(
             if calibration.coordinate_system == CoordinateSystem.CHIP:
                 if chip_coordinate_system is None:
                     raise CalibrationError(
-                        "Function {} does not support the chip coordinate system.".format(
-                            func.__name__))
-
+                        "Function {} does not support the chip coordinate system.".format(func.__name__))
+                
                 if calibration.state < chip_coordinate_system:
                     raise CalibrationError(
                         "Function {} needs at least a calibration state of {} to operate in chip coordinate system".format(
@@ -65,9 +64,8 @@ def assert_minimum_state_for_coordinate_system(
             if calibration.coordinate_system == CoordinateSystem.STAGE:
                 if stage_coordinate_system is None:
                     raise CalibrationError(
-                        "Function {} does not support the stage coordinate system.".format(
-                            func.__name__))
-
+                        "Function {} does not support the stage coordinate system.".format(func.__name__))
+                
                 if calibration.state < stage_coordinate_system:
                     raise CalibrationError(
                         "Function {} needs at least a calibration state of {} to operate in stage coordinate system".format(
