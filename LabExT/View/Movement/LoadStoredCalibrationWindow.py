@@ -176,6 +176,15 @@ class LoadStoredCalibrationWindow(Toplevel):
                     parent=self)
                 return
 
+            if _stored_calibration["stage_identifier"] != stage.identifier:
+                if not messagebox.askyesno(
+                    "Caution: Different stage identifiers",
+                    f"Confirmation needed: The selected calibration was created with a stage with the identifier '{_stored_calibration['stage_identifier']}'. "
+                    f"You are now trying to assign this calibration to the stage with the identifier '{stage.identifier}'. "
+                    "Are you sure you want to apply this calibration to this stage?",
+                        parent=self):
+                    return
+
             calibration_assignment[stage] = _stored_calibration
 
         # Apply calibrations

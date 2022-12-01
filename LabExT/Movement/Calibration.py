@@ -793,22 +793,28 @@ class Calibration:
         self.stage.set_speed_xy(current_speed_xy)
         self.stage.set_speed_z(current_speed_z)
 
-    def dump(self) -> dict:
+    def dump(
+        self,
+        axes_rotation: bool = True,
+        single_point_offset: bool = True,
+        kabsch_rotation: bool = True
+    ) -> dict:
         """
         Returns a dict of all calibration properties.
         """
         calibration_dump = {
+            "stage_identifier": self.stage.identifier,
             "orientation": self.orientation.value,
             "device_port": self._device_port.value}
 
-        if self._axes_rotation.is_valid:
+        if axes_rotation and self._axes_rotation.is_valid:
             calibration_dump["axes_rotation"] = self._axes_rotation.dump()
 
-        if self._single_point_offset.is_valid:
+        if single_point_offset and self._single_point_offset.is_valid:
             calibration_dump["single_point_offset"] = self._single_point_offset.dump(
             )
 
-        if self._kabsch_rotation.is_valid:
+        if kabsch_rotation and self._kabsch_rotation.is_valid:
             calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()
 
         return calibration_dump
