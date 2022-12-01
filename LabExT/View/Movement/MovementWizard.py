@@ -625,6 +625,7 @@ class AxesCalibrationStep(Step):
             wizard,
             self.build,
             on_reload=self.on_reload,
+            on_next=self.on_next,
             title="Stage Axes Calibration")
         self.mover: Type[MoverNew] = mover
         self.logger = getLogger()
@@ -717,6 +718,22 @@ class AxesCalibrationStep(Step):
         else:
             self.next_step_enabled = False
             self.wizard.set_error("Please do not assign a stage axis twice.")
+
+    def on_next(self) -> bool:
+        """
+        Callback, when user finishes axes calibration.
+        Stores rotation to file.
+        """
+        try:
+            self.mover.dump_axes_rotations()
+        except Exception as err:
+            messagebox.showerror(
+                "Error",
+                f"Failed to store axes rotation to file: {err}",
+                parent=self.wizard)
+            return False
+
+        return True
 
     def calibrate_axis(self, calibration: Type[Calibration], chip_axis: Axis):
         """
