@@ -805,6 +805,7 @@ class Calibration:
         Returns a dict of all calibration properties.
         """
         calibration_dump = {
+            "stage_identifier": self.stage.identifier,
             "orientation": self.orientation.value,
             "device_port": self._device_port.value}
 
