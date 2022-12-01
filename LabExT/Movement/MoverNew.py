@@ -590,6 +590,8 @@ class MoverNew:
                     calibration.lift_stage(self.z_lift)
 
                 resolved_calibrations[orientation] = calibration
+
+                target.z = calibration.get_position().z
                 path_planning.set_stage_target(calibration, target)
 
             # Move stages on safe trajectory
