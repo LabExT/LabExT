@@ -247,11 +247,17 @@ class PotentialField:
             y=self.y_coords[self.current_idx[1]],
             z=self.start_coordinate.z)
 
-        # field target, note: z-coordinate remains unchanged
-        self.target_coordinate = ChipCoordinate(
-            x=target_coordinate.x,
-            y=target_coordinate.y,
-            z=self.start_coordinate.z)
+        # field target
+        self.target_coordinate = target_coordinate
+
+        if not np.isclose(
+                self.start_coordinate.z,
+                self.target_coordinate.z,
+                rtol=1.e-5,
+                atol=1.e-8):
+            raise ValueError(
+                f"Start z level {self.start_coordinate.z} is not close to target z level {self.target_coordinate.z}. "
+                "The Path Planning algorithm assumes that start and target are on the same z level.")
 
         # Calculate potential field
         self.attractive_potential_field = self.attractive_gain * \
