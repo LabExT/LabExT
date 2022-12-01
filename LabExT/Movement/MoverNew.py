@@ -602,7 +602,6 @@ class MoverNew:
                 if with_lifted_stages:
                     calibration.lift_stage(self.z_lift)
 
-                target.z = calibration.get_position().z
                 resolved_calibrations[orientation] = calibration
 
                 target.z = calibration.get_position().z
