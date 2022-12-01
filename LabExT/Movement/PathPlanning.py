@@ -537,3 +537,132 @@ class CollisionAvoidancePlanning(PathPlanning):
                     return False
 
         return True
+
+
+class SingleStagePlanning(PathPlanning):
+    """
+    Path planning for single stage movements.
+    """
+
+    def __init__(
+        self,
+        max_lift_correction: float = 100,
+        correction_tolerance: float = 10
+    ) -> None:
+        """
+        Constructor for the single stage path planning.
+        Parameters
+        ----------
+        max_lift_correction: float = 100 [um]
+            TODO
+        correction_tolerance: float = 10 [um]
+            TODO
+        """
+        super().__init__()
+        self.max_lift_correction = max_lift_correction
+        self.correction_tolerance = correction_tolerance
+
+        self.calibration = None
+
+        self.target_chip_coordinate = None
+        self.target_stage_coordinate = None
+
+        self.start_chip_coordinate = None
+        self.start_stage_coordinate = None
+
+    def set_stage_target(
+        self,
+        calibration: Type["Calibration"],
+        target: Type[ChipCoordinate]
+    ) -> None:
+        """
+        Sets the traget coordinate for given calibrations.
+        """
+        if self.calibration is not None:
+            raise PathPlanningError(
+                "A calibration and target coordinate is already set. This Path Planning does support only one stage.")
+
+        self.calibration = calibration
+
+        # Get current stage position in chip system
+        with self.calibration.perform_in_system(CoordinateSystem.CHIP):
+            self.start_chip_coordinate = self.calibration.get_position()
+
+        self.target_chip_coordinate = target
+
+        if not np.isclose(
+                self.start_chip_coordinate.z,
+                self.target_chip_coordinate.z,
+                rtol=1.e-5,
+                atol=10e-3):
+            raise ValueError(
+                f"Start z level {self.start_chip_coordinate.z} is not close to target z level {self.target_chip_coordinate.z}. "
+                "The Path Planning algorithm assumes that start and target are on the same z level.")
+
+        self.start_stage_coordinate = calibration.transform_chip_to_stage_coordinate(
+            chip_coordinate=self.start_chip_coordinate)
+        self.target_stage_coordinate = calibration.transform_chip_to_stage_coordinate(
+            chip_coordinate=self.target_chip_coordinate)
+
+    def trajectory(self) -> Generator[WaypointCommand, Any, Any]:
+        """
+        Calculates waypoints for a simple stage from start to finish as a generator.
+        Checks beforehand whether the current z-lift is sufficient to compensate for the chip inclination without danger.
+        If not, the stage is first moved upwards and then lowered again.
+        """
+        z_level_correction = self._z_level_correction()
+        for waypoint in [
+            Waypoint(
+                self.calibration,
+                ChipCoordinate(
+                    x=self.start_chip_coordinate.x,
+                    y=self.start_chip_coordinate.y,
+                    z=self.start_chip_coordinate.z +
+                    z_level_correction),
+                wait_for_stopping=True),
+            Waypoint(
+                self.calibration,
+                ChipCoordinate(
+                    x=self.target_chip_coordinate.x,
+                    y=self.target_chip_coordinate.y,
+                    z=self.target_chip_coordinate.z +
+                    z_level_correction),
+                wait_for_stopping=True),
+            Waypoint(
+                self.calibration,
+                self.target_chip_coordinate,
+                wait_for_stopping=True)]:
+            yield {
+                self.calibration: waypoint}
+
+    def _z_level_correction(self) -> float:
+        """
+        Calculates a new z-level height.
+        If the current lift of the stage is lower than the Z difference between the start and target,
+        we are in danger of driving into the chip.
+        We calculate a z level equal to the delta in Z between the start and target plus tolerance.
+        The height is limited upwards by max_lift_correction
+        Returns
+        ------
+        z_correction : float
+            New z level height
+        Raises
+        ------
+        PathPlanningError
+            If new z level height is greater than max_lift_correction
+        """
+        start_target_z_delta = np.ceil(np.abs(
+            self.target_stage_coordinate.z - self.start_stage_coordinate.z))
+
+        self.logger.debug(
+            f"[{self.calibration}] Z-delta between start and target: {start_target_z_delta} um")
+
+        z_correction = start_target_z_delta + self.correction_tolerance
+        self.logger.debug(
+            f"[{self.calibration}] Calculated z correction of {z_correction} (Tolerance: {self.correction_tolerance})")
+
+        if z_correction > self.max_lift_correction:
+            raise PathPlanningError(
+                f"Correction lift of {z_correction} exceed max lift correction of {self.max_lift_correction}")
+
+        return z_correction
