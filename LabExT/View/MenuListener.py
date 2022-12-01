@@ -224,7 +224,8 @@ class MListener:
         self.calibration_setup_toplevel = CalibrationWizard(
             self._root,
             self._experiment_manager.mover,
-            self._experiment_manager.chip)
+            self._experiment_manager.chip,
+            experiment_manager=self._experiment_manager)
 
     def client_configure_stages(self):
         """
