@@ -858,7 +858,7 @@ class CoordinatePairingStep(Step):
         # Render table with all defined pairings
         pairings_frame = CustomFrame(frame)
         pairings_frame.title = "Defined Pairings"
-        pairings_frame.pack(side=TOP, fill=X)
+        pairings_frame.pack(side=TOP, fill=X, pady=5)
 
         pairings_table_frame = Frame(pairings_frame)
         pairings_table_frame.pack(side=TOP, fill=X, expand=False)
@@ -878,9 +878,16 @@ class CoordinatePairingStep(Step):
                 p in enumerate(
                     self.pairings)])
 
+        Button(
+            pairings_frame,
+            text="Reset all pairings",
+            state=DISABLED if len(self.pairings) == 0 else NORMAL,
+            command=self._reset_all_pairings
+        ).pack(side=RIGHT)
+
         # Render frame to show current calibration state
         calibration_summary_frame = CustomFrame(frame)
-        calibration_summary_frame.pack(side=TOP, fill=X)
+        calibration_summary_frame.pack(side=TOP, fill=X, pady=5)
 
         for calibration in self.mover.calibrations.values():
             stage_calibration_frame = CustomFrame(calibration_summary_frame)
@@ -966,6 +973,28 @@ class CoordinatePairingStep(Step):
         self.finish_step_enabled = True
         self.next_step_enabled = True
         self.wizard.set_error("")
+
+    def _reset_all_pairings(self):
+        """
+        Resets all pairings if the user confirms before.
+        """
+        if len(self.pairings) == 0:
+            return
+
+        if not messagebox.askokcancel(
+            "Reset all pairings",
+            f"Are you sure to delete all {len(self.pairings)} coordinate pairs? "
+            "This step cannot be undone.",
+                parent=self.wizard):
+            return
+
+        for calibration in self.mover.calibrations.values():
+            calibration.reset_single_point_offset()
+            calibration.reset_kabsch_rotation()
+
+        self.pairings = []
+
+        self.wizard.__reload__()
 
     def _new_coordinate_pairing(self):
         """
