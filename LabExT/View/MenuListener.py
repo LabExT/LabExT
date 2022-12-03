@@ -15,14 +15,12 @@ from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame
 
 from LabExT.Utils import run_with_wait_window, get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
-from LabExT.View.ConfigureStageWindow import ConfigureStageWindow
 from LabExT.View.Controls.ParameterTable import ParameterTable, ConfigParameter
 from LabExT.View.ExperimentWizard.ExperimentWizardController import ExperimentWizardController
 from LabExT.View.Exporter import Exporter
 from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
-from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
 from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
@@ -226,17 +224,6 @@ class MListener:
             self._experiment_manager.mover,
             self._experiment_manager.chip,
             experiment_manager=self._experiment_manager)
-
-    def client_configure_stages(self):
-        """
-        Open stage info and configuration window.
-        """
-        if try_to_lift_window(self.stage_configure_toplevel):
-            return
-        
-        self.stage_configure_toplevel = Toplevel(self._root)
-        self.stage_configure_toplevel.lift()
-        ConfigureStageWindow(self.stage_configure_toplevel, self._experiment_manager)
 
     def client_move_stages(self):
         """
