@@ -35,6 +35,12 @@ class Device:
     type: str = ''
     parameters: dict = field(default_factory=dict)
 
+    @property
+    def short_str(self) -> str:
+        """ Return string representation for device """
+        return "ID {} - IN: {} OUT: {}".format(
+            self.id, self.input_coordinate, self.output_coordinate)
+
     def as_dict(self):
         """ Return device as a dictionary. """
         return asdict(self)

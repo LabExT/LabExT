@@ -872,11 +872,13 @@ class CoordinatePairingStep(Step):
                 'Stage Cooridnate',
                 'Device',
                 'Chip Coordinate'),
-            rows=[
-                (idx,
-                 ) + p for idx,
-                p in enumerate(
-                    self.pairings)])
+            rows=[(
+                str(idx),
+                str(p.calibration),
+                str(p.stage_coordinate),
+                str(p.device.short_str),
+                str(p.chip_coordinate)
+            ) for idx, p in enumerate(self.pairings)])
 
         # Render frame to show current calibration state
         calibration_summary_frame = CustomFrame(frame)
