@@ -475,8 +475,7 @@ class CollisionAvoidancePlanning(PathPlanning):
 
                 next_move[calibration] = potential_field.next_waypoint()
 
-            if self._last_moves_equal(
-                    self.last_moves[-self.abort_local_minimum:], next_move):
+            if self._last_waypoints_equal(next_move):
                 raise PathPlanningError(
                     f"Path-finding algorithm makes no progress. The last {self.abort_local_minimum} movements were identical!")
 
@@ -517,23 +516,21 @@ class CollisionAvoidancePlanning(PathPlanning):
 
         return grid_size, outline
 
-    def _last_moves_equal(self, last_moves: list, new_move: dict) -> bool:
+    def _last_waypoints_equal(self, next_command: WaypointCommand) -> bool:
         """
         Returns True if all last moves are equal to the new move.
 
         Parameters
         ----------
-        last_moves: list
-            List of last moves
-        new_moves: dict
-            Dict of the new move
+        next_command: WaypointCommand
+            next waypoint commands
         """
-        if len(last_moves) == 0:
+        if len(self.last_moves) == 0:
             return False
 
-        for last_move in last_moves:
+        for last_move in self.last_moves[-self.abort_local_minimum:]:
             for calibration, waypoint in last_move.items():
-                if new_move[calibration] != waypoint:
+                if next_command[calibration].coordinate != waypoint.coordinate:
                     return False
 
         return True
