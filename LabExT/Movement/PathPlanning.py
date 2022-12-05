@@ -551,9 +551,9 @@ class SingleStagePlanning(PathPlanning):
         Parameters
         ----------
         max_lift_correction: float = 100 [um]
-            TODO
+            Upper limit for z level correction.
         correction_tolerance: float = 10 [um]
-            TODO
+            Additional correction: Will be added to the delta of the Z-level.
         """
         super().__init__()
         self.max_lift_correction = max_lift_correction
@@ -586,15 +586,6 @@ class SingleStagePlanning(PathPlanning):
             self.start_chip_coordinate = self.calibration.get_position()
 
         self.target_chip_coordinate = target
-
-        if not np.isclose(
-                self.start_chip_coordinate.z,
-                self.target_chip_coordinate.z,
-                rtol=1.e-5,
-                atol=10e-3):
-            raise ValueError(
-                f"Start z level {self.start_chip_coordinate.z} is not close to target z level {self.target_chip_coordinate.z}. "
-                "The Path Planning algorithm assumes that start and target are on the same z level.")
 
         self.start_stage_coordinate = calibration.transform_chip_to_stage_coordinate(
             chip_coordinate=self.start_chip_coordinate)
