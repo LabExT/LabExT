@@ -816,6 +816,7 @@ class CoordinatePairingStep(Step):
             self.wizard, self.mover.has_output_calibration)
         self._full_calibration_new_pairing_button = None
 
+        self._coordinate_pairing_table = None
         self._coordinate_pairing_window = None
 
         self.pairings = self._build_pairings()
@@ -863,9 +864,9 @@ class CoordinatePairingStep(Step):
         pairings_table_frame = Frame(pairings_frame)
         pairings_table_frame.pack(side=TOP, fill=X, expand=False)
 
-        CustomTable(
+        self._coordinate_pairing_table = CustomTable(
             parent=pairings_table_frame,
-            selectmode='none',
+            selectmode='extended',
             columns=(
                 'ID',
                 'Stage',
@@ -877,6 +878,13 @@ class CoordinatePairingStep(Step):
                  ) + p for idx,
                 p in enumerate(
                     self.pairings)])
+
+        Button(
+            pairings_frame,
+            text="Remove selected pairings",
+            state=DISABLED if len(self.pairings) == 0 else NORMAL,
+            command=self._remove_pairings
+        ).pack(side=LEFT)
 
         Button(
             pairings_frame,
@@ -995,6 +1003,54 @@ class CoordinatePairingStep(Step):
         self.pairings = []
 
         self.wizard.__reload__()
+
+    def _remove_pairings(self):
+        """
+        Removes all selected pairings.
+        """
+        if len(self.pairings) == 0:
+            return
+
+        blacklisted_pairings = self._get_selected_pairings()
+        if len(blacklisted_pairings) == 0:
+            messagebox.showerror(
+                "No pairings selected",
+                "No pairings were selected for deletion.",
+                parent=self.wizard)
+            return
+
+        whitelisted_pairings = [
+            p for p in self.pairings if p not in blacklisted_pairings]
+
+        # Reset all
+        for calibration in self.mover.calibrations.values():
+            calibration.reset_single_point_offset()
+            calibration.reset_kabsch_rotation()
+
+        self.pairings = []
+
+        # Calc new transformations
+        self._save_coordinate_pairing(whitelisted_pairings)
+        self.wizard.__reload__()
+
+    def _get_selected_pairings(self) -> List[CoordinatePairing]:
+        """
+        Returns a list of selected pairings in table.
+        """
+        if not self._coordinate_pairing_table:
+            return []
+
+        selected_pairings = []
+        checked_iids = self._coordinate_pairing_table._tree.selection()
+        for iid in checked_iids:
+            pairing_idx = self._coordinate_pairing_table._tree.set(iid, 0)
+            try:
+                selected_pairings.append(
+                    self.pairings[int(pairing_idx)])
+            except (IndexError, ValueError):
+                continue
+
+        return selected_pairings
 
     def _new_coordinate_pairing(self):
         """
