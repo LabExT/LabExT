@@ -936,6 +936,14 @@ class CoordinatePairingStep(Step):
                 pady=2,
                 sticky=W)
 
+            if calibration._kabsch_rotation.is_valid:
+                rad, deg, per = calibration._kabsch_rotation.get_z_plane_angles()
+                Label(
+                    stage_calibration_frame,
+                    text="Angle between XY Plane: "
+                    "{:.2f} rad - {:.2f}° - {:.2f}%".format(rad, deg, per)
+                ).grid(row=2, column=1, padx=2, pady=2, sticky=W)
+
         # FRAME FOR NEW PAIRING
         new_pairing_frame = CustomFrame(frame)
         new_pairing_frame.title = "Create New Pairing"
