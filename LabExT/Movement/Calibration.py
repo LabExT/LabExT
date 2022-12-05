@@ -54,8 +54,9 @@ def assert_minimum_state_for_coordinate_system(
             if calibration.coordinate_system == CoordinateSystem.CHIP:
                 if chip_coordinate_system is None:
                     raise CalibrationError(
-                        "Function {} does not support the chip coordinate system.".format(func.__name__))
-                
+                        "Function {} does not support the chip coordinate system.".format(
+                            func.__name__))
+
                 if calibration.state < chip_coordinate_system:
                     raise CalibrationError(
                         "Function {} needs at least a calibration state of {} to operate in chip coordinate system".format(
@@ -64,8 +65,9 @@ def assert_minimum_state_for_coordinate_system(
             if calibration.coordinate_system == CoordinateSystem.STAGE:
                 if stage_coordinate_system is None:
                     raise CalibrationError(
-                        "Function {} does not support the stage coordinate system.".format(func.__name__))
-                
+                        "Function {} does not support the stage coordinate system.".format(
+                            func.__name__))
+
                 if calibration.state < stage_coordinate_system:
                     raise CalibrationError(
                         "Function {} needs at least a calibration state of {} to operate in stage coordinate system".format(
@@ -442,6 +444,68 @@ class Calibration:
         self._state = State.FULLY_CALIBRATED
 
     #
+    #   Coordinate translation
+    #
+
+    def transform_chip_to_stage_coordinate(
+        self,
+        chip_coordinate: Type[ChipCoordinate]
+    ) -> Type[StageCoordinate]:
+        """
+        Translates a chip coordinate into a stage coordinate.
+        The single-point transformation or the Kabsch transformation is used based on the calibration state.
+        Parameters
+        ----------
+        chip_coordinate : ChipCoordinate
+            Coordinate in the chip system to be translated.
+        Returns
+        -------
+        stage_coordinate : StageCoordinate
+            Translated coordinate in the stage system.
+        Raises
+        ------
+        CalibrationError
+            If state is insufficient to translate the coordinate.
+        """
+        if self.state == State.FULLY_CALIBRATED:
+            return self._kabsch_rotation.chip_to_stage(
+                chip_coordinate)
+        elif self.state == State.SINGLE_POINT_FIXED:
+            return self._single_point_offset.chip_to_stage(
+                chip_coordinate)
+        else:
+            raise CalibrationError(
+                "Insufficient calibration state to transform coordinate in stage coordinates.")
+
+    def transform_stage_to_chip_coordinate(
+        self,
+        stage_coordinate: Type[StageCoordinate]
+    ) -> Type[ChipCoordinate]:
+        """
+        Translates a stage coordinate into a chip coordinate.
+        The single-point transformation or the Kabsch transformation is used based on the calibration state.
+        Parameters
+        ----------
+        stage_coordinate : StageCoordinate
+            Coordinate in the stage system to be translated.
+        Returns
+        -------
+        chip_coordinate : ChipCoordinate
+            Translated coordinate in the chip system.
+        Raises
+        ------
+        CalibrationError
+            If state is insufficient to translate the coordinate.
+        """
+        if self.state == State.FULLY_CALIBRATED:
+            return self._kabsch_rotation.stage_to_chip(stage_coordinate)
+        elif self.state == State.SINGLE_POINT_FIXED:
+            return self._single_point_offset.stage_to_chip(stage_coordinate)
+        else:
+            raise CalibrationError(
+                "Insufficient calibration state to transform coordinate in chip coordinates.")
+
+    #
     #   Position method
     #
 
@@ -472,13 +536,8 @@ class Calibration:
         if self.is_stage_coordinate_system_set:
             return stage_position
         elif self.is_chip_coordinate_system_set:
-            if self.state == State.FULLY_CALIBRATED:
-                return self._kabsch_rotation.stage_to_chip(stage_position)
-            elif self.state == State.SINGLE_POINT_FIXED:
-                return self._single_point_offset.stage_to_chip(stage_position)
-            else:
-                raise CalibrationError(
-                    "Insufficient calibration state to return the position in chip coordinates.")
+            return self.transform_stage_to_chip_coordinate(
+                stage_coordinate=stage_position)
         else:
             RuntimeError(
                 f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
@@ -552,15 +611,8 @@ class Calibration:
         if self.is_stage_coordinate_system_set:
             stage_coordinate = coordinate
         elif self.is_chip_coordinate_system_set:
-            if self.state == State.FULLY_CALIBRATED:
-                stage_coordinate = self._kabsch_rotation.chip_to_stage(
-                    coordinate)
-            elif self.state == State.SINGLE_POINT_FIXED:
-                stage_coordinate = self._single_point_offset.chip_to_stage(
-                    coordinate)
-            else:
-                raise CalibrationError(
-                    "Insufficient calibration state to move the stage absolutely.")
+            stage_coordinate = self.transform_chip_to_stage_coordinate(
+                chip_coordinate=coordinate)
         else:
             RuntimeError(
                 f"Unsupported coordinate system {self.coordinate_system} to move the stage absolutely.")

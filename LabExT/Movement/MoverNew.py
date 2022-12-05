@@ -20,7 +20,7 @@ from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, Devic
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
-from LabExT.Movement.PathPlanning import PathPlanning
+from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning
 
 from LabExT.Utils import get_configuration_file_path
 from LabExT.Wafer.Chip import Chip
@@ -538,6 +538,19 @@ class MoverNew:
     #   Movement Methods
     #
 
+    def get_path_planning_strategy(self) -> Type[PathPlanning]:
+        """
+        Returns a PathPlanning based on number of stages
+        """
+        if len(self.connected_stages) == 1:
+            return SingleStagePlanning(
+                max_lift_correction=100,
+                correction_tolerance=10)
+        else:
+            return CollisionAvoidancePlanning(
+                chip=self._chip,
+                abort_local_minimum=3)
+
     @assert_connected_stages
     def move_absolute(
         self,
@@ -574,7 +587,7 @@ class MoverNew:
             return
 
         with self.set_stages_coordinate_system(CoordinateSystem.CHIP):
-            path_planning = PathPlanning(chip)
+            path_planning = self.get_path_planning_strategy()
 
             # Resolves movement commands
             # Checks if for each orientation a calibration exits
@@ -597,7 +610,9 @@ class MoverNew:
             # Move stages on safe trajectory
             for calibration_waypoints in path_planning.trajectory():
                 for calibration, waypoint in calibration_waypoints.items():
-                    calibration.move_absolute(waypoint, wait_for_stopping)
+                    calibration.move_absolute(
+                        coordinate=waypoint.coordinate, wait_for_stopping=(
+                            wait_for_stopping or waypoint.wait_for_stopping))
 
                 # Wait for all stages to stop if stages move simultaneously.
                 if not wait_for_stopping:
