@@ -7,14 +7,20 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from functools import wraps
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from os.path import dirname, join
+from typing import NamedTuple
 
 from LabExT.PluginLoader import PluginLoader
 
 
 class StageError(RuntimeError):
     pass
+
+
+class StageMeta(NamedTuple):
+    description: str
+    driver_specifiable: str
 
 
 def assert_stage_connected(func):
@@ -54,6 +60,7 @@ def assert_driver_loaded(func):
 class Stage(ABC):
     _logger = logging.getLogger()
     driver_loaded = False
+    meta = StageMeta("", False)
 
     @classmethod
     def find_stage_classes(cls, subdir="Stages") -> list:
@@ -120,6 +127,10 @@ class Stage(ABC):
     def address_string(self) -> str:
         raise NotImplementedError
 
+    @property
+    def identifier(self) -> str:
+        raise NotImplementedError
+
     @abstractmethod
     def connect(self) -> bool:
         pass
@@ -173,9 +184,27 @@ class Stage(ABC):
         pass
 
     @abstractmethod
-    def move_relative(self, x, y):
+    def get_position(self) -> list:
         pass
 
     @abstractmethod
-    def move_absolute(self, pos):
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
+        pass
+
+    @abstractmethod
+    def move_absolute(
+            self,
+            x: float = None,
+            y: float = None,
+            z: float = None,
+            wait_for_stopping: bool = True) -> None:
+        pass
+
+    @abstractproperty
+    def is_stopped(self) -> bool:
         pass

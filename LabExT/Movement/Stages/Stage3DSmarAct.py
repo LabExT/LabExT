@@ -8,11 +8,13 @@ import sys
 import json
 import time
 import ctypes as ct
+import warnings
 from enum import Enum
 from tkinter import TclError
 from typing import List
 
-from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
+from LabExT.Movement.config import Axis
+from LabExT.Movement.Stage import Stage, StageMeta, StageError, assert_stage_connected, assert_driver_loaded
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
@@ -39,13 +41,6 @@ class MovementType(Enum):
     ABSOLUTE = 1
 
 
-class Axis(Enum):
-    """Enumerate different channels. Each channel represents one axis."""
-    X = 0
-    Y = 1
-    Z = 2
-
-
 class Stage3DSmarAct(Stage):
     """Implementation of a SmarAct stage. Communication with the devices using the driver version 1.
 
@@ -59,11 +54,15 @@ class Stage3DSmarAct(Stage):
 
     driver_loaded = MCS_LOADED
     driver_path_dialog = None
+    meta = StageMeta(
+        description='SmarAct Modular Control System',
+        driver_specifiable=True
+    )
 
     @classmethod
     def load_driver(cls, parent) -> bool:
         """
-        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the MovementWizardController.
+        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the StageWizard.
         """
         if cls.driver_path_dialog is not None:
             try:
@@ -390,6 +389,13 @@ class Stage3DSmarAct(Stage):
     def address_string(self) -> str:
         return self.address.decode('utf-8')
 
+    @property
+    def identifier(self) -> str:
+        """
+        Returns the address as identifier for a SmartAct stage
+        """
+        return self.address_string
+
     @assert_driver_loaded
     def connect(self) -> bool:
         """Connects to stage by calling SA_OpenSystem and initializes a system handle.
@@ -492,7 +498,7 @@ class Stage3DSmarAct(Stage):
         x_speed = self.channels[Axis.X].speed
         y_speed = self.channels[Axis.Y].speed
 
-        if(x_speed != y_speed):
+        if (x_speed != y_speed):
             self._logger.info(
                 "Speed settings of x and y channel are not equal.")
 
@@ -524,7 +530,7 @@ class Stage3DSmarAct(Stage):
         x_acceleration = self.channels[Axis.X].acceleration
         y_acceleration = self.channels[Axis.Y].acceleration
 
-        if(x_acceleration != y_acceleration):
+        if (x_acceleration != y_acceleration):
             self._logger.info(
                 'Acceleration settings of x and y channel are not equal.')
 
@@ -535,6 +541,15 @@ class Stage3DSmarAct(Stage):
     def get_status(self) -> tuple:
         """Returns the channel status codes translated to strings as tuple for each channel. """
         return tuple(ch.humanized_status for ch in self.channels.values())
+
+    @property
+    @assert_driver_loaded
+    @assert_stage_connected
+    def is_stopped(self) -> bool:
+        """
+        Returns true if all axis are stopped.
+        """
+        return all(s == 'SA_STOPPED_STATUS' for s in self.get_status())
 
     def invert_z_axis(self):
         """
@@ -633,6 +648,9 @@ class Stage3DSmarAct(Stage):
         list
             Returns current position in [x,y] format in units of um.
         """
+        warnings.warn(
+            "This method is deprecated and will be removed in the future. Please use the get_position() method.",
+            category=DeprecationWarning)
         return [
             self.channels[Axis.X].position,
             self.channels[Axis.Y].position
@@ -640,7 +658,29 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x, y, z=0, wait_for_stopping: bool = True):
+    def get_position(self) -> list:
+        """
+        Get current position of the stages in micrometers.
+
+        Returns
+        -------
+        list
+            Returns current position in [x,y,z] format in units of um.
+        """
+        return [
+            self.channels[Axis.X].position,
+            self.channels[Axis.Y].position,
+            self.channels[Axis.Z].position
+        ]
+
+    @assert_driver_loaded
+    @assert_stage_connected
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
@@ -670,43 +710,35 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_absolute(self, pos, wait_for_stopping: bool = True):
-        """Performs an absolute movement to the specified position in units of micrometers.
-
-        Parameters
-        ----------
-        position : list
-            Position in [x,y] format measured in um
-        wait_for_stopping : bool
-            Wait until all axes have stopped.
-        """
+    def move_absolute(
+        self,
+        x: float = None,
+        y: float = None,
+        z: float = None,
+        wait_for_stopping: bool = True
+    ) -> None:
         self._logger.debug(
-            'Want to absolute move %s to x = %s um and y = %s um',
+            'Want to absolute move %s to x = %s um, y = %s um and z = %s um',
             self.address,
-            pos[0],
-            pos[1])
+            x,
+            y,
+            z)
 
-        self.channels[Axis.X].move(
-            diff=pos[0], mode=MovementType.ABSOLUTE)
-        self.channels[Axis.Y].move(
-            diff=pos[1], mode=MovementType.ABSOLUTE)
+        if x is not None:
+            self.channels[Axis.X].move(diff=x, mode=MovementType.ABSOLUTE)
+        if y is not None:
+            self.channels[Axis.Y].move(diff=y, mode=MovementType.ABSOLUTE)
+        if z is not None:
+            self.channels[Axis.Z].move(diff=z, mode=MovementType.ABSOLUTE)
 
         if wait_for_stopping:
             self._wait_for_stopping()
-
-    # Stage control
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def stop(self):
-        for channel in self.channels.values():
-            channel.stop()
 
     # Helper methods
 
     @classmethod
     def _exit_if_error(self, status: int) -> bool:
-        if(status == MCSC.SA_OK):
+        if (status == MCSC.SA_OK):
             return True
 
         error_message = ct.c_char_p()
@@ -744,5 +776,6 @@ class Stage3DSmarAct(Stage):
         """
         while True:
             time.sleep(delay)
-            if all(s == 'SA_STOPPED_STATUS' for s in self.get_status()):
+
+            if self.is_stopped:
                 break

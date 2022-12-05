@@ -165,7 +165,7 @@ class EditMeasurementWizardView:
         self.section_frames[stage] = stage_frame
         stage_frame.grid(row=stage, column=0, padx=5, pady=5, sticky='we')
 
-        self.s0_device_table = DeviceTable(stage_frame, self._experiment_manager)
+        self.s0_device_table = DeviceTable(stage_frame, self._experiment_manager.chip)
         stage_frame.add_widget(self.s0_device_table, row=0, column=0, padx=5, pady=5, sticky='we')
 
         self.s0_selected_device_info = Label(stage_frame, text="Selected device: ")

@@ -58,17 +58,22 @@ class MainWindowContextMenu(Menu):
             command=self._menu_listener.client_quit)
 
         self._movement.add_command(
-            label="Configure Stages",
-            command=self._menu_listener.client_configure_stages)
+            label="Configure Stages...",
+            command=self._menu_listener.client_setup_stages)
         self._movement.add_command(
-            label="Define Chip-Stage Coordinate Transformation",
-            command=self._menu_listener.client_transformation)
+            label="Configure Mover...",
+            command=self._menu_listener.client_setup_mover)
+        self._movement.add_command(
+            label="Calibrate Stages...",
+            command=self._menu_listener.client_calibrate_stage)
+        self._movement.add_separator()
         self._movement.add_command(
             label="Move Stages Relative",
             command=self._menu_listener.client_move_stages)
         self._movement.add_command(
             label="Move Stages to Device",
             command=self._menu_listener.client_move_device)
+        self._movement.add_separator()
         self._movement.add_command(
             label="Search for Peak (Ctrl+S)",
             command=self._menu_listener.client_search_for_peak)

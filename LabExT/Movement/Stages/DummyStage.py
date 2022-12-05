@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from LabExT.Movement.Stage import Stage
+from LabExT.Movement.Stage import Stage, StageMeta
 
 
 class DummyStage(Stage):
@@ -18,6 +18,10 @@ class DummyStage(Stage):
     #
 
     driver_loaded = True
+    meta = StageMeta(
+        description="Dummy Stage Vendor",
+        driver_specifiable=False
+    )
 
     @classmethod
     def find_stage_addresses(cls):
@@ -45,6 +49,10 @@ class DummyStage(Stage):
     @property
     def address_string(self) -> str:
         return self.address
+
+    @property
+    def identifier(self) -> str:
+        return self.address_string
 
     def connect(self) -> bool:
         self.connected = True
@@ -96,6 +104,10 @@ class DummyStage(Stage):
     def get_status(self) -> tuple:
         return ('STOP', 'STOP', 'STOP')
 
+    @property
+    def is_stopped(self) -> bool:
+        return all(s == 'STOP' for s in self.get_status())
+
     def wiggle_z_axis_positioner(self):
         pass
 
@@ -114,8 +126,21 @@ class DummyStage(Stage):
     def get_current_position(self):
         return [0, 0]
 
-    def move_relative(self, x, y):
+    def get_position(self) -> list:
+        return [0, 0, 0]
+
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
         pass
 
-    def move_absolute(self, pos):
+    def move_absolute(
+            self,
+            x: float = None,
+            y: float = None,
+            z: float = None,
+            wait_for_stopping: bool = True) -> None:
         pass
