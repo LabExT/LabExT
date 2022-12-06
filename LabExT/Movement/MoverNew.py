@@ -193,6 +193,16 @@ class MoverNew:
     #
 
     @property
+    def state(self) -> State:
+        """
+        Returns the mover state, which is the lowest state of all calibrations
+        """
+        if not self.calibrations:
+            return State.UNINITIALIZED
+
+        return min(c.state for c in self.calibrations.values())
+
+    @property
     def stage_classes(self) -> List[Stage]:
         """
         Returns a list of all Stage classes.
