@@ -31,7 +31,7 @@ class StageWizard(Wizard):
     Wizard to load stage drivers and connect to stages.
     """
 
-    def __init__(self, master, mover):
+    def __init__(self, master, mover, experiment_manager=None):
         """
         Constructor for new Stage Wizard.
 
@@ -41,6 +41,8 @@ class StageWizard(Wizard):
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
+        experiment_manager : ExperimentManager = None
+            Optional instance of the current experiment manager
         """
         super().__init__(
             master,
@@ -54,6 +56,8 @@ class StageWizard(Wizard):
         )
         self.title("Configure Mover")
         self.mover: Type[MoverNew] = mover
+
+        self.experiment_manager = experiment_manager
 
         self.load_driver_step = StageDriverStep(self, self.mover)
         self.stage_assignment_step = StageAssignmentStep(self, self.mover)
@@ -92,10 +96,20 @@ class StageWizard(Wizard):
                     parent=self)
                 return False
 
-        messagebox.showinfo(
-            "Stage Setup completed.",
-            f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
-            parent=self)
+        if not self.experiment_manager:
+            messagebox.showinfo(
+                "Stage Setup completed.",
+                f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
+                parent=self)
+        else:
+            if messagebox.askyesnocancel(
+                "Stage Setup completed.",
+                f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s)."
+                "Do you want to calibrate the stages now?",
+                    parent=self):
+                self.destroy()
+
+                self.experiment_manager.main_window.open_stage_calibration()
 
         return True
 
