@@ -168,18 +168,6 @@ class Stage(ABC):
         pass
 
     @abstractmethod
-    def wiggle_z_axis_positioner(self):
-        pass
-
-    @abstractmethod
-    def lift_stage(self):
-        pass
-
-    @abstractmethod
-    def lower_stage(self):
-        pass
-
-    @abstractmethod
     def get_current_position(self):
         pass
 

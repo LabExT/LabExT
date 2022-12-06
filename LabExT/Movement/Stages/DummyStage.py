@@ -40,8 +40,6 @@ class DummyStage(Stage):
         self._speed_xy = None
         self._speed_z = None
         self._acceleration_xy = None
-        self._z_lift = None
-        self._z_axis_direction = 1
 
     def __str__(self) -> str:
         return "Dummy Stage at {}".format(self.address_string)
@@ -61,27 +59,6 @@ class DummyStage(Stage):
     def disconnect(self) -> bool:
         self.connected = False
         return True
-
-    @property
-    def z_axis_direction(self):
-        return self._z_axis_direction
-
-    @property
-    def z_axis_inverted(self):
-        return self.z_axis_direction == -1
-
-    @z_axis_direction.setter
-    def z_axis_direction(self, newdir):
-        if newdir not in [-1, 1]:
-            raise ValueError("Z axis direction can only be 1 or -1.")
-        self._z_axis_direction = newdir
-
-    def toggle_z_axis_direction(self):
-        self.z_axis_direction *= -1
-
-    @property
-    def z_axis_inverted(self):
-        return self.z_axis_direction == -1
 
     def set_speed_xy(self, umps: float):
         self._speed_xy = umps
@@ -107,21 +84,6 @@ class DummyStage(Stage):
     @property
     def is_stopped(self) -> bool:
         return all(s == 'STOP' for s in self.get_status())
-
-    def wiggle_z_axis_positioner(self):
-        pass
-
-    def lift_stage(self):
-        pass
-
-    def lower_stage(self):
-        pass
-
-    def set_lift_distance(self, um: float):
-        self._z_lift = um
-
-    def get_lift_distance(self) -> float:
-        return self._z_lift
 
     def get_current_position(self):
         return [0, 0]

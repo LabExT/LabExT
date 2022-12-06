@@ -375,11 +375,6 @@ class Stage3DSmarAct(Stage):
         """
         self.handle = None
         self.channels = {}
-
-        # LEGACY: stage lift
-        self._z_lift = 20
-        self._stage_lifted_up = False
-        self._z_axis_direction = 1
         super().__init__(address.encode('utf-8'))
 
     def __str__(self) -> str:
@@ -443,21 +438,6 @@ class Stage3DSmarAct(Stage):
             self.connected = False
             self.handle = None
 
-    # Properties
-
-    @property
-    def z_axis_direction(self):
-        return self._z_axis_direction
-
-    @z_axis_direction.setter
-    def z_axis_direction(self, newdir):
-        if newdir not in [-1, 1]:
-            raise ValueError("Z axis direction can only be 1 or -1.")
-        self._z_axis_direction = newdir
-
-    @property
-    def stage_lifted_up(self):
-        return self._stage_lifted_up
 
     # Stage settings method
     @assert_driver_loaded
@@ -550,93 +530,6 @@ class Stage3DSmarAct(Stage):
         Returns true if all axis are stopped.
         """
         return all(s == 'SA_STOPPED_STATUS' for s in self.get_status())
-
-    def invert_z_axis(self):
-        """
-        toggles the _z_axis_direction between -1 and +1
-        """
-        self._z_axis_direction = -self._z_axis_direction
-
-    # Movement methods
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def wiggle_z_axis_positioner(self):
-        """
-        Wiggles the z axis positioner in order to enable the user to set the correct direction of the z movement
-
-        Should first move "up" i.e. into direction of _z_axis_direction, then "down", i.e. against _z_axis_direction.
-        """
-        z_channel = self.channels[Axis.Z]
-
-        previous_speed = self.get_speed_z()
-        self.set_speed_z(1e3)
-
-        # Move up relative
-        z_channel.move(
-            diff=self.z_axis_direction * 1e3,
-            mode=MovementType.RELATIVE)
-
-        time.sleep(1)
-
-        # Move down relative
-        z_channel.move(
-            diff=-self.z_axis_direction * 1e3,
-            mode=MovementType.RELATIVE)
-
-        self.set_speed_z(previous_speed)
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def lift_stage(self, wait_for_stopping: bool = True):
-        """Lifts the stage up in the z direction by the amount defined in self._z_lift
-        """
-        if self._stage_lifted_up:
-            self._logger.warning(
-                "Stage already lifted up. Not executing lift.")
-            return
-
-        self.move_relative(
-            x=0,
-            y=0,
-            z=self._z_axis_direction * self._z_lift,
-            wait_for_stopping=wait_for_stopping)
-
-        self._stage_lifted_up = True
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def lower_stage(self, wait_for_stopping: bool = True):
-        """Lowers the stage in the z direction by the amount defined by self._z_lift
-        """
-        if not self._stage_lifted_up:
-            self._logger.warning(
-                "Stage already lowered down. Not executing lowering.")
-            return
-
-        self.move_relative(
-            x=0,
-            y=0,
-            z=-self._z_axis_direction * self._z_lift,
-            wait_for_stopping=wait_for_stopping)
-
-        self._stage_lifted_up = False
-
-    def get_lift_distance(self):
-        """Returns the set value of how much the stage moves up
-
-        :return: how much the stage moves up [um]
-        """
-        return self._z_lift
-
-    def set_lift_distance(self, height):
-        """Sets the value of how much the stage moves up
-
-        :param height: how much the stage moves up [um]
-        """
-        height = float(height)
-        assert height >= 0.0, "Lift distance must be non-negative."
-        self._z_lift = height
 
     @assert_driver_loaded
     @assert_stage_connected
