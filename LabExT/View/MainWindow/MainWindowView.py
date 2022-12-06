@@ -8,7 +8,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import logging
 from platform import system
 from tkinter import Frame, Menu, Checkbutton, \
-    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry
+    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry, \
+    NORMAL, DISABLED
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version
@@ -62,21 +63,26 @@ class MainWindowContextMenu(Menu):
             command=self._menu_listener.client_setup_stages)
         self._movement.add_command(
             label="Configure Mover...",
-            command=self._menu_listener.client_setup_mover)
+            command=self._menu_listener.client_setup_mover,
+            state=NORMAL if self._menu_listener._experiment_manager.mover.has_connected_stages else DISABLED)
         self._movement.add_command(
             label="Calibrate Stages...",
-            command=self._menu_listener.client_calibrate_stage)
+            command=self._menu_listener.client_calibrate_stage,
+            state=NORMAL if self._menu_listener._experiment_manager.mover.has_connected_stages else DISABLED)
         self._movement.add_separator()
         self._movement.add_command(
             label="Move Stages Relative",
-            command=self._menu_listener.client_move_stages)
+            command=self._menu_listener.client_move_stages,
+            state=NORMAL if self._menu_listener._experiment_manager.mover.can_move_relatively else DISABLED)
         self._movement.add_command(
             label="Move Stages to Device",
-            command=self._menu_listener.client_move_device)
+            command=self._menu_listener.client_move_device,
+            state=NORMAL if self._menu_listener._experiment_manager.mover.can_move_absolutely else DISABLED)
         self._movement.add_separator()
         self._movement.add_command(
             label="Search for Peak (Ctrl+S)",
-            command=self._menu_listener.client_search_for_peak)
+            command=self._menu_listener.client_search_for_peak,
+            state=NORMAL if self._menu_listener._experiment_manager.mover.has_connected_stages else DISABLED)
 
         self._view.add_command(
             label="Open Extra Plots",
