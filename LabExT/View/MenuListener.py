@@ -201,7 +201,10 @@ class MListener:
         if try_to_lift_window(self.stage_setup_toplevel):
             return
         
-        self.stage_setup_toplevel = StageWizard(self._root, self._experiment_manager.mover)
+        self.stage_setup_toplevel = StageWizard(
+            self._root,
+            self._experiment_manager.mover,
+            experiment_manager=self._experiment_manager)
 
     def client_setup_mover(self):
         """

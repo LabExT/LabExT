@@ -516,6 +516,10 @@ class MainWindowController:
         """ opens search for peak window by calling appropriate menu listener function """
         self.view.frame.menu_listener.client_search_for_peak()
 
+    def open_stage_calibration(self):
+        """ opens window to calibrate stages """
+        self.view.frame.menu_listener.client_calibrate_stage()
+
     def start(self):
         """Calls the experiment handler to start the experiment.
         """
