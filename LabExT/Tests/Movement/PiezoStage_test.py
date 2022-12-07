@@ -66,7 +66,7 @@ class Test_PiezoStage(unittest.TestCase):
 
     def test_current_position(self):
 
-        pos = self.stage.get_current_position()
+        pos = self.stage.get_position()
         pos = [elem * 1e3 for elem in pos]
 
         if self.user_input_required:
