@@ -168,10 +168,6 @@ class Stage(ABC):
         pass
 
     @abstractmethod
-    def get_current_position(self):
-        pass
-
-    @abstractmethod
     def get_position(self) -> list:
         pass
 

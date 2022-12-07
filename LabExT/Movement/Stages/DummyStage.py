@@ -85,9 +85,6 @@ class DummyStage(Stage):
     def is_stopped(self) -> bool:
         return all(s == 'STOP' for s in self.get_status())
 
-    def get_current_position(self):
-        return [0, 0]
-
     def get_position(self) -> list:
         return [0, 0, 0]
 
