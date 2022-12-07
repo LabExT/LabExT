@@ -508,6 +508,10 @@ class MainWindowController:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
 
+    def open_import_chip(self):
+        """ opens window to import new chip """
+        self.view.frame.menu_listener.client_import_chip()
+
     def open_live_viewer(self):
         """ opens live-viewer window by calling appropriate menu listener function """
         self.view.frame.menu_listener.client_live_view()
