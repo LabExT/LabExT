@@ -1,3 +1,15 @@
+## Version 2.2.0
+Released 202x-xx-xx
+
+* major feature: complete rewrite of the whole mover part
+  * user-friendly step-by-step GUI wizard to setup, configure and calibrate stages for chip-level automation
+  * multiple levels of calibration are supported, allowing to trade-off calibration time with movement precision
+  * collision-free, simultaneous movement of multiple chip probes to the correct location on a chip 
+  * new, clear API for adding your own motorized stages classes and drivers
+* usability: device IDs now support arbitrary strings instead of just positive integers
+* under-the-hood: update of dependencies due to safety reasons
+* deprecation: LabExT does not support Python 3.7 anymore, please switch to Python 3.8 or 3.9
+
 ## Version 2.1.3
 Released 2022-05-30
 
