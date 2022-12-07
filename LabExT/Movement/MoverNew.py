@@ -170,6 +170,8 @@ class MoverNew:
         _main_window.model.status_mover_can_move_to_device.set(
             self.can_move_absolutely)
 
+        _main_window.refresh_context_menu()
+
     #
     #   Reload properties
     #
