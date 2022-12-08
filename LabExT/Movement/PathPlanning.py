@@ -158,6 +158,7 @@ class SingleModeFiber(StagePolygon):
     Polygon for single mode fiber.
     """
 
+<<<<<<< HEAD
     @classmethod
     def get_default_parameters(cls) -> Dict[str, Any]:
         """
@@ -168,6 +169,36 @@ class SingleModeFiber(StagePolygon):
             "Fiber Radius": 75.0,       # [um]
             "Safety Distance": 75.0     # [um]
         }
+||||||| parent of 709863a (Make polygons configurable)
+    FIBER_LENGTH = 8e4  # [um] (8cm)
+    FIBER_RADIUS = 75.0  # [um]
+
+    def __init__(
+        self,
+        orientation: Orientation,
+        safety_distance: float = 75.0
+    ) -> None:
+        """
+        Constructor for new single mode fiber polygon.
+
+        Parameters
+        ----------
+        orientation: Orientation
+            Orientation of the stage in space
+        safety_distance: float
+            Safety distance around the fiber in um.
+        """
+        self.orientation = orientation
+        self.safety_distance = safety_distance
+=======
+    @classmethod
+    def get_default_parameters(cls) -> Dict[str, Any]:
+        return {
+            "Fiber Length": 8e4,        # [um] (8cm)
+            "Fiber Radius": 75.0,       # [um]
+            "Safety Distance": 75.0     # [um]
+        }
+>>>>>>> 709863a (Make polygons configurable)
 
     def stage_in_meshgrid(
         self,
