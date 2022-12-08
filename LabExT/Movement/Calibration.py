@@ -144,11 +144,11 @@ class Calibration:
         return cls(
             mover,
             stage,
-            orientation,
-            device_port,
-            axes_rotation,
-            single_point_offset,
-            kabsch_rotation)
+            orientation=orientation,
+            device_port=device_port,
+            axes_rotation=axes_rotation,
+            single_point_offset=single_point_offset,
+            kabsch_rotation=kabsch_rotation)
 
     def __init__(
         self,
@@ -156,6 +156,7 @@ class Calibration:
         stage: Type[Stage],
         orientation: Orientation,
         device_port: DevicePort,
+        polygon: Type[StagePolygon] = None,
         axes_rotation: Type[AxesRotation] = None,
         single_point_offset: Type[SinglePointOffset] = None,
         kabsch_rotation: Type[KabschRotation] = None
@@ -163,14 +164,16 @@ class Calibration:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
-        self.stage_polygon: Type[StagePolygon] = SingleModeFiber(orientation)
-
         self._orientation = orientation
         self._device_port = device_port
 
         self._coordinate_system = CoordinateSystem.UNKNOWN
 
         self._is_lifted = False
+
+        self.stage_polygon = polygon
+        if polygon is None:
+            self.stage_polygon = SingleModeFiber(orientation)
 
         self._axes_rotation = axes_rotation
         if axes_rotation is None:
