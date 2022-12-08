@@ -4,6 +4,7 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
 
 import logging
 import numpy as np
@@ -48,13 +49,40 @@ class StagePolygon(ABC):
     This class cannot be initialised.
     """
 
-    @abstractmethod
+    @classmethod
+    def find_polygon_classes(cls) -> List[StagePolygon]:
+        """
+        Returns a list of available polygon classes.
+        """
+        return cls.__subclasses__()
+
+    @classmethod
+    def get_default_parameters(cls) -> Dict[str, Any]:
+        """
+        Returns a dict of default parameters to setup the polygon
+        """
+        return {}
+
     def __init__(
         self,
         orientation: Orientation,
-        safety_distance: float = 75.0
+        parameters: Dict[str, Any] = {}
     ) -> None:
-        pass
+        """
+        Constructor for base  polygon
+
+        Parameters
+        ----------
+        orientation: Orientation
+            Polygon orientation in chip space
+        parameters: Dict[str, ConfigParameter] = {}
+            Optional parameters to configure the polygon
+        """
+        self.orientation = orientation
+
+        self.parameters = parameters
+        if self.parameters is None:
+            self.parameters = self.get_default_parameters()
 
     @abstractmethod
     def stage_in_meshgrid(
@@ -75,26 +103,13 @@ class SingleModeFiber(StagePolygon):
     Polygon for single mode fiber.
     """
 
-    FIBER_LENGTH = 8e4  # [um] (8cm)
-    FIBER_RADIUS = 75.0  # [um]
-
-    def __init__(
-        self,
-        orientation: Orientation,
-        safety_distance: float = 75.0
-    ) -> None:
-        """
-        Constructor for new single mode fiber polygon.
-
-        Parameters
-        ----------
-        orientation: Orientation
-            Orientation of the stage in space
-        safety_distance: float
-            Safety distance around the fiber in um.
-        """
-        self.orientation = orientation
-        self.safety_distance = safety_distance
+    @classmethod
+    def get_default_parameters(cls) -> Dict[str, Any]:
+        return {
+            "Fiber Length": 8e4,        # [um] (8cm)
+            "Fiber Radius": 75.0,       # [um]
+            "Safety Distance": 75.0     # [um]
+        }
 
     def stage_in_meshgrid(
         self,
@@ -152,7 +167,11 @@ class SingleModeFiber(StagePolygon):
         ValueError
             If no outline is defined for the given orientation.
         """
-        safe_fiber_radius = self.FIBER_RADIUS + self.safety_distance
+        fiber_radius = self.parameters.get("Fiber Radius", 75.0)
+        fiber_length = self.parameters.get("Fiber Length", 8e4)
+        safety_distance = self.parameters.get("Safety Distance", 75.0)
+
+        safe_fiber_radius = fiber_radius + safety_distance
 
         x_min = position.x - safe_fiber_radius
         x_max = position.x + safe_fiber_radius
@@ -160,13 +179,13 @@ class SingleModeFiber(StagePolygon):
         y_max = position.y + safe_fiber_radius
 
         if self.orientation == Orientation.LEFT:
-            x_min -= self.FIBER_LENGTH
+            x_min -= fiber_length
         elif self.orientation == Orientation.RIGHT:
-            x_max += self.FIBER_LENGTH
+            x_max += fiber_length
         elif self.orientation == Orientation.BOTTOM:
-            y_min -= self.FIBER_LENGTH
+            y_min -= fiber_length
         elif self.orientation == Orientation.TOP:
-            y_max += self.FIBER_LENGTH
+            y_max += fiber_length
         else:
             raise ValueError(
                 f"No Stage Polygon defined for orientation {self.orientation}")
