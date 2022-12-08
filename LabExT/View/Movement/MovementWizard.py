@@ -221,7 +221,32 @@ class MoverWizard(Wizard):
 
 
 class CalibrationWizard(Wizard):
-    def __init__(self, master, mover, chip, experiment_manager=None):
+    """
+    Wizard to calibrate stages.
+    """
+
+    def __init__(
+        self,
+        master,
+        mover,
+        chip=None,
+        experiment_manager=None
+    ) -> None:
+        """
+        Constructor for new Mover Wizard.
+
+        Parameters
+        ----------
+        master : Tk
+            Tk instance of the master toplevel
+        mover : Mover
+            Instance of the current mover.
+        chip : Chip = None
+            Optional instance of the current chip.
+            Required for coordinate pairing step.
+        experiment_manager : ExperimentManager = None
+            Optional instance of the current experiment manager
+        """
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
         self.experiment_manager = experiment_manager
@@ -229,9 +254,6 @@ class CalibrationWizard(Wizard):
         if len(self.mover.calibrations) == 0:
             raise RuntimeError(
                 "Calibration not possible without connected stages.")
-
-        if self.chip is None:
-            raise RuntimeError("Calibration not possible without loaded chip.")
 
         super().__init__(
             master,
@@ -814,6 +836,8 @@ class CoordinatePairingStep(Step):
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
+        chip : Chip
+            Instance of the current chip.
         """
         super().__init__(
             wizard,
@@ -869,6 +893,37 @@ class CoordinatePairingStep(Step):
             "Note: After the first coordinate pairing, the stages can be moved approximatively absolute in chip coordinates.").pack(
             side=TOP,
             fill=X)
+
+        # Render frame to for current chip
+        chip_frame = CustomFrame(frame)
+        chip_frame.title = "Imported Chip"
+        chip_frame.pack(side=TOP, fill=X, pady=5)
+
+        Label(
+            chip_frame,
+            text="The calibration is calculated using several coordinate pairs consisting of chip and stage coordinates. \n"
+            "The following chip is used for calibration:").pack(
+            side=TOP,
+            fill=X)
+
+        if self.chip:
+            Label(
+                chip_frame,
+                text=f"{self.chip.name} (imported from {self.chip.path})",
+                foreground='#4BB543'
+            ).pack(side=LEFT, fill=X)
+        else:
+            Label(
+                chip_frame,
+                text="No Chip imported!",
+                foreground='#FF3333'
+            ).pack(side=LEFT, fill=X)
+
+            Button(
+                chip_frame,
+                text="Import Chip",
+                command=self._on_chip_import
+            ).pack(side=RIGHT)
 
         # Render table with all defined pairings
         pairings_frame = CustomFrame(frame)
@@ -967,18 +1022,21 @@ class CoordinatePairingStep(Step):
             Checkbutton(
                 new_pairing_frame,
                 text="Use Input-Stage for Pairing",
+                state=NORMAL if self.chip else DISABLED,
                 variable=self._use_input_stage_var
             ).pack(side=LEFT)
         if self.mover.has_output_calibration:
             Checkbutton(
                 new_pairing_frame,
                 text="Use Output-Stage for Pairing",
+                state=NORMAL if self.chip else DISABLED,
                 variable=self._use_output_stage_var
             ).pack(side=LEFT)
 
         self._full_calibration_new_pairing_button = Button(
             new_pairing_frame,
             text="New Pairing...",
+            state=NORMAL if self.chip else DISABLED,
             command=self._new_coordinate_pairing)
         self._full_calibration_new_pairing_button.pack(side=RIGHT)
 
@@ -987,6 +1045,12 @@ class CoordinatePairingStep(Step):
         Callback, when wizard step gets reloaded.
         Checks, if the all transformations are vald.
         """
+        if not self.chip:
+            self.next_step_enabled = False
+            self.finish_step_enabled = False
+            self.wizard.set_error("Please import a chip to calibrate stages.")
+            return
+
         if not all(
                 c._single_point_offset.is_valid for c in self.mover.calibrations.values()):
             self.next_step_enabled = False
@@ -1140,3 +1204,15 @@ class CoordinatePairingStep(Step):
             return False
 
         return True
+
+    def _on_chip_import(self) -> None:
+        """
+        Callback, when user wants to import a chip
+        """
+        if not self.wizard.experiment_manager:
+            return
+
+        self.wizard.experiment_manager.main_window.open_import_chip()
+        self.chip = self.wizard.experiment_manager.chip
+
+        self.wizard.__reload__()
