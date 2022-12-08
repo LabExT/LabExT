@@ -60,8 +60,8 @@ class StagePolygon(ABC):
                 "Cannot find and load stage polygon without polygon class name. "
                 "Please provide a key 'polygon_cls' in polygon data.")
 
-        if (isinstance(polygon_name,type) and
-            issubclass(polygon_name, StagePolygon)):
+        if (isinstance(polygon_name, type) and
+                issubclass(polygon_name, StagePolygon)):
             polygon_cls = polygon_name
         elif isinstance(polygon_name, str):
             available_classes = StagePolygon.find_polygon_classes()
@@ -259,9 +259,9 @@ class SingleModeFiber(StagePolygon):
         ValueError
             If no outline is defined for the given orientation.
         """
-        fiber_radius = self.parameters.get("Fiber Radius", 75.0)
-        fiber_length = self.parameters.get("Fiber Length", 8e4)
-        safety_distance = self.parameters.get("Safety Distance", 75.0)
+        fiber_radius = float(self.parameters.get("Fiber Radius", 75.0))
+        fiber_length = float(self.parameters.get("Fiber Length", 8e4))
+        safety_distance = float(self.parameters.get("Safety Distance", 75.0))
 
         safe_fiber_radius = fiber_radius + safety_distance
 
