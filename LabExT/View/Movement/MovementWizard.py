@@ -88,10 +88,10 @@ class StageWizard(Wizard):
                     self,
                     f"Connecting to stage {stage}",
                     lambda: self.mover.add_stage_calibration(
-                        stage,
+                        stage=stage,
                         orientation=orientation,
                         port=port,
-                        stage_polygon=polygon_cls()))
+                        stage_polygon=polygon_cls(orientation)))
             except (ValueError, MoverError, StageError) as e:
                 self.mover.reset_calibrations()
                 messagebox.showerror(
