@@ -129,6 +129,9 @@ class SingleModeFiber(StagePolygon):
 =======
     @classmethod
     def get_default_parameters(cls) -> Dict[str, Any]:
+        """
+        Returns default parameter to set up a single mode fiber polygon
+        """
         return {
             "Fiber Length": 8e4,        # [um] (8cm)
             "Fiber Radius": 75.0,       # [um]
