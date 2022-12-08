@@ -60,11 +60,8 @@ class StagePolygon(ABC):
                 "Cannot find and load stage polygon without polygon class name. "
                 "Please provide a key 'polygon_cls' in polygon data.")
 
-        if isinstance(
-                polygon_name,
-                type) and issubclass(
-                polygon_name,
-                StagePolygon):
+        if (isinstance(polygon_name,type) and
+            issubclass(polygon_name, StagePolygon)):
             polygon_cls = polygon_name
         elif isinstance(polygon_name, str):
             available_classes = StagePolygon.find_polygon_classes()
@@ -141,12 +138,17 @@ class StagePolygon(ABC):
         """
         pass
 
-    def dump(self) -> dict:
+    def dump(self, stringify: bool = True) -> dict:
         """
         Returns polygon parameters as dict
         """
+        if stringify:
+            polygon_cls = self.__class__.__name__
+        else:
+            polygon_cls = self.__class__
+
         return {
-            "polygon_cls": self.__class__.__name__,
+            "polygon_cls": polygon_cls,
             "orientation": self.orientation.value,
             "parameters": self.parameters}
 

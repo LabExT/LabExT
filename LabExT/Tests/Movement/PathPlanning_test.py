@@ -12,7 +12,7 @@ from parameterized import parameterized
 
 from LabExT.Movement.config import Orientation
 from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.PathPlanning import SingleModeFiber
+from LabExT.Movement.PathPlanning import SingleModeFiber, StagePolygon
 
 
 class SingleModeFiberTest(TestCase):
@@ -105,3 +105,71 @@ class SingleModeFiberTest(TestCase):
             ChipCoordinate(0, 0, 0), cx, cy, grid_size)
 
         self.assertTrue(mask.any())
+
+    def test_dump_with_stringify(self):
+        polygon = SingleModeFiber(Orientation.LEFT, parameters={
+            "Fiber Radius": 100.0,
+            "Safety Distance": 100.0,
+            "Fiber Length": 10e4
+        })
+
+        self.assertDictEqual(polygon.dump(stringify=True), {
+            "polygon_cls": "SingleModeFiber",
+            "orientation": "LEFT",
+            "parameters": {
+                "Fiber Radius": 100.0,
+                "Safety Distance": 100.0,
+                "Fiber Length": 10e4
+            }
+        })
+
+    def test_dump_without_stringify(self):
+        polygon = SingleModeFiber(Orientation.LEFT, parameters={
+            "Fiber Radius": 100.0,
+            "Safety Distance": 100.0,
+            "Fiber Length": 10e4
+        })
+
+        self.assertDictEqual(polygon.dump(stringify=False), {
+            "polygon_cls": SingleModeFiber,
+            "orientation": "LEFT",
+            "parameters": {
+                "Fiber Radius": 100.0,
+                "Safety Distance": 100.0,
+                "Fiber Length": 10e4
+            }
+        })
+
+    def test_dump_load_with_stringify(self):
+        polygon_org = SingleModeFiber(Orientation.LEFT, parameters={
+            "Fiber Radius": 100.0,
+            "Safety Distance": 100.0,
+            "Fiber Length": 10e4
+        })
+
+        polygon_reconstructed = StagePolygon.load(
+            polygon_data=polygon_org.dump(stringify=True))
+
+        self.assertIsInstance(
+            polygon_reconstructed, SingleModeFiber)
+        self.assertDictEqual(
+            polygon_org.parameters, polygon_reconstructed.parameters)
+        self.assertEqual(
+            polygon_org.orientation, polygon_org.orientation)
+
+    def test_dump_load_without_stringify(self):
+        polygon_org = SingleModeFiber(Orientation.LEFT, parameters={
+            "Fiber Radius": 100.0,
+            "Safety Distance": 100.0,
+            "Fiber Length": 10e4
+        })
+
+        polygon_reconstructed = StagePolygon.load(
+            polygon_data=polygon_org.dump(stringify=False))
+
+        self.assertIsInstance(
+            polygon_reconstructed, SingleModeFiber)
+        self.assertDictEqual(
+            polygon_org.parameters, polygon_reconstructed.parameters)
+        self.assertEqual(
+            polygon_org.orientation, polygon_org.orientation)
