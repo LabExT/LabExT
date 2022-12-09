@@ -58,7 +58,7 @@ class StagePolygon(ABC):
         if not polygon_name:
             raise ValueError(
                 "Cannot find and load stage polygon without polygon class name. "
-                "Please provide a key 'polygon_cls' in polygon data.")
+                "Please provide a key 'polygon_cls' in polygon_data argument.")
 
         if (isinstance(polygon_name, type) and
                 issubclass(polygon_name, StagePolygon)):
@@ -84,8 +84,8 @@ class StagePolygon(ABC):
             orientation = Orientation[polygon_data["orientation"]]
         except KeyError as err:
             raise ValueError(
-                f"The parameter is not defined: {err}. "
-                "Make sure to pass a valid orientation.")
+                f"The parameter 'orientation' in polygon_data is not defined: {err}. "
+                f"Make sure to pass a valid orientation: {', '.join(map(str, list(Orientation)))}")
 
         return polygon_cls(
             orientation=orientation,
@@ -158,7 +158,6 @@ class SingleModeFiber(StagePolygon):
     Polygon for single mode fiber.
     """
 
-<<<<<<< HEAD
     @classmethod
     def get_default_parameters(cls) -> Dict[str, Any]:
         """
@@ -169,39 +168,6 @@ class SingleModeFiber(StagePolygon):
             "Fiber Radius": 75.0,       # [um]
             "Safety Distance": 75.0     # [um]
         }
-||||||| parent of 709863a (Make polygons configurable)
-    FIBER_LENGTH = 8e4  # [um] (8cm)
-    FIBER_RADIUS = 75.0  # [um]
-
-    def __init__(
-        self,
-        orientation: Orientation,
-        safety_distance: float = 75.0
-    ) -> None:
-        """
-        Constructor for new single mode fiber polygon.
-
-        Parameters
-        ----------
-        orientation: Orientation
-            Orientation of the stage in space
-        safety_distance: float
-            Safety distance around the fiber in um.
-        """
-        self.orientation = orientation
-        self.safety_distance = safety_distance
-=======
-    @classmethod
-    def get_default_parameters(cls) -> Dict[str, Any]:
-        """
-        Returns default parameter to set up a single mode fiber polygon
-        """
-        return {
-            "Fiber Length": 8e4,        # [um] (8cm)
-            "Fiber Radius": 75.0,       # [um]
-            "Safety Distance": 75.0     # [um]
-        }
->>>>>>> 709863a (Make polygons configurable)
 
     def stage_in_meshgrid(
         self,
