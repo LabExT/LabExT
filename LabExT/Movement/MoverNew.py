@@ -20,7 +20,7 @@ from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, Devic
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
-from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning
+from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning, StagePolygon
 
 from LabExT.Utils import get_configuration_file_path
 from LabExT.Wafer.Chip import Chip
@@ -316,10 +316,12 @@ class MoverNew:
     #
 
     def add_stage_calibration(
-            self,
-            stage: Type[Stage],
-            orientation: Orientation,
-            port: DevicePort) -> Type[Calibration]:
+        self,
+        stage: Type[Stage],
+        orientation: Orientation,
+        port: DevicePort,
+        stage_polygon: Type[StagePolygon] = None
+    ) -> Type[Calibration]:
         """
         Creates a new Calibration instance for a stage.
         Adds this instance to the list of connected stages.
@@ -351,6 +353,7 @@ class MoverNew:
             stage=stage,
             orientation=orientation,
             device_port=port,
+            stage_polygon=stage_polygon,
             axes_rotation=self.load_stored_axes_rotation_for_stage(
                 stage=stage))
 
