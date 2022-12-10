@@ -9,6 +9,7 @@ import unittest
 import numpy as np
 from unittest.mock import Mock, patch, call
 from parameterized import parameterized
+from LabExT.Movement.PathPlanning import SingleModeFiber
 
 from LabExT.Tests.Utils import get_calibrations_from_file
 
@@ -679,6 +680,27 @@ class CalibrationTest(CalibrationTestCase):
                 'device_id': 3
             }])
 
+        
+    def test_dump_with_stage_polygon(self):
+        polygon = SingleModeFiber(Orientation.LEFT, parameters={
+            "Fiber Radius": 100.0,
+            "Safety Distance": 100.0,
+            "Fiber Length": 10e4
+        })
+        calibration = Calibration(
+            self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT,
+            stage_polygon=polygon)
+
+        self.assertDictEqual(calibration.dump()["stage_polygon"], {
+            "polygon_cls": "SingleModeFiber",
+            "orientation": "LEFT",
+            "parameters": {
+                "Fiber Radius": 100.0,
+                "Safety Distance": 100.0,
+                "Fiber Length": 10e4
+            }
+        })
+
 
     def test_load_with_axes_rotation(self):
         self.stage.connect()
@@ -771,4 +793,39 @@ class CalibrationTest(CalibrationTestCase):
 
         restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
         self.assertEqual(restored_calibration.state, State.FULLY_CALIBRATED)
+
+    def test_load_with_stage_polygon(self):
+        self.stage.connect()
+        chip = Chip(
+            name="Dummy Chip",
+            devices=[
+                Device(0, [0,0], [1,1]),
+                Device(1, [2,2], [3,3]),
+                Device(2, [4,4], [5,5]),
+                Device(3, [6,6], [7,7])
+            ])
+
+        calibration_data = {
+            "orientation": "LEFT",
+            "device_port": "INPUT",
+            "stage_polygon":  {
+                "polygon_cls": "SingleModeFiber",
+                "orientation": "LEFT",
+                "parameters": {
+                    "Fiber Radius": 100.0,
+                    "Safety Distance": 100.0,
+                    "Fiber Length": 10e4
+                }
+            }
+        }
+
+        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
+        
+        self.assertIsInstance(restored_calibration.stage_polygon, SingleModeFiber)
+        self.assertDictEqual(restored_calibration.stage_polygon.parameters, {
+            "Fiber Radius": 100.0,
+            "Safety Distance": 100.0,
+            "Fiber Length": 10e4
+        })
+        self.assertEqual(restored_calibration.stage_polygon.orientation, Orientation.LEFT)
 

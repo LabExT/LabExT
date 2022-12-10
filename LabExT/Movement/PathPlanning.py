@@ -4,6 +4,7 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
 
 import logging
 import numpy as np
@@ -49,6 +50,55 @@ class StagePolygon(ABC):
     """
 
     @classmethod
+    def load(cls, polygon_data: dict) -> Type[StagePolygon]:
+        """
+        Returns a stage polygon reconstructed from polygon data.
+        """
+        polygon_name = polygon_data.get("polygon_cls")
+        if not polygon_name:
+            raise ValueError(
+                "Cannot find and load stage polygon without polygon class name. "
+                "Please provide a key 'polygon_cls' in polygon_data argument.")
+
+        if (isinstance(polygon_name, type) and
+                issubclass(polygon_name, StagePolygon)):
+            polygon_cls = polygon_name
+        elif isinstance(polygon_name, str):
+            available_classes = StagePolygon.find_polygon_classes()
+            try:
+                polygon_cls = next(
+                    pg for pg in available_classes if pg.__name__ == polygon_name)
+            except StopIteration:
+                available_classes_str = ", ".join(
+                    map(lambda pg: pg.__name__, available_classes))
+                raise ValueError(
+                    f"No polygon class found with name {polygon_name}. The following are available: "
+                    f"{available_classes_str}")
+        else:
+            raise ValueError(
+                f"Cannot restore stage polygon class with 'polygon_cls' equal to {polygon_name} of type {type(polygon_name)}. "
+                "Please provide a value for 'polygon_cls' of type str or StagePolygon. "
+                "If you provide a string, it must be the name of the polygon class.")
+
+        try:
+            orientation = Orientation[polygon_data["orientation"]]
+        except KeyError as err:
+            raise ValueError(
+                f"The parameter 'orientation' in polygon_data is not defined: {err}. "
+                f"Make sure to pass a valid orientation: {', '.join(map(str, list(Orientation)))}")
+
+        return polygon_cls(
+            orientation=orientation,
+            parameters=polygon_data.get("parameters", {}))
+
+    @classmethod
+    def find_polygon_classes(cls) -> List[StagePolygon]:
+        """
+        Returns a list of available polygon classes.
+        """
+        return cls.__subclasses__()
+
+    @classmethod
     def get_default_parameters(cls) -> Dict[str, Any]:
         """
         Returns default polygon configuration parameter
@@ -72,7 +122,7 @@ class StagePolygon(ABC):
         self.orientation = orientation
 
         self.parameters = parameters
-        if self.parameters is None:
+        if not self.parameters:
             self.parameters = self.get_default_parameters()
 
     @abstractmethod
@@ -87,6 +137,20 @@ class StagePolygon(ABC):
         Returns a mask if a point in the meshgrid is in the stage.
         """
         pass
+
+    def dump(self, stringify: bool = True) -> dict:
+        """
+        Returns polygon parameters as dict
+        """
+        if stringify:
+            polygon_cls = self.__class__.__name__
+        else:
+            polygon_cls = self.__class__
+
+        return {
+            "polygon_cls": polygon_cls,
+            "orientation": self.orientation.value,
+            "parameters": self.parameters}
 
 
 class SingleModeFiber(StagePolygon):
@@ -161,9 +225,9 @@ class SingleModeFiber(StagePolygon):
         ValueError
             If no outline is defined for the given orientation.
         """
-        fiber_radius = self.parameters.get("Fiber Radius", 75.0)
-        fiber_length = self.parameters.get("Fiber Length", 8e4)
-        safety_distance = self.parameters.get("Safety Distance", 75.0)
+        fiber_radius = float(self.parameters.get("Fiber Radius", 75.0))
+        fiber_length = float(self.parameters.get("Fiber Length", 8e4))
+        safety_distance = float(self.parameters.get("Safety Distance", 75.0))
 
         safe_fiber_radius = fiber_radius + safety_distance
 
