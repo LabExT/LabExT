@@ -437,8 +437,8 @@ class Stage3DSmarAct(Stage):
             self.connected = False
             self.handle = None
 
-
     # Stage settings method
+
     @assert_driver_loaded
     @assert_stage_connected
     def find_reference_mark(self):

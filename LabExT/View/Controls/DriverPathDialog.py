@@ -95,11 +95,6 @@ class DriverPathDialog(Toplevel):
 
         user_given_path = str(self._driver_path_entry.get())
         self.driver_path = str(Path(user_given_path.strip()))
-        messagebox.showinfo(
-            parent=self,
-            title='Success',
-            message='Driver path saved. Modules will be reloaded.',
-        )
 
         self.destroy()
 
