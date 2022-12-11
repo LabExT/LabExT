@@ -8,13 +8,13 @@ import sys
 import json
 import time
 import ctypes as ct
+
 from enum import Enum
-from tkinter import TclError
 from typing import List
 
 from LabExT.Movement.config import Axis
 from LabExT.Movement.Stage import Stage, StageMeta, StageError, assert_stage_connected, assert_driver_loaded
-from LabExT.Utils import get_configuration_file_path
+from LabExT.Utils import get_configuration_file_path, try_to_lift_window
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
 sys_path_changed = False
@@ -63,16 +63,9 @@ class Stage3DSmarAct(Stage):
         """
         Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the StageWizard.
         """
-        if cls.driver_path_dialog is not None:
-            try:
-                cls.driver_path_dialog.deiconify()
-                cls.driver_path_dialog.lift()
-                cls.driver_path_dialog.focus_set()
-
-                parent.wait_window(cls.driver_path_dialog)
-                return cls.driver_path_dialog.path_has_changed
-            except TclError:
-                pass
+        if try_to_lift_window(cls.driver_path_dialog):
+            parent.wait_window(cls.driver_path_dialog)
+            return cls.driver_path_dialog.path_has_changed
 
         cls.driver_path_dialog = DriverPathDialog(
             parent,
@@ -437,8 +430,8 @@ class Stage3DSmarAct(Stage):
             self.connected = False
             self.handle = None
 
-
     # Stage settings method
+
     @assert_driver_loaded
     @assert_stage_connected
     def find_reference_mark(self):
