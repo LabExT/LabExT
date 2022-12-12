@@ -18,6 +18,9 @@ from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWind
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Controls.Wizard import Step, Wizard
+from LabExT.View.Controls.ParameterTable import ParameterTable
+
+from LabExT.Measurements.MeasAPI.Measparam import MeasParamAuto
 
 from LabExT.Movement.config import Orientation, DevicePort, Axis, Direction
 from LabExT.Movement.Stage import Stage, StageError
@@ -81,8 +84,16 @@ class StageWizard(Wizard):
             else:
                 return False
 
+        self.stage_assignment_step.update_polygon_cfg()
         for stage, assignment in self.stage_assignment_step.assignment.items():
-            orientation, port, polygon_cls = assignment
+            orientation, port = assignment
+
+            polygon_cls, polygon_cls_cfg = self.stage_assignment_step.polygon_cfg.get(stage, (
+                self.stage_assignment_step.DEFAULT_POLYGON,
+                self.stage_assignment_step.DEFAULT_POLYGON.get_default_parameters()))
+            stage_polygon = polygon_cls(
+                orientation, parameters=polygon_cls_cfg)
+
             try:
                 run_with_wait_window(
                     self,
@@ -91,7 +102,7 @@ class StageWizard(Wizard):
                         stage=stage,
                         orientation=orientation,
                         port=port,
-                        stage_polygon=polygon_cls(orientation)))
+                        stage_polygon=stage_polygon))
             except (ValueError, MoverError, StageError) as e:
                 self.mover.reset_calibrations()
                 messagebox.showerror(
@@ -388,10 +399,11 @@ class StageAssignmentStep(Step):
         pg.__name__: pg for pg in StagePolygon.find_polygon_classes()}
 
     ASSIGNMENT_MENU_PLACEHOLDER = "-- unused --"
+
+    DEFAULT_POLYGON = SingleModeFiber
     DEFAULT_ASSIGNMENT = (
         ASSIGNMENT_MENU_PLACEHOLDER,
-        DevicePort.INPUT,
-        SingleModeFiber)
+        DevicePort.INPUT)
 
     def __init__(self, wizard, mover) -> None:
         """
@@ -412,10 +424,14 @@ class StageAssignmentStep(Step):
         self.mover: Type[MoverNew] = mover
 
         self.assignment = {
-            c.stage: (o, p, c.stage_polygon.__class__)
+            c.stage: (o, p)
             for (o, p), c in self.mover.calibrations.items()}
+        self.polygon_cfg = {
+            c.stage: (c.stage_polygon.__class__, c.stage_polygon.parameters)
+            for c in self.mover.calibrations.values()}
 
         self.orientation_vars, self.port_vars, self.polygon_vars = self._build_assignment_variables()
+        self._stage_polygon_parameter_tables = {}
 
     def build(self, frame: Type[CustomFrame]) -> None:
         """
@@ -501,6 +517,27 @@ class StageAssignmentStep(Step):
                 available_stage_frame, text="Stage Orientation:"
             ).pack(side=RIGHT, fill=X, padx=5)
 
+            # Enable configuration if orientation is selected
+            if self.orientation_vars[avail_stage].get(
+            ) != self.ASSIGNMENT_MENU_PLACEHOLDER:
+                polygon_cfg_frame = Frame(stage_assignment_frame)
+                polygon_cfg_frame.pack(side=TOP, fill=X)
+
+                polygon_cls, polygon_cls_cfg = self.polygon_cfg.get(
+                    avail_stage, (self.DEFAULT_POLYGON, self.DEFAULT_POLYGON.get_default_parameters()))
+                polygon_params = {
+                    l: MeasParamAuto(
+                        value=v) for l,
+                    v in polygon_cls_cfg.items()}
+
+                polygon_cfg_table = ParameterTable(polygon_cfg_frame)
+                polygon_cfg_table.title = f"Configure Polygon: {polygon_cls.__name__}"
+                polygon_cfg_table.parameter_source = polygon_params
+                polygon_cfg_table.pack(
+                    side=TOP, fill=X, expand=0, padx=2, pady=2)
+
+                self._stage_polygon_parameter_tables[avail_stage] = polygon_cfg_table
+
     def on_reload(self) -> None:
         """
         Callback, when wizard step gets reloaded.
@@ -512,7 +549,7 @@ class StageAssignmentStep(Step):
             self.wizard.set_error("Please assign at least one to proceed.")
             return
 
-        orientations, ports, _ = zip(*self.assignment.values())
+        orientations, ports = zip(*self.assignment.values())
         double_orientations = len(orientations) != len(set(orientations))
         ports_orientations = len(ports) != len(set(ports))
         if double_orientations or ports_orientations:
@@ -532,17 +569,36 @@ class StageAssignmentStep(Step):
         port = self.port_vars[stage].get()
         orientation = self.orientation_vars[stage].get()
         polygon_cls_name = self.polygon_vars[stage].get()
+        polygon_cls = self.POLYGON_OPTIONS[polygon_cls_name]
 
         if orientation == self.ASSIGNMENT_MENU_PLACEHOLDER:
             self.assignment.pop(stage, None)
             self.wizard.__reload__()
             return
 
+        if stage in self._stage_polygon_parameter_tables:
+            polygon_cls_cfg = self._stage_polygon_parameter_tables[stage].make_json_able(
+            )
+        else:
+            polygon_cls_cfg = polygon_cls.get_default_parameters()
+
+        self.polygon_cfg[stage] = (polygon_cls, polygon_cls_cfg)
         self.assignment[stage] = (
             Orientation[orientation.upper()],
-            DevicePort[port.upper()],
-            self.POLYGON_OPTIONS[polygon_cls_name])
+            DevicePort[port.upper()])
+
         self.wizard.__reload__()
+
+    def update_polygon_cfg(self) -> None:
+        """
+        Updates polygon configuration by reading values from table.
+        """
+        for stage, polygon_cfg_table in self._stage_polygon_parameter_tables.items():
+            polygon_cls_name = self.polygon_vars[stage].get()
+            polygon_cls = self.POLYGON_OPTIONS[polygon_cls_name]
+
+            self.polygon_cfg[stage] = (
+                polygon_cls, polygon_cfg_table.make_json_able())
 
     def _build_assignment_variables(self) -> tuple:
         """
@@ -553,8 +609,10 @@ class StageAssignmentStep(Step):
         polygon_vars = {}
 
         for stage in self.mover.available_stages:
-            orientation, port, polygon_cls = self.assignment.get(
+            orientation, port = self.assignment.get(
                 stage, self.DEFAULT_ASSIGNMENT)
+            polygon_cls, _ = self.polygon_cfg.get(
+                stage, (self.DEFAULT_POLYGON, {}))
 
             port_var = StringVar(self.wizard, port)
             port_var.trace(
