@@ -9,13 +9,14 @@ import datetime
 import json
 import logging
 import sys
+import os
 import webbrowser
 from threading import Thread
-from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, Button, TclError, font
+from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, font
 
-from LabExT.Utils import run_with_wait_window, get_author_list, try_to_lift_window
+from LabExT.Utils import get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
-from LabExT.View.Controls.ParameterTable import ParameterTable, ConfigParameter
+from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 from LabExT.View.ExperimentWizard.ExperimentWizardController import ExperimentWizardController
 from LabExT.View.Exporter import Exporter
 from LabExT.View.ExtraPlots import ExtraPlots
@@ -23,7 +24,6 @@ from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugge
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
-from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
 from LabExT.View.Movement import (
     CalibrationWizard,
     MoverWizard,
@@ -194,6 +194,12 @@ class MListener:
         """
         sys.exit(0)
 
+    def client_restart(self):
+        """
+        Called when user wants to restart the applications.
+        """
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
     def client_setup_stages(self):
         """
         Open wizard to setup the stages.
@@ -319,10 +325,28 @@ class MListener:
     def client_stage_driver_settings(self):
         """ opens the stage driver settings dialog """
         if try_to_lift_window(self.stage_driver_settings_dialog_toplevel):
-            return
+            self._root.wait_window(
+                self.stage_driver_settings_dialog_toplevel)
+        else:
+            self.stage_driver_settings_dialog_toplevel = DriverPathDialog(
+                self._root,
+                settings_file_path="mcsc_module_path.txt",
+                title="Stage Driver Settings",
+                label="SmarAct MCSControl driver module path",
+                hint="Specify the directory where the module MCSControl_PythonWrapper is found.\nThis is external software,"
+                "provided by SmarAct GmbH and is available from them. See https://smaract.com.")
+            self._root.wait_window(
+                self.stage_driver_settings_dialog_toplevel)
 
-        sdd = StageDriverSettingsDialog(self._root)
-        self.stage_driver_settings_dialog_toplevel = sdd.wizard_window
+        if self.stage_driver_settings_dialog_toplevel.path_has_changed:
+            if messagebox.askokcancel(
+                "Stage Driver Path changed",
+                "The path to the driver of the SmarAct MCSControl Interface was successfully changed."\
+                "LabExT must be restarted for the changes to take effect. Do you want to restart LabExT now?",
+                parent=self._root):
+                self.client_restart()
+
+       
 
     def client_documentation(self):
         """ Opens the documentation in a new browser session. """

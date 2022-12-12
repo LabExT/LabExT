@@ -40,11 +40,8 @@ class DriverPathDialogTest(TKinterTestCase):
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path'):
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
                 dialog = DriverPathDialog(self.root, settings_file_path)
+                dialog._save_button.invoke()
 
-                with patch('LabExT.View.Controls.DriverPathDialog.messagebox.showinfo') as messagebox_mock:
-                    dialog._save_button.invoke()
-
-                messagebox_mock.assert_called_once()
                 self.assertEqual(Path(dialog.driver_path), Path(current_driver_path))
                 self.assertFalse(dialog.path_has_changed)
 
@@ -56,12 +53,9 @@ class DriverPathDialogTest(TKinterTestCase):
         with patch('LabExT.View.Controls.DriverPathDialog.get_configuration_file_path'):
             with patch('builtins.open', mock_open(read_data=json.dumps(current_driver_path))):
                 dialog = DriverPathDialog(self.root, settings_file_path)
+                dialog._driver_path_entry.delete(0, "end")
+                dialog._driver_path_entry.insert(0, new_driver_path)
+                dialog._save_button.invoke()
 
-                with patch('LabExT.View.Controls.DriverPathDialog.messagebox.showinfo') as messagebox_mock:
-                    dialog._driver_path_entry.delete(0, "end")
-                    dialog._driver_path_entry.insert(0, new_driver_path)
-                    dialog._save_button.invoke()
-
-                messagebox_mock.assert_called_once()
                 self.assertEqual(Path(dialog.driver_path), Path(new_driver_path))
                 self.assertTrue(dialog.path_has_changed)
