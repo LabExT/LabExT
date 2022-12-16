@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 import numpy as np
 
-from tkinter import Frame, Toplevel, Button, Label, StringVar, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y, SUNKEN
+from tkinter import W, Frame, Toplevel, Button, Label, StringVar, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y, SUNKEN
 from typing import Callable, Type
 from LabExT.Utils import run_with_wait_window
 from LabExT.View.Controls.CustomFrame import CustomFrame
@@ -170,23 +170,31 @@ class CoordinatePairingsWindow(Toplevel):
                 frame, self.mover.output_calibration).pack(
                 side=TOP, fill=X)
 
-        if self.experiment_manager:
-            shortcuts_frame = CustomFrame(self._main_frame)
-            shortcuts_frame.pack(side=TOP, fill=X, pady=5)
+        shortcuts_frame = CustomFrame(self._main_frame)
+        shortcuts_frame.pack(side=TOP, fill=X, pady=5)
 
+        refresh_kabsch_button = Button(
+            shortcuts_frame,
+            text="Recalculate Kabsch Properties",
+            state=NORMAL if self._device else DISABLED,
+            command=self.__reload__)
+        refresh_kabsch_button.pack(
+            side=LEFT, fill=Y, pady=5, padx=5, expand=0)
+
+        if self.experiment_manager:
             search_for_peak_button = Button(
                 shortcuts_frame,
                 text="Perform Search for Peak...",
                 command=self.experiment_manager.main_window.open_peak_searcher)
             search_for_peak_button.pack(
-                side=RIGHT, fill=Y, pady=5, expand=0)
+                side=RIGHT, fill=Y, pady=5, padx=5, expand=0)
 
             live_viewer_button = Button(
                 shortcuts_frame,
                 text="Open Live Viewer...",
                 command=self.experiment_manager.main_window.open_live_viewer)
             live_viewer_button.pack(
-                side=RIGHT, fill=Y, pady=5, expand=0)
+                side=RIGHT, fill=Y, pady=5, padx=5, expand=0)
 
     def __reload__(self) -> None:
         """
@@ -385,21 +393,13 @@ class CoordinatePairingsWindow(Toplevel):
         new_chip_coords = np.append(old_chip_coords, np.array(
             [curr_pairing.chip_coordinate.to_numpy()]).T, axis=1)
 
-        if old_chip_coords.shape[1] >= 3 and old_stage_coords.shape[1] >= 3:
-            old_rotation, _, _, _, old_rmsd = rigid_transform_with_orientation_preservation(
-                old_chip_coords, old_stage_coords, axes_rotation=calibration._axes_rotation.matrix)
-            _, old_angle_deg, _ = calculate_z_plane_angle(old_rotation)
-        else:
-            old_rmsd = 0
-            old_angle_deg = 0
+        old_rotation, _, _, _, old_rmsd = rigid_transform_with_orientation_preservation(
+            old_chip_coords, old_stage_coords, axes_rotation=calibration._axes_rotation.matrix)
+        _, old_angle_deg, _ = calculate_z_plane_angle(old_rotation)
 
-        if new_chip_coords.shape[1] >= 3 and new_stage_coords.shape[1] >= 3:
-            new_rotation, _, _, _, new_rmsd = rigid_transform_with_orientation_preservation(
-                new_chip_coords, new_stage_coords, axes_rotation=calibration._axes_rotation.matrix)
-            _, new_angle_deg, _ = calculate_z_plane_angle(new_rotation)
-        else:
-            new_rmsd = 0
-            new_angle_deg = 0
+        new_rotation, _, _, _, new_rmsd = rigid_transform_with_orientation_preservation(
+            new_chip_coords, new_stage_coords, axes_rotation=calibration._axes_rotation.matrix)
+        _, new_angle_deg, _ = calculate_z_plane_angle(new_rotation)
 
         live_kabsch_frame = CustomFrame(parent)
         live_kabsch_frame.title = "Kabsch Properties:"
@@ -415,18 +415,18 @@ class CoordinatePairingsWindow(Toplevel):
         Label(
             live_kabsch_frame,
             text="Root-Mean-Square Deviation:"
-        ).grid(row=0, column=0, padx=(0, 5))
+        ).grid(row=0, column=0, padx=(0, 5), sticky=W)
         Label(
             live_kabsch_frame,
             text="{:.2f} um from {:.2f} um".format(
                 old_rmsd, new_rmsd)
-        ).grid(row=0, column=1, padx=(0, 5))
+        ).grid(row=0, column=1, padx=(0, 5), sticky=W)
         Label(
             live_kabsch_frame,
             text="{:.2f}% {}".format(
                 rmsd_change, "increase" if rmsd_change > 0 else "decrease"),
             foreground="#FF3333" if rmsd_change > 0 else "#4BB543"
-        ).grid(row=0, column=2)
+        ).grid(row=0, column=2, sticky=W)
 
         angle_change = get_relative_change(new_angle_deg, old_angle_deg)
         Label(
