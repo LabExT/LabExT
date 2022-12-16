@@ -535,7 +535,7 @@ class RigidTransformationTest(unittest.TestCase):
         start_dataset = np.random.rand(3, N)
         target_dataset = (R @ start_dataset) + t
 
-        R_ret, t_ret, R_inv_ret, t_inv_ret = rigid_transform_with_orientation_preservation(
+        R_ret, t_ret, R_inv_ret, t_inv_ret, rmsd = rigid_transform_with_orientation_preservation(
             S=start_dataset,
             T=target_dataset)
 
@@ -544,6 +544,8 @@ class RigidTransformationTest(unittest.TestCase):
 
         self.assert_rmse_less_than(target_dataset_ret, target_dataset, 1e-5)
         self.assert_rmse_less_than(start_dataset_ret, start_dataset, 1e-5)
+        
+        self.assertAlmostEqual(rmsd, 0.0)
 
 
 class KabschRotationTest(unittest.TestCase):

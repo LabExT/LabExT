@@ -732,6 +732,8 @@ class KabschRotation(Transformation):
         self.rotation_to_stage = None
         self.translation_to_stage = None
 
+        self.rmsd = 0.0
+
     def __str__(self) -> str:
         if not self.is_valid:
             return "No valid rotation defined ({}/{} Points set)".format(
@@ -792,7 +794,7 @@ class KabschRotation(Transformation):
         # -> R * Chip-Coordinates + t = Stage-Coordinates
         # -> R^-1 * Stage-Coordinates + t' = Chip-Coordinates
 
-        self.rotation_to_stage, self.translation_to_stage, self.rotation_to_chip, self.translation_to_chip = rigid_transform_with_orientation_preservation(
+        self.rotation_to_stage, self.translation_to_stage, self.rotation_to_chip, self.translation_to_chip, self.rmsd = rigid_transform_with_orientation_preservation(
             S=self.chip_coordinates, T=self.stage_coordinates, axes_rotation=self.axes_rotation.matrix)
 
     def get_z_plane_angles(self) -> Tuple[float, float, float]:
@@ -934,7 +936,7 @@ def rigid_transform_with_orientation_preservation(
     H = S_c @ np.transpose(T_c)
 
     # Calculate SVD: [U, S, V] = SVD(H)
-    U, _, V = np.linalg.svd(H)
+    U, Z, V = np.linalg.svd(H)
 
     # Calculate R
     R = V.T @ U.T
@@ -964,4 +966,9 @@ def rigid_transform_with_orientation_preservation(
     # Find translation for traget to start: R^-1T + t = S <=> t = S - R^-1T
     t_target_to_start = s_centroid - R_inv @ t_centroid
 
-    return R, t_start_to_target, R_inv, t_target_to_start
+    # See
+    # https://github.com/scipy/scipy/blob/main/scipy/spatial/transform/_rotation.pyx#L2619
+    rmsd = np.sqrt(max(
+        np.sum(np.sum(S_c ** 2 + T_c ** 2, axis=1)) - 2 * np.sum(Z), 0))
+
+    return R, t_start_to_target, R_inv, t_target_to_start, rmsd
