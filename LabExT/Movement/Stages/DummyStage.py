@@ -23,6 +23,8 @@ class DummyStage(Stage):
         driver_specifiable=False
     )
 
+    live_position_refreshing_rate = -1
+
     @classmethod
     def find_stage_addresses(cls):
         return [

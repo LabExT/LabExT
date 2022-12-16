@@ -27,7 +27,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         available_stages_mock.return_value = []
         stage_classes_mock.return_value = []
 
-        self.device = Device("101", [0,0], [1,1], "My Device 1")
+        self.device = Device("101", [0, 0], [1, 1], "My Device 1")
         self.chip = Chip("My Chip", [self.device])
         self.mover = MoverNew(None)
 
@@ -35,6 +35,8 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         self.stage_2 = Mock(spec=Stage)
         self.stage_1.connected = True
         self.stage_2.connected = True
+        self.stage_2.live_position_refreshing_rate = -1
+        self.stage_1.live_position_refreshing_rate = -1
 
         self.stage_1_position = [23744.60, -9172.55, 18956.10]
         self.stage_2_position = [23236.35, -7888.67, 18956.06]

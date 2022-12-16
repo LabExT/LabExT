@@ -62,6 +62,8 @@ class Stage(ABC):
     driver_loaded = False
     meta = StageMeta("", False)
 
+    live_position_refreshing_rate: int = -1
+
     @classmethod
     def find_stage_classes(cls, subdir="Stages") -> list:
         """

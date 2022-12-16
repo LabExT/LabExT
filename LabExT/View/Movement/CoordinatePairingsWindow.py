@@ -84,7 +84,7 @@ class CoordinatePairingsWindow(Toplevel):
 
         # Set up window
         self.title("New Chip-Stage-Coordinates Pairings")
-        self.geometry('{:d}x{:d}+{:d}+{:d}'.format(1000, 600, 200, 200))
+        self.geometry('{:d}x{:d}+{:d}+{:d}'.format(1100, 600, 200, 200))
         self.protocol('WM_DELETE_WINDOW', self.cancel)
 
         # Build window
@@ -165,6 +165,11 @@ class CoordinatePairingsWindow(Toplevel):
             self._calibration_pairing_widget(
                 frame, self.mover.output_calibration).pack(
                 side=TOP, fill=X)
+
+        position_hint = Label(
+            frame, text="When you click on 'Finish' to save the pairing, "
+            "the stage position is reread to guarantee the most current position of the stage.")
+        position_hint.pack(side=TOP, fill=X, pady=5)
 
         if self.experiment_manager:
             shortcuts_frame = CustomFrame(self._main_frame)

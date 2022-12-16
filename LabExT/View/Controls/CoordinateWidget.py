@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from typing import Type
-from tkinter import LEFT, SUNKEN, Frame, Label
+from tkinter import SUNKEN, Frame, Label
 
 from LabExT.Movement.config import Axis, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
@@ -26,14 +26,17 @@ class CoordinateWidget(Frame):
 
     def __setup__(self):
         coordinate_list = self._coordinate.to_list()
-        for axis in Axis:
-            Label(self, text="{}:".format(axis.name)).pack(side=LEFT)
+        for idx, axis in enumerate(Axis):
+            Label(
+                self,
+                text="{}:".format(axis.name)
+            ).grid(row=0, column=idx * 2)
             Label(
                 self,
                 text="{:.2f}".format(coordinate_list[axis.value]),
                 borderwidth=1,
                 relief=SUNKEN
-            ).pack(side=LEFT, ipadx=5, padx=(0, 5))
+            ).grid(row=0, column=idx * 2 + 1, ipadx=5, padx=(0, 5))
 
     @property
     def coordinate(self):
@@ -58,16 +61,17 @@ class StagePositionWidget(CoordinateWidget):
     Updates automatically. (1000 ms refreshing rate)
     """
 
-    REFRESHING_RATE = 1000  # [ms]
-
     def __init__(self, parent, calibration: Type[Calibration]):
+        """
+        Constructor.
+
+        Calls CoordinateWidget with current position.
+        """
         self.calibration = calibration
+        with calibration.perform_in_system(CoordinateSystem.STAGE):
+            super().__init__(parent, calibration.get_position())
 
-        with self.calibration.perform_in_system(CoordinateSystem.STAGE):
-            super().__init__(parent, self.calibration.get_position())
-
-        self._update_pos_job = self.after(
-            self.REFRESHING_RATE, self._refresh_position)
+        self._register_refresh_job()
 
     def __del__(self):
         """
@@ -75,8 +79,32 @@ class StagePositionWidget(CoordinateWidget):
 
         Cancels refreshing job.
         """
-        if self._update_pos_job:
-            self.after_cancel(self._update_pos_job)
+        if self._refresh_position_job:
+            self.after_cancel(self._refresh_position_job)
+
+    def __setup__(self):
+        super().__setup__()
+
+        if self.calibration.supports_live_position:
+            Label(
+                self,
+                text="(Updates automatically)"
+            ).grid(row=0, column=len(Axis) * 2)
+        else:
+            Label(
+                self,
+                text="(Does not update automatically)"
+            ).grid(row=0, column=len(Axis) * 2)
+
+    def _register_refresh_job(self) -> None:
+        """
+        Registers a job to refresh the stage position.
+        """
+        self._refresh_position_job = None
+        if self.calibration.supports_live_position:
+            self._refresh_position_job = self.after(
+                self.calibration.stage.live_position_refreshing_rate,
+                self._refresh_position)
 
     def _refresh_position(self):
         """
@@ -87,8 +115,7 @@ class StagePositionWidget(CoordinateWidget):
             with self.calibration.perform_in_system(CoordinateSystem.STAGE):
                 self.coordinate = self.calibration.get_position()
         except Exception as exc:
-            self.after_cancel(self._update_pos_job)
+            self.after_cancel(self._refresh_position_job)
             raise RuntimeError(exc)
 
-        self._update_pos_job = self.after(
-            self.REFRESHING_RATE, self._refresh_position)
+        self._register_refresh_job()
