@@ -733,6 +733,7 @@ class KabschRotation(Transformation):
         self.translation_to_stage = None
 
         self.rmsd = 0.0
+        self.z_plane_angle = (0.0, 0.0, 0.0)
 
     def __str__(self) -> str:
         if not self.is_valid:
@@ -796,32 +797,7 @@ class KabschRotation(Transformation):
 
         self.rotation_to_stage, self.translation_to_stage, self.rotation_to_chip, self.translation_to_chip, self.rmsd = rigid_transform_with_orientation_preservation(
             S=self.chip_coordinates, T=self.stage_coordinates, axes_rotation=self.axes_rotation.matrix)
-
-    def get_z_plane_angles(self) -> Tuple[float, float, float]:
-        """
-        Calculates the angle between the XY plane
-        and the plane reconstructed by the Kabsch.
-
-        Returns
-        -------
-        radiant, degree, percentage
-            Angle in Radiant, Degree and Percentage
-            between XY plane and Chip plane.
-        """
-        if not self.is_valid:
-            return None
-
-        xy_plane_normal = np.array([0, 0, 1])
-        chip_plane_normal = self.rotation_to_stage.dot(xy_plane_normal)
-
-        cos = np.abs(xy_plane_normal.dot(chip_plane_normal)) / \
-            (np.linalg.norm(chip_plane_normal))
-
-        angle_rad = np.arccos(cos)
-        angle_deg = np.rad2deg(angle_rad)
-        angle_per = np.tan(angle_rad) * 100
-
-        return angle_rad, angle_deg, angle_per
+        self.z_plane_angle = calculate_z_plane_angle(self.rotation_to_stage)
 
     @assert_valid_transformation
     def chip_to_stage(
@@ -972,3 +948,29 @@ def rigid_transform_with_orientation_preservation(
         np.sum(np.sum(S_c ** 2 + T_c ** 2, axis=1)) - 2 * np.sum(Z), 0))
 
     return R, t_start_to_target, R_inv, t_target_to_start, rmsd
+
+
+def calculate_z_plane_angle(
+    rotation_matrix: np.ndarray
+) -> Tuple[float, float, float]:
+    """
+    Calculates the angle between the XY plane
+    and the plane reconstructed by the Kabsch.
+
+    Returns
+    -------
+    radiant, degree, percentage
+        Angle in Radiant, Degree and Percentage
+        between XY plane and Chip plane.
+    """
+    xy_plane_normal = np.array([0, 0, 1])
+    chip_plane_normal = rotation_matrix.dot(xy_plane_normal)
+
+    cos = np.abs(xy_plane_normal.dot(chip_plane_normal)) / \
+        (np.linalg.norm(chip_plane_normal))
+
+    angle_rad = np.arccos(cos)
+    angle_deg = np.rad2deg(angle_rad)
+    angle_per = np.tan(angle_rad) * 100
+
+    return angle_rad, angle_deg, angle_per
