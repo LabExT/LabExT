@@ -1097,12 +1097,18 @@ class CoordinatePairingStep(Step):
                 sticky=W)
 
             if calibration._kabsch_rotation.is_valid:
-                rad, deg, per = calibration._kabsch_rotation.get_z_plane_angles()
+                rad, deg, per = calibration._kabsch_rotation.z_plane_angle
+                rmsd = calibration._kabsch_rotation.rmsd
                 Label(
                     stage_calibration_frame,
                     text="Angle between XY Plane: "
                     "{:.2f} rad - {:.2f}° - {:.2f}%".format(rad, deg, per)
                 ).grid(row=2, column=1, padx=2, pady=2, sticky=W)
+                Label(
+                    stage_calibration_frame,
+                    text="Root-Mean-Square Error: "
+                    "{:.2f} um".format(rmsd)
+                ).grid(row=3, column=1, padx=2, pady=2, sticky=W)
 
         # FRAME FOR NEW PAIRING
         new_pairing_frame = CustomFrame(frame)
