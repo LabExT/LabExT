@@ -10,6 +10,7 @@ import logging
 import os
 from tkinter import DoubleVar, StringVar, BooleanVar, IntVar, Label, Entry, Checkbutton, filedialog, Button, \
     OptionMenu, TclError
+from typing import Union
 
 from LabExT.Measurements.MeasAPI import *
 from LabExT.Utils import get_configuration_file_path
@@ -77,6 +78,15 @@ class ConfigParameter(object):
         return d
 
 
+def link_state_to_variable_inverted(widget: Union[Label, Entry], bvar: BooleanVar):
+    def fct(*args):
+        if bvar.get():
+            widget.config(state='disabled')
+        else:
+            widget.config(state='normal')
+    return fct
+
+
 class ParameterTable(CustomFrame):
     """A ui control that creates a table from a given set of
     parameters so they can easily be set from the ui."""
@@ -106,7 +116,7 @@ class ParameterTable(CustomFrame):
             self.setup_measparam()
             self.__setup__()
 
-    def __init__(self, parent, customwidth=20, store_callback=None, *args, **kwargs):
+    def __init__(self, parent, customwidth=20, store_callback=None, show_sweep_column=False, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self._parameter_source = None
         self._root = parent  # keep reference to the ui parent
@@ -114,6 +124,8 @@ class ParameterTable(CustomFrame):
         self.set_from_meas_param = False
         self.new_source = []
         self.store_callback = store_callback
+        self.show_sweep_column = show_sweep_column
+        self.sweep_checkbox_vars = []
         self.__setup__()  # draw the table
 
     def __setup__(self):
@@ -122,8 +134,19 @@ class ParameterTable(CustomFrame):
         if self.parameter_source is None:
             return
 
+        # place sweep column header if enabled
+        if self.show_sweep_column:
+            self.add_widget(Label(self, text='sweep?'),
+                            row=0,
+                            column=3,
+                            sticky='w')
+            self.rowconfigure(0, weight=1)
+            self.columnconfigure(3, weight=1)
+            r = 1
+        else:
+            r = 0
+
         # add the fields for all the parameters
-        r = 0
         for parameter_name in self.parameter_source:
             parameter = self.parameter_source[parameter_name]  # get the next parameter
             self.add_widget(Label(self, text='{}:'.format(parameter_name)),
@@ -153,15 +176,30 @@ class ParameterTable(CustomFrame):
                                 column=1,
                                 sticky='we')
             else:
-                self.add_widget(Entry(self,
-                                      textvariable=parameter.variable,
-                                      width=self._customwidth,
-                                      state='normal' if parameter.allow_user_changes else 'disabled'),
+
+                param_entry = Entry(self, textvariable=parameter.variable, width=self._customwidth,
+                                    state=('normal' if parameter.allow_user_changes else 'disabled'))
+
+                self.add_widget(param_entry,
                                 row=r,
                                 column=1,
                                 padx=5,
                                 sticky='we')
                 self.columnconfigure(1, weight=2)
+
+                if parameter.allow_user_changes \
+                        and parameter.parameter_type in ['number_float', 'number_int'] \
+                        and self.show_sweep_column:
+                    swp = {
+                        'param': parameter,
+                        'entry': param_entry,
+                        'var': BooleanVar(value=False)
+                    }
+                    swp['var'].trace('w', link_state_to_variable_inverted(param_entry, swp['var']))
+                    self.sweep_checkbox_vars.append(swp)
+
+                    self.add_widget(Checkbutton(self, variable=swp['var']),
+                                    row=r, column=3, sticky='we')
 
             if parameter.unit is not None:
                 self.add_widget(Label(self, text='[{}]'.format(parameter.unit)),
@@ -300,6 +338,10 @@ class ParameterTable(CustomFrame):
         if self.set_from_meas_param and self._parameter_source is not None:
             if self.store_callback is not None:
                 self.store_callback(self.to_meas_param())
+
+    def clear(self):
+        self.sweep_checkbox_vars.clear()
+        super().clear()
 
     def destroy(self):
         try:

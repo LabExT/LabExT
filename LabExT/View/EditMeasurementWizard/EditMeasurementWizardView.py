@@ -272,7 +272,8 @@ class EditMeasurementWizardView:
         stage_frame.grid(row=stage, column=0, padx=5, pady=5, sticky='we')
 
         self.s3_measurement_param_table = ParameterTable(stage_frame,
-                                                         store_callback=self.model.s1_measurement.store_new_param)
+                                                         store_callback=self.model.s1_measurement.store_new_param,
+                                                         show_sweep_column=True)
         self.s3_measurement_param_table.title = 'Parameters of ' + str(self.model.s1_measurement.name)
         self.s3_measurement_param_table.parameter_source = self.model.s1_measurement.get_default_parameter()
         stage_frame.add_widget(self.s3_measurement_param_table, row=0, column=0, padx=5, pady=5, sticky='we')
