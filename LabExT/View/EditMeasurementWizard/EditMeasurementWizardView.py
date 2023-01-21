@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
-from tkinter import Toplevel, Button, StringVar, OptionMenu, Label
+from tkinter import Toplevel, Button, StringVar, OptionMenu, Label, TclError
 
 from LabExT.View.Controls.AdhocDeviceFrame import AdhocDeviceFrame
 from LabExT.View.Controls.CustomFrame import CustomFrame
@@ -48,7 +48,10 @@ class WizardScrollableFrame(ScrollableFrame):
         self._unbound_to_mousewheel(None)
 
     def _on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        try:
+            self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        except TclError:
+            self.unbound_mouse_wheel()
 
 
 class EditMeasurementWizardView:
