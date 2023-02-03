@@ -58,7 +58,7 @@ class AddonSettingsDialog:
         #
         # top level hint
         #
-        hint = "Addons in LabExT are additional Instrument or Measurement sub-classes loaded from anywhere on" \
+        hint = "Addons in LabExT are additional Instrument, Measurement or Stage sub-classes loaded from anywhere on" \
                " your harddrive."
         top_hint = Label(self.wizard_window, text=hint)
         top_hint.grid(row=0, column=0, padx=5, pady=5, sticky='nswe')
@@ -91,7 +91,7 @@ class AddonSettingsDialog:
         #
 
         # place hint
-        hint = "The following two tables show the names and module path of all loaded Measurement and Instrument " \
+        hint = "The following tables show the names and module path of all loaded Measurement, Instrument, CardFrame and Stage " \
                "sub-classes."
         top_hint = Label(self.wizard_window, text=hint)
         top_hint.grid(row=2, column=0, padx=5, pady=5, sticky='nswe')
@@ -139,6 +139,20 @@ class AddonSettingsDialog:
                     selectmode='none')  # custom table inserts itself into the parent frame
 
         #
+        # table with paths for all loaded stage classes
+        #
+        loaded_stage_frame = CustomFrame(self.wizard_window)
+        loaded_stage_frame.title = " currently loaded Stage classes "
+        loaded_stage_frame.grid(row=6, column=0, padx=5, pady=5, sticky='nswe')
+        loaded_stage_frame.columnconfigure(0, weight=1)
+        loaded_stage_frame.rowconfigure(0, weight=1)
+
+        CustomTable(parent=loaded_stage_frame,
+                columns=('Stage class', 'imported from'),
+                rows=self._get_loaded_stages_and_paths(),
+                selectmode='none')  # custom table inserts itself into the parent frame
+
+        #
         # bottom row buttons
         #
         quit_button = Button(self.wizard_window,
@@ -146,13 +160,13 @@ class AddonSettingsDialog:
                              command=self.close_dialog,
                              width=30,
                              height=1)
-        quit_button.grid(row=6, column=0, padx=5, pady=5, sticky='sw')
+        quit_button.grid(row=7, column=0, padx=5, pady=5, sticky='sw')
         save_button = Button(self.wizard_window,
                              text="Save and Close",
                              command=self.save_and_close,
                              width=30,
                              height=1)
-        save_button.grid(row=6, column=0, padx=5, pady=5, sticky='se')
+        save_button.grid(row=7, column=0, padx=5, pady=5, sticky='se')
 
     def _get_addon_search_paths_string(self):
         return "\n".join(self._exp_mgr.addon_settings['addon_search_directories'])
@@ -179,6 +193,15 @@ class AddonSettingsDialog:
             ret_list.append((v.__name__, k, ''))
             for vi in v.PluginLoader_module_path:
                 ret_list.append(('    ->', '', vi))
+        return ret_list
+
+    def _get_loaded_stages_and_paths(self) -> list:
+        ret_list = []
+        for k,v in self._exp_mgr.mover.stage_classes.items():
+            ret_list.append((v.__name__, k, ''))
+            for vi in v.PluginLoader_module_path:
+                ret_list.append(('    ->', '', vi))
+
         return ret_list
 
     def save_and_close(self, *args):

@@ -346,9 +346,9 @@ class StageDriverStep(Step):
         ).pack(side=TOP, fill=X)
 
         if not self.mover.stage_classes:
-            Label(frame, text="No stage classes found!").pack(side=TOP, fill=X)
+            Label(frame, text="No stage classes found!", foreground="#FF3333").pack(side=TOP, fill=X)
 
-        for stage_cls in self.mover.stage_classes:
+        for stage_name, stage_cls in self.mover.stage_classes.items():
             stage_driver_frame = Frame(frame)
             stage_driver_frame.pack(side=TOP, fill=X, pady=2)
 

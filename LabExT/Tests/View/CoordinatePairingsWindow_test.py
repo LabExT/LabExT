@@ -25,7 +25,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:
         super().setUp()
         available_stages_mock.return_value = []
-        stage_classes_mock.return_value = []
+        stage_classes_mock.return_value = {}
 
         self.device = Device("101", [0,0], [1,1], "My Device 1")
         self.chip = Chip("My Chip", [self.device])

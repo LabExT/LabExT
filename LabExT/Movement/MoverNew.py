@@ -95,7 +95,7 @@ class MoverNew:
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
-        self._stage_classes: List[Stage] = []
+        self._stage_classes: Dict[str, Stage] = {}
         self._available_stages: List[Type[Stage]] = []
 
         # Mover calibrations
@@ -107,13 +107,6 @@ class MoverNew:
         self._speed_z = self.DEFAULT_SPEED_Z
         self._acceleration_xy = self.DEFAULT_ACCELERATION_XY
         self._z_lift = self.DEFAULT_Z_LIFT
-
-        # Check for loaded stage classes and connected stages
-        self.reload_stages()
-        self.reload_stage_classes()
-
-        # Check for mover settings
-        self.load_settings()
 
     def reset(self):
         """
@@ -191,7 +184,12 @@ class MoverNew:
         """
         Loads all Stage classes.
         """
-        self._stage_classes = Stage.find_stage_classes()
+        addon_paths = []
+        if self.experiment_manager.addon_settings:
+            addon_paths = self.experiment_manager.addon_settings['addon_search_directories']
+
+        self._stage_classes = Stage.find_stage_classes(
+            search_paths=addon_paths)
 
     #
     #   Properties
@@ -208,7 +206,7 @@ class MoverNew:
         return min(c.state for c in self.calibrations.values())
 
     @property
-    def stage_classes(self) -> List[Stage]:
+    def stage_classes(self) -> Dict[str, Stage]:
         """
         Returns a list of all Stage classes.
         Read-only.

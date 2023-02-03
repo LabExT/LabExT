@@ -201,6 +201,10 @@ class ExperimentManager:
         self.exp.import_measurement_classes()
         # then we load all Instruments
         self.instrument_api.load_all_instruments()
+        # then we load all Stages and Settings
+        self.mover.reload_stage_classes()
+        self.mover.reload_stages()
+        self.mover.load_settings()
         # finally, we load all cards for the liveviewer
         self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(experiment_manager=self)
         # then we generate the documentation

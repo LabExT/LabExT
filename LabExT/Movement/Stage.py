@@ -70,16 +70,40 @@ class Stage(ABC):
     _logger = logging.getLogger()
 
     @classmethod
-    def find_stage_classes(cls, subdir="Stages") -> list:
+    def find_stage_classes(
+        cls,
+        search_paths: list = [],
+    ) -> dict:
         """
-        Returns a list of all classes which inherit from this class.
+        Loads stage classes from LabExT Core and from addon paths.
 
-        Needs to import Stages module first.
+        Parameters
+        ----------
+        search_paths : list = []
+            List of search paths in which to search.
+
+        Returns
+        -------
+        stages_classes : dict
+            A dictionary of stage classes indexed with class names.
         """
-        search_path = join(dirname(__file__), subdir)
+        core_search_path = join(dirname(__file__), 'Stages')
+        # prioritize LabExT Core stages over Add-On Stages
+        search_paths.insert(0, core_search_path)
+
         plugin_loader = PluginLoader()
+        stages_classes = {}
 
-        return [*plugin_loader.load_plugins(search_path, cls).values()]
+        for path in search_paths:
+            stage_plugins = plugin_loader.load_plugins(
+                path, plugin_base_class=cls, recursive=True)
+            # Existing stage classes are not overwritten.
+            stages_classes = {**stage_plugins, **stages_classes}
+
+        cls._logger.debug(
+            'Available stages loaded. Found: %s', [
+                k for k in stages_classes.keys()])
+        return stages_classes
 
     @classmethod
     def find_available_stages(cls):
@@ -89,13 +113,14 @@ class Stage(ABC):
         Note: The stage is not yet connected.
         """
         stages = []
-        for stage_class in cls.find_stage_classes():
+        stage_classes = cls.find_stage_classes()
+        for _, stage_cls in stage_classes.items():
             try:
-                addresses = stage_class.find_stage_addresses()
+                addresses = stage_cls.find_stage_addresses()
             except StageError:
                 continue
             for address in addresses:
-                stages.append(stage_class(address))
+                stages.append(stage_cls(address))
 
         return stages
 
