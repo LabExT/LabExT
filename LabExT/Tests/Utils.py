@@ -55,19 +55,6 @@ def get_calibrations_from_file(chip_file: str, stage_orientation: str) -> tuple:
 
     return axes_rotation, stage_coordinates, chip_coordinates
 
-
-def with_stage_discovery_patch(func):
-    """
-    Patches the Stage classmethods `find_available_stages` and `find_stage_classes`.
-    Reason: When the mover is initialized, it automatically searches for all stage classes and for all attached stages.
-    The search for stages requires loaded drivers, which we do not want to call in test mode.
-    """
-    patch_stage_class_search = patch.object(Stage, "find_stage_classes")
-    patch_stage_discovery = patch.object(Stage, "find_available_stages")
-
-    return patch_stage_class_search(patch_stage_discovery(func))
-
-
 def mark_as_laboratory_test(cls):
     """ Decorator to mark test as laboratory tests. These will be excluded, when run on CI. """
     condition = pytest.skip_laboratory_tests if hasattr(pytest, 'skip_laboratory_tests') else False

@@ -9,10 +9,8 @@ import logging
 
 from functools import wraps
 from abc import ABC, abstractmethod
-from os.path import dirname, join
 from typing import List, Tuple, Any
 
-from LabExT.PluginLoader import PluginLoader
 
 class StageError(RuntimeError):
     pass
@@ -70,61 +68,6 @@ class Stage(ABC):
     _logger = logging.getLogger()
 
     @classmethod
-    def find_stage_classes(
-        cls,
-        search_paths: list = [],
-    ) -> dict:
-        """
-        Loads stage classes from LabExT Core and from addon paths.
-
-        Parameters
-        ----------
-        search_paths : list = []
-            List of search paths in which to search.
-
-        Returns
-        -------
-        stages_classes : dict
-            A dictionary of stage classes indexed with class names.
-        """
-        core_search_path = join(dirname(__file__), 'Stages')
-        # prioritize LabExT Core stages over Add-On Stages
-        search_paths.insert(0, core_search_path)
-
-        plugin_loader = PluginLoader()
-        stages_classes = {}
-
-        for path in search_paths:
-            stage_plugins = plugin_loader.load_plugins(
-                path, plugin_base_class=cls, recursive=True)
-            # Existing stage classes are not overwritten.
-            stages_classes = {**stage_plugins, **stages_classes}
-
-        cls._logger.debug(
-            'Available stages loaded. Found: %s', [
-                k for k in stages_classes.keys()])
-        return stages_classes
-
-    @classmethod
-    def find_available_stages(cls):
-        """
-        Returns a list of stage objects. Each object represents a found stage.
-
-        Note: The stage is not yet connected.
-        """
-        stages = []
-        stage_classes = cls.find_stage_classes()
-        for _, stage_cls in stage_classes.items():
-            try:
-                addresses = stage_cls.find_stage_addresses()
-            except StageError:
-                continue
-            for address in addresses:
-                stages.append(stage_cls(address))
-
-        return stages
-
-    @classmethod
     def find_stage_addresses(cls) -> list:
         """
         Returns a list of stage locators.
@@ -165,6 +108,20 @@ class Stage(ABC):
     def __del__(self):
         if self.connected:
             self.disconnect()
+
+    def __eq__(self, o: object) -> bool:
+        """
+        Compares two stage.
+
+        Two stages are equal, if they are of the same type and have the same address
+        """
+        if not isinstance(o, type(self)):
+            return False
+
+        return self.address == o.address
+
+    def __hash__(self) -> int:
+        return super().__hash__()
 
     @abstractmethod
     def __str__(self) -> str:

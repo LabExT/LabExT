@@ -346,7 +346,12 @@ class StageDriverStep(Step):
         ).pack(side=TOP, fill=X)
 
         if not self.mover.stage_classes:
-            Label(frame, text="No stage classes found!", foreground="#FF3333").pack(side=TOP, fill=X)
+            Label(
+                frame,
+                text="No stage classes found!",
+                foreground="#FF3333").pack(
+                side=TOP,
+                fill=X)
 
         for stage_name, stage_cls in self.mover.stage_classes.items():
             stage_driver_frame = Frame(frame)
@@ -385,8 +390,7 @@ class StageDriverStep(Step):
         if not stage_class.load_driver(self.wizard):
             return
 
-        self.mover.reload_stage_classes()
-        self.mover.reload_stages()
+        print("Restart!!")
         self.wizard.__reload__()
 
 

@@ -10,6 +10,7 @@ import os
 import logging
 
 from time import sleep, time
+from os.path import dirname, join
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
@@ -18,11 +19,12 @@ from contextlib import contextmanager
 
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
-from LabExT.Movement.Stage import Stage
+from LabExT.Movement.Stage import Stage, StageError
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
 from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning, StagePolygon
 
 from LabExT.Utils import get_configuration_file_path
+from LabExT.PluginLoader import PluginLoader
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -95,7 +97,12 @@ class MoverNew:
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
+        # Stage classes plugin
         self._stage_classes: Dict[str, Stage] = {}
+        self._plugin_loader = PluginLoader()
+        self._plugin_loader_stats: Dict[str, int] = {}
+
+        # Stages
         self._available_stages: List[Type[Stage]] = []
 
         # Mover calibrations
@@ -170,40 +177,68 @@ class MoverNew:
 
         _main_window.refresh_context_menu()
 
-    #
-    #   Reload properties
-    #
+    def import_stage_classes(self) -> None:
+        """
+        Imports all stage classes.
+        """
+        self._stage_classes.clear()
+        self._plugin_loader_stats.clear()
 
-    def reload_stages(self) -> None:
-        """
-        Loads all available stages.
-        """
-        self._available_stages = Stage.find_available_stages()
+        # prioritize LabExT Core stages over Add-On Stages
+        search_paths = [join(dirname(__file__), 'Stages')]
+        if self.experiment_manager:
+            search_paths += self.experiment_manager.addon_settings['addon_search_directories']
 
-    def reload_stage_classes(self) -> None:
-        """
-        Loads all Stage classes.
-        """
-        addon_paths = []
-        if self.experiment_manager.addon_settings:
-            addon_paths = self.experiment_manager.addon_settings['addon_search_directories']
+        for path in search_paths:
+            imported_stage_classes = self._plugin_loader.load_plugins(
+                path, plugin_base_class=Stage, recursive=True)
+            imported_stage_classes = {
+                k: v for k,
+                v in imported_stage_classes.items() if k not in self._stage_classes}
 
-        self._stage_classes = Stage.find_stage_classes(
-            search_paths=addon_paths)
+            self._plugin_loader_stats[path] = len(imported_stage_classes)
+            self._stage_classes.update(imported_stage_classes)
+
+        self.logger.debug(
+            'Available stages loaded. Found: %s', [
+                k for k in self._stage_classes.keys()])
+
+    def discover_available_stages(self) -> None:
+        """
+        Discover all stages available for the computer
+        """
+        # Refresh stage classes
+        self.import_stage_classes()
+
+        # Check for a stage classes and addresses
+        for stage_cls in self.stage_classes.values():
+            try:
+                stage_addresses = stage_cls.find_stage_addresses()
+            except StageError as err:
+                self.logger.error(
+                    f"Failed to load addresses for {stage_cls.__name__}: {err}")
+                continue
+
+            for address in stage_addresses:
+                stage = stage_cls(address)
+
+                if stage not in self._available_stages:
+                    self._available_stages.append(stage)
+
+        self.logger.info(
+            'Discovered available stages. Found: %s',
+            list(map(str, self._available_stages)))
 
     #
     #   Properties
     #
 
     @property
-    def state(self) -> State:
+    def plugin_loader_stats(self) -> Dict[str, int]:
         """
-        Returns the mover state, which is the lowest state of all calibrations
+        Returns a dict of stats after the import of stage classes.
         """
-        if not self.calibrations:
-            return State.UNINITIALIZED
-
-        return min(c.state for c in self.calibrations.values())
+        return self._plugin_loader_stats
 
     @property
     def stage_classes(self) -> Dict[str, Stage]:
@@ -246,6 +281,16 @@ class MoverNew:
         Returns a list of all connected stages.
         """
         return [s for s in self.active_stages if s.connected]
+
+    @property
+    def state(self) -> State:
+        """
+        Returns the mover state, which is the lowest state of all calibrations
+        """
+        if not self.calibrations:
+            return State.UNINITIALIZED
+
+        return min(c.state for c in self.calibrations.values())
 
     @property
     def has_connected_stages(self) -> bool:

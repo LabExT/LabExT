@@ -13,10 +13,9 @@ from parameterized import parameterized
 from LabExT.Movement.Stages.DummyStage import DummyStage
 from LabExT.Movement.Calibration import DevicePort, Orientation
 
-from LabExT.Movement.MoverNew import MoverError, MoverNew, Stage, assert_connected_stages
+from LabExT.Movement.MoverNew import MoverError, MoverNew, assert_connected_stages
 from LabExT.Movement.Transformations import ChipCoordinate
 from LabExT.Movement.config import Axis, Direction, CoordinateSystem
-from LabExT.Tests.Utils import with_stage_discovery_patch
 
 
 class AssertConnectedStagesTest(unittest.TestCase):
@@ -26,10 +25,7 @@ class AssertConnectedStagesTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.stage = DummyStage('usb:123456789')
-
-        with patch.object(Stage, "find_available_stages", return_value=[]):
-            with patch.object(Stage, "find_stage_classes", return_value={}):
-                self.mover = MoverNew(None)
+        self.mover = MoverNew(None)
 
         return super().setUp()
 
@@ -65,8 +61,7 @@ class AddStageCalibrationTest(unittest.TestCase):
     Tests adding new calibrations.
     """
 
-    @with_stage_discovery_patch
-    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+    def setUp(self) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
@@ -213,8 +208,7 @@ class MoverStageSettingsTest(unittest.TestCase):
     Tests stage settings.
     """
 
-    @with_stage_discovery_patch
-    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+    def setUp(self) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
@@ -414,11 +408,7 @@ class MoverStageSettingsTest(unittest.TestCase):
 
 class CanMoveRelativelyTest(unittest.TestCase):
 
-    @with_stage_discovery_patch
-    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
-        available_stages_mock.return_value = []
-        stage_classes_mock.return_value = {}
-
+    def setUp(self) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
@@ -470,11 +460,7 @@ class CanMoveRelativelyTest(unittest.TestCase):
 
 class RelativeMovementTest(unittest.TestCase):
 
-    @with_stage_discovery_patch
-    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
-        available_stages_mock.return_value = []
-        stage_classes_mock.return_value = {}
-
+    def setUp(self) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
@@ -564,11 +550,7 @@ class RelativeMovementTest(unittest.TestCase):
 
 
 class CoordinateSystemControlTest(unittest.TestCase):
-    @with_stage_discovery_patch
-    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
-        available_stages_mock.return_value = []
-        stage_classes_mock.return_value = {}
-
+    def setUp(self) -> None:
         self.stage = DummyStage('usb:123456789')
         self.stage2 = DummyStage('usb:9887654321')
 
