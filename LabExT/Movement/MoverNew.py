@@ -101,6 +101,8 @@ class MoverNew:
         self._stage_classes: Dict[str, Stage] = {}
         self._plugin_loader = PluginLoader()
         self._plugin_loader_stats: Dict[str, int] = {}
+        # Available Stages
+        self._available_stages: List[Type[Stage]] = []
 
         # Mover calibrations
         self._calibrations = bidict()
@@ -176,10 +178,11 @@ class MoverNew:
 
     def import_stage_classes(self) -> None:
         """
-        Imports all stage classes.
+        Imports all stage classes and discovers available stages.
         """
         self._stage_classes.clear()
         self._plugin_loader_stats.clear()
+        self._available_stages.clear()
 
         # prioritize LabExT Core stages over Add-On Stages
         search_paths = [join(dirname(__file__), 'Stages')]
@@ -196,36 +199,15 @@ class MoverNew:
             self._plugin_loader_stats[path] = len(unique_stage_classes)
             self._stage_classes.update(unique_stage_classes)
 
+            for stage_cls in unique_stage_classes.values():
+                self._available_stages += stage_cls.find_available_stages()
+
         self.logger.debug(
-            'Available stages loaded. Found: %s', [
+            'Available stage classes loaded. Found: %s', [
                 k for k in self._stage_classes.keys()])
-
-    def discover_available_stages(self) -> List[Stage]:
-        """
-        Discover all stages available for the computer
-        """
-        available_stages = []
-
-        # Check for a stage classes and addresses
-        for stage_cls in self.stage_classes.values():
-            try:
-                stage_addresses = stage_cls.find_stage_addresses()
-            except StageError as err:
-                self.logger.error(
-                    f"Failed to load addresses for {stage_cls.__name__}: {err}")
-                continue
-
-            for address in stage_addresses:
-                stage = stage_cls(address)
-
-                if stage not in available_stages:
-                    available_stages.append(stage)
-
-        self.logger.info(
-            'Discovered available stages. Found: %s',
-            list(map(str, available_stages)))
-
-        return available_stages
+        self.logger.debug(
+            'Discovered stages. Found: %s',
+            list(map(str, self._available_stages)))
 
     #
     #   Properties
@@ -245,6 +227,15 @@ class MoverNew:
         Read-only.
         """
         return self._stage_classes
+
+    @property
+    def available_stages(self) -> List[Type[Stage]]:
+        """
+        Returns a list of stages available to the computer (all possible connection types)
+        For example: For SmarAct Stages, this function returns all USB-connected stages.
+        Read-only.
+        """
+        return self._available_stages
 
     @property
     def calibrations(

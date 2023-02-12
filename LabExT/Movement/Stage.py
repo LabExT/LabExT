@@ -4,6 +4,7 @@
 LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
 
 import logging
 
@@ -68,6 +69,19 @@ class Stage(ABC):
     _logger = logging.getLogger()
 
     @classmethod
+    def find_available_stages(cls) -> List[Type[Stage]]:
+        """
+        Returns a list of stage objects. Each object represents a found stage.
+        Note: The stage is not yet connected.
+        """
+        try:
+            return [cls(address) for address in cls.find_stage_addresses()]
+        except StageError as err:
+            cls._logger.error(
+                f"Failed to find available stages for {cls.__name__}: {err}")
+            return []
+
+    @classmethod
     def find_stage_addresses(cls) -> list:
         """
         Returns a list of stage locators.
@@ -108,20 +122,6 @@ class Stage(ABC):
     def __del__(self):
         if self.connected:
             self.disconnect()
-
-    def __eq__(self, o: object) -> bool:
-        """
-        Compares two stage.
-
-        Two stages are equal, if they are of the same type and have the same address
-        """
-        if not isinstance(o, type(self)):
-            return False
-
-        return self.address == o.address
-
-    def __hash__(self) -> int:
-        return super().__hash__()
 
     @abstractmethod
     def __str__(self) -> str:

@@ -367,8 +367,8 @@ class StageDriverStep(Step):
                 text="Load Driver",
                 state=NORMAL if stage_cls.driver_specifiable else DISABLED,
                 command=partial(
-                    self.load_driver,
-                    stage_cls))
+                    stage_cls.load_driver,
+                    parent=self.wizard))
             stage_driver_load.pack(side=RIGHT)
 
             stage_driver_status = Label(
@@ -377,21 +377,6 @@ class StageDriverStep(Step):
                 foreground='#4BB543' if stage_cls.driver_loaded else "#FF3333",
             )
             stage_driver_status.pack(side=RIGHT, padx=10)
-
-    def load_driver(self, stage_class: Stage) -> None:
-        """
-        Callback to invoke a stage classes driver loading method.
-
-        Parameters
-        ----------
-        stage_class : Stage
-            Class of a stage.
-        """
-        if not stage_class.load_driver(self.wizard):
-            return
-
-        print("Restart!!")
-        self.wizard.__reload__()
 
 
 class StageAssignmentStep(Step):
@@ -426,8 +411,6 @@ class StageAssignmentStep(Step):
             on_reload=self.on_reload,
             title="Stage Connection")
         self.mover: Type[MoverNew] = mover
-
-        self.available_stages = self.mover.discover_available_stages()
 
         self.assignment = {
             c.stage: (o, p)
@@ -471,13 +454,13 @@ class StageAssignmentStep(Step):
                  s.__class__.__name__,
                  s.address_string,
                  s.connected)
-                for idx, s in enumerate(self.available_stages)])
+                for idx, s in enumerate(self.mover.available_stages)])
 
         stage_assignment_frame = CustomFrame(frame)
         stage_assignment_frame.title = "Assign Stages"
         stage_assignment_frame.pack(side=TOP, fill=X)
 
-        for avail_stage in self.available_stages:
+        for avail_stage in self.mover.available_stages:
             available_stage_frame = Frame(stage_assignment_frame)
             available_stage_frame.pack(side=TOP, fill=X, pady=2)
 
@@ -614,7 +597,7 @@ class StageAssignmentStep(Step):
         port_vars = {}
         polygon_vars = {}
 
-        for stage in self.available_stages:
+        for stage in self.mover.available_stages:
             orientation, port = self.assignment.get(
                 stage, self.DEFAULT_ASSIGNMENT)
             polygon_cls, _ = self.polygon_cfg.get(
