@@ -427,6 +427,8 @@ class StageAssignmentStep(Step):
             title="Stage Connection")
         self.mover: Type[MoverNew] = mover
 
+        self.available_stages = self.mover.discover_available_stages()
+
         self.assignment = {
             c.stage: (o, p)
             for (o, p), c in self.mover.calibrations.items()}
@@ -469,13 +471,13 @@ class StageAssignmentStep(Step):
                  s.__class__.__name__,
                  s.address_string,
                  s.connected)
-                for idx, s in enumerate(self.mover.available_stages)])
+                for idx, s in enumerate(self.available_stages)])
 
         stage_assignment_frame = CustomFrame(frame)
         stage_assignment_frame.title = "Assign Stages"
         stage_assignment_frame.pack(side=TOP, fill=X)
 
-        for avail_stage in self.mover.available_stages:
+        for avail_stage in self.available_stages:
             available_stage_frame = Frame(stage_assignment_frame)
             available_stage_frame.pack(side=TOP, fill=X, pady=2)
 
@@ -612,7 +614,7 @@ class StageAssignmentStep(Step):
         port_vars = {}
         polygon_vars = {}
 
-        for stage in self.mover.available_stages:
+        for stage in self.available_stages:
             orientation, port = self.assignment.get(
                 stage, self.DEFAULT_ASSIGNMENT)
             polygon_cls, _ = self.polygon_cfg.get(

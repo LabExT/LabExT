@@ -197,11 +197,10 @@ class AddonSettingsDialog:
 
     def _get_loaded_stages_and_paths(self) -> list:
         ret_list = []
-        for k,v in self._exp_mgr.mover.stage_classes.items():
-            ret_list.append((v.__name__, k, ''))
+        for k, v in self._exp_mgr.mover.stage_classes.items():
+            ret_list.append((k, ''))
             for vi in v.PluginLoader_module_path:
-                ret_list.append(('    ->', '', vi))
-
+                ret_list.append(('    ->', vi))
         return ret_list
 
     def save_and_close(self, *args):

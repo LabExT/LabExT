@@ -102,9 +102,6 @@ class MoverNew:
         self._plugin_loader = PluginLoader()
         self._plugin_loader_stats: Dict[str, int] = {}
 
-        # Stages
-        self._available_stages: List[Type[Stage]] = []
-
         # Mover calibrations
         self._calibrations = bidict()
         self._port_by_orientation = bidict()
@@ -192,23 +189,22 @@ class MoverNew:
         for path in search_paths:
             imported_stage_classes = self._plugin_loader.load_plugins(
                 path, plugin_base_class=Stage, recursive=True)
-            imported_stage_classes = {
+            unique_stage_classes = {
                 k: v for k,
                 v in imported_stage_classes.items() if k not in self._stage_classes}
 
-            self._plugin_loader_stats[path] = len(imported_stage_classes)
-            self._stage_classes.update(imported_stage_classes)
+            self._plugin_loader_stats[path] = len(unique_stage_classes)
+            self._stage_classes.update(unique_stage_classes)
 
         self.logger.debug(
             'Available stages loaded. Found: %s', [
                 k for k in self._stage_classes.keys()])
 
-    def discover_available_stages(self) -> None:
+    def discover_available_stages(self) -> List[Stage]:
         """
         Discover all stages available for the computer
         """
-        # Refresh stage classes
-        self.import_stage_classes()
+        available_stages = []
 
         # Check for a stage classes and addresses
         for stage_cls in self.stage_classes.values():
@@ -222,12 +218,14 @@ class MoverNew:
             for address in stage_addresses:
                 stage = stage_cls(address)
 
-                if stage not in self._available_stages:
-                    self._available_stages.append(stage)
+                if stage not in available_stages:
+                    available_stages.append(stage)
 
         self.logger.info(
             'Discovered available stages. Found: %s',
-            list(map(str, self._available_stages)))
+            list(map(str, available_stages)))
+
+        return available_stages
 
     #
     #   Properties
@@ -249,17 +247,9 @@ class MoverNew:
         return self._stage_classes
 
     @property
-    def available_stages(self) -> List[Type[Stage]]:
-        """
-        Returns a list of stages available to the computer (all possible connection types)
-        For example: For SmarAct Stages, this function returns all USB-connected stages.
-        Read-only.
-        """
-        return self._available_stages
-
-    @property
     def calibrations(
-            self) -> Dict[Tuple[Orientation, DevicePort], Type[Calibration]]:
+        self
+    ) -> Dict[Tuple[Orientation, DevicePort], Type[Calibration]]:
         """
         Returns a mapping: Calibration -> (orientation, device_port) instance
         Read-only. Use add_stage_calibration to register a new stage.
