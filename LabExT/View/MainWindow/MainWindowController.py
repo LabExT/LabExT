@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from tkinter import Tk, Toplevel, messagebox
+from datetime import datetime
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import DeprecatedException, get_configuration_file_path
@@ -508,6 +509,38 @@ class MainWindowController:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
 
+    def offer_calibration_reload_possibility(self):
+        """
+        Offers the possibility to restore a stored calibration.
+        """
+        if not self.experiment_manager.chip:
+            self.logger.debug(
+                "No chip set. Skipping calibration reload possibility.")
+            return
+
+        chip = self.experiment_manager.chip
+        stored_calibration = self.experiment_manager.mover.load_stored_calibrations_for_chip(
+            chip=chip)
+
+        if not stored_calibration:
+            self.logger.debug(
+                f"No stored calibration found for {chip}")
+            return
+
+        last_updated_at = "Unknown"
+        if "last_updated_at" in stored_calibration:
+            last_updated_at = datetime.fromisoformat(
+                stored_calibration["last_updated_at"]).strftime("%d.%m.%Y %H:%M:%S")
+
+        if not messagebox.askyesno(
+            "Restore calibration",
+            f"Found mover calibration for chip: {chip.name}. \n Last updated at: {last_updated_at}. \n"
+            "Do you want to restore it?"):
+            return
+
+        self.view.frame.menu_listener.client_restore_calibration()
+
+
     def open_import_chip(self):
         """ opens window to import new chip """
         self.view.frame.menu_listener.client_import_chip()
@@ -562,12 +595,6 @@ class MainWindowController:
         self.experiment_manager.docu.cleanup()
 
         self.root.destroy()
-
-    def restore_calibrations(self):
-        """
-        Restore calibrations.
-        """
-        self.view.frame.menu_listener.client_restore_calibration()
 
     def _register_keyboard_shortcuts(self):
         self.root.bind("<F1>",

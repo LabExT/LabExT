@@ -184,16 +184,10 @@ class ExperimentManager:
             if self.exp is not None:
                 self.exp.update_chip(self.chip)
 
-            if self.mover is not None:
-                self.mover.set_chip(self.chip)
-
-                if self._skip_setup:
-                    return
-
-                if self.mover.has_chip_stored_calibration(self.chip):
-                    self.main_window.restore_calibrations()
-                else:
-                    self.mover.dump_calibrations()
+            self.mover.set_chip(self.chip)
+            if not self._skip_setup:
+                self.main_window.offer_calibration_reload_possibility()
+            self.mover.dump_calibrations()
 
     def show_documentation(self, event):
         if self.docu.docu_available:

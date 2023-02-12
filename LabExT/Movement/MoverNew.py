@@ -838,24 +838,31 @@ class MoverNew:
                 f"Failed to restore axes rotation for {stage.identifier} from {self.AXES_ROTATIONS_FILE}: {err}")
             return AxesRotation()
 
-    def has_chip_stored_calibration(self, chip: Type[Chip]) -> bool:
+    def load_stored_calibrations_for_chip(
+        self,
+        chip: Type[Chip]
+    ) -> dict:
         """
-        Checks if for given chip exists a stored calibration.
+        Returns restored calibrations from file if available.
+
+        If not available, returns an empty dict.
         """
         if chip is None or chip.name is None:
-            return False
+            return {}
 
-        if not os.path.exists(self.CALIBRATIONS_SETTINGS_FILE):
-            return False
-
-        with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
-            try:
+        try:
+            with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
                 calibration_settings = json.load(fp)
-            except json.JSONDecodeError:
-                return False
-            _chip_name = calibration_settings.get("chip_name")
-            _calibrations = calibration_settings.get("calibrations", [])
-            return _chip_name == chip.name and len(_calibrations) > 0
+                chip_name = calibration_settings.get("chip_name")
+                calibrations = calibration_settings.get("calibrations", [])
+                if chip_name == chip.name and len(calibrations) > 0:
+                    return calibration_settings
+                else:
+                    return {}
+        except (OSError, json.decoder.JSONDecodeError) as err:
+            self.logger.error(
+                f"Failed to load/decode calibration file {self.AXES_ROTATIONS_FILE}: {err}")
+            return {}
 
     @property
     def calibration_settings_file(self) -> str:
