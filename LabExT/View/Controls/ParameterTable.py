@@ -126,6 +126,7 @@ class ParameterTable(CustomFrame):
         self.store_callback = store_callback
         self.show_sweep_column = show_sweep_column
         self.sweep_checkbox_vars = []
+        self.deserialized_sweep_info = dict()
         self.__setup__()  # draw the table
 
     def __setup__(self):
@@ -147,8 +148,7 @@ class ParameterTable(CustomFrame):
             r = 0
 
         # add the fields for all the parameters
-        for parameter_name in self.parameter_source:
-            parameter = self.parameter_source[parameter_name]  # get the next parameter
+        for parameter_name, parameter in self.parameter_source.items():
             self.add_widget(Label(self, text='{}:'.format(parameter_name)),
                             row=r,
                             column=0,
@@ -191,11 +191,13 @@ class ParameterTable(CustomFrame):
                         and parameter.parameter_type in ['number_float', 'number_int'] \
                         and self.show_sweep_column:
                     swp = {
+                        'param_name': parameter_name,
                         'param': parameter,
                         'entry': param_entry,
-                        'var': BooleanVar(value=False)
+                        'var': BooleanVar(value=self.deserialized_sweep_info.get(parameter_name, False))
                     }
-                    swp['var'].trace('w', link_state_to_variable_inverted(param_entry, swp['var']))
+                    link_state_to_variable_inverted(param_entry, swp['var'])()  # update status of GUI element
+                    swp['var'].trace('w', link_state_to_variable_inverted(param_entry, swp['var']))  # enable callback
                     self.sweep_checkbox_vars.append(swp)
 
                     self.add_widget(Checkbutton(self, variable=swp['var']),
@@ -272,7 +274,10 @@ class ParameterTable(CustomFrame):
         data = {}
         for parameter_name in self._parameter_source:
             data[parameter_name] = self._parameter_source[parameter_name].value
-        return data
+        sweep_info = {}
+        for swp in self.sweep_checkbox_vars:
+            sweep_info[swp['param_name']] = swp['var'].get()
+        return {'params': data, 'sweep_info': sweep_info}
 
     def serialize(self, file_name):
         """Serializes data in table to json. Takes the filename as parameter and first converts all the data
@@ -293,11 +298,14 @@ class ParameterTable(CustomFrame):
             return False
         with open(file_path, 'r') as json_file:
             data = json.loads(json_file.read())
-        for parameter_name in data:
+            deser_params = data.get('params', {})
+            deser_sweep = data.get('sweep_info', {})
+        for parameter_name in deser_params:
             try:
-                self._parameter_source[parameter_name].value = data[parameter_name]
+                self._parameter_source[parameter_name].value = deser_params[parameter_name]
             except KeyError:
                 self._logger.warning("Unknown key in save file: " + str(parameter_name) + ". Ignoring this parameter.")
+        self.deserialized_sweep_info.update(deser_sweep)
         self.__setup__()
         return True
 
