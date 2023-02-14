@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 import logging
+import shutil
 import webbrowser
 from os.path import isfile, dirname, join
 from threading import Thread
@@ -232,10 +233,7 @@ class ExperimentManager:
         """ Makes sure that a default set of instrument configuration is present in the LabExT config dir """
         instr_config_path = get_configuration_file_path('instruments.config')
         if not isfile(instr_config_path):
-            with open(join(dirname(__file__), 'Instruments', 'instruments.config.default'), 'r') as fp:
-                cfg_data = json.load(fp)
-            with open(instr_config_path, 'w') as fp:
-                json.dump(cfg_data, fp)
+            shutil.copy(join(dirname(__file__), 'Instruments', 'instruments.config.default'), instr_config_path)
             return True
         else:
             return False
