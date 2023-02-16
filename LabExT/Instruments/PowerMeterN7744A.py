@@ -16,6 +16,9 @@ class PowerMeterN7744A(PowerMeterGenericKeysight):
     This class extends the [PowerMeterGenericKeysight](./PowerMeterGenericKeysight.md)
     class by the `autogain` property only present on the newer N77xxA models of power meters.
 
+    This class was tested with the Keysight N7744A and N7745C power meters, and is very likely working with most other
+    multichannel N77xx power meters from keysight, too.
+
     #### Properties
 
     handbook page refers to: Keysight N77xx Series Programming Guide (9018-02434.pdf)
@@ -33,9 +36,7 @@ class PowerMeterN7744A(PowerMeterGenericKeysight):
         """
         # call Instrument constructor, creates VISA instrument
         super().__init__(*args, **kwargs)
-        # check channel number
-        if self.channel not in [1, 2, 3, 4]:
-            raise ValueError('Argument channel must be 1, 2, 3, or 4.')
+       
         # the N7744A is smart and returns sweep data in the chosen unit
         self._always_returns_sweep_in_Watt = False
 

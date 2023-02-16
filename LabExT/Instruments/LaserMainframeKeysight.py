@@ -20,6 +20,8 @@ class LaserMainframeKeysight(Instrument):
     This class provides an interface to a Keysight 816x laser mainframe. Aside from the basic instrument properties,
     methods for swept wavelength measurements are included, see Keysight App Note 5992-1125EN.pdf.
 
+    This class is verified to work on the Keysight 8164A mainframe as well as the Keysight N7776C and N7778C lasers.
+
     #### Properties
 
     handbook page refers to: Keysight 8164A/B Lightwave Measurement System Programming Guide (9018-01647.pdf)
@@ -63,9 +65,13 @@ class LaserMainframeKeysight(Instrument):
             'max_lambda'
         ])
 
+        self._instrument_unlock_pin = kwargs.get('pin', "1234")  # default pin for Keysight lasers
+        if type(self._instrument_unlock_pin) is not str:
+            raise ValueError("Instrument constructor argument 'pin' must be of type string!")
+
         self.sweep_configured = False
         self.send_hardware_trigger = False
-        self.trigger_at_open = ''  # saves state of triggering upon connecting so we can restore on disconnect
+        self.trigger_at_open = ''  # saves state of triggering upon connecting such that we can restore on disconnect
 
     def open(self):
         """
@@ -101,13 +107,13 @@ class LaserMainframeKeysight(Instrument):
     #   mainframe options
     #
 
-    def unlock_laser(self, pin="1234"):
+    def unlock_laser(self):
         """
         set lock for the instrument
 
         :param pin: string of the pin to unlock the device
         """
-        self.command('LOCK 0,{:s}'.format(pin))
+        self.command('LOCK 0,{:s}'.format(self._instrument_unlock_pin))
 
     def idn(self):
         """
