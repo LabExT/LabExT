@@ -9,6 +9,7 @@ nav:
     - setup_dev_env.md
   - "How to Measure":
     - first_simple_measurement.md
+    - setup_automatic_movement.md
   - "How to Extend Code":
     - code_API_overview.md
     - code_new_meas_example.md
