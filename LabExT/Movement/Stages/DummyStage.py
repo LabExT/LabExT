@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from LabExT.Movement.Stage import Stage, StageMeta
+from LabExT.Movement.Stage import Stage
 
 
 class DummyStage(Stage):
@@ -18,10 +18,8 @@ class DummyStage(Stage):
     #
 
     driver_loaded = True
-    meta = StageMeta(
-        description="Dummy Stage Vendor",
-        driver_specifiable=False
-    )
+    driver_specifiable = False
+    description = "Dummy Stage Vendor"
 
     @classmethod
     def find_stage_addresses(cls):
