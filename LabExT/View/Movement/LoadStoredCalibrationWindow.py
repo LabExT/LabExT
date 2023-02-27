@@ -13,7 +13,6 @@ from LabExT.Utils import run_with_wait_window
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.View.Controls.CustomFrame import CustomFrame
 
-
 class LoadStoredCalibrationWindow(Toplevel):
     """
     Window to load stored calibrations
@@ -27,7 +26,7 @@ class LoadStoredCalibrationWindow(Toplevel):
         self,
         master,
         mover: Type[MoverNew],
-        chip: Type[Chip]
+        calibration_settings: dict
     ) -> None:
         """
         Parameters
@@ -36,8 +35,8 @@ class LoadStoredCalibrationWindow(Toplevel):
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
-        chip : Chip
-            Instance of the current chip.
+        calibration_settings : dict
+            Data of stored calibration
 
         Raises
         ------
@@ -46,17 +45,10 @@ class LoadStoredCalibrationWindow(Toplevel):
         """
         super(LoadStoredCalibrationWindow, self).__init__(master)
 
-        self.mover: Type[MoverNew] = mover
-        self.chip: Type[Chip] = chip
         self.logger = logging.getLogger()
 
-        self.calibration_settings = self.mover.load_stored_calibrations_for_chip(
-            chip=self.chip)
-
-        if not self.calibration_settings:
-            raise RuntimeError(
-                f"No stored calibration found for {self.chip}. Cannot restore.")
-
+        self.mover: Type[MoverNew] = mover
+        self.calibration_settings = calibration_settings
         self.stored_calibrations = self.calibration_settings.get(
             "calibrations", {})
 

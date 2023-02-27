@@ -148,10 +148,15 @@ class MoverNew:
         if self._chip == chip:
             return
 
+        # Reset chip sensitive transformations 
         for calibration in self.calibrations.values():
             calibration.reset_single_point_offset()
             calibration.reset_kabsch_rotation()
 
+        # Store updates calibrations to disk
+        self.dump_calibrations()
+
+        # Set new chip
         self._chip = chip
 
     def update_main_model(self) -> None:
@@ -747,19 +752,19 @@ class MoverNew:
         if self._chip:
             _chip_name = self._chip.name
 
-        with open(self.CALIBRATIONS_SETTINGS_FILE, "w+") as fp:
+        with open(self.CALIBRATIONS_SETTINGS_FILE, "w") as fp:
             json.dump({
                 "chip_name": _chip_name,
                 "last_updated_at": datetime.now().isoformat(),
                 "calibrations": [
                     c.dump() for c in self.calibrations.values()]
-            }, fp)
+            }, fp, indent=2)
 
     def dump_axes_rotations(self) -> None:
         """
         Stores all axes rotations of calibrations to file.
         """
-        with open(self.AXES_ROTATIONS_FILE, "w+") as fp:
+        with open(self.AXES_ROTATIONS_FILE, "w") as fp:
             json.dump({
                 c.stage.identifier: c.dump(
                     axes_rotation=True,
@@ -770,7 +775,7 @@ class MoverNew:
         """
         Stores mover settings to file.
         """
-        with open(self.MOVER_SETTINGS_FILE, "w+") as fp:
+        with open(self.MOVER_SETTINGS_FILE, "w") as fp:
             json.dump({
                 "speed_xy": self._speed_xy,
                 "speed_z": self._speed_z,

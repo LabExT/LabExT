@@ -367,7 +367,7 @@ class MoverStageSettingsTest(unittest.TestCase):
         with patch('builtins.open', mock_open()) as m:
             self.mover.dump_settings()
 
-        m.assert_called_once_with('/mocked/mover_settings.json', 'w+')
+        m.assert_called_once_with('/mocked/mover_settings.json', 'w')
 
         file_pointer = m()
         file_pointer.write.assert_has_calls(
