@@ -9,7 +9,8 @@ import random
 from itertools import product
 from os import remove
 from os.path import join, dirname
-from flaky import flaky
+import sys
+import pytest
 from unittest.mock import patch, mock_open
 
 import LabExT.Wafer.Device
@@ -25,6 +26,10 @@ from LabExT.Tests.Utils import TKinterTestCase, randomword
 from LabExT.Tests.View.MainWindow_test import simulator_only_instruments_descriptions, \
     check_InsertionLossSweep_meas_dict_meta_data
 from LabExT.View.ExperimentWizard.Components.DeviceWindow import DeviceWindow
+
+if sys.platform.startswith("win"):
+    pytest.skip("Windows tests with tkinter are very often failing due to a CI bug of github. Skipping these for now.",
+                allow_module_level=True)
 
 
 def check_DummyMeas_meas_dict_meta_data(testinst, meas_record, dev_props=None, meas_props=None):
@@ -45,7 +50,6 @@ def check_DummyMeas_meas_dict_meta_data(testinst, meas_record, dev_props=None, m
                                                          'std. deviation', 'simulate measurement error'})
 
 
-@flaky(max_runs=3)
 class ExperimentWizardTest(TKinterTestCase):
 
     def main_window_setup(self):

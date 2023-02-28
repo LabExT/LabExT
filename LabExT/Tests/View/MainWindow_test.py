@@ -7,7 +7,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 import random
 from os import remove
-from flaky import flaky
+import sys
+import pytest
+
 from unittest.mock import patch
 
 import LabExT.Wafer.Device
@@ -18,6 +20,10 @@ from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
 from LabExT.Tests.Utils import TKinterTestCase, randomword
+
+if sys.platform.startswith("win"):
+    pytest.skip("Windows tests with tkinter are very often failing due to a CI bug of github. Skipping these for now.",
+                allow_module_level=True)
 
 
 def simulator_only_instruments_descriptions(name):
@@ -51,7 +57,6 @@ def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_prop
                               'powermeter range', 'users comment'})
 
 
-@flaky(max_runs=3)
 class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):
