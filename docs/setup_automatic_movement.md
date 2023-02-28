@@ -1,14 +1,15 @@
 # Mover Setup: Automatically Move Stages
 
 This section gives setup instructions for the Mover in LabExT. The Mover manages connected stages 
-and their fully automatic safe movement to device coordinate points. 
+and their fully automatic and safe movement to device coordinate points. 
 Before you continue, make sure LabExT is installed correctly; more [here](./installation.md).
 
-## Calibration states, Terminology and Setup Workflow
+## Calibration States, Terminology and Setup Workflow
 
 ### Terminology
 
-Before we start, we introduce the different terminologies we use in this section. 
+Before we start, we introduce the different terminologies used in this section. We start with the driver of the 
+motorized stage and ascend the levels of abstraction:
 
 | Term          | Description                                                                                                                                                                                                                                                       | Example                                                                                                                                                      |
 |---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -22,13 +23,13 @@ Before we start, we introduce the different terminologies we use in this section
 
 Calibrations can have different states. Depending on the state, different functions are available at the calibration level.
 
-| State                     | Description                                                                                                                                                                                                   | Actions available                                                                                                                                                                                                                      |
-|---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UNINITIALIZED`           | Initial state. The calibration was assigned a stage, and additional information was stored. All data structures have been created.                                                                            | Establish connection to Stage.                                                                                                                                                                                                         | 
-| `CONNECTED`               | A connection to the stage could be established successfully, and it responds to commands.                                                                                                                     | Movement of the stage (relative and absolute) in stage coordinates, change settings (e.g. acceleration, speed), reading of the position in stage coordinates, and disconnection from the stage.                                        |
-| `COORDINATE SYSTEM FIXED` | A transformation has been defined to map stage coordinate axes to chip coordinate axes. For example, if the stage Z-axis has to be inverted, the positive chip Z-axis is mapped to the negative stage Z-axis. | The Stage allows relative movement in chip coordinates + All previous actions.                                                                                                                                                         |
-| `SINGLE POINT FIXED`      | A chip coordinate was paired with a stage coordinate. This allows the calculation of an offset of both coordinate systems.                                                                                    | The stage can move absolutely in chip coordinates and return the position of the stage in chip coordinates. However, this is an approximation: this state does not consider possible rotations of the axes with respect to each other. |
-| `FULLY CALIBRATED`        | Three coordinate pairings have been defined. An accurate transformation from chip to stage system and vice versa was defined.                                                                                 | The Stage can accurately move in the chip system absolutely and return the position in the chip system. Rotations of the axes are calculated and taken into account.                                                                   |
+| State                     | Description                                                                                                                                                                                                   | Actions available                                                                                                                                                                               |
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `UNINITIALIZED`           | Initial state. The calibration was assigned a stage, and additional information was stored. All data structures have been created.                                                                            | Establish connection to Stage.                                                                                                                                                                  | 
+| `CONNECTED`               | A connection to the stage could be established successfully, and it responds to commands.                                                                                                                     | Movement of the stage (relative and absolute) in stage coordinates, change settings (e.g. acceleration, speed), reading of the position in stage coordinates, and disconnection from the stage. |
+| `COORDINATE SYSTEM FIXED` | A transformation has been defined to map stage coordinate axes to chip coordinate axes. For example, if the stage Z-axis has to be inverted, the positive chip Z-axis is mapped to the negative stage Z-axis. | The Stage allows relative movement in chip coordinates + All previous actions.                                                                                                                  |
+| `SINGLE POINT FIXED`      | A chip coordinate was paired with a stage coordinate. This allows the calculation of an offset of both coordinate systems.                                                                                    | The stage can move absolutely in chip coordinates and return the position of the stage in chip coordinates. However, we assume perfectly parallel chip and stage axes.                          |
+| `FULLY CALIBRATED`        | Three coordinate pairings have been defined. An accurate transformation from chip to stage system and vice versa was defined.                                                                                 | The Stage can accurately move in the chip system absolutely and return the position in the chip system. A full 3D coordinate transformation is applied for highest precision.                   |
 
 The states define a total order. A higher state always guarantees the condition of the lower states.
 
@@ -161,7 +162,7 @@ The corresponding axis assignments are stored here for each stage identifier (e.
 The saved assignment is automatically applied if a new stage is added in the "Configure Stages" wizard step with the same identifier.
 There's no need for user interaction here. Note, however, that if the lab setup is changed, the calibration may need to be adjusted.
 
-The complete calibration is stored in the file `mover_calibrations.json` and is used to restore the calibration after a crash of LabExT 
+The a complete calibration is stored in the file `mover_calibrations.json` and is used to restore the calibration after a restart of LabExT 
 while keeping the experiment setup the same. The calibrations are chip sensitive, which means that saved calibrations can only be restored if the chip is the same after the restart.
 
 #### Calibrations are restored as follows:
