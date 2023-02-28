@@ -8,17 +8,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 from unittest.mock import patch, mock_open
 from pathlib import Path
-import sys
-import pytest
+from flaky import flaky
 
 from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
-if sys.platform.startswith("win"):
-    pytest.skip("Windows tests with tkinter are very often failing due to a CI bug of github. Skipping these for now.",
-                allow_module_level=True)
 
-
+@flaky(max_runs=3)
 class DriverPathDialogTest(TKinterTestCase):
 
     def test_dialog_initial_state(self):

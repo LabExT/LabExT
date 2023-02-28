@@ -6,8 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from unittest.mock import Mock
-import sys
-import pytest
+from flaky import flaky
 
 from LabExT.Movement.config import DevicePort, Orientation
 
@@ -19,11 +18,8 @@ from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWind
 from LabExT.Wafer.Device import Device
 from LabExT.Wafer.Chip import Chip
 
-if sys.platform.startswith("win"):
-    pytest.skip("Windows tests with tkinter are very often failing due to a CI bug of github. Skipping these for now.",
-                allow_module_level=True)
 
-
+@flaky(max_runs=3)
 class CoordinatePairingsWindowTest(TKinterTestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:

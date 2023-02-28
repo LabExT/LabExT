@@ -7,17 +7,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from unittest.mock import Mock
 from LabExT.Tests.Utils import TKinterTestCase
-import sys
-import pytest
+from flaky import flaky
 
 import tkinter
 from LabExT.View.Controls.Wizard import Step, Wizard
 
-if sys.platform.startswith("win"):
-    pytest.skip("Windows tests with tkinter are very often failing due to a CI bug of github. Skipping these for now.",
-                allow_module_level=True)
 
-
+@flaky(max_runs=3)
 class WizardUnitTest(TKinterTestCase):
     """
     Unittests for Wizard Widget.
@@ -249,6 +245,7 @@ class WizardUnitTest(TKinterTestCase):
         on_reload.assert_called_once()
 
 
+@flaky(max_runs=3)
 class WizardIntegrationTest(TKinterTestCase):
     """
     Integration test for a Wizard with 2 steps.
