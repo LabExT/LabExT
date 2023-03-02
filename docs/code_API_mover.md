@@ -6,7 +6,7 @@ This guide gives practical hints to extend the Mover.
 ## Stages
 
 To support another Stage, a new Stage implementation must be created.
-Currently, the [following stages]() are supported in LabExT-Core.
+Currently, the [following stages](https://github.com/LabExT/LabExT/tree/dev/LabExT/Movement/Stages) are supported in LabExT-Core.
 New stages can be included by an addon path or permanently supported in Core by creating a pull request.
 
 Each new stage must inherit from the abstract interface Stage in order to be included by LabExT:
@@ -18,13 +18,15 @@ class MyNewStage(Stage):
     pass
 ```
 
-The [Stage]() interface defines all the methods and properties that each new implementation must define to work correctly.
+The [Stage](https://github.com/LabExT/LabExT/blob/dev/LabExT/Movement/Stage.py) interface defines all the methods and properties that each new implementation must define to work correctly.
 Below we provide notes on the methods and properties to implement:
 
 ::: LabExT.Movement.Stage.Stage
     rendering:
+        docstring_style: numpy
         show_root_heading: true
         sort_members: source
+        show_signature_annotations: true
 
 
 ## Stage Polygons
@@ -46,5 +48,7 @@ Below we provide notes on the methods and properties to implement:
 
 ::: LabExT.Movement.PathPlanning.PathPlanning
     rendering:
+        docstring_style: numpy
         show_root_heading: true
         sort_members: source
+        show_signature_annotations: true
