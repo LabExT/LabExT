@@ -17,7 +17,7 @@ from LabExT.Instruments.LaserSimulator import LaserSimulator
 from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
-from LabExT.Tests.Utils import TKinterTestCase, randomword
+from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
 
 
 def simulator_only_instruments_descriptions(name):
@@ -51,6 +51,7 @@ def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_prop
                               'powermeter range', 'users comment'})
 
 
+@mark_as_gui_integration_test
 @flaky(max_runs=3)
 class MainWindowTest(TKinterTestCase):
 

@@ -19,7 +19,7 @@ from LabExT.Wafer.Device import Device
 from LabExT.Wafer.Chip import Chip
 
 
-# @flaky(max_runs=3)
+@flaky(max_runs=3)
 class CoordinatePairingsWindowTest(TKinterTestCase):
     @with_stage_discovery_patch
     def setUp(self, available_stages_mock, stage_classes_mock) -> None:

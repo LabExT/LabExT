@@ -18,11 +18,20 @@ if __name__ == "__main__":
         action='store_true',
         default=False,
         help='Tests functionality that requires laboratory equipment.')
+    parser.add_argument(
+        '--skip_gui_integration_tests',
+        action='store_true',
+        default=False,
+        help='Skip the GUI integration tests.')
 
     options = parser.parse_args()
 
     pytest.skip_laboratory_tests = not options.laboratory_tests
     if options.laboratory_tests:
         sys.argv.remove('--laboratory_tests')
+
+    pytest.skip_gui_integration_tests = options.skip_gui_integration_tests
+    if options.skip_gui_integration_tests:
+        sys.argv.remove('--skip_gui_integration_tests')
 
     sys.exit(pytest.main())
