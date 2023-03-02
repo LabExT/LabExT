@@ -258,17 +258,34 @@ class MListener:
             self._experiment_manager.mover,
             self._experiment_manager.chip)
 
-    def client_restore_calibration(self):
+    def client_restore_calibration(self, chip):
         """
         Opens a window to restore calibrations.
         """
         if try_to_lift_window(self.calibration_restore_toplevel):
             return
 
+        calibration_settings = self._experiment_manager.mover.load_stored_calibrations_for_chip(
+            chip=chip)
+
+        if not calibration_settings:
+            self.logger.debug(
+                f"No stored calibration found for {chip}")
+            return
+
+        last_updated_at = datetime.datetime.fromisoformat(
+            calibration_settings["last_updated_at"]).strftime("%d.%m.%Y %H:%M:%S")
+
+        if not messagebox.askyesno(
+            "Restore calibration",
+            f"Found mover calibration for chip: {chip.name}. \n Last updated at: {last_updated_at}. \n"
+            "Do you want to restore it?"):
+            return
+
         self.calibration_restore_toplevel = LoadStoredCalibrationWindow(
             self._root,
             self._experiment_manager.mover,
-            self._experiment_manager.chip)
+            calibration_settings=calibration_settings)
 
     def client_search_for_peak(self):
         """Called when user wants to open plotting window for search for peak observation."""

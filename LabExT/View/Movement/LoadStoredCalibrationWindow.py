@@ -4,20 +4,14 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
-import json
 import logging
 
 from tkinter import Frame, Label, OptionMenu, StringVar, Toplevel, Button, messagebox, RIGHT, TOP, X, BOTH, FLAT, Y, LEFT
 from typing import Type
-from datetime import datetime
-from os.path import exists
 
 from LabExT.Utils import run_with_wait_window
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.View.Controls.CustomFrame import CustomFrame
-from LabExT.View.Controls.DeviceTable import DeviceTable
-from LabExT.Wafer.Chip import Chip, Device
-
 
 class LoadStoredCalibrationWindow(Toplevel):
     """
@@ -26,11 +20,13 @@ class LoadStoredCalibrationWindow(Toplevel):
 
     ASSIGNMENT_MENU_PLACEHOLDER = "-- unused --"
 
+    MENU_OPTION_TEMPLATE = "Stage-ID: {id} - Port: {port}"
+
     def __init__(
         self,
         master,
         mover: Type[MoverNew],
-        chip: Type[Chip]
+        calibration_settings: dict
     ) -> None:
         """
         Parameters
@@ -39,78 +35,51 @@ class LoadStoredCalibrationWindow(Toplevel):
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
-        chip : Chip
-            Instance of the current chip.
+        calibration_settings : dict
+            Data of stored calibration
 
         Raises
         ------
         RuntimeError
             If calibrations could not be restored.
         """
-        self.mover: Type[MoverNew] = mover
-        self.chip: Type[Chip] = chip
+        super(LoadStoredCalibrationWindow, self).__init__(master)
 
         self.logger = logging.getLogger()
 
-        self.calibration_settings = None
-        if not exists(self.mover.calibration_settings_file):
-            raise RuntimeError(
-                "Calibration settings file does not exits.")
-
-        with open(self.mover.calibration_settings_file, "r") as fp:
-            self.calibration_settings = json.load(fp)
-
-        if self.calibration_settings.get("chip_name") != self.chip.name:
-            self.logger.warn(
-                f"There is no stored calibrarion for the chip name '{self.chip.name}'."
-                f"Instead found one for chip name '{self.calibration_settings.get('chip_name')}'")
-
-        last_updated_at = "Unknown"
-        if "last_updated_at" in self.calibration_settings:
-            last_updated_at = datetime.fromisoformat(
-                self.calibration_settings["last_updated_at"]).strftime("%d.%m.%Y %H:%M:%S")
-
-        if not messagebox.askyesno(
-            "Restore calibration",
-                f"Found mover calibration for chip: {self.chip.name}. \n Last updated at: {last_updated_at}. \n"
-                "Do you want to restore it?"):
-            return
-
+        self.mover: Type[MoverNew] = mover
+        self.calibration_settings = calibration_settings
         self.stored_calibrations = self.calibration_settings.get(
-            "calibrations", [])
-        if len(self.stored_calibrations) == 0:
-            raise RuntimeError(
-                f"Calibration settings file {self.calibration_settings} does not contain any calibrations.")
+            "calibrations", {})
 
-        self.calibration_options = [
-            f"Orientation: {c.get('orientation')} - Port: {c.get('device_port')}" for c in self.stored_calibrations]
-        self.calibration_options.append(self.ASSIGNMENT_MENU_PLACEHOLDER)
-
-        if self.calibration_settings.get("chip_name") != self.chip.name:
-            if not messagebox.askokcancel(
-                "Confirm restoring.",
-                f"The calibration file {self.mover.calibration_settings_file} was calibrated "
-                f"with chip {self.calibration_settings.get('chip_name')}. "
-                    f"You imported chip {self.chip.name}. Are you sure to continue?"):
-                return
-
-        super(LoadStoredCalibrationWindow, self).__init__(master)
+        self.calibrations_vars = {}
+        self.menu_options = [
+            self.MENU_OPTION_TEMPLATE.format(id=c["stage_identifier"], port=c["device_port"])
+            for c in self.stored_calibrations]
+        self.menu_options.append(self.ASSIGNMENT_MENU_PLACEHOLDER)
 
         # Set up window
         self.title("Restore calibrations from disk")
         self.geometry('{:d}x{:d}+{:d}+{:d}'.format(800, 200, 200, 200))
         self.protocol('WM_DELETE_WINDOW', self.destroy)
 
-        # Build window
-        self._main_frame = Frame(self, borderwidth=0, relief=FLAT)
-        self._main_frame.pack(side=TOP, fill=BOTH, expand=True, padx=10)
+        self.__setup__()
 
-        self.calibrations_vars = {
-            s: StringVar(
-                self._main_frame,
-                self.ASSIGNMENT_MENU_PLACEHOLDER) for s in self.mover.available_stages}
+    def __setup__(self):
+        """
+        Builds window to restore calibrations.
+        """
+        main_frame = Frame(self, borderwidth=0, relief=FLAT)
+        main_frame.pack(side=TOP, fill=BOTH, expand=True, padx=10)
 
-        stage_assignment_frame = CustomFrame(self._main_frame)
+        buttons_frame = Frame(
+            self,
+            borderwidth=0,
+            highlightthickness=0,
+            takefocus=0)
+        buttons_frame.pack(side=TOP, fill=X, expand=0, padx=10, pady=10)
+
+        stage_assignment_frame = CustomFrame(main_frame)
         stage_assignment_frame.title = "Assign Stages"
         stage_assignment_frame.pack(side=TOP, fill=X)
 
@@ -122,74 +91,53 @@ class LoadStoredCalibrationWindow(Toplevel):
                 available_stage_frame, text=str(avail_stage), anchor="w"
             ).pack(side=LEFT, fill=X, padx=(0, 10))
 
-            calibration_menu = OptionMenu(
+            stored_stage = next(
+                (c for c in self.stored_calibrations if c["stage_identifier"] == avail_stage.identifier),
+                None)
+            calibration_var = StringVar(
+                main_frame,
+                self.MENU_OPTION_TEMPLATE.format(
+                    id=stored_stage["stage_identifier"], port=stored_stage["device_port"]
+                ) if stored_stage else self.ASSIGNMENT_MENU_PLACEHOLDER)
+
+            OptionMenu(
                 available_stage_frame,
-                self.calibrations_vars[avail_stage],
-                *self.calibration_options)
-            calibration_menu.pack(side=RIGHT, padx=5)
+                calibration_var,
+                *self.menu_options
+            ).pack(side=RIGHT, padx=5)
+            self.calibrations_vars[avail_stage] = calibration_var
 
             Label(
                 available_stage_frame, text="Calibrations:"
             ).pack(side=RIGHT, fill=X, padx=5)
 
-        self._buttons_frame = Frame(
-            self,
-            borderwidth=0,
-            highlightthickness=0,
-            takefocus=0)
-        self._buttons_frame.pack(side=TOP, fill=X, expand=0, padx=10, pady=10)
-
-        self._save_button = Button(
-            self._buttons_frame,
+        Button(
+            buttons_frame,
             text="Apply calibrations",
             width=15,
-            command=self.apply_calibrations)
-        self._save_button.pack(
-            side=RIGHT, fill=Y, expand=0)
+            command=self.apply_calibrations
+        ).pack(side=RIGHT, fill=Y, expand=0)
 
     def apply_calibrations(self):
         """
         Callback, when user wants to apply the calibrations
         """
-        # Resolve all calibrations.
-        calibration_assignment = {}
-        for stage, calibration_var in self.calibrations_vars.items():
-            _calibration_var_value = str(calibration_var.get())
-            if _calibration_var_value == self.ASSIGNMENT_MENU_PLACEHOLDER:
-                continue
-
-            try:
-                _stored_calibration_index = self.calibration_options.index(
-                    _calibration_var_value)
-                _stored_calibration = self.stored_calibrations[_stored_calibration_index]
-            except (ValueError, IndexError):
-                messagebox.showerror(
-                    "Error",
-                    f"Could not find stored calibration for {_calibration_var_value}",
-                    parent=self)
+        assignment = self._resolve_calibrations()
+        if any(
+                c["stage_identifier"] != s.identifier for s,
+                c in assignment.items()):
+            if not messagebox.askyesno(
+                "Caution: Different stage identifiers",
+                "CONFIRMATION REQUIRED: Some calibrations were assigned to a stage with a different identifier than the one used to create the calibration. "
+                "Incorrectly assigned calibrations cannot be guaranteed to work. Are you sure you want to apply these assignments?",
+                    parent=self):
                 return
 
-            if _stored_calibration in calibration_assignment.values():
-                messagebox.showerror(
-                    "Error",
-                    f"Calibration {_calibration_var_value} was selected twice.",
-                    parent=self)
-                return
-
-            if _stored_calibration["stage_identifier"] != stage.identifier:
-                if not messagebox.askyesno(
-                    "Caution: Different stage identifiers",
-                    f"Confirmation needed: The selected calibration was created with a stage with the identifier '{_stored_calibration['stage_identifier']}'. "
-                    f"You are now trying to assign this calibration to the stage with the identifier '{stage.identifier}'. "
-                    "Are you sure you want to apply this calibration to this stage?",
-                        parent=self):
-                    return
-
-            calibration_assignment[stage] = _stored_calibration
+        # Reset calibrations
+        self.mover.reset_calibrations()
 
         # Apply calibrations
-        self.mover.reset_calibrations()
-        for stage, stored_calibration in calibration_assignment.items():
+        for stage, stored_calibration in assignment.items():
             try:
                 calibration = self.mover.restore_stage_calibration(
                     stage, stored_calibration)
@@ -206,18 +154,32 @@ class LoadStoredCalibrationWindow(Toplevel):
                 f"Connecting to stage {stage}",
                 lambda: calibration.connect_to_stage())
 
-        try:
-            self.mover.dump_calibrations()
-        except Exception as err:
-            messagebox.showerror(
-                "Error",
-                f"Could not store calibration settings to disk: {err}",
-                parent=self)
-            return
+        # Store calibrations to disk
+        self.mover.dump_calibrations()
 
         messagebox.showinfo(
             "Success",
-            f"Successfully restored {len(calibration_assignment)} calibration(s)",
+            f"Successfully restored {len(assignment)} calibration(s)",
             parent=self)
-
         self.destroy()
+
+    def _resolve_calibrations(self) -> dict:
+        """
+        Returns a dict that maps for each stage the corresponding calibration.
+        """
+        assignment = {}
+        for stage, calibration_var in self.calibrations_vars.items():
+            calibration_var_value = str(calibration_var.get())
+            if calibration_var_value == self.ASSIGNMENT_MENU_PLACEHOLDER:
+                continue
+
+            menu_option_idx = self.menu_options.index(calibration_var_value)
+            selected_calibration = self.stored_calibrations[menu_option_idx]
+
+            if selected_calibration in assignment.values():
+                raise ValueError(
+                    f"Calibration {calibration_var_value} was selected twice. Please change your assignment.")
+
+            assignment[stage] = selected_calibration
+
+        return assignment

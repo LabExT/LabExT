@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from tkinter import Tk, Toplevel, messagebox
+from datetime import datetime
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import DeprecatedException, get_configuration_file_path
@@ -508,6 +509,13 @@ class MainWindowController:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
 
+    def offer_calibration_reload_possibility(self, chip):
+        """
+        Offers the possibility to restore a stored calibration.
+        """
+        self.view.frame.menu_listener.client_restore_calibration(chip)
+
+
     def open_import_chip(self):
         """ opens window to import new chip """
         self.view.frame.menu_listener.client_import_chip()
@@ -562,12 +570,6 @@ class MainWindowController:
         self.experiment_manager.docu.cleanup()
 
         self.root.destroy()
-
-    def restore_calibrations(self):
-        """
-        Restore calibrations.
-        """
-        self.view.frame.menu_listener.client_restore_calibration()
 
     def _register_keyboard_shortcuts(self):
         self.root.bind("<F1>",
