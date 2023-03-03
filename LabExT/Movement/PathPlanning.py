@@ -276,14 +276,26 @@ class PathPlanning(ABC):
         target: Type[ChipCoordinate]
     ) -> None:
         """
-        Sets a new traget for given calibration
+        Sets a new traget for given calibration.
+
+        Parameters
+        ----------
+        calibration: Calibration
+            Instance of a calibration for which a target cooridnate is to be set.
+        target: ChipCoordinate
+            3D coordinate in the chip system as a target for the passed calibration.
         """
         pass
 
     @abstractmethod
     def trajectory(self) -> Generator[WaypointCommand, Any, Any]:
         """
-        Generates the next waypoint of the path planner
+        Generates the next waypoint of the path planner.
+
+        The generator must generate waypoint commands.
+        These are (named) tuples consisting of the calibration for which the command is meant,
+        the calibration coordinate, and a `wait_for_stopping` specifying
+        whether the stage should wait until this waypoint command has been executed.
         """
         pass
 

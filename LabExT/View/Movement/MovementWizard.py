@@ -354,13 +354,13 @@ class StageDriverStep(Step):
 
             Label(
                 stage_driver_frame,
-                text=f"[{stage_cls.__name__}] {stage_cls.meta.description}"
+                text=f"[{stage_cls.__name__}] {stage_cls.description}"
             ).pack(side=LEFT, fill=X)
 
             stage_driver_load = Button(
                 stage_driver_frame,
                 text="Load Driver",
-                state=NORMAL if stage_cls.meta.driver_specifiable else DISABLED,
+                state=NORMAL if stage_cls.driver_specifiable else DISABLED,
                 command=partial(
                     self.load_driver,
                     stage_cls))
@@ -461,7 +461,7 @@ class StageAssignmentStep(Step):
             ),
             rows=[
                 (idx,
-                 s.__class__.meta.description,
+                 s.__class__.description,
                  s.__class__.__name__,
                  s.address_string,
                  s.connected)
