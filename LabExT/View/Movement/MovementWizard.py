@@ -346,9 +346,14 @@ class StageDriverStep(Step):
         ).pack(side=TOP, fill=X)
 
         if not self.mover.stage_classes:
-            Label(frame, text="No stage classes found!").pack(side=TOP, fill=X)
+            Label(
+                frame,
+                text="No stage classes found!",
+                foreground="#FF3333").pack(
+                side=TOP,
+                fill=X)
 
-        for stage_cls in self.mover.stage_classes:
+        for stage_name, stage_cls in self.mover.stage_classes.items():
             stage_driver_frame = Frame(frame)
             stage_driver_frame.pack(side=TOP, fill=X, pady=2)
 
@@ -362,8 +367,8 @@ class StageDriverStep(Step):
                 text="Load Driver",
                 state=NORMAL if stage_cls.driver_specifiable else DISABLED,
                 command=partial(
-                    self.load_driver,
-                    stage_cls))
+                    stage_cls.load_driver,
+                    parent=self.wizard))
             stage_driver_load.pack(side=RIGHT)
 
             stage_driver_status = Label(
@@ -372,22 +377,6 @@ class StageDriverStep(Step):
                 foreground='#4BB543' if stage_cls.driver_loaded else "#FF3333",
             )
             stage_driver_status.pack(side=RIGHT, padx=10)
-
-    def load_driver(self, stage_class: Stage) -> None:
-        """
-        Callback to invoke a stage classes driver loading method.
-
-        Parameters
-        ----------
-        stage_class : Stage
-            Class of a stage.
-        """
-        if not stage_class.load_driver(self.wizard):
-            return
-
-        self.mover.reload_stage_classes()
-        self.mover.reload_stages()
-        self.wizard.__reload__()
 
 
 class StageAssignmentStep(Step):

@@ -4,15 +4,14 @@
 LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
 
 import logging
 
 from functools import wraps
 from abc import ABC, abstractmethod
-from os.path import dirname, join
 from typing import List, Tuple, Any
 
-from LabExT.PluginLoader import PluginLoader
 
 class StageError(RuntimeError):
     pass
@@ -70,34 +69,17 @@ class Stage(ABC):
     _logger = logging.getLogger()
 
     @classmethod
-    def find_stage_classes(cls, subdir="Stages") -> list:
-        """
-        Returns a list of all classes which inherit from this class.
-
-        Needs to import Stages module first.
-        """
-        search_path = join(dirname(__file__), subdir)
-        plugin_loader = PluginLoader()
-
-        return [*plugin_loader.load_plugins(search_path, cls).values()]
-
-    @classmethod
-    def find_available_stages(cls):
+    def find_available_stages(cls) -> List[Type[Stage]]:
         """
         Returns a list of stage objects. Each object represents a found stage.
-
         Note: The stage is not yet connected.
         """
-        stages = []
-        for stage_class in cls.find_stage_classes():
-            try:
-                addresses = stage_class.find_stage_addresses()
-            except StageError:
-                continue
-            for address in addresses:
-                stages.append(stage_class(address))
-
-        return stages
+        try:
+            return [cls(address) for address in cls.find_stage_addresses()]
+        except StageError as err:
+            cls._logger.error(
+                f"Failed to find available stages for {cls.__name__}: {err}")
+            return []
 
     @classmethod
     def find_stage_addresses(cls) -> list:
