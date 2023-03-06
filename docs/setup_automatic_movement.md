@@ -64,7 +64,7 @@ This wizard is used to select found stages for further use in the Mover.
     Make sure that the stage you want to use has an implementation and its drivers are loaded. If not, check the [Troubleshooting](#troubleshooting). Click "Next Step".
     ![](img/LabExT_Stages_Driver.png)
 3.  In the "Stage Connection" wizard step, found stages are selected for later use. For this purpose, an orientation, device port, and stage type must be specified for each stage. 
-    -   The **Orientation** indicates the approximate position of the stage in the chip plane. [This diagram](./img/LabExT_Stages_Orientation.png) may help in the selection process.
+    -   The **Orientation** indicates from which side the stage is accessing the chip in the chip plane. [This diagram](./img/LabExT_Stages_Orientation.png) may help in the selection process.
     -   The **Device Port** assigns an input or output port to each stage. Based on this information, the stage will move to either the input or output coordinates of a device during automatic moving.
     -   The **Stage Type** is used to support different stage types and their shapes. Your stage type is not displayed? You can follow [this guide](./code_API_mover.md#stage-polygons) to extend LabExT with your stage type.
     ![](img/LabExT_Stages_Assignment.png)
@@ -103,11 +103,15 @@ At least one connected stage must exist (i.e., the mover state is at least `CONN
 
 1.  Click on "Movement" > "Calibrate Stages..." in the context menu.
 2.  In the first wizard step, "Stage Axes Calibration" the stage axes are adjusted to the chip axes.
-    Goal: Due to the design of the lab setup of your experiment, stage axes, and chip axes do not necessarily have to match.
-    After this calibration, all stages can move relatively in the chip system.
+    Goal: Due to the design of the lab setup of your experiment, stage axes, and chip axes may not match.
+    After this calibration, the stage and chip axes are matched and all stages can move relatively in the chip coordinate system.
     ![](img/LabExT_Calibration_Axes.png)
 
-    To check the assignment, you can wiggle each axis. To do this, the stage first moves 1mm in the positive direction of the axis and then 1mm in the negative direction. 
+    To check the assignment, you can wiggle each axis. To do this, the stage first moves 1mm in the positive direction of the axis and then 1mm in the negative direction.
+    
+    !!! warning
+        Make sure that the stage is free to move in all directions to avoid crashes with your sample or other obstacles!
+     
     Your assignment is correct if no axis is used twice. Click on "Next Step" to confirm the settings. The stages are in `COORDINATE SYSTEM FIXED` status.
 
     Example: Most often, axes are inverted. This corresponds, e.g., to an assignment of the positive Z-chip axis to the negative Z-stage axis.
@@ -130,7 +134,7 @@ At least one connected stage must exist (i.e., the mover state is at least `CONN
     2.  Click "Save and Close" to confirm the pairing.
 
     ![](img/LabExT_Calibration_Full_1.png)
-8.  After a pairing for each stage, the status changes to `SINGLE POINT FIXED`. The stages can move approximated in the chip system.
+8.  After the first pairing for each stage, the status changes to `SINGLE POINT FIXED`. The stages can move approximated in the chip system.
     Repeat step 7 to get at least 3 pairings. This creates an exact transformation between chip and stage system.
 
     !!! hint
@@ -224,7 +228,7 @@ the path-finding algorithm could not calculate a safe path.
 If the stages did not move at all (or only minimally) apart from the Z-lift, the settings of the stages could be incorrect, so the polygons overlap by mistake.
 Make sure that the orientation of the stages defines the direction of the polygons in space.
 Make sure that all orientations are correct with respect to the chip space.
-Further, check if the selected safety distance is too large.
+Further, check if the selected safety distance is not too large.
 To change these points, visit [*Configure Stages*](#1-configure-stages) again. 
 
 If the stages move but still need to complete the path to the destination,
