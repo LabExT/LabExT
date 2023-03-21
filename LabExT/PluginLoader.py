@@ -15,11 +15,51 @@
 import inspect
 import logging
 import os
-from os.path import exists
 import pkgutil
 import sys
 from importlib import import_module
-from typing import List
+from typing import Any, List, Tuple
+
+
+def import_plugins_from_paths(
+    base_class: Any,
+    search_paths: list = []
+) -> Tuple[dict, dict]:
+    """
+    Imports all plugins of a base class from a list of search paths.
+    Later plugins do not replace found plugins with the same name.
+    Paths at higher positions in the list have, therefore, more priority.
+
+    Parameters
+    ----------
+    base_class: Any
+        Base class of the plugins to be imported.
+    search_paths: list = []
+        List of search paths
+
+    Returns
+    -------
+    imported_plugins: dict
+        Dictionary from all imported classes, indexed by class name
+    search_stats: dict
+        Indexed by search path, the number of imported classes is given.
+    """
+    plugin_loader = PluginLoader()
+
+    imported_plugins = {}
+    search_stats = {}
+
+    for path in search_paths:
+        newly_imported_classes = plugin_loader.load_plugins(
+            path, plugin_base_class=base_class, recursive=True)
+        unique_classes = {
+            k: v for k,
+            v in newly_imported_classes.items() if k not in imported_plugins}
+
+        search_stats[path] = len(unique_classes)
+        imported_plugins.update(unique_classes)
+
+    return imported_plugins, search_stats
 
 
 class PluginLoader:
@@ -57,13 +97,16 @@ class PluginLoader:
         # this is needed for the import later
         sys_path_modified = False
         if os.path.dirname(path) not in sys.path:
-            # insert the parent path at index zero, because the loader should look at this location first
+            # insert the parent path at index zero, because the loader should
+            # look at this location first
             sys.path.insert(0, os.path.dirname(path))
             sys_path_modified = True
 
         # do the actual import
         plugins = self.__load(path,
-                              os.path.basename(path),  # the module main package is the last directory of the path
+                              # the module main package is the last directory
+                              # of the path
+                              os.path.basename(path),
                               plugin_base_class,
                               specific_plugins,
                               recursive)
@@ -123,7 +166,8 @@ class PluginLoader:
                     # the plugin name is the class name
                     pn = attribute.__name__
 
-                    # save the file path to the module from where we got that class from
+                    # save the file path to the module from where we got that
+                    # class from
                     mod_path = os.path.join(path, name) + '.py'
                     if not hasattr(attribute, 'PluginLoader_module_path'):
                         attribute.PluginLoader_module_path = [mod_path]
