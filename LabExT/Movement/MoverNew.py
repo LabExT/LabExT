@@ -51,6 +51,72 @@ class MoverError(RuntimeError):
     pass
 
 
+class MoverAPI:
+    """
+    Simple factory and interface for Mover API classes.
+    """
+
+    def __init__(self) -> None:
+        self._stage_classes: Dict[str, Stage] = {}
+        self._stage_classes_import_stats: Dict[str, int] = {}
+        self._peak_searcher_classes: Dict[str, PeakSearcher] = {}
+        self._peak_searcher_import_stats: Dict[str, int] = {}
+        self._path_planner_classes: Dict[str, PathPlanning] = {}
+        self._path_planner_import_stats: Dict[str, int] = {}
+        self._stage_polygon_classes: Dict[str, StagePolygon] = {}
+        self._stage_polygon_import_stats: Dict[str, int] = {}
+
+    def import_all(self, search_paths: list = []) -> None:
+        """
+        Imports all Mover API classes.
+
+        Parameters:
+        -----------
+        search_paths: list = []
+            List of search paths to import from.
+        """
+        self._stage_classes, self._stage_classes_import_stats = import_plugins_from_paths(
+            base_class=Stage, search_paths=[join(dirname(__file__), 'Stages')] + search_paths)
+        self._peak_searcher_classes, self._peak_searcher_import_stats = import_plugins_from_paths(
+            base_class=PeakSearcher, search_paths=[join(dirname(__file__), 'PeakSearchers')] + search_paths)
+        self._path_planner_classes, self._path_planner_import_stats = import_plugins_from_paths(
+            base_class=PathPlanning, search_paths=[dirname(__file__)] + search_paths)
+        self._stage_polygon_classes, self._stage_polygon_import_stats = import_plugins_from_paths(
+            base_class=StagePolygon, search_paths=[dirname(__file__)] + search_paths)
+
+    @property
+    def stage_classes(self) -> Dict[str, Stage]:
+        """
+        Returns a list of all Stage classes.
+        Read-only.
+        """
+        return self._stage_classes
+
+    @property
+    def stage_polygon_classes(self) -> Dict[str, StagePolygon]:
+        """
+        Returns a list of all StagePolygon classes.
+        Read-only.
+        """
+        return self._stage_polygon_classes
+
+    @property
+    def peak_searcher_classes(self) -> Dict[str, PeakSearcher]:
+        """
+        Returns a list of all PeakSearcher classes.
+        Read-only.
+        """
+        return self._peak_searcher_classes
+
+    @property
+    def path_planning_classes(self) -> Dict[str, PathPlanning]:
+        """
+        Returns a list of all PathPlanning classes.
+        Read-only.
+        """
+        return self._path_planner_classes
+
+
 class MoverNew:
     """
     Entrypoint for all movement in LabExT.
@@ -95,26 +161,12 @@ class MoverNew:
         """
         self.logger = logging.getLogger()
 
+        self.api = MoverAPI()
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
-        # Mover API classes
-        self._stage_classes: Dict[str, Stage] = {}
-        self._stage_classes_import_stats: Dict[str, int] = {}
-        self._peak_searcher_classes: Dict[str, PeakSearcher] = {}
-        self._peak_searcher_import_stats: Dict[str, int] = {}
-        self._path_planner_classes: Dict[str, PathPlanning] = {}
-        self._path_planner_import_stats: Dict[str, int] = {}
-        self._stage_polygon_classes: Dict[str, StagePolygon] = {}
-        self._stage_polygon_import_stats: Dict[str, int] = {}
-
         # Available Stages
         self._available_stages: List[Type[Stage]] = []
-
-        # Stage classes plugin
-        self._stage_classes: Dict[str, Stage] = {}
-        self._plugin_loader = PluginLoader()
-        self._plugin_loader_stats: Dict[str, int] = {}
 
         # Mover calibrations
         self._calibrations = bidict()
@@ -188,71 +240,18 @@ class MoverNew:
 
         _main_window.refresh_context_menu()
 
-    def import_api_classes(self) -> None:
+    def discover_stages(self) -> None:
         """
-        Imports all mover api classes (Stages, StagePolygons, PeakSeacher and PathPlanner).
+        LEGACY
         """
-        if self.active_stages:
-            raise AssertionError(
-                "Cannot import Mover API classes. The mover has already configured stages, this can cause side effects. "
-                "Reset the mover or restart LabExT.")
-
-        addon_paths = self.experiment_manager.addon_settings['addon_search_directories']
-
-        # Import classes
-        self._stage_classes, self._stage_classes_import_stats = import_plugins_from_paths(
-            base_class=Stage, search_paths=[join(dirname(__file__), 'Stages')] + addon_paths)
-        self._peak_searcher_classes, self._peak_searcher_import_stats = import_plugins_from_paths(
-            base_class=PeakSearcher, search_paths=[join(dirname(__file__), 'PeakSearchers')] + addon_paths)
-        self._path_planner_classes, self._path_planner_import_stats = import_plugins_from_paths(
-            base_class=PathPlanning, search_paths=[dirname(__file__)] + addon_paths)
-        self._stage_polygon_classes, self._stage_polygon_import_stats = import_plugins_from_paths(
-            base_class=StagePolygon, search_paths=[dirname(__file__)] + addon_paths)
-
         # Discover connected stages
         self._available_stages = []
-        for stage_cls in self._stage_classes.values():
+        for stage_cls in self.api.stage_classes.values():
             self._available_stages += stage_cls.find_available_stages()
 
         self.logger.debug(
             'Discovered stages. Found: %s',
             list(map(str, self._available_stages)))
-
-    #
-    #   Mover API Classes
-    #
-
-    @property
-    def stage_classes(self) -> Dict[str, Stage]:
-        """
-        Returns a list of all Stage classes.
-        Read-only.
-        """
-        return self._stage_classes
-
-    @property
-    def stage_polygon_classes(self) -> Dict[str, StagePolygon]:
-        """
-        Returns a list of all StagePolygon classes.
-        Read-only.
-        """
-        return self._stage_polygon_classes
-
-    @property
-    def peak_searcher_classes(self) -> Dict[str, PeakSearcher]:
-        """
-        Returns a list of all PeakSearcher classes.
-        Read-only.
-        """
-        return self._peak_searcher_classes
-
-    @property
-    def path_planning_classes(self) -> Dict[str, PathPlanning]:
-        """
-        Returns a list of all PathPlanning classes.
-        Read-only.
-        """
-        return self._path_planner_classes
 
     #
     #   Properties

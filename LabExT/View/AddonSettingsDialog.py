@@ -198,10 +198,10 @@ class AddonSettingsDialog:
     def _get_loaded_mover_api(self) -> list:
         ret_list = []
         for ty, imported_plugins in {
-            "Stage": self._exp_mgr.mover.stage_classes.items(),
-            "Stage Polygon": self._exp_mgr.mover.stage_polygon_classes.items(),
-            "Peak Searcher": self._exp_mgr.mover.peak_searcher_classes.items(),
-            "Path Planner": self._exp_mgr.mover.path_planning_classes.items()
+            "Stage": self._exp_mgr.mover.api.stage_classes.items(),
+            "Stage Polygon": self._exp_mgr.mover.api.stage_polygon_classes.items(),
+            "Peak Searcher": self._exp_mgr.mover.api.peak_searcher_classes.items(),
+            "Path Planner": self._exp_mgr.mover.api.path_planning_classes.items()
         }.items():
             for name, api_klass in imported_plugins:
                 ret_list.append((name, ty, ''))
