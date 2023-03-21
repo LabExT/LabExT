@@ -19,12 +19,13 @@ from contextlib import contextmanager
 
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
-from LabExT.Movement.Stage import Stage, StageError
+from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
 from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning, StagePolygon
+from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 
 from LabExT.Utils import get_configuration_file_path
-from LabExT.PluginLoader import PluginLoader
+from LabExT.PluginLoader import PluginLoader, import_plugins_from_paths
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -97,12 +98,23 @@ class MoverNew:
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
+        # Mover API classes
+        self._stage_classes: Dict[str, Stage] = {}
+        self._stage_classes_import_stats: Dict[str, int] = {}
+        self._peak_searcher_classes: Dict[str, PeakSearcher] = {}
+        self._peak_searcher_import_stats: Dict[str, int] = {}
+        self._path_planner_classes: Dict[str, PathPlanning] = {}
+        self._path_planner_import_stats: Dict[str, int] = {}
+        self._stage_polygon_classes: Dict[str, StagePolygon] = {}
+        self._stage_polygon_import_stats: Dict[str, int] = {}
+
+        # Available Stages
+        self._available_stages: List[Type[Stage]] = []
+
         # Stage classes plugin
         self._stage_classes: Dict[str, Stage] = {}
         self._plugin_loader = PluginLoader()
         self._plugin_loader_stats: Dict[str, int] = {}
-        # Available Stages
-        self._available_stages: List[Type[Stage]] = []
 
         # Mover calibrations
         self._calibrations = bidict()
@@ -147,7 +159,7 @@ class MoverNew:
         if self._chip == chip:
             return
 
-        # Reset chip sensitive transformations 
+        # Reset chip sensitive transformations
         for calibration in self.calibrations.values():
             calibration.reset_single_point_offset()
             calibration.reset_kabsch_rotation()
@@ -176,49 +188,39 @@ class MoverNew:
 
         _main_window.refresh_context_menu()
 
-    def import_stage_classes(self) -> None:
+    def import_api_classes(self) -> None:
         """
-        Imports all stage classes and discovers available stages.
+        Imports all mover api classes (Stages, StagePolygons, PeakSeacher and PathPlanner).
         """
-        self._stage_classes.clear()
-        self._plugin_loader_stats.clear()
-        self._available_stages.clear()
+        if self.active_stages:
+            raise AssertionError(
+                "Cannot import Mover API classes. The mover has already configured stages, this can cause side effects. "
+                "Reset the mover or restart LabExT.")
 
-        # prioritize LabExT Core stages over Add-On Stages
-        search_paths = [join(dirname(__file__), 'Stages')]
-        if self.experiment_manager:
-            search_paths += self.experiment_manager.addon_settings['addon_search_directories']
+        addon_paths = self.experiment_manager.addon_settings['addon_search_directories']
 
-        for path in search_paths:
-            imported_stage_classes = self._plugin_loader.load_plugins(
-                path, plugin_base_class=Stage, recursive=True)
-            unique_stage_classes = {
-                k: v for k,
-                v in imported_stage_classes.items() if k not in self._stage_classes}
+        # Import classes
+        self._stage_classes, self._stage_classes_import_stats = import_plugins_from_paths(
+            base_class=Stage, search_paths=[join(dirname(__file__), 'Stages')] + addon_paths)
+        self._peak_searcher_classes, self._peak_searcher_import_stats = import_plugins_from_paths(
+            base_class=PeakSearcher, search_paths=[join(dirname(__file__), 'PeakSearchers')] + addon_paths)
+        self._path_planner_classes, self._path_planner_import_stats = import_plugins_from_paths(
+            base_class=PathPlanning, search_paths=[dirname(__file__)] + addon_paths)
+        self._stage_polygon_classes, self._stage_polygon_import_stats = import_plugins_from_paths(
+            base_class=StagePolygon, search_paths=[dirname(__file__)] + addon_paths)
 
-            self._plugin_loader_stats[path] = len(unique_stage_classes)
-            self._stage_classes.update(unique_stage_classes)
+        # Discover connected stages
+        self._available_stages = []
+        for stage_cls in self._stage_classes.values():
+            self._available_stages += stage_cls.find_available_stages()
 
-            for stage_cls in unique_stage_classes.values():
-                self._available_stages += stage_cls.find_available_stages()
-
-        self.logger.debug(
-            'Available stage classes loaded. Found: %s', [
-                k for k in self._stage_classes.keys()])
         self.logger.debug(
             'Discovered stages. Found: %s',
             list(map(str, self._available_stages)))
 
     #
-    #   Properties
+    #   Mover API Classes
     #
-
-    @property
-    def plugin_loader_stats(self) -> Dict[str, int]:
-        """
-        Returns a dict of stats after the import of stage classes.
-        """
-        return self._plugin_loader_stats
 
     @property
     def stage_classes(self) -> Dict[str, Stage]:
@@ -227,6 +229,34 @@ class MoverNew:
         Read-only.
         """
         return self._stage_classes
+
+    @property
+    def stage_polygon_classes(self) -> Dict[str, StagePolygon]:
+        """
+        Returns a list of all StagePolygon classes.
+        Read-only.
+        """
+        return self._stage_polygon_classes
+
+    @property
+    def peak_searcher_classes(self) -> Dict[str, PeakSearcher]:
+        """
+        Returns a list of all PeakSearcher classes.
+        Read-only.
+        """
+        return self._peak_searcher_classes
+
+    @property
+    def path_planning_classes(self) -> Dict[str, PathPlanning]:
+        """
+        Returns a list of all PathPlanning classes.
+        Read-only.
+        """
+        return self._path_planner_classes
+
+    #
+    #   Properties
+    #
 
     @property
     def available_stages(self) -> List[Type[Stage]]:
