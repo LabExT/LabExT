@@ -22,7 +22,7 @@ from typing import Type
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
 from LabExT.Movement.MoverNew import MoverNew
-from LabExT.PluginLoader import PluginLoader
+from LabExT.PluginLoader import import_plugins_from_paths
 from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.Controls.ParameterTable import ConfigParameter
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
@@ -52,7 +52,6 @@ class StandardExperiment:
         self._peak_searcher = experiment_manager.peak_searcher  # peak server, used to SfP in automated sweeps
 
         # addon loading
-        self.plugin_loader = PluginLoader()  # used to load measurements from addon folders
         self.plugin_loader_stats = {}  # contains info on how many measurements from which paths were loaded.
         self.measurements_classes = {}  # contains names and classes of loaded measurements
 
@@ -339,19 +338,13 @@ class StandardExperiment:
         Load all measurement files in Measurement folder and update
         measurement list.
         """
-        # stats are only kept for last import call
-        self.plugin_loader_stats.clear()
-
         meas_search_paths = [join(dirname(dirname(__file__)), 'Measurements')]  # include Meas. from LabExT core first
         meas_search_paths += self._experiment_manager.addon_settings['addon_search_directories']
 
-        for msp in meas_search_paths:
-            plugins = self.plugin_loader.load_plugins(msp, plugin_base_class=Measurement, recursive=True)
-            unique_plugins = {k: v for k, v in plugins.items() if k not in self.measurements_classes}
-            self.plugin_loader_stats[msp] = len(unique_plugins)
-            self.measurements_classes.update(unique_plugins)
+        self.measurements_classes, self.plugin_loader_stats = import_plugins_from_paths(
+            base_class=Measurement, search_paths=meas_search_paths)
 
-        self.logger.debug('Available measurements loaded. Found: %s', self.measurement_list)
+        self.logger.debug('Available measurements loaded. Found: %s', self.measurements_classes)
 
     def remove_measurement_dataset(self, meas_dict):
         mh = calc_measurement_key(meas_dict)
