@@ -8,11 +8,11 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="LabExT_pkg",
-    version="2.1.3",
+    version="2.2.0",
     author="Institute of Electromagnetic Fields (IEF) at ETH Zurich",
     author_email="ief@ief.ee.ethz.ch",
     maintainer="Marco Eppenberger",
-    maintainer_email="marco.eppenberger@ief.ee.ethz.ch",
+    maintainer_email="mail@mebg.ch",
     description="LabExT is a software environment for performing laboratory experiments on silicon-photonic devices.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -25,8 +25,8 @@ setuptools.setup(
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Science/Research",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],

@@ -9,24 +9,29 @@ import datetime
 import json
 import logging
 import sys
+import os
 import webbrowser
 from threading import Thread
-from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, Button, TclError, font
+from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, font
 
-from LabExT.Utils import run_with_wait_window, get_author_list
+from LabExT.Utils import get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
-from LabExT.View.ConfigureStageWindow import ConfigureStageWindow
-from LabExT.View.Controls.ParameterTable import ParameterTable, ConfigParameter
+from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 from LabExT.View.ExperimentWizard.ExperimentWizardController import ExperimentWizardController
 from LabExT.View.Exporter import Exporter
 from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
-from LabExT.View.MoveDeviceWindow import MoveDeviceWindow
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
-from LabExT.View.StageDriverSettingsDialog import StageDriverSettingsDialog
-
+from LabExT.View.Movement import (
+    CalibrationWizard,
+    MoverWizard,
+    StageWizard,
+    MoveStagesRelativeWindow,
+    MoveStagesDeviceWindow,
+    LoadStoredCalibrationWindow
+)
 
 class MListener:
     """Listens to the events triggered by clicks on the menu bar.
@@ -49,28 +54,30 @@ class MListener:
 
         # toplevel tracking to simply raise window if already opened once instead of opening a new one
         self.swept_exp_wizard_toplevel = None
+        self.exporter_toplevel = None
+        self.stage_configure_toplevel = None
+        self.stage_movement_toplevel = None
+        self.stage_device_toplevel = None
         self.sfpp_toplevel = None
         self.extra_plots_toplevel = None
         self.live_viewer_toplevel = None
         self.instrument_conn_debuger_toplevel = None
         self.addon_settings_dialog_toplevel = None
         self.stage_driver_settings_dialog_toplevel = None
+        self.about_toplevel = None
         self.pgb = None
         self.import_done = False
+        self.stage_setup_toplevel = None
+        self.mover_setup_toplevel = None
+        self.calibration_setup_toplevel = None
+        self.calibration_restore_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
         ExperimentWizard.
         """
-        if self.swept_exp_wizard_toplevel is not None:
-            try:
-                self.swept_exp_wizard_toplevel.deiconify()
-                self.swept_exp_wizard_toplevel.lift()
-                self.swept_exp_wizard_toplevel.focus_set()
-                self.logger.debug('Raising existing device sweep wizard window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.swept_exp_wizard_toplevel):
+            return
 
         # start the measurement wizard
         self.logger.debug('Opening new device sweep wizard window.')
@@ -174,8 +181,12 @@ class MListener:
     def client_export_data(self):
         """Called when user wants to export data. Starts the Exporter.
         """
+        if try_to_lift_window(self.exporter_toplevel):
+            return
+
         self.logger.debug('Client wants to export data')
-        Exporter(self._root, self._experiment_manager)
+        exporter = Exporter(self._root, self._experiment_manager)
+        self.exporter_toplevel = exporter._meas_window
 
     def client_quit(self):
         """
@@ -183,138 +194,103 @@ class MListener:
         """
         sys.exit(0)
 
-    def client_configure_stages(self):
+    def client_restart(self):
         """
-        Open stage info and configuration window.
+        Called when user wants to restart the applications.
         """
-        new_window = Toplevel(self._root)
-        new_window.lift()
-        ConfigureStageWindow(new_window, self._experiment_manager)
+        os.execl(sys.executable, sys.executable, *sys.argv)
+
+    def client_setup_stages(self):
+        """
+        Open wizard to setup the stages.
+        """
+        if try_to_lift_window(self.stage_setup_toplevel):
+            return
+        
+        self.stage_setup_toplevel = StageWizard(
+            self._root,
+            self._experiment_manager.mover,
+            experiment_manager=self._experiment_manager)
+
+    def client_setup_mover(self):
+        """
+        Open wizard to setup mover.
+        """
+        if try_to_lift_window(self.mover_setup_toplevel):
+            return
+        
+        self.mover_setup_toplevel = MoverWizard(self._root, self._experiment_manager.mover)
+
+    def client_calibrate_stage(self):
+        """
+        Open wizard to calibrate stages.
+        """
+        if try_to_lift_window(self.calibration_setup_toplevel):
+            return
+        
+        self.calibration_setup_toplevel = CalibrationWizard(
+            self._root,
+            self._experiment_manager.mover,
+            self._experiment_manager.chip,
+            experiment_manager=self._experiment_manager)
 
     def client_move_stages(self):
-        """Called when the user wants to move the stages manually.
+        """
+        Called when the user wants to move the stages manually.
         Opens a window with parameters for relative movement.
         """
-        self.logger.debug('Client wants to move stages manually')
+        if try_to_lift_window(self.stage_movement_toplevel):
+            return
 
-        # create new window
-        new_window = Toplevel(self._root)
-        new_window.attributes('-topmost', 'true')
-
-        self._params = {}
-        for dim_name in self._experiment_manager.mover.dimension_names:
-            self._params[dim_name] = ConfigParameter(new_window, unit='um', parameter_type='number_float')
-
-        param_table = ParameterTable(new_window)
-        param_table.grid(row=0, column=0, padx=5, pady=50)
-        param_table.title = 'Relative movement of stages'
-        param_table.parameter_source = self._params
-
-        if len(self._params) == 0:
-            lbl = Label(new_window, text='Mover not initialized yet.')
-            lbl.grid(row=0, column=0)
-        else:
-            ok_button = Button(new_window, text='Move stages', command=self._move_relative)
-            ok_button.grid(row=1, column=0, sticky='e')
-
-    def _move_relative(self):
-        """Called when the user presses on button 'Move stages' in
-        client_move_stages. Calls mover to perform a relative movement.
-        """
-        # get values from input fields
-        relative_moves = []
-        for dim_name in self._experiment_manager.mover.dimension_names:
-            relative_moves.append(self._params[dim_name].value)
-        self.logger.info('Client wants to move stages manually - %s', relative_moves)
-
-        try:
-            self._experiment_manager.mover.move_relative(*relative_moves, lift_z_dir=True)
-        except Exception as exc:
-            msg = 'Could not move stages manually! Reason: ' + repr(exc)
-            messagebox.showinfo('Error', msg)
-            self.logger.exception(msg)
+        self.stage_movement_toplevel = MoveStagesRelativeWindow(
+            self._root, self._experiment_manager.mover)
 
     def client_move_device(self):
-        """Called when the user wants to move the stages to a specific device.
+        """
+        Called when the user wants to move the stages to a specific device.
         Opens a MoveDeviceWindow and uses mover to perform the movement.
         """
-        self.logger.debug('client wants to move to specific device')
-
-        if not self._experiment_manager.chip:
-            msg = 'No chip file imported before moving to device. Cannot move to device without chip file present.'
-            messagebox.showerror('No chip layout', msg)
-            self.logger.error(msg)
-            return
-        if not self._experiment_manager.mover.trafo_enabled:
-            msg = 'Stage coordinates not calibrated to chip. ' + \
-                  'Please calibrate the coordinate transformation first before moving the stages automatically.'
-            messagebox.showerror('Error: No transformation', msg)
-            self.logger.error(msg)
+        if try_to_lift_window(self.stage_device_toplevel):
             return
 
-        # open a new window
-        new_window = Toplevel(self._root)
-        # place the table inside
-        dev_window = MoveDeviceWindow(new_window,
-                                      self._experiment_manager,
-                                      'Please select the device to which you would like to move')
-        self._root.wait_window(new_window)
-
-        # get the selected device
-        device = dev_window.selection
-
-        # catch case where no device is selected
-        if device is None:
-            msg = 'No device selected. Aborting move.'
-            messagebox.showwarning("No Device Selected", msg)
-            self.logger.warning(msg)
-            return
-
-        # perform movement
-        run_with_wait_window(
+        self.stage_device_toplevel = MoveStagesDeviceWindow(
             self._root,
-            "Moving to device...",
-            lambda: self._experiment_manager.mover.move_to_device(device))
+            self._experiment_manager.mover,
+            self._experiment_manager.chip)
 
-        msg = 'Successfully moved to device with ID: ' + str(device._id)
-        messagebox.showinfo('Success', msg)
-        self.logger.info(msg)
-
-    def client_transformation(self):
-        """Called when user wants to perform a coordinate transformation.
-        Calls check_for_saved_transformation in mover to check for saved transformation.
-        The user can than decide if he wants to load the saved transformation or make a new one.
+    def client_restore_calibration(self, chip):
         """
-        self.logger.debug('Client wants to perform transformation.')
+        Opens a window to restore calibrations.
+        """
+        if try_to_lift_window(self.calibration_restore_toplevel):
+            return
 
-        if self._experiment_manager.chip:
-            try:
-                self._experiment_manager.mover.check_for_saved_transformation()
-            except Exception as exc:
-                msg = 'Transformation raised Exception. Reason: ' + repr(exc)
-                messagebox.showinfo('Transformation aborted', msg)
-                self.logger.error(msg)
+        calibration_settings = self._experiment_manager.mover.load_stored_calibrations_for_chip(
+            chip=chip)
 
-            if not self._experiment_manager.mover.trafo_enabled:
-                msg = 'Error: Automatic movement not enabled.'
-                messagebox.showerror('Error', msg)
-                self.logger.error(msg)
-        else:
-            msg = 'No chip file imported. Cannot do coordinate transformation for stages with no chip file present.'
-            messagebox.showwarning('Error: No chip layout', msg)
-            self.logger.warning(msg)
+        if not calibration_settings:
+            self.logger.debug(
+                f"No stored calibration found for {chip}")
+            return
+
+        last_updated_at = datetime.datetime.fromisoformat(
+            calibration_settings["last_updated_at"]).strftime("%d.%m.%Y %H:%M:%S")
+
+        if not messagebox.askyesno(
+            "Restore calibration",
+            f"Found mover calibration for chip: {chip.name}. \n Last updated at: {last_updated_at}. \n"
+            "Do you want to restore it?"):
+            return
+
+        self.calibration_restore_toplevel = LoadStoredCalibrationWindow(
+            self._root,
+            self._experiment_manager.mover,
+            calibration_settings=calibration_settings)
 
     def client_search_for_peak(self):
         """Called when user wants to open plotting window for search for peak observation."""
-        if self.sfpp_toplevel is not None:
-            try:
-                self.sfpp_toplevel.deiconify()
-                self.sfpp_toplevel.lift()
-                self.sfpp_toplevel.focus_set()
-                self.logger.debug('Raising existing search for peak window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.sfpp_toplevel):
+            return
 
         self.logger.debug('Opening new search for peak window.')
         sfpp = SearchForPeakPlotsWindow(parent=self._root,
@@ -323,16 +299,9 @@ class MListener:
 
     def client_extra_plots(self):
         """ Called when user wants to open extra plots. """
-        if self.extra_plots_toplevel is not None:
-            try:
-                self.extra_plots_toplevel.deiconify()
-                self.extra_plots_toplevel.lift()
-                self.extra_plots_toplevel.focus_set()
-                self.logger.debug('Raising existing extra plots window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
-
+        if try_to_lift_window(self.extra_plots_toplevel):
+            return
+        
         main_window = self._experiment_manager.main_window
         meas_table = main_window.view.frame.measurement_table
         self.logger.debug('Opening new extra plots window.')
@@ -347,15 +316,8 @@ class MListener:
         Creates a new instance of LiveViewer, which takes care of
         settings, instruments and plotting.
         """
-        if self.live_viewer_toplevel is not None:
-            try:
-                self.live_viewer_toplevel.deiconify()
-                self.live_viewer_toplevel.lift()
-                self.live_viewer_toplevel.focus_set()
-                self.logger.debug('Raising existing live viewer window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.live_viewer_toplevel):
+            return
 
         self.logger.debug('Opening new live viewer window.')
         lv = LiveViewerController(self._root, self._experiment_manager)  # blocking call until all settings have been made
@@ -363,48 +325,45 @@ class MListener:
 
     def client_instrument_connection_debugger(self):
         """ opens the instrument connection debugger """
-        if self.instrument_conn_debuger_toplevel is not None:
-            try:
-                self.instrument_conn_debuger_toplevel.deiconify()
-                self.instrument_conn_debuger_toplevel.lift()
-                self.instrument_conn_debuger_toplevel.focus_set()
-                self.logger.debug('Raising existing instrument connection debugger window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.instrument_conn_debuger_toplevel):
+            return
 
         icd = InstrumentConnectionDebugger(self._root, self._experiment_manager)
         self.instrument_conn_debuger_toplevel = icd.wizard_window
 
     def client_addon_settings(self):
         """ opens the addon settings dialog """
-        if self.addon_settings_dialog_toplevel is not None:
-            try:
-                self.addon_settings_dialog_toplevel.deiconify()
-                self.addon_settings_dialog_toplevel.lift()
-                self.addon_settings_dialog_toplevel.focus_set()
-                self.logger.debug('Raising existing addon settings dialog window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.addon_settings_dialog_toplevel):
+            return
 
         asd = AddonSettingsDialog(self._root, self._experiment_manager)
         self.addon_settings_dialog_toplevel = asd.wizard_window
 
     def client_stage_driver_settings(self):
         """ opens the stage driver settings dialog """
-        if self.stage_driver_settings_dialog_toplevel is not None:
-            try:
-                self.stage_driver_settings_dialog_toplevel.deiconify()
-                self.stage_driver_settings_dialog_toplevel.lift()
-                self.stage_driver_settings_dialog_toplevel.focus_set()
-                self.logger.debug('Raising existing addon settings dialog window.')
-                return
-            except TclError:
-                pass  # Tcl Error if window cannot be raised because it has been closed
+        if try_to_lift_window(self.stage_driver_settings_dialog_toplevel):
+            self._root.wait_window(
+                self.stage_driver_settings_dialog_toplevel)
+        else:
+            self.stage_driver_settings_dialog_toplevel = DriverPathDialog(
+                self._root,
+                settings_file_path="mcsc_module_path.txt",
+                title="Stage Driver Settings",
+                label="SmarAct MCSControl driver module path",
+                hint="Specify the directory where the module MCSControl_PythonWrapper is found.\nThis is external software,"
+                "provided by SmarAct GmbH and is available from them. See https://smaract.com.")
+            self._root.wait_window(
+                self.stage_driver_settings_dialog_toplevel)
 
-        sdd = StageDriverSettingsDialog(self._root)
-        self.stage_driver_settings_dialog_toplevel = sdd.wizard_window
+        if self.stage_driver_settings_dialog_toplevel.path_has_changed:
+            if messagebox.askokcancel(
+                "Stage Driver Path changed",
+                "The path to the driver of the SmarAct MCSControl Interface was successfully changed."\
+                "LabExT must be restarted for the changes to take effect. Do you want to restart LabExT now?",
+                parent=self._root):
+                self.client_restart()
+
+       
 
     def client_documentation(self):
         """ Opens the documentation in a new browser session. """
@@ -418,10 +377,13 @@ class MListener:
     def client_load_about(self):
         """Opens an About window.
         """
+        if try_to_lift_window(self.about_toplevel):
+            return
+
         self.logger.debug('Client opens about window')
-        new_window = Toplevel(self._root)
-        new_window.attributes('-topmost', 'true')
-        about_window = Frame(new_window)
+        self.about_toplevel = Toplevel(self._root)
+        self.about_toplevel.attributes('-topmost', 'true')
+        about_window = Frame(self.about_toplevel)
         about_window.grid(row=0, column=0)
 
         font_title = font.Font(size=12, weight='bold')

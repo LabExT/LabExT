@@ -64,17 +64,9 @@ class Test_PiezoStage(unittest.TestCase):
         # reset stage speed
         self.stage.set_acceleration_xy(xy_acc)
 
-    def test_params(self):
-        # z-axis direction
-        self.stage.z_axis_direction = 1
-        self.assertEqual(1, self.stage.z_axis_direction)
-
-        self.stage.z_axis_direction = -1
-        self.assertEqual(-1, self.stage.z_axis_direction)
-
     def test_current_position(self):
 
-        pos = self.stage.get_current_position()
+        pos = self.stage.get_position()
         pos = [elem * 1e3 for elem in pos]
 
         if self.user_input_required:
@@ -99,32 +91,4 @@ class Test_PiezoStage(unittest.TestCase):
             if self.user_input_required:
                 self.assertTrue(ask_user_yes_no(f"Has the Piezo-Stage moved to absolute position {positions[i, :] * 1e3}?",
                                                 default_answer=True))
-
-    def test_lower_lift_stage(self):
-
-        pos0 = self.stage.get_current_position()
-        z_lift_0 = self.stage.get_lift_distance()
-        lift = 1000
-        self.stage.set_speed_z(500)
-        # user has to set the correct z axis direction here
-        self.stage.z_axis_direction = self.z_axis_direction
-
-        self.stage.set_lift_distance(lift)
-        self.stage.lift_stage()
-        if self.user_input_required:
-            self.assertTrue(ask_user_yes_no(f"Has the stage moved up by {lift}um"))
-
-        self.stage.lower_stage()
-
-        if self.user_input_required:
-            self.assertTrue(ask_user_yes_no(f"Has the stage lowered down by {lift}um"))
-
-    def test_wiggle_z_axis_positioner(self):
-
-        self.stage.wiggle_z_axis_positioner()
-        # user has to set the correct z axis direction here
-        self.stage.z_axis_direction = self.z_axis_direction
-
-        if self.user_input_required:
-            self.assertTrue(ask_user_yes_no("Has the stage wiggled (first up then down or vice versa?)"))
 

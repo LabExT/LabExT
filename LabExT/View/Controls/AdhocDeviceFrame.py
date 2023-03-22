@@ -36,9 +36,9 @@ class AdhocDeviceFrame(CustomFrame):
     def __setup__(self):
         """setup GUI elements"""
 
-        Label(self, text='Device ID number (*):').grid(row=0, column=0, padx=5, sticky='w')
+        Label(self, text='Device ID (*):').grid(row=0, column=0, padx=5, sticky='w')
         self._entry_id = self.add_widget(Entry(self), row=0, column=1, padx=5, sticky='we', columnspan=3)
-        Label(self, text='Required: integer >= 0').grid(row=0, column=4, padx=5, sticky='w')
+        Label(self, text='Required: string').grid(row=0, column=4, padx=5, sticky='w')
 
         Label(self, text='Type (*):').grid(row=1, column=0, padx=5, sticky='w')
         self._entry_type = self.add_widget(Entry(self), row=1, column=1, padx=5, sticky='we', columnspan=3)
@@ -104,9 +104,6 @@ class AdhocDeviceFrame(CustomFrame):
         _id = self._entry_id.get()
         if len(_id) < 1:
             raise ValueError("Device ID cannot be empty.")
-        _id = int(_id)
-        if _id < 0:
-            raise ValueError("Device ID must be non-negative.")
 
         _type = self._entry_type.get()
         if len(_type) < 1:
@@ -137,16 +134,16 @@ class AdhocDeviceFrame(CustomFrame):
     def load_existing_device(self, device: Device):
         """Loads existing device information from an existing device object."""
 
-        self._entry_id.insert(0, device._id)
-        self._entry_type.insert(0, device._type)
-        self._entry_inp_x.insert(0, device._in_position[0])
-        self._entry_inp_y.insert(0, device._in_position[1])
-        self._entry_oup_x.insert(0, device._out_position[0])
-        self._entry_oup_y.insert(0, device._out_position[1])
+        self._entry_id.insert(0, device.id)
+        self._entry_type.insert(0, device.type)
+        self._entry_inp_x.insert(0, device.in_position[0])
+        self._entry_inp_y.insert(0, device.in_position[1])
+        self._entry_oup_x.insert(0, device.out_position[0])
+        self._entry_oup_y.insert(0, device.out_position[1])
 
         # do not save empty extra parameters
         self._extra_parameter_vars = [(StringVar(value=kv), StringVar(value=vv))
-                                      for kv, vv in device._parameters.items()]
+                                      for kv, vv in device.parameters.items()]
         self.__setup_extra_params__()
 
     def serialize(self, file_name):

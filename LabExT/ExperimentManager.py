@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import json
 import logging
+import shutil
 import webbrowser
 from os.path import isfile, dirname, join
 from threading import Thread
@@ -17,7 +18,7 @@ from LabExT.DocumentationEngine.Engine import DocumentationEngine
 from LabExT.Experiments.StandardExperiment import StandardExperiment
 from LabExT.Instruments.InstrumentAPI import InstrumentAPI
 from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
-from LabExT.Movement.Mover import Mover
+from LabExT.Movement.MoverNew import MoverNew
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
@@ -58,19 +59,23 @@ class ExperimentManager:
         self.logger = logging.getLogger()
         self.logger.info('Initialise ExperimentManager with chip: %s', chip)
 
+        self._skip_setup = skip_setup
+
         self._root = root
         self.root = root
         self._log_file_name = log_file_path
         self.addon_settings = None
         self.chip = chip
-        self.mover = Mover(self)
-        self.peak_searcher = PeakSearcher(None, self, mover=self.mover, parent=self.root)
+        self.mover = MoverNew(experiment_manager=self, chip=chip)
+        self.peak_searcher = PeakSearcher(
+            None, self, mover=self.mover, parent=self.root)
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
         self.live_viewer_cards = {}
         self.lvcards_import_stats = {}
 
-        # make sure instruments.config file is present, as its used in the resource manager
+        # make sure instruments.config file is present, as its used in the
+        # resource manager
         instruments_are_default = self.setup_instruments_config()
 
         # create global unique resource manager
@@ -94,10 +99,12 @@ class ExperimentManager:
             # the fact that the _tkinter module attempts to gain control of the main thread via a polling technique
             # when processing calls from other threads.
             # This is why we need to put all the setting up into a different thread (yayy)
-            # since we are working in a diffrent thread, we need a variable to signal the end of the process
+            # since we are working in a diffrent thread, we need a variable to
+            # signal the end of the process
             self.setup_done = False
             # here we set up the progress bar
-            self.pgb = ProgressBar(root, 'Welcome to LabExt\nWe are setting everything up for you!')
+            self.pgb = ProgressBar(
+                root, 'Welcome to LabExt\nWe are setting everything up for you!')
             # this is needed, since tk automatically opens a root window, which we do not want. The withdraw
             # command hides that window
             root.withdraw()
@@ -111,10 +118,12 @@ class ExperimentManager:
                 self.pgb.update_idletasks()
                 self.pgb.update()
 
-            # finally, we can destroy the progress bar window and continue with setting up the main window
+            # finally, we can destroy the progress bar window and continue with
+            # setting up the main window
             self.pgb.destroy()
 
-            # recall the root window since we hid it during progress bar loading
+            # recall the root window since we hid it during progress bar
+            # loading
             root.deiconify()
 
         # create and open main window GUI
@@ -123,28 +132,30 @@ class ExperimentManager:
             self.main_window.offer_chip_reload_possibility()
 
         # update status the first time
-        self.main_window.model.status_mover_driver_enabled.set(self.mover.mover_enabled)
-        self.main_window.model.status_transformation_enabled.set(self.mover.trafo_enabled)
-        self.main_window.model.status_sfp_initialized.set(self.peak_searcher.initialized)
-
-        # inform user about mover status
-        if not self.mover.mover_enabled:
-            self.logger.warning('Could not load piezo-stage driver. All movement through LabExT will be deactivated.')
+        self.main_window.model.status_mover_connected_stages.set(
+            self.mover.has_connected_stages)
+        self.main_window.model.status_mover_can_move_to_device.set(
+            self.mover.can_move_absolutely)
+        self.main_window.model.status_sfp_initialized.set(
+            self.peak_searcher.initialized)
 
         # inform user where to find the log file
         self.logger.info("Log file path: " + str(self._log_file_name))
 
         # inform user about loaded addons:
-        meas_addon_stats = '\n'.join(['    imported {:d} measurements from {:s}'.format(n, path) for path, n in
-                                      self.exp.plugin_loader_stats.items()])
-        instr_addon_stats = '\n'.join(['    imported {:d} instruments from {:s}'.format(n, path) for path, n in
-                                       self.instrument_api.plugin_loader_stats.items()])
-        lvcards_addon_stats = '\n'.join(['    imported {:d} lvcards from {:s}'.format(n, path) for path, n in
-                                         self.lvcards_import_stats.items()])
+        meas_addon_stats = '\n'.join(['    imported {:d} measurements from {:s}'.format(
+            n, path) for path, n in self.exp.plugin_loader_stats.items()])
+        instr_addon_stats = '\n'.join(['    imported {:d} instruments from {:s}'.format(
+            n, path) for path, n in self.instrument_api.plugin_loader_stats.items()])
+        lvcards_addon_stats = '\n'.join(['    imported {:d} lvcards from {:s}'.format(
+            n, path) for path, n in self.lvcards_import_stats.items()])
+        stages_addon_stats = '\n'.join(['    imported {:d} stages from {:s}'.format(
+            n, path) for path, n in self.mover.plugin_loader_stats.items()])
         self.logger.info('Plugins loaded:\n' +
                          '  Measurements\n' + meas_addon_stats + '\n' +
                          '  Instruments\n' + instr_addon_stats + '\n' +
-                         '  LVCards\n' + lvcards_addon_stats)
+                         '  LVCards\n' + lvcards_addon_stats + '\n' +
+                         '  Stages\n' + stages_addon_stats)
 
         if instruments_are_default:
             self.logger.warning(
@@ -179,16 +190,19 @@ class ExperimentManager:
             raise ValueError("Empty path, could not import chip!")
         else:
             # create chip based on description file on path
-            self.chip = Chip(path, name)
+            self.chip = Chip.from_file(path, name)
             # ban user to make any more changes to exp parameters
             self.main_window.model.allow_change_chip_params.set(False)
             # update chip reference in subclasses
             if self.exp is not None:
                 self.exp.update_chip(self.chip)
-            if self.mover is not None:
-                self.mover._chip = self.chip
-                self.mover.trafo_enabled = False
-                self.main_window.model.status_transformation_enabled.set(False)
+
+            if self._skip_setup:
+                return
+
+            self.main_window.offer_calibration_reload_possibility(
+                chip=self.chip)
+            self.mover.set_chip(self.chip)
 
     def show_documentation(self, event):
         if self.docu.docu_available:
@@ -199,8 +213,12 @@ class ExperimentManager:
         self.exp.import_measurement_classes()
         # then we load all Instruments
         self.instrument_api.load_all_instruments()
+        # then we load all stage classes and mover settings
+        self.mover.import_stage_classes()
+        self.mover.load_settings()
         # finally, we load all cards for the liveviewer
-        self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(experiment_manager=self)
+        self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(
+            experiment_manager=self)
         # then we generate the documentation
         # generate the documentation
         self.docu = DocumentationEngine(experiment_manager=self)
@@ -227,10 +245,7 @@ class ExperimentManager:
         """ Makes sure that a default set of instrument configuration is present in the LabExT config dir """
         instr_config_path = get_configuration_file_path('instruments.config')
         if not isfile(instr_config_path):
-            with open(join(dirname(__file__), 'Instruments', 'instruments.config.default'), 'r') as fp:
-                cfg_data = json.load(fp)
-            with open(instr_config_path, 'w') as fp:
-                json.dump(cfg_data, fp)
+            shutil.copy(join(dirname(__file__), 'Instruments', 'instruments.config.default'), instr_config_path)
             return True
         else:
             return False

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from tkinter import Tk, Toplevel, messagebox
+from datetime import datetime
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import DeprecatedException, get_configuration_file_path
@@ -57,7 +58,7 @@ class MainWindowController:
 
         self.extra_plots = None
 
-        self.view.set_up_main_window()  # setup the main window content
+        self.view.set_up_main_window()  # set up the main window content
 
         self._axis_being_changed = False
 
@@ -217,7 +218,7 @@ class MainWindowController:
         """
         save axis settings to savefile
         """
-        # dont save anything if no measurement to plot is selected
+        # don't save anything if no measurement to plot is selected
         if self.model.currently_plotted_meas_name is None:
             return
 
@@ -274,7 +275,7 @@ class MainWindowController:
 
         # log action
         msg = "Cloned ToDo with measurement id {:s} to id {:s} and device id {:s} to list position {:d}.".format(
-            last_meas.get_name_with_id(), new_meas.get_name_with_id(), str(last_device._id), 0
+            last_meas.get_name_with_id(), new_meas.get_name_with_id(), str(last_device.id), 0
         )
         self.logger.info(msg)
 
@@ -369,7 +370,7 @@ class MainWindowController:
 
             # log action
             msg = "Edited ToDo with measurement id {:s} and device id {:s} at list position {:d}.".format(
-                selected_todo.measurement.get_name_with_id(), str(selected_todo.device._id), selected_todo_idx
+                selected_todo.measurement.get_name_with_id(), str(selected_todo.device.id), selected_todo_idx
             )
             self.logger.info(msg)
         else:
@@ -395,7 +396,7 @@ class MainWindowController:
 
             # log action
             msg = "Cloned ToDo with measurement id {:s} to id {:s} and device id {:s} to list position {:d}.".format(
-                sel_meas.get_name_with_id(), new_meas.get_name_with_id(), str(sel_device._id), selected_todo_idx + 1
+                sel_meas.get_name_with_id(), new_meas.get_name_with_id(), str(sel_device.id), selected_todo_idx + 1
             )
             self.logger.info(msg)
         else:
@@ -416,7 +417,7 @@ class MainWindowController:
             # tell GUI to update the table contents
             self.update_tables()
             self.logger.info("Deleted ToDo with measurement id {:s} and device id {:s} at list index {:d}.".format(
-                meas_to_del.get_name_with_id(), str(dev_to_del._id), selected_todo_idx
+                meas_to_del.get_name_with_id(), str(dev_to_del.id), selected_todo_idx
             ))
         else:
             msg = 'No ToDo selected for deleting. Click on the row in the ToDo Queue which you want to delete.'
@@ -435,7 +436,7 @@ class MainWindowController:
             sel_meas.open_side_windows()
             self.logger.info(
                 "Opened Side Window for ToDo with measurement id {:s} and device id {:s} at list index {:d}.".format(
-                    sel_meas.get_name_with_id(), str(sel_device._id), selected_todo_idx
+                    sel_meas.get_name_with_id(), str(sel_device.id), selected_todo_idx
                 ))
         else:
             msg = 'No ToDo selected for opening the side window.' + \
@@ -508,6 +509,17 @@ class MainWindowController:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
 
+    def offer_calibration_reload_possibility(self, chip):
+        """
+        Offers the possibility to restore a stored calibration.
+        """
+        self.view.frame.menu_listener.client_restore_calibration(chip)
+
+
+    def open_import_chip(self):
+        """ opens window to import new chip """
+        self.view.frame.menu_listener.client_import_chip()
+
     def open_live_viewer(self):
         """ opens live-viewer window by calling appropriate menu listener function """
         self.view.frame.menu_listener.client_live_view()
@@ -515,6 +527,10 @@ class MainWindowController:
     def open_peak_searcher(self):
         """ opens search for peak window by calling appropriate menu listener function """
         self.view.frame.menu_listener.client_search_for_peak()
+
+    def open_stage_calibration(self):
+        """ opens window to calibrate stages """
+        self.view.frame.menu_listener.client_calibrate_stage()
 
     def start(self):
         """Calls the experiment handler to start the experiment.

@@ -17,7 +17,7 @@ from LabExT.Instruments.LaserSimulator import LaserSimulator
 from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
-from LabExT.Tests.Utils import TKinterTestCase, randomword
+from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
 
 
 def simulator_only_instruments_descriptions(name):
@@ -51,6 +51,7 @@ def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_prop
                               'powermeter range', 'users comment'})
 
 
+@mark_as_gui_integration_test
 @flaky(max_runs=3)
 class MainWindowTest(TKinterTestCase):
 
@@ -79,7 +80,7 @@ class MainWindowTest(TKinterTestCase):
             self.main_window_setup()
 
             # full transformation and sfp need initialization before usage
-            self.assertFalse(self.mwm.status_transformation_enabled.get())
+            self.assertFalse(self.mwm.status_mover_can_move_to_device.get())
             self.assertFalse(self.mwm.status_sfp_initialized.get())
 
             # no ToDos and now loaded measurements at beginning
@@ -96,7 +97,7 @@ class MainWindowTest(TKinterTestCase):
 
             # stage 0: ad-hoc device with randomly generated params
             random_dev_props = {
-                'id': int(random.randint(0, 99999)),
+                'id': randomword(random.randint(5, 25)),
                 'type': randomword(random.randint(5, 25))
             }
             new_meas_wizard_c.view.s0_adhoc_frame._entry_id.delete(0, "end")
@@ -165,8 +166,8 @@ class MainWindowTest(TKinterTestCase):
 
             new_dev = new_to_do.device
             self.assertTrue(isinstance(new_dev, LabExT.Wafer.Device.Device))
-            self.assertEqual(new_dev._id, random_dev_props['id'])
-            self.assertEqual(new_dev._type, random_dev_props['type'])
+            self.assertEqual(new_dev.id, random_dev_props['id'])
+            self.assertEqual(new_dev.type, random_dev_props['type'])
 
             new_meas = new_to_do.measurement
             self.assertTrue(isinstance(new_meas, LabExT.Measurements.MeasAPI.Measurement))

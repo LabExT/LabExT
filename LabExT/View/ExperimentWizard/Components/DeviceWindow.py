@@ -46,7 +46,7 @@ class DeviceWindow(Frame):
         self._chip = experiment_manager.chip
 
         # list of all currently imported devices
-        self._devices = list(self._chip._devices.values())
+        self._devices = list(self._chip.devices.values())
 
         # list of all selected devices
         self._selection = list()
@@ -54,7 +54,7 @@ class DeviceWindow(Frame):
         parent.protocol("WM_DELETE_WINDOW", self.__on_close__)
 
         self.grid(row=0, column=0)  # place window in root element
-        self.__setup__()  # setup the window content
+        self.__setup__()  # set up the window content
 
     def __on_close__(self):
         """Called when user presses 'x'. Opens pop up to ask if user
@@ -76,7 +76,7 @@ class DeviceWindow(Frame):
         # get columns with all possible parameters
         columns = set()
         for device in self._devices:
-            for param in device._parameters:
+            for param in device.parameters:
                 columns.add(str(param))
 
         self.logger.debug('Columns for device window:%s', (def_columns + list(columns)))
@@ -84,11 +84,11 @@ class DeviceWindow(Frame):
         # fill rows with all devices and their parameters
         devs = list()
         for d in self._devices:
-            tup = (' ', d._id, d._in_position, d._out_position, d._type)  # needed values
+            tup = (' ', d.id, d.in_position, d.out_position, d.type)  # needed values
             for param in columns:
                 # the value of parameter, empty if parameter does not exist
                 # for that specific device
-                val = d._parameters.get(param, '')
+                val = d.parameters.get(param, '')
                 # unpack the tuple, append the value of the new parameter
                 # make a tuple again
                 tup = (*tup, val)
@@ -97,8 +97,7 @@ class DeviceWindow(Frame):
         # create header
         self._info_label = Label(
             self._root,
-            text=
-            'Highlight one or more rows, then push the lower left buttons to mark the devices to be measured. ' + \
+            text='Highlight one or more rows, then push the lower left buttons to mark the devices to be measured. ' +
             'This screen remembers the selection you made previously.'
         )
         self._info_label.grid(column=0, row=0, padx=5, pady=5, sticky='nswe')
@@ -125,8 +124,7 @@ class DeviceWindow(Frame):
 
         self._info_label_bot = Label(
             self._root,
-            text=
-            'The devices selected will be sorted by increasing ID for creating ToDos.'
+            text='The devices selected will be sorted by increasing ID for creating ToDos.'
         )
         self._info_label_bot.grid(column=0, row=2, padx=5, pady=5, sticky='')
 
@@ -142,7 +140,7 @@ class DeviceWindow(Frame):
         """
         focused_item_iids = self._device_table._tree.selection()
         for fiid in focused_item_iids:
-            dev_id = int(self._device_table._tree.set(fiid, 1))  # get id of device stored in 2nd column in table
+            dev_id = self._device_table._tree.set(fiid, 1)  # get id of device stored in 2nd column in table
             self._select_unselect_by_devid(dev_id=dev_id, fiid=fiid)
 
     def mark_all(self):
@@ -180,7 +178,7 @@ class DeviceWindow(Frame):
             return
 
         self._experiment_manager.exp.device_list.extend(
-            sorted(self._selection, key=lambda x: x._id)
+            sorted(self._selection, key=lambda x: x.id)
         )
 
         self.logger.debug('Device list (sorted) in experiment:%s', self._experiment_manager.exp.device_list)
@@ -189,14 +187,14 @@ class DeviceWindow(Frame):
             self.callback()
 
     def _select_unselect_by_devid(self, dev_id, fiid=None):
-        curdev = self._chip._devices[dev_id]  # get device object
+        curdev = self._chip.devices[dev_id]  # get device object
 
         # find tree item iid corresponding to device
         if fiid is None:
             all_childs = self._device_table.get_tree().get_children()
             for c in all_childs:
                 # the following convoluted line gets the device id out of the values stored in the tree row
-                c_dev_id = self._device_table.get_tree().item(c)['values'][1]
+                c_dev_id = str(self._device_table.get_tree().item(c)['values'][1])
                 if dev_id == c_dev_id:
                     fiid = c
                     break
@@ -219,10 +217,10 @@ class DeviceWindow(Frame):
             with open(self.settings_path, "r") as f:
                 stored_iids = json.load(f)
             for dev_id in stored_iids:
-                if dev_id in self._chip._devices:
+                if dev_id in self._chip.devices:
                     self._select_unselect_by_devid(dev_id=dev_id)
 
     def _store_to_file(self):
         with open(self.settings_path, "w") as f:
-            sel_ids = [d._id for d in self._selection]
+            sel_ids = [d.id for d in self._selection]
             json.dump(sel_ids, f)

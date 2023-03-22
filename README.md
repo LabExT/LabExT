@@ -4,6 +4,7 @@
 [![Documentation Status](https://readthedocs.org/projects/labext/badge/?version=latest)](https://labext.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/LabExT-pkg.svg)](https://pypi.org/project/LabExT-pkg/)
 ![LabExT CI](https://github.com/LabExT/LabExT/actions/workflows/labext-ci.yml/badge.svg?branch=main)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6602553.svg)](https://doi.org/10.5281/zenodo.6602553)
 
 LabExT, short for Laboratory Experiment Tool, is a software environment for performing laboratory
 experiments on silicon-photonic devices and chips. The tool is free, written in Python 3.8 and uses the I/O API VISA
@@ -53,12 +54,9 @@ If you plan on developing for LabExT, see the [development setup guide](https://
 ## Acknowledgements & Reference
 LabExT is written in part by tireless folks at the
 [Institute of Electromagnetic Fields, ETH Zurich, Switzerland](https://ief.ee.ethz.ch) as part of their daily grind in
-an RF and optics laboratory.
-
-Another big part is written by [Polariton Technologies](https://www.polariton.ch/) whose support and experience in
+an RF and optics laboratory. Another big part is written by [Polariton Technologies](https://www.polariton.ch/) whose support and experience in
 integrated optics design and the testing thereof we gratefully acknowledge.
 
-If you use LabExT and believe that it helps you in your research as much as it helped us, consider citing us as follows:
-```
-M. Eppenberger, A. Messner, P. Wintermeyer, B. Baeuerle and J. Leuthold, "LabExT," available on github.com/LabExT/LabExT, 2021, doi:10.5905/ethz-1007-433.
-```
+If you use LabExT and believe that it helps you in your research as much as it helped us, consider citing us. For
+your convenience, please feel free to use the provided [Bibtex](docs/labext.bib) or [ris/Endnote](docs/labext.ris)
+files. This project is also archived on [Zenodo](https://doi.org/10.5281/zenodo.6602553).

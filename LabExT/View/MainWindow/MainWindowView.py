@@ -8,7 +8,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import logging
 from platform import system
 from tkinter import Frame, Menu, Checkbutton, \
-    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry
+    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry, \
+    NORMAL, DISABLED
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version
@@ -29,6 +30,7 @@ class MainWindowContextMenu(Menu):
     def __init__(self, parent, menu_listener):
         self.parent = parent
         self._menu_listener = menu_listener
+        self._mover = self._menu_listener._experiment_manager.mover
         Menu.__init__(self, self.parent)
         self._file = Menu(self, tearoff=0)
         self._movement = Menu(self, tearoff=0)
@@ -54,24 +56,52 @@ class MainWindowContextMenu(Menu):
             label="Export Data",
             command=self._menu_listener.client_export_data)
         self._file.add_command(
+            label="Restart",
+            command=self._menu_listener.client_restart)
+        self._file.add_command(
             label="Quit",
             command=self._menu_listener.client_quit)
 
         self._movement.add_command(
-            label="Configure Stages",
-            command=self._menu_listener.client_configure_stages)
+            label=f"State: {self._mover.state}",
+            state=DISABLED)
+        self._movement.add_separator()
+
+        if self._mover.has_connected_stages:
+            self._movement.add_command(
+                label=f"{len(self._mover.calibrations)} connected stage(s):",
+                state=DISABLED)
+            for c in self._mover.calibrations.values():
+                self._movement.add_cascade(
+                    label=str(c),
+                    menu=self._make_calibration_menu(c))
+            self._movement.add_separator()
+        
         self._movement.add_command(
-            label="Define Chip-Stage Coordinate Transformation",
-            command=self._menu_listener.client_transformation)
+            label="Configure Stages...",
+            command=self._menu_listener.client_setup_stages)
+        self._movement.add_command(
+            label="Configure Mover...",
+            command=self._menu_listener.client_setup_mover,
+            state=NORMAL if self._mover.has_connected_stages else DISABLED)
+        self._movement.add_command(
+            label="Calibrate Stages...",
+            command=self._menu_listener.client_calibrate_stage,
+            state=NORMAL if self._mover.has_connected_stages else DISABLED)
+        self._movement.add_separator()
         self._movement.add_command(
             label="Move Stages Relative",
-            command=self._menu_listener.client_move_stages)
+            command=self._menu_listener.client_move_stages,
+            state=NORMAL if self._mover.can_move_relatively else DISABLED)
         self._movement.add_command(
             label="Move Stages to Device",
-            command=self._menu_listener.client_move_device)
+            command=self._menu_listener.client_move_device,
+            state=NORMAL if self._mover.can_move_absolutely else DISABLED)
+        self._movement.add_separator()
         self._movement.add_command(
             label="Search for Peak (Ctrl+S)",
-            command=self._menu_listener.client_search_for_peak)
+            command=self._menu_listener.client_search_for_peak,
+            state=NORMAL if self._mover.has_connected_stages else DISABLED)
 
         self._view.add_command(
             label="Open Extra Plots",
@@ -98,6 +128,21 @@ class MainWindowContextMenu(Menu):
         self._help.add_command(
             label="About", command=self._menu_listener.client_load_about)
 
+
+    def _make_calibration_menu(self, calibration):
+        calibration_menu = Menu(self)
+
+        calibration_menu.add_command(
+            label=f"State: {calibration.state}",
+            state=DISABLED)
+        calibration_menu.add_command(
+            label=f"Orientation: {calibration._orientation}",
+            state=DISABLED)
+        calibration_menu.add_command(
+            label=f"Device Port: {calibration._device_port}",
+            state=DISABLED)
+
+        return calibration_menu
 
 class MainWindowControlFrame(Frame):
     """

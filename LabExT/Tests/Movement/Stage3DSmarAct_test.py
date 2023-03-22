@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from enum import Enum
 from itertools import product
 import unittest
+from parameterized import parameterized
 from unittest.mock import Mock, ANY, call, patch, DEFAULT
 from LabExT.Movement.Stage import Stage, StageError
 import LabExT.Movement.Stages.Stage3DSmarAct as SmarActModule
@@ -91,12 +92,22 @@ class SmarActTestCase(unittest.TestCase):
         """
         Checks if a driver function mock was called with a list of arguments with ctypes.
         """
+        self.assertTrue(self._mock_has_call_with_arguments(func, args))
+
+    def _mock_has_call_with_arguments(self, func, args):
+        """
+        Returns True if mock function has any call with given arguments
+        """
         def extract_value(args): return [
             v.value if isinstance(
                 v, ct._SimpleCData) else v for v in args]
 
-        self.assertTrue(any(extract_value(mock_call[0]) == extract_value(
-            expected_args) for mock_call, expected_args in product(func.call_args_list, [args])))
+        return any(
+            extract_value(
+                mock_call[0]) == extract_value(expected_args) for mock_call,
+            expected_args in product(
+                func.call_args_list,
+                [args]))
 
     @contextmanager
     def assert_stage_disconnect(self, stage, mcsc_mock: MCSControlInterface):
@@ -146,9 +157,6 @@ class BaseTest(SmarActTestCase):
     def test_stage_initialization(self):
         self.assertIsNone(self.stage.handle)
         self.assertEqual({}, self.stage.channels)
-        self.assertEqual(20, self.stage._z_lift)
-        self.assertEqual(1, self.stage._z_axis_direction)
-        self.assertFalse(self.stage._stage_lifted_up)
         self.assertEqual(
             self.stage.address,
             self.stage_address.encode('utf-8'))
@@ -306,7 +314,7 @@ class BaseTest(SmarActTestCase):
     #
 
     @with_MCSControl_driver_patch
-    def test_move_relative_without_blocking(
+    def test_move_relative_without_waiting(
             self, mcsc_mock: MCSControlInterface):
         mcsc_mock.SA_GotoPositionRelative_S.return_value = MCSC_STATUS_OK
 
@@ -327,33 +335,59 @@ class BaseTest(SmarActTestCase):
             (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(200000), 0)
         )
 
+    @parameterized.expand([
+        (100, 200, 300),
+        (100, 200, None),
+        (100, None, 300),
+        (100, None, None),
+        (None, 200, 300),
+        (None, 200, None),
+        (None, None, 300),
+        (None, None, None)
+    ])
     @with_MCSControl_driver_patch
-    def test_move_absolute_without_blocking(
-            self, mcsc_mock: MCSControlInterface):
+    def test_move_absolute_v2_without_waiting(
+            self, x, y, z, mcsc_mock: MCSControlInterface):
         mcsc_mock.SA_GotoPositionAbsolute_S.return_value = MCSC_STATUS_OK
 
         with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
             with self.assert_exit_without_error(mcsc_mock):
-                self.stage.move_absolute([500, -1000], wait_for_stopping=False)
+                self.stage.move_absolute(x, y, z, wait_for_stopping=False)
 
-        mcsc_mock.SA_GotoPositionRelative_S.assert_not_called()
-        mcsc_mock.SA_GetStatus_S.assert_not_called()
+        def expected_arguments(axis_identifer, diff):
+            return (
+                ct.c_ulong(system_handle),
+                ct.c_ulong(axis_identifer),
+                ANY if diff is None else ct.c_int(int(to_nanometer(diff))),
+                0
+            )
 
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionAbsolute_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(500000), 0)
-        )
+        self.assertEqual(
+            self._mock_has_call_with_arguments(
+                mcsc_mock.SA_GotoPositionAbsolute_S,
+                expected_arguments(0, x)
+            ),
+            True if x is not None else False)
 
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionAbsolute_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(-1000000), 0)
-        )
+        self.assertEqual(
+            self._mock_has_call_with_arguments(
+                mcsc_mock.SA_GotoPositionAbsolute_S,
+                expected_arguments(1, y)
+            ),
+            True if y is not None else False)
+
+        self.assertEqual(
+            self._mock_has_call_with_arguments(
+                mcsc_mock.SA_GotoPositionAbsolute_S,
+                expected_arguments(2, z)
+            ),
+            True if z is not None else False)
 
     @with_MCSControl_driver_patch
     @patch("LabExT.Movement.Stages.Stage3DSmarAct.time.sleep")
     @patch.object(SmarActModule.Stage3DSmarAct._Channel, 'STATUS_CODES',
                   {MCSControlInterface.SA_STOPPED_STATUS: 'SA_STOPPED_STATUS'})
-    def test_move_relative_with_blocking(
+    def test_move_relative_with_waiting(
             self, sleep_mock, mcsc_mock: MCSControlInterface):
         """
         Simple test, if sleep gets triggered when status is not stopped
@@ -376,7 +410,7 @@ class BaseTest(SmarActTestCase):
     @patch("LabExT.Movement.Stages.Stage3DSmarAct.time.sleep")
     @patch.object(SmarActModule.Stage3DSmarAct._Channel, 'STATUS_CODES',
                   {MCSControlInterface.SA_STOPPED_STATUS: 'SA_STOPPED_STATUS'})
-    def test_move_absolute_with_blocking(
+    def test_move_absolute_v2_with_waiting(
             self, sleep_mock, mcsc_mock: MCSControlInterface):
         """
         Simple test, if sleep gets triggered when status is not stopped
@@ -390,126 +424,11 @@ class BaseTest(SmarActTestCase):
 
         with self.successful_stage_connection(self.stage, mcsc_mock):
             with self.assert_exit_without_error(mcsc_mock):
-                self.stage.move_absolute([-1000, 200], wait_for_stopping=True)
+                self.stage.move_absolute(-1000, 200,
+                                         2000, wait_for_stopping=True)
 
         sleep_mock.assert_called_once()
         self.assertEqual(3, mcsc_mock.SA_GetStatus_S.call_count)
-
-    @with_MCSControl_driver_patch
-    def test_lift_stage(self, mcsc_mock: MCSControlInterface):
-        z_lift = 600.0
-        self.stage.set_lift_distance(z_lift)
-        self.stage.z_axis_direction = 1
-
-        mcsc_mock.SA_GotoPositionRelative_S.return_value = MCSC_STATUS_OK
-
-        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
-            with self.assert_exit_without_error(mcsc_mock):
-                self.stage.lift_stage(wait_for_stopping=False)
-
-        mcsc_mock.SA_GotoPositionAbsolute_S.assert_not_called()
-        mcsc_mock.SA_GetStatus_S.assert_not_called()
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(2), ct.c_int(600000), 0)
-        )
-
-        self.assertTrue(self.stage.stage_lifted_up)
-
-    @with_MCSControl_driver_patch
-    def test_lower_stage(self, mcsc_mock: MCSControlInterface):
-        self.stage._stage_lifted_up = True
-
-        z_lift = 600.0
-        self.stage.set_lift_distance(z_lift)
-        self.stage.z_axis_direction = 1
-
-        mcsc_mock.SA_GotoPositionRelative_S.return_value = MCSC_STATUS_OK
-
-        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
-            with self.assert_exit_without_error(mcsc_mock):
-                self.stage.lower_stage(wait_for_stopping=False)
-
-        mcsc_mock.SA_GotoPositionAbsolute_S.assert_not_called()
-        mcsc_mock.SA_GetStatus_S.assert_not_called()
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(2), ct.c_int(-600000), 0)
-        )
-
-        self.assertFalse(self.stage.stage_lifted_up)
-
-    @with_MCSControl_driver_patch
-    def test_cannot_lower_before_lift_stage(
-            self, mcsc_mock: MCSControlInterface):
-        z_lift = 500.0
-        self.stage.set_lift_distance(z_lift)
-        self.stage.z_axis_direction = 1
-
-        mcsc_mock.SA_GotoPositionRelative_S.return_value = MCSC_STATUS_OK
-
-        with self.successful_stage_connection(self.stage, mcsc_mock) as system_handle:
-            with self.assert_exit_without_error(mcsc_mock):
-                self.stage.lower_stage(wait_for_stopping=False)
-
-                mcsc_mock.SA_GotoPositionRelative_S.assert_not_called()
-
-                self.stage.lift_stage(wait_for_stopping=False)
-                self.assertTrue(self.stage.stage_lifted_up)
-                self.stage.lower_stage(wait_for_stopping=False)
-                self.assertFalse(self.stage.stage_lifted_up)
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(2), ct.c_int(500000), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(0), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(1), ct.c_int(0), 0)
-        )
-
-        self.assert_mock_has_call_with_arguments(
-            mcsc_mock.SA_GotoPositionRelative_S,
-            (ct.c_ulong(system_handle), ct.c_ulong(2), ct.c_int(-500000), 0)
-        )
 
 
 class ChannelTest(SmarActTestCase):

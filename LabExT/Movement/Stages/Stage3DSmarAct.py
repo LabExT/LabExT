@@ -8,12 +8,13 @@ import sys
 import json
 import time
 import ctypes as ct
+
 from enum import Enum
-from tkinter import TclError
 from typing import List
 
+from LabExT.Movement.config import Axis
 from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
-from LabExT.Utils import get_configuration_file_path
+from LabExT.Utils import get_configuration_file_path, try_to_lift_window
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
 sys_path_changed = False
@@ -39,13 +40,6 @@ class MovementType(Enum):
     ABSOLUTE = 1
 
 
-class Axis(Enum):
-    """Enumerate different channels. Each channel represents one axis."""
-    X = 0
-    Y = 1
-    Z = 2
-
-
 class Stage3DSmarAct(Stage):
     """Implementation of a SmarAct stage. Communication with the devices using the driver version 1.
 
@@ -59,22 +53,17 @@ class Stage3DSmarAct(Stage):
 
     driver_loaded = MCS_LOADED
     driver_path_dialog = None
+    driver_specifiable = True
+    description = "SmarAct Modular Control System"
 
     @classmethod
     def load_driver(cls, parent) -> bool:
         """
-        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the MovementWizardController.
+        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the StageWizard.
         """
-        if cls.driver_path_dialog is not None:
-            try:
-                cls.driver_path_dialog.deiconify()
-                cls.driver_path_dialog.lift()
-                cls.driver_path_dialog.focus_set()
-
-                parent.wait_window(cls.driver_path_dialog)
-                return cls.driver_path_dialog.path_has_changed
-            except TclError:
-                pass
+        if try_to_lift_window(cls.driver_path_dialog):
+            parent.wait_window(cls.driver_path_dialog)
+            return cls.driver_path_dialog.path_has_changed
 
         cls.driver_path_dialog = DriverPathDialog(
             parent,
@@ -376,11 +365,6 @@ class Stage3DSmarAct(Stage):
         """
         self.handle = None
         self.channels = {}
-
-        # LEGACY: stage lift
-        self._z_lift = 20
-        self._stage_lifted_up = False
-        self._z_axis_direction = 1
         super().__init__(address.encode('utf-8'))
 
     def __str__(self) -> str:
@@ -389,6 +373,13 @@ class Stage3DSmarAct(Stage):
     @property
     def address_string(self) -> str:
         return self.address.decode('utf-8')
+
+    @property
+    def identifier(self) -> str:
+        """
+        Returns the address as identifier for a SmartAct stage
+        """
+        return self.address_string
 
     @assert_driver_loaded
     def connect(self) -> bool:
@@ -437,23 +428,8 @@ class Stage3DSmarAct(Stage):
             self.connected = False
             self.handle = None
 
-    # Properties
-
-    @property
-    def z_axis_direction(self):
-        return self._z_axis_direction
-
-    @z_axis_direction.setter
-    def z_axis_direction(self, newdir):
-        if newdir not in [-1, 1]:
-            raise ValueError("Z axis direction can only be 1 or -1.")
-        self._z_axis_direction = newdir
-
-    @property
-    def stage_lifted_up(self):
-        return self._stage_lifted_up
-
     # Stage settings method
+
     @assert_driver_loaded
     @assert_stage_connected
     def find_reference_mark(self):
@@ -492,7 +468,7 @@ class Stage3DSmarAct(Stage):
         x_speed = self.channels[Axis.X].speed
         y_speed = self.channels[Axis.Y].speed
 
-        if(x_speed != y_speed):
+        if (x_speed != y_speed):
             self._logger.info(
                 "Speed settings of x and y channel are not equal.")
 
@@ -524,7 +500,7 @@ class Stage3DSmarAct(Stage):
         x_acceleration = self.channels[Axis.X].acceleration
         y_acceleration = self.channels[Axis.Y].acceleration
 
-        if(x_acceleration != y_acceleration):
+        if (x_acceleration != y_acceleration):
             self._logger.info(
                 'Acceleration settings of x and y channel are not equal.')
 
@@ -536,111 +512,40 @@ class Stage3DSmarAct(Stage):
         """Returns the channel status codes translated to strings as tuple for each channel. """
         return tuple(ch.humanized_status for ch in self.channels.values())
 
-    def invert_z_axis(self):
+    @property
+    @assert_driver_loaded
+    @assert_stage_connected
+    def is_stopped(self) -> bool:
         """
-        toggles the _z_axis_direction between -1 and +1
+        Returns true if all axis are stopped.
         """
-        self._z_axis_direction = -self._z_axis_direction
-
-    # Movement methods
+        return all(s == 'SA_STOPPED_STATUS' for s in self.get_status())
 
     @assert_driver_loaded
     @assert_stage_connected
-    def wiggle_z_axis_positioner(self):
+    def get_position(self) -> list:
         """
-        Wiggles the z axis positioner in order to enable the user to set the correct direction of the z movement
-
-        Should first move "up" i.e. into direction of _z_axis_direction, then "down", i.e. against _z_axis_direction.
-        """
-        z_channel = self.channels[Axis.Z]
-
-        previous_speed = self.get_speed_z()
-        self.set_speed_z(1e3)
-
-        # Move up relative
-        z_channel.move(
-            diff=self.z_axis_direction * 1e3,
-            mode=MovementType.RELATIVE)
-
-        time.sleep(1)
-
-        # Move down relative
-        z_channel.move(
-            diff=-self.z_axis_direction * 1e3,
-            mode=MovementType.RELATIVE)
-
-        self.set_speed_z(previous_speed)
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def lift_stage(self, wait_for_stopping: bool = True):
-        """Lifts the stage up in the z direction by the amount defined in self._z_lift
-        """
-        if self._stage_lifted_up:
-            self._logger.warning(
-                "Stage already lifted up. Not executing lift.")
-            return
-
-        self.move_relative(
-            x=0,
-            y=0,
-            z=self._z_axis_direction * self._z_lift,
-            wait_for_stopping=wait_for_stopping)
-
-        self._stage_lifted_up = True
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def lower_stage(self, wait_for_stopping: bool = True):
-        """Lowers the stage in the z direction by the amount defined by self._z_lift
-        """
-        if not self._stage_lifted_up:
-            self._logger.warning(
-                "Stage already lowered down. Not executing lowering.")
-            return
-
-        self.move_relative(
-            x=0,
-            y=0,
-            z=-self._z_axis_direction * self._z_lift,
-            wait_for_stopping=wait_for_stopping)
-
-        self._stage_lifted_up = False
-
-    def get_lift_distance(self):
-        """Returns the set value of how much the stage moves up
-
-        :return: how much the stage moves up [um]
-        """
-        return self._z_lift
-
-    def set_lift_distance(self, height):
-        """Sets the value of how much the stage moves up
-
-        :param height: how much the stage moves up [um]
-        """
-        height = float(height)
-        assert height >= 0.0, "Lift distance must be non-negative."
-        self._z_lift = height
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def get_current_position(self) -> list:
-        """Get current position of the stages in micrometers.
+        Get current position of the stages in micrometers.
 
         Returns
         -------
         list
-            Returns current position in [x,y] format in units of um.
+            Returns current position in [x,y,z] format in units of um.
         """
         return [
             self.channels[Axis.X].position,
-            self.channels[Axis.Y].position
+            self.channels[Axis.Y].position,
+            self.channels[Axis.Z].position
         ]
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_relative(self, x, y, z=0, wait_for_stopping: bool = True):
+    def move_relative(
+            self,
+            x: float = 0,
+            y: float = 0,
+            z: float = 0,
+            wait_for_stopping: bool = True) -> None:
         """Performs a relative movement by x and y. Specified in units of micrometers.
 
         Parameters
@@ -670,43 +575,35 @@ class Stage3DSmarAct(Stage):
 
     @assert_driver_loaded
     @assert_stage_connected
-    def move_absolute(self, pos, wait_for_stopping: bool = True):
-        """Performs an absolute movement to the specified position in units of micrometers.
-
-        Parameters
-        ----------
-        position : list
-            Position in [x,y] format measured in um
-        wait_for_stopping : bool
-            Wait until all axes have stopped.
-        """
+    def move_absolute(
+        self,
+        x: float = None,
+        y: float = None,
+        z: float = None,
+        wait_for_stopping: bool = True
+    ) -> None:
         self._logger.debug(
-            'Want to absolute move %s to x = %s um and y = %s um',
+            'Want to absolute move %s to x = %s um, y = %s um and z = %s um',
             self.address,
-            pos[0],
-            pos[1])
+            x,
+            y,
+            z)
 
-        self.channels[Axis.X].move(
-            diff=pos[0], mode=MovementType.ABSOLUTE)
-        self.channels[Axis.Y].move(
-            diff=pos[1], mode=MovementType.ABSOLUTE)
+        if x is not None:
+            self.channels[Axis.X].move(diff=x, mode=MovementType.ABSOLUTE)
+        if y is not None:
+            self.channels[Axis.Y].move(diff=y, mode=MovementType.ABSOLUTE)
+        if z is not None:
+            self.channels[Axis.Z].move(diff=z, mode=MovementType.ABSOLUTE)
 
         if wait_for_stopping:
             self._wait_for_stopping()
-
-    # Stage control
-
-    @assert_driver_loaded
-    @assert_stage_connected
-    def stop(self):
-        for channel in self.channels.values():
-            channel.stop()
 
     # Helper methods
 
     @classmethod
     def _exit_if_error(self, status: int) -> bool:
-        if(status == MCSC.SA_OK):
+        if (status == MCSC.SA_OK):
             return True
 
         error_message = ct.c_char_p()
@@ -744,5 +641,6 @@ class Stage3DSmarAct(Stage):
         """
         while True:
             time.sleep(delay)
-            if all(s == 'SA_STOPPED_STATUS' for s in self.get_status()):
+
+            if self.is_stopped:
                 break
