@@ -150,21 +150,15 @@ class ExperimentManager:
         lvcards_addon_stats = '\n'.join(['    imported {:d} lvcards from {:s}'.format(
             n, path) for path, n in self.lvcards_import_stats.items()])
         stages_addon_stats = '\n'.join(['    imported {:d} stages from {:s}'.format(
-            n, path) for path, n in self.mover.api._stage_classes_import_stats.items()])
+            n, path) for path, n in self.mover.stage_api.import_stats.items()])
         stage_polygons_addon_stats = '\n'.join(['    imported {:d} stage polygons from {:s}'.format(
-            n, path) for path, n in self.mover.api._stage_polygon_import_stats.items()])
-        peak_searcher_addon_stats = '\n'.join(['    imported {:d} peak searcher from {:s}'.format(
-            n, path) for path, n in self.mover.api._peak_searcher_import_stats.items()])
-        path_planning_addon_stats = '\n'.join(['    imported {:d} path planner from {:s}'.format(
-            n, path) for path, n in self.mover.api._path_planner_import_stats.items()])
+            n, path) for path, n in self.mover.polygon_api.import_stats.items()])
         self.logger.info('Plugins loaded:\n' +
                          '  Measurements\n' + meas_addon_stats + '\n' +
                          '  Instruments\n' + instr_addon_stats + '\n' +
                          '  LVCards\n' + lvcards_addon_stats + '\n' +
                          '  Stages\n' + stages_addon_stats + '\n' +
-                         '  Stage Polygons\n' + stage_polygons_addon_stats + '\n' +
-                         '  Peak Seacher\n' + peak_searcher_addon_stats + '\n' +
-                         '  Path Planner\n' + path_planning_addon_stats)
+                         '  Stage Polygons\n' + stage_polygons_addon_stats)
 
         if instruments_are_default:
             self.logger.warning(
@@ -223,8 +217,7 @@ class ExperimentManager:
         # then we load all Instruments
         self.instrument_api.load_all_instruments()
         # then we load all stage classes and mover settings
-        self.mover.api.import_all()
-        self.mover.discover_stages()
+        self.mover.import_api_classes()
         self.mover.load_settings()
         # finally, we load all cards for the liveviewer
         self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(

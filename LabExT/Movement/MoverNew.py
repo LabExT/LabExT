@@ -12,7 +12,7 @@ import logging
 from time import sleep, time
 from os.path import dirname, join
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Dict, Tuple, Type, List, Any
 from functools import wraps
 from datetime import datetime
 from contextlib import contextmanager
@@ -25,7 +25,7 @@ from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlannin
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 
 from LabExT.Utils import get_configuration_file_path
-from LabExT.PluginLoader import PluginLoader, import_plugins_from_paths
+from LabExT.PluginLoader import PluginAPI
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -49,72 +49,6 @@ def assert_connected_stages(func):
 
 class MoverError(RuntimeError):
     pass
-
-
-class MoverAPI:
-    """
-    Simple factory and interface for Mover API classes.
-    """
-
-    def __init__(self) -> None:
-        self._stage_classes: Dict[str, Stage] = {}
-        self._stage_classes_import_stats: Dict[str, int] = {}
-        self._peak_searcher_classes: Dict[str, PeakSearcher] = {}
-        self._peak_searcher_import_stats: Dict[str, int] = {}
-        self._path_planner_classes: Dict[str, PathPlanning] = {}
-        self._path_planner_import_stats: Dict[str, int] = {}
-        self._stage_polygon_classes: Dict[str, StagePolygon] = {}
-        self._stage_polygon_import_stats: Dict[str, int] = {}
-
-    def import_all(self, search_paths: list = []) -> None:
-        """
-        Imports all Mover API classes.
-
-        Parameters:
-        -----------
-        search_paths: list = []
-            List of search paths to import from.
-        """
-        self._stage_classes, self._stage_classes_import_stats = import_plugins_from_paths(
-            base_class=Stage, search_paths=[join(dirname(__file__), 'Stages')] + search_paths)
-        self._peak_searcher_classes, self._peak_searcher_import_stats = import_plugins_from_paths(
-            base_class=PeakSearcher, search_paths=[join(dirname(__file__), 'PeakSearchers')] + search_paths)
-        self._path_planner_classes, self._path_planner_import_stats = import_plugins_from_paths(
-            base_class=PathPlanning, search_paths=[dirname(__file__)] + search_paths)
-        self._stage_polygon_classes, self._stage_polygon_import_stats = import_plugins_from_paths(
-            base_class=StagePolygon, search_paths=[dirname(__file__)] + search_paths)
-
-    @property
-    def stage_classes(self) -> Dict[str, Stage]:
-        """
-        Returns a list of all Stage classes.
-        Read-only.
-        """
-        return self._stage_classes
-
-    @property
-    def stage_polygon_classes(self) -> Dict[str, StagePolygon]:
-        """
-        Returns a list of all StagePolygon classes.
-        Read-only.
-        """
-        return self._stage_polygon_classes
-
-    @property
-    def peak_searcher_classes(self) -> Dict[str, PeakSearcher]:
-        """
-        Returns a list of all PeakSearcher classes.
-        Read-only.
-        """
-        return self._peak_searcher_classes
-
-    @property
-    def path_planning_classes(self) -> Dict[str, PathPlanning]:
-        """
-        Returns a list of all PathPlanning classes.
-        Read-only.
-        """
-        return self._path_planner_classes
 
 
 class MoverNew:
@@ -161,9 +95,16 @@ class MoverNew:
         """
         self.logger = logging.getLogger()
 
-        self.api = MoverAPI()
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
+
+        # Mover API
+        self.stage_api = PluginAPI(
+            base_class=Stage, core_search_path=join(
+                dirname(__file__), 'Stages'))
+        self.polygon_api = PluginAPI(
+            base_class=StagePolygon,
+            core_search_path=dirname(__file__))
 
         # Available Stages
         self._available_stages: List[Type[Stage]] = []
@@ -240,13 +181,18 @@ class MoverNew:
 
         _main_window.refresh_context_menu()
 
-    def discover_stages(self) -> None:
-        """
-        LEGACY
-        """
-        # Discover connected stages
+    def import_api_classes(self) -> None:
+
+        search_paths = []
+        if self.experiment_manager:
+            search_paths = self.experiment_manager.addon_settings['addon_search_directories']
+
+        self.stage_api.import_classes(search_paths)
+        self.polygon_api.import_classes(search_paths)
+
+        # LEGACY: Discover connected stages
         self._available_stages = []
-        for stage_cls in self.api.stage_classes.values():
+        for stage_cls in self.stage_api.imported_classes.values():
             self._available_stages += stage_cls.find_available_stages()
 
         self.logger.debug(

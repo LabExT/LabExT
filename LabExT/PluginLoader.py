@@ -18,7 +18,7 @@ import os
 import pkgutil
 import sys
 from importlib import import_module
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Dict
 
 
 def import_plugins_from_paths(
@@ -60,6 +60,47 @@ def import_plugins_from_paths(
         imported_plugins.update(unique_classes)
 
     return imported_plugins, search_stats
+
+
+class PluginAPI:
+    """
+    Simple registry and interface for Plugin classes.
+    """
+
+    def __init__(
+        self,
+        base_class: Any,
+        core_search_path: str
+    ) -> None:
+        self._base_class = base_class
+        self._core_search_path = core_search_path
+
+        self._imported_classes: Dict[str, Any] = {}
+        self._import_stats: Dict[str, int] = {}
+
+    def import_classes(self, search_paths: list = []) -> None:
+        """
+        Imports all Mover API classes.
+
+        Parameters:
+        -----------
+        search_paths: list = []
+            List of search paths to import from.
+        """
+        self._imported_classes, self._import_stats = import_plugins_from_paths(
+            base_class=self._base_class, search_paths=[self._core_search_path] + search_paths)
+
+    @property
+    def imported_classes(self) -> Dict[str, Any]:
+        """
+        Returns a duct of all imported classes.
+        Read-only.
+        """
+        return self._imported_classes
+
+    @property
+    def import_stats(self) -> Dict[str, int]:
+        return self._import_stats
 
 
 class PluginLoader:
