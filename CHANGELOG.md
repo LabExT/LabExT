@@ -10,7 +10,9 @@ Released 2023-03-22
 * usability: device IDs now support arbitrary strings instead of just positive integers
 * bugfix: Fix deprecated method isAlive() in KillableThread
 * under-the-hood: update of dependencies due to safety reasons
+* under-the-hood: improved reliability of GUI integration tests
 * deprecation: LabExT does not support Python 3.7 anymore, please switch to Python 3.8 or 3.9
+* governance: improved cite-ability of LabExT by providing .bib and .ris files - if you think LabExT helped you in your work, please consider citing
 
 ## Version 2.1.3
 Released 2022-05-30
