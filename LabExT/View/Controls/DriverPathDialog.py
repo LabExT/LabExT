@@ -6,6 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import json
+import os
+import logging
+
 from pathlib import Path
 from tkinter import Toplevel, Label, Button, Entry, messagebox
 
@@ -19,12 +22,13 @@ class DriverPathDialog(Toplevel):
     """
 
     def __init__(
-            self,
-            parent,
-            settings_file_path,
-            title=None,
-            label=None,
-            hint=None):
+        self,
+        parent,
+        settings_file_path,
+        title=None,
+        label=None,
+        hint=None
+    ) -> None:
         """
         Constructor.
 
@@ -32,6 +36,8 @@ class DriverPathDialog(Toplevel):
         """
         Toplevel.__init__(self, parent)
         self.title(title)
+
+        self.logger = logging.getLogger()
 
         self._label = label
         self._hint = hint
@@ -63,8 +69,7 @@ class DriverPathDialog(Toplevel):
         ).grid(row=0, column=0, padx=5, pady=5, sticky='nswe')
 
         self._driver_path_entry = Entry(path_frame)
-        self._driver_path_entry.insert(
-            0, self.driver_path if self.driver_path else "/path/to/module")
+        self._driver_path_entry.insert(0, self.driver_path)
         self._driver_path_entry.grid(
             row=1, column=0, padx=5, pady=5, sticky='nswe')
 
@@ -86,7 +91,7 @@ class DriverPathDialog(Toplevel):
         )
         self._save_button.grid(row=2, column=0, padx=5, pady=5, sticky='se')
 
-    def _save(self):
+    def _save(self) -> None:
         """
         Callback, when user wants to save the Path.
         """
@@ -95,35 +100,31 @@ class DriverPathDialog(Toplevel):
 
         user_given_path = str(self._driver_path_entry.get())
         self.driver_path = str(Path(user_given_path.strip()))
-        messagebox.showinfo(
-            parent=self,
-            title='Success',
-            message='Driver path saved. Modules will be reloaded.',
-        )
 
         self.destroy()
 
     @property
-    def driver_path(self):
+    def driver_path(self) -> str:
         """
         Returns current driver path.
 
         If None, the path is read from the settings file.
         """
         if not self._driver_path:
-            self._driver_path = self._get_driver_path_from_file()
+            self._driver_path = self._get_driver_path_from_file(
+                default="/path/to/module")
 
         return self._driver_path
 
     @property
-    def path_has_changed(self):
+    def path_has_changed(self) -> bool:
         """
         Returns True, if driver path has changed and False otherwise
         """
         return self._path_has_changed
 
     @driver_path.setter
-    def driver_path(self, path):
+    def driver_path(self, path) -> None:
         """
         Saves the given driver path in the settings file if it is not equal to the current path.
         """
@@ -139,19 +140,29 @@ class DriverPathDialog(Toplevel):
             messagebox.showerror(
                 "Error", "Could not save driver path: {}".format(e))
 
-    def _get_driver_path_from_file(self):
+    def _get_driver_path_from_file(
+        self,
+        default: str = None
+    ) -> str:
         """
         Reads the current driver path from settings path.
+
+        If file does not exists or is not readable,
+        the default value will be returned.
         """
+        if not os.path.exists(self._settings_file_path):
+            return default
+
         try:
             with open(self._settings_file_path, 'r') as f:
                 try:
                     return json.load(f)
-                except ValueError:
-                    raise ValueError(
-                        '{} is not valid JSON.'.format(
-                            self._settings_file_path))
-        except IOError:
-            raise IOError(
-                '{} does not exist.'.format(
-                    self._settings_file_path))
+                except ValueError as err:
+                    self.logger.error(
+                        f"Failed to load JSON from {self._settings_file_path}: {err}")
+                    return default
+
+        except IOError as err:
+            self.logger.error(
+                f"Failed to load driver settings file {self._settings_file_path}: {err}")
+            return default

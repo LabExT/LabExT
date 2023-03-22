@@ -10,6 +10,7 @@ import os
 import logging
 
 from time import sleep, time
+from os.path import dirname, join
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
 from typing import Dict, Tuple, Type, List
 from functools import wraps
@@ -18,11 +19,12 @@ from contextlib import contextmanager
 
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
-from LabExT.Movement.Stage import Stage
+from LabExT.Movement.Stage import Stage, StageError
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
-from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning
+from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning, StagePolygon
 
 from LabExT.Utils import get_configuration_file_path
+from LabExT.PluginLoader import PluginLoader
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -95,7 +97,11 @@ class MoverNew:
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
-        self._stage_classes: List[Stage] = []
+        # Stage classes plugin
+        self._stage_classes: Dict[str, Stage] = {}
+        self._plugin_loader = PluginLoader()
+        self._plugin_loader_stats: Dict[str, int] = {}
+        # Available Stages
         self._available_stages: List[Type[Stage]] = []
 
         # Mover calibrations
@@ -107,13 +113,6 @@ class MoverNew:
         self._speed_z = self.DEFAULT_SPEED_Z
         self._acceleration_xy = self.DEFAULT_ACCELERATION_XY
         self._z_lift = self.DEFAULT_Z_LIFT
-
-        # Check for loaded stage classes and connected stages
-        self.reload_stages()
-        self.reload_stage_classes()
-
-        # Check for mover settings
-        self.load_settings()
 
     def reset(self):
         """
@@ -148,10 +147,15 @@ class MoverNew:
         if self._chip == chip:
             return
 
+        # Reset chip sensitive transformations 
         for calibration in self.calibrations.values():
             calibration.reset_single_point_offset()
             calibration.reset_kabsch_rotation()
 
+        # Store updates calibrations to disk
+        self.dump_calibrations()
+
+        # Set new chip
         self._chip = chip
 
     def update_main_model(self) -> None:
@@ -172,38 +176,52 @@ class MoverNew:
 
         _main_window.refresh_context_menu()
 
-    #
-    #   Reload properties
-    #
+    def import_stage_classes(self) -> None:
+        """
+        Imports all stage classes and discovers available stages.
+        """
+        self._stage_classes.clear()
+        self._plugin_loader_stats.clear()
+        self._available_stages.clear()
 
-    def reload_stages(self) -> None:
-        """
-        Loads all available stages.
-        """
-        self._available_stages = Stage.find_available_stages()
+        # prioritize LabExT Core stages over Add-On Stages
+        search_paths = [join(dirname(__file__), 'Stages')]
+        if self.experiment_manager:
+            search_paths += self.experiment_manager.addon_settings['addon_search_directories']
 
-    def reload_stage_classes(self) -> None:
-        """
-        Loads all Stage classes.
-        """
-        self._stage_classes = Stage.find_stage_classes()
+        for path in search_paths:
+            imported_stage_classes = self._plugin_loader.load_plugins(
+                path, plugin_base_class=Stage, recursive=True)
+            unique_stage_classes = {
+                k: v for k,
+                v in imported_stage_classes.items() if k not in self._stage_classes}
+
+            self._plugin_loader_stats[path] = len(unique_stage_classes)
+            self._stage_classes.update(unique_stage_classes)
+
+            for stage_cls in unique_stage_classes.values():
+                self._available_stages += stage_cls.find_available_stages()
+
+        self.logger.debug(
+            'Available stage classes loaded. Found: %s', [
+                k for k in self._stage_classes.keys()])
+        self.logger.debug(
+            'Discovered stages. Found: %s',
+            list(map(str, self._available_stages)))
 
     #
     #   Properties
     #
 
     @property
-    def state(self) -> State:
+    def plugin_loader_stats(self) -> Dict[str, int]:
         """
-        Returns the mover state, which is the lowest state of all calibrations
+        Returns a dict of stats after the import of stage classes.
         """
-        if not self.calibrations:
-            return State.UNINITIALIZED
-
-        return min(c.state for c in self.calibrations.values())
+        return self._plugin_loader_stats
 
     @property
-    def stage_classes(self) -> List[Stage]:
+    def stage_classes(self) -> Dict[str, Stage]:
         """
         Returns a list of all Stage classes.
         Read-only.
@@ -221,7 +239,8 @@ class MoverNew:
 
     @property
     def calibrations(
-            self) -> Dict[Tuple[Orientation, DevicePort], Type[Calibration]]:
+        self
+    ) -> Dict[Tuple[Orientation, DevicePort], Type[Calibration]]:
         """
         Returns a mapping: Calibration -> (orientation, device_port) instance
         Read-only. Use add_stage_calibration to register a new stage.
@@ -243,6 +262,16 @@ class MoverNew:
         Returns a list of all connected stages.
         """
         return [s for s in self.active_stages if s.connected]
+
+    @property
+    def state(self) -> State:
+        """
+        Returns the mover state, which is the lowest state of all calibrations
+        """
+        if not self.calibrations:
+            return State.UNINITIALIZED
+
+        return min(c.state for c in self.calibrations.values())
 
     @property
     def has_connected_stages(self) -> bool:
@@ -316,10 +345,12 @@ class MoverNew:
     #
 
     def add_stage_calibration(
-            self,
-            stage: Type[Stage],
-            orientation: Orientation,
-            port: DevicePort) -> Type[Calibration]:
+        self,
+        stage: Type[Stage],
+        orientation: Orientation,
+        port: DevicePort,
+        stage_polygon: Type[StagePolygon] = None
+    ) -> Type[Calibration]:
         """
         Creates a new Calibration instance for a stage.
         Adds this instance to the list of connected stages.
@@ -351,6 +382,7 @@ class MoverNew:
             stage=stage,
             orientation=orientation,
             device_port=port,
+            stage_polygon=stage_polygon,
             axes_rotation=self.load_stored_axes_rotation_for_stage(
                 stage=stage))
 
@@ -744,19 +776,19 @@ class MoverNew:
         if self._chip:
             _chip_name = self._chip.name
 
-        with open(self.CALIBRATIONS_SETTINGS_FILE, "w+") as fp:
+        with open(self.CALIBRATIONS_SETTINGS_FILE, "w") as fp:
             json.dump({
                 "chip_name": _chip_name,
                 "last_updated_at": datetime.now().isoformat(),
                 "calibrations": [
                     c.dump() for c in self.calibrations.values()]
-            }, fp)
+            }, fp, indent=2)
 
     def dump_axes_rotations(self) -> None:
         """
         Stores all axes rotations of calibrations to file.
         """
-        with open(self.AXES_ROTATIONS_FILE, "w+") as fp:
+        with open(self.AXES_ROTATIONS_FILE, "w") as fp:
             json.dump({
                 c.stage.identifier: c.dump(
                     axes_rotation=True,
@@ -767,7 +799,7 @@ class MoverNew:
         """
         Stores mover settings to file.
         """
-        with open(self.MOVER_SETTINGS_FILE, "w+") as fp:
+        with open(self.MOVER_SETTINGS_FILE, "w") as fp:
             json.dump({
                 "speed_xy": self._speed_xy,
                 "speed_z": self._speed_z,
@@ -835,24 +867,31 @@ class MoverNew:
                 f"Failed to restore axes rotation for {stage.identifier} from {self.AXES_ROTATIONS_FILE}: {err}")
             return AxesRotation()
 
-    def has_chip_stored_calibration(self, chip: Type[Chip]) -> bool:
+    def load_stored_calibrations_for_chip(
+        self,
+        chip: Type[Chip]
+    ) -> dict:
         """
-        Checks if for given chip exists a stored calibration.
+        Returns restored calibrations from file if available.
+
+        If not available, returns an empty dict.
         """
         if chip is None or chip.name is None:
-            return False
+            return {}
 
-        if not os.path.exists(self.CALIBRATIONS_SETTINGS_FILE):
-            return False
-
-        with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
-            try:
+        try:
+            with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
                 calibration_settings = json.load(fp)
-            except json.JSONDecodeError:
-                return False
-            _chip_name = calibration_settings.get("chip_name")
-            _calibrations = calibration_settings.get("calibrations", [])
-            return _chip_name == chip.name and len(_calibrations) > 0
+                chip_name = calibration_settings.get("chip_name")
+                calibrations = calibration_settings.get("calibrations", [])
+                if chip_name == chip.name and len(calibrations) > 0:
+                    return calibration_settings
+                else:
+                    return {}
+        except (OSError, json.decoder.JSONDecodeError) as err:
+            self.logger.error(
+                f"Failed to load/decode calibration file {self.AXES_ROTATIONS_FILE}: {err}")
+            return {}
 
     @property
     def calibration_settings_file(self) -> str:

@@ -4,6 +4,7 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
 
 import logging
 import numpy as np
@@ -48,13 +49,81 @@ class StagePolygon(ABC):
     This class cannot be initialised.
     """
 
-    @abstractmethod
+    @classmethod
+    def load(cls, polygon_data: dict) -> Type[StagePolygon]:
+        """
+        Returns a stage polygon reconstructed from polygon data.
+        """
+        polygon_name = polygon_data.get("polygon_cls")
+        if not polygon_name:
+            raise ValueError(
+                "Cannot find and load stage polygon without polygon class name. "
+                "Please provide a key 'polygon_cls' in polygon_data argument.")
+
+        if (isinstance(polygon_name, type) and
+                issubclass(polygon_name, StagePolygon)):
+            polygon_cls = polygon_name
+        elif isinstance(polygon_name, str):
+            available_classes = StagePolygon.find_polygon_classes()
+            try:
+                polygon_cls = next(
+                    pg for pg in available_classes if pg.__name__ == polygon_name)
+            except StopIteration:
+                available_classes_str = ", ".join(
+                    map(lambda pg: pg.__name__, available_classes))
+                raise ValueError(
+                    f"No polygon class found with name {polygon_name}. The following are available: "
+                    f"{available_classes_str}")
+        else:
+            raise ValueError(
+                f"Cannot restore stage polygon class with 'polygon_cls' equal to {polygon_name} of type {type(polygon_name)}. "
+                "Please provide a value for 'polygon_cls' of type str or StagePolygon. "
+                "If you provide a string, it must be the name of the polygon class.")
+
+        try:
+            orientation = Orientation[polygon_data["orientation"]]
+        except KeyError as err:
+            raise ValueError(
+                f"The parameter 'orientation' in polygon_data is not defined: {err}. "
+                f"Make sure to pass a valid orientation: {', '.join(map(str, list(Orientation)))}")
+
+        return polygon_cls(
+            orientation=orientation,
+            parameters=polygon_data.get("parameters", {}))
+
+    @classmethod
+    def find_polygon_classes(cls) -> List[StagePolygon]:
+        """
+        Returns a list of available polygon classes.
+        """
+        return cls.__subclasses__()
+
+    @classmethod
+    def get_default_parameters(cls) -> Dict[str, Any]:
+        """
+        Returns default polygon configuration parameter
+        """
+        return {}
+
     def __init__(
         self,
         orientation: Orientation,
-        safety_distance: float = 75.0
+        parameters: Dict[str, Any] = {}
     ) -> None:
-        pass
+        """
+        Constructor for base  polygon
+        Parameters
+        ----------
+        orientation: Orientation
+            Polygon orientation in chip space
+        parameters: Dict[str, Any] = {}
+            Optional parameters to configure the polygon
+        """
+        self.orientation = orientation
+
+        self.parameters = parameters
+        if not self.parameters:
+            self.parameters = self.get_default_parameters()
 
     @abstractmethod
     def stage_in_meshgrid(
@@ -69,32 +138,36 @@ class StagePolygon(ABC):
         """
         pass
 
+    def dump(self, stringify: bool = True) -> dict:
+        """
+        Returns polygon parameters as dict
+        """
+        if stringify:
+            polygon_cls = self.__class__.__name__
+        else:
+            polygon_cls = self.__class__
+
+        return {
+            "polygon_cls": polygon_cls,
+            "orientation": self.orientation.value,
+            "parameters": self.parameters}
+
 
 class SingleModeFiber(StagePolygon):
     """
     Polygon for single mode fiber.
     """
 
-    FIBER_LENGTH = 8e4  # [um] (8cm)
-    FIBER_RADIUS = 75.0  # [um]
-
-    def __init__(
-        self,
-        orientation: Orientation,
-        safety_distance: float = 75.0
-    ) -> None:
+    @classmethod
+    def get_default_parameters(cls) -> Dict[str, Any]:
         """
-        Constructor for new single mode fiber polygon.
-
-        Parameters
-        ----------
-        orientation: Orientation
-            Orientation of the stage in space
-        safety_distance: float
-            Safety distance around the fiber in um.
+        Returns default parameter to set up a single mode fiber polygon
         """
-        self.orientation = orientation
-        self.safety_distance = safety_distance
+        return {
+            "Fiber Length": 8e4,        # [um] (8cm)
+            "Fiber Radius": 75.0,       # [um]
+            "Safety Distance": 75.0     # [um]
+        }
 
     def stage_in_meshgrid(
         self,
@@ -152,7 +225,11 @@ class SingleModeFiber(StagePolygon):
         ValueError
             If no outline is defined for the given orientation.
         """
-        safe_fiber_radius = self.FIBER_RADIUS + self.safety_distance
+        fiber_radius = float(self.parameters.get("Fiber Radius", 75.0))
+        fiber_length = float(self.parameters.get("Fiber Length", 8e4))
+        safety_distance = float(self.parameters.get("Safety Distance", 75.0))
+
+        safe_fiber_radius = fiber_radius + safety_distance
 
         x_min = position.x - safe_fiber_radius
         x_max = position.x + safe_fiber_radius
@@ -160,13 +237,13 @@ class SingleModeFiber(StagePolygon):
         y_max = position.y + safe_fiber_radius
 
         if self.orientation == Orientation.LEFT:
-            x_min -= self.FIBER_LENGTH
+            x_min -= fiber_length
         elif self.orientation == Orientation.RIGHT:
-            x_max += self.FIBER_LENGTH
+            x_max += fiber_length
         elif self.orientation == Orientation.BOTTOM:
-            y_min -= self.FIBER_LENGTH
+            y_min -= fiber_length
         elif self.orientation == Orientation.TOP:
-            y_max += self.FIBER_LENGTH
+            y_max += fiber_length
         else:
             raise ValueError(
                 f"No Stage Polygon defined for orientation {self.orientation}")
@@ -199,14 +276,26 @@ class PathPlanning(ABC):
         target: Type[ChipCoordinate]
     ) -> None:
         """
-        Sets a new traget for given calibration
+        Sets a new traget for given calibration.
+
+        Parameters
+        ----------
+        calibration: Calibration
+            Instance of a calibration for which a target cooridnate is to be set.
+        target: ChipCoordinate
+            3D coordinate in the chip system as a target for the passed calibration.
         """
         pass
 
     @abstractmethod
     def trajectory(self) -> Generator[WaypointCommand, Any, Any]:
         """
-        Generates the next waypoint of the path planner
+        Generates the next waypoint of the path planner.
+
+        The generator must generate waypoint commands.
+        These are (named) tuples consisting of the calibration for which the command is meant,
+        the calibration coordinate, and a `wait_for_stopping` specifying
+        whether the stage should wait until this waypoint command has been executed.
         """
         pass
 

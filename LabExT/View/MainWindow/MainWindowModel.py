@@ -191,14 +191,14 @@ class MainWindowModel:
             return
 
         # this variable should track Mover.mover_enabled
-        mover_ena = bool(self.status_mover_connected_stages.get())
+        has_connected_stages = bool(self.status_mover_connected_stages.get())
         # this variable should track Mover.trafo_enabled
-        trafo_ena = bool(self.status_mover_can_move_to_device.get())
+        can_move_to_device = bool(self.status_mover_can_move_to_device.get())
         # this variable should track PeakSearcher.initialized
         sfp_init = bool(self.status_sfp_initialized.get())
 
-        if not mover_ena:
-            reason = "Stage driver not loaded"
+        if not has_connected_stages:
+            reason = "No connected stages"
             self.var_mm_pause.set(True)
             self.var_mm_pause_reason.set(reason)
             # self._main_window.exctrl_mm_pause.config(state='disabled')
@@ -209,12 +209,12 @@ class MainWindowModel:
             self.var_sfp_ena_reason.set(reason)
             self.view.frame.control_panel.exctrl_sfp_ena.config(state='disabled')
         else:
-            if not trafo_ena:
+            if not can_move_to_device:
                 self.var_mm_pause.set(True)
-                self.var_mm_pause_reason.set('Transformation not calibrated')
+                self.var_mm_pause_reason.set("Mover is not fully calibrated")
                 # self._main_window.exctrl_mm_pause.config(state='disabled')
                 self.var_auto_move.set(False)
-                self.var_auto_move_reason.set('Transformation not calibrated')
+                self.var_auto_move_reason.set("Mover is not fully calibrated")
                 self.view.frame.control_panel.exctrl_auto_move.config(state='disabled')
             else:
                 # self.var_mm_pause.set(X)  # no change

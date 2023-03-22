@@ -12,20 +12,17 @@ from LabExT.Movement.config import DevicePort, Orientation
 
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Stage import Stage
-from LabExT.Tests.Utils import TKinterTestCase, with_stage_discovery_patch
+from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 
 from LabExT.Wafer.Device import Device
 from LabExT.Wafer.Chip import Chip
 
 
-# @flaky(max_runs=3)
+@flaky(max_runs=3)
 class CoordinatePairingsWindowTest(TKinterTestCase):
-    @with_stage_discovery_patch
-    def setUp(self, available_stages_mock, stage_classes_mock) -> None:
+    def setUp(self) -> None:
         super().setUp()
-        available_stages_mock.return_value = []
-        stage_classes_mock.return_value = []
 
         self.device = Device("101", [0,0], [1,1], "My Device 1")
         self.chip = Chip("My Chip", [self.device])

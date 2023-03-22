@@ -20,6 +20,7 @@ import string
 RUNTESTS_DIR = path.abspath(path.dirname(__file__))
 TRANSFORMATIONS_DIR = path.join(RUNTESTS_DIR, "transformations")
 
+
 class TKinterTestCase(TestCase):
     def setUp(self):
         self.root = tkinter.Tk()
@@ -33,6 +34,7 @@ class TKinterTestCase(TestCase):
     def pump_events(self):
         while self.root.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
             pass
+
 
 def get_calibrations_from_file(chip_file: str, stage_orientation: str) -> tuple:
     """
@@ -53,23 +55,16 @@ def get_calibrations_from_file(chip_file: str, stage_orientation: str) -> tuple:
 
     return axes_rotation, stage_coordinates, chip_coordinates
 
-def with_stage_discovery_patch(func):
-    """
-    Patches the Stage classmethods `find_available_stages` and `find_stage_classes`.
-    Reason: When the mover is initialized, it automatically searches for all stage classes and for all attached stages.
-    The search for stages requires loaded drivers, which we do not want to call in test mode.
-    """
-    patch_stage_class_search = patch.object(Stage, "find_stage_classes")
-    patch_stage_discovery = patch.object(Stage, "find_available_stages")
-
-    return patch_stage_class_search(patch_stage_discovery(func))
-
 def mark_as_laboratory_test(cls):
-    """
-    Decorator to mark test as laboratory tests. These will be excluded, when run on CI.
-    """
-    skip_if = pytest.skip_laboratory_tests if hasattr(pytest, 'skip_laboratory_tests') else False
-    return pytest.mark.skipif(skip_if, reason="skip tests that require laboratory equipment.")(cls)
+    """ Decorator to mark test as laboratory tests. These will be excluded, when run on CI. """
+    condition = pytest.skip_laboratory_tests if hasattr(pytest, 'skip_laboratory_tests') else False
+    return pytest.mark.skipif(condition, reason="skip tests that require laboratory equipment.")(cls)
+
+
+def mark_as_gui_integration_test(cls):
+    """ Decorator to mark a test class as GUI integration test. This will be skipped during normal CI runs. """
+    condition = pytest.skip_gui_integration_tests if hasattr(pytest, 'skip_gui_integration_tests') else False
+    return pytest.mark.skipif(condition, reason='Skip GUI integration tests during normal CI runs.')(cls)
 
 
 def ask_user_yes_no(ask_string="Is one kg of feathers lighter than one kg of iron?", default_answer=True):

@@ -141,14 +141,20 @@ class Calibration:
                 cls._logger.debug(
                     "Cannot set kabsch rotation when axes rotation or chip is not defined")
 
+        stage_polygon = None
+        if "stage_polygon" in calibration_data:
+            stage_polygon = StagePolygon.load(
+                calibration_data["stage_polygon"])
+
         return cls(
             mover,
             stage,
-            orientation,
-            device_port,
-            axes_rotation,
-            single_point_offset,
-            kabsch_rotation)
+            orientation=orientation,
+            device_port=device_port,
+            stage_polygon=stage_polygon,
+            axes_rotation=axes_rotation,
+            single_point_offset=single_point_offset,
+            kabsch_rotation=kabsch_rotation)
 
     def __init__(
         self,
@@ -156,6 +162,7 @@ class Calibration:
         stage: Type[Stage],
         orientation: Orientation,
         device_port: DevicePort,
+        stage_polygon: Type[StagePolygon] = None,
         axes_rotation: Type[AxesRotation] = None,
         single_point_offset: Type[SinglePointOffset] = None,
         kabsch_rotation: Type[KabschRotation] = None
@@ -163,14 +170,16 @@ class Calibration:
         self.mover = mover
         self.stage: Type[Stage] = stage
 
-        self.stage_polygon: Type[StagePolygon] = SingleModeFiber(orientation)
-
         self._orientation = orientation
         self._device_port = device_port
 
         self._coordinate_system = CoordinateSystem.UNKNOWN
 
         self._is_lifted = False
+
+        self.stage_polygon = stage_polygon
+        if stage_polygon is None:
+            self.stage_polygon = SingleModeFiber(orientation)
 
         self._axes_rotation = axes_rotation
         if axes_rotation is None:
@@ -849,7 +858,8 @@ class Calibration:
         self,
         axes_rotation: bool = True,
         single_point_offset: bool = True,
-        kabsch_rotation: bool = True
+        kabsch_rotation: bool = True,
+        stage_polygon: bool = True
     ) -> dict:
         """
         Returns a dict of all calibration properties.
@@ -868,5 +878,9 @@ class Calibration:
 
         if kabsch_rotation and self._kabsch_rotation.is_valid:
             calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()
+
+        if stage_polygon and self.stage_polygon is not None:
+            calibration_dump["stage_polygon"] = self.stage_polygon.dump(
+                stringify=True)
 
         return calibration_dump
