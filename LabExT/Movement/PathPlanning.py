@@ -49,7 +49,14 @@ class StagePolygon(ABC):
     This class cannot be initialised.
     """
 
+    _CLASS_KEY = "class"
+    _PARAMETER_KEY = "parameters"
+
     default_parameter: Dict[str, Any] = {}
+
+    @abstractclassmethod
+    def from_dict(cls, data: dict):
+        pass
 
     @abstractclassmethod
     def load(cls, data: dict) -> Type[StagePolygon]:
@@ -57,9 +64,6 @@ class StagePolygon(ABC):
         Returns a stage polygon reconstructed from data.
         """
         pass
-
-    def __init__(self) -> None:
-        super().__init__()
 
     @abstractmethod
     def stage_in_meshgrid(
@@ -80,6 +84,14 @@ class StagePolygon(ABC):
         Returns polygon parameters as dict
         """
         pass
+
+    def to_dict(self) -> dict:
+        """
+        Converts polygon object to a dict, including all parameters and polygon class.
+        """
+        return {
+            self._CLASS_KEY: self.__class__.__name__,
+            self._PARAMETER_KEY: self.dump()}
 
 
 class SingleModeFiber(StagePolygon):
