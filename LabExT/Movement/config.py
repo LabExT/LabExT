@@ -33,7 +33,7 @@ class Direction(BaseEnum):
     POSITIVE = 1
 
 
-class Orientation(BaseEnum):
+class Orientation(str, BaseEnum):
     """Enumerate different stage orientations."""
     LEFT = auto()
     RIGHT = auto()
