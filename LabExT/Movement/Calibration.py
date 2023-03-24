@@ -143,8 +143,14 @@ class Calibration:
 
         stage_polygon = None
         if "stage_polygon" in calibration_data:
-            stage_polygon = StagePolygon.load(
-                calibration_data["stage_polygon"])
+            polygon_cls_name = calibration_data["stage_polygon"].get("class")
+            stage_polygon_cls = mover.polygon_api.get_class(polygon_cls_name)
+            if stage_polygon_cls:
+                stage_polygon = stage_polygon_cls.load(
+                    calibration_data["stage_polygon"].get("parameters", {}))
+            else:
+                cls._logger.debug(
+                    f"Cannot set stage polygon. Polygon class '{polygon_cls_name}' not found.")
 
         return cls(
             mover,
@@ -880,7 +886,8 @@ class Calibration:
             calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()
 
         if stage_polygon and self.stage_polygon is not None:
-            calibration_dump["stage_polygon"] = self.stage_polygon.dump(
-                stringify=True)
+            calibration_dump["stage_polygon"] = {
+                "class": self.stage_polygon.__class__.__name__,
+                "parameters": self.stage_polygon.dump()}
 
         return calibration_dump
