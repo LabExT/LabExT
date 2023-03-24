@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import numpy as np
+import json
 
 from abc import ABC, abstractmethod, abstractclassmethod
 from typing import TYPE_CHECKING, List, Any, Dict, NamedTuple, Tuple, Type, Generator
@@ -49,21 +50,22 @@ class StagePolygon(ABC):
     This class cannot be initialised.
     """
 
-    _CLASS_KEY = "class"
-    _PARAMETER_KEY = "parameters"
+    default_parameters: Dict[str, Any] = {}
 
-    default_parameter: Dict[str, Any] = {}
-
-    @abstractclassmethod
-    def from_dict(cls, data: dict):
-        pass
-
-    @abstractclassmethod
     def load(cls, data: dict) -> Type[StagePolygon]:
         """
         Returns a stage polygon reconstructed from data.
         """
-        pass
+        return cls(parameters=data)
+
+    def __init__(
+        self,
+        parameters: dict = {}
+    ) -> None:
+        if parameters:
+            self.parameters = parameters
+        else:
+            self.parameters = self.default_parameters
 
     @abstractmethod
     def stage_in_meshgrid(
@@ -78,20 +80,11 @@ class StagePolygon(ABC):
         """
         pass
 
-    @abstractmethod
     def dump(self) -> dict:
         """
         Returns polygon parameters as dict
         """
-        pass
-
-    def to_dict(self) -> dict:
-        """
-        Converts polygon object to a dict, including all parameters and polygon class.
-        """
-        return {
-            self._CLASS_KEY: self.__class__.__name__,
-            self._PARAMETER_KEY: self.dump()}
+        return self.parameters
 
 
 class SingleModeFiber(StagePolygon):
@@ -117,35 +110,23 @@ class SingleModeFiber(StagePolygon):
         Returns a single mode fiber polygon reconstructed from data.
         """
         try:
-            orientation = Orientation[data[cls.ORIENTATION_KEY]]
+            orientation = Orientation[str(data[cls.ORIENTATION_KEY]).upper()]
         except KeyError as err:
             raise ValueError(
                 f"The parameter 'orientation' in polygon_data is not defined: {err}. "
                 f"Make sure to pass a valid orientation: {', '.join(map(str, list(Orientation)))}")
 
-        return SingleModeFiber(
-            orientation=orientation,
-            fiber_length=float(data.get(
+        return SingleModeFiber(parameters={
+            cls.ORIENTATION_KEY: orientation,
+            cls.FIBER_LENGTH_KEY: float(data.get(
                 cls.FIBER_LENGTH_KEY,
                 cls.default_parameters[cls.FIBER_LENGTH_KEY])),
-            fiber_radius=float(data.get(
+            cls.FIBER_RADIUS_KEY: float(data.get(
                 cls.FIBER_RADIUS_KEY,
                 cls.default_parameters[cls.FIBER_RADIUS_KEY])),
-            safety_distance=float(data.get(
+            cls.SAFETY_DISTANCE_KEY: float(data.get(
                 cls.SAFETY_DISTANCE_KEY,
-                cls.default_parameters[cls.SAFETY_DISTANCE_KEY])))
-
-    def __init__(
-        self,
-        orientation: Orientation,
-        fiber_length: float,
-        fiber_radius: float,
-        safety_distance: float
-    ) -> None:
-        self.orientation = orientation
-        self.fiber_length = fiber_length
-        self.fiber_radius = fiber_radius
-        self.safety_distance = safety_distance
+                cls.default_parameters[cls.SAFETY_DISTANCE_KEY]))})
 
     def stage_in_meshgrid(
         self,
@@ -203,20 +184,21 @@ class SingleModeFiber(StagePolygon):
         ValueError
             If no outline is defined for the given orientation.
         """
-        safe_fiber_radius = self.fiber_radius + self.safety_distance
+        safe_fiber_radius = self.parameters[self.FIBER_RADIUS_KEY] + \
+            self.parameters[self.SAFETY_DISTANCE_KEY]
 
         x_min = position.x - safe_fiber_radius
         x_max = position.x + safe_fiber_radius
         y_min = position.y - safe_fiber_radius
         y_max = position.y + safe_fiber_radius
 
-        if self.orientation == Orientation.LEFT:
+        if self.parameters[self.ORIENTATION_KEY] == Orientation.LEFT:
             x_min -= self.fiber_length
-        elif self.orientation == Orientation.RIGHT:
+        elif self.parameters[self.ORIENTATION_KEY] == Orientation.RIGHT:
             x_max += self.fiber_length
-        elif self.orientation == Orientation.BOTTOM:
+        elif self.parameters[self.ORIENTATION_KEY] == Orientation.BOTTOM:
             y_min -= self.fiber_length
-        elif self.orientation == Orientation.TOP:
+        elif self.parameters[self.ORIENTATION_KEY] == Orientation.TOP:
             y_max += self.fiber_length
         else:
             raise ValueError(
@@ -232,16 +214,6 @@ class SingleModeFiber(StagePolygon):
             y_min -= grid_size / 2 + grid_epsilon
 
         return x_min, x_max, y_min, y_max
-
-    def dump(self) -> dict:
-        """
-        Returns single fiber mode polygon parameters as dict
-        """
-        return {
-            self.ORIENTATION_KEY: self.orientation.value,
-            self.FIBER_LENGTH_KEY: self.fiber_length,
-            self.FIBER_RADIUS_KEY: self.fiber_radius,
-            self.SAFETY_DISTANCE_KEY: self.safety_distance}
 
 
 class PathPlanning(ABC):
