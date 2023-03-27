@@ -185,7 +185,8 @@ class Calibration:
 
         self.stage_polygon = stage_polygon
         if stage_polygon is None:
-            self.stage_polygon = SingleModeFiber(orientation)
+            self.stage_polygon = SingleModeFiber(parameters={
+                "Orientation": orientation})
 
         self._axes_rotation = axes_rotation
         if axes_rotation is None:
