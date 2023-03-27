@@ -55,6 +55,7 @@ class CalibrationTestCase(unittest.TestCase):
         self.stage = DummyStage('usb:123456789')
 
         self.mover = MoverNew(None)
+        self.mover.import_api_classes()
 
         self.calibration = Calibration(
             self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
@@ -682,7 +683,8 @@ class CalibrationTest(CalibrationTestCase):
 
         
     def test_dump_with_stage_polygon(self):
-        polygon = SingleModeFiber(Orientation.LEFT, parameters={
+        polygon = SingleModeFiber(parameters={
+            "Orientation": Orientation.LEFT,
             "Fiber Radius": 100.0,
             "Safety Distance": 100.0,
             "Fiber Length": 10e4
@@ -692,9 +694,9 @@ class CalibrationTest(CalibrationTestCase):
             stage_polygon=polygon)
 
         self.assertDictEqual(calibration.dump()["stage_polygon"], {
-            "polygon_cls": "SingleModeFiber",
-            "orientation": "LEFT",
+            "class": "SingleModeFiber",
             "parameters": {
+                "Orientation": "LEFT",
                 "Fiber Radius": 100.0,
                 "Safety Distance": 100.0,
                 "Fiber Length": 10e4
@@ -809,9 +811,9 @@ class CalibrationTest(CalibrationTestCase):
             "orientation": "LEFT",
             "device_port": "INPUT",
             "stage_polygon":  {
-                "polygon_cls": "SingleModeFiber",
-                "orientation": "LEFT",
+                "class": "SingleModeFiber",
                 "parameters": {
+                    "Orientation": "LEFT",
                     "Fiber Radius": 100.0,
                     "Safety Distance": 100.0,
                     "Fiber Length": 10e4
@@ -823,9 +825,9 @@ class CalibrationTest(CalibrationTestCase):
         
         self.assertIsInstance(restored_calibration.stage_polygon, SingleModeFiber)
         self.assertDictEqual(restored_calibration.stage_polygon.parameters, {
+            "Orientation": Orientation.LEFT,
             "Fiber Radius": 100.0,
             "Safety Distance": 100.0,
             "Fiber Length": 10e4
         })
-        self.assertEqual(restored_calibration.stage_polygon.orientation, Orientation.LEFT)
 
