@@ -1027,18 +1027,18 @@ class CoordinatePairingStep(Step):
             return
 
         if not all(
-                c._single_point_offset.is_valid for c in self.mover.calibrations):
+                c._single_point_offset.is_valid for c in self.mover.port_assigned_calibrations):
             self.next_step_enabled = False
             self.finish_step_enabled = False
-            self.wizard.set_error("Please fix for each stage a single point.")
+            self.wizard.set_error("Please fix for each port assigned stage a single point.")
             return
 
         if not all(
-                c._kabsch_rotation.is_valid for c in self.mover.calibrations):
+                c._kabsch_rotation.is_valid for c in self.mover.port_assigned_calibrations):
             self.next_step_enabled = False
             self.finish_step_enabled = True
             self.wizard.set_error(
-                "Please define for each stage at least three points to calibrate the stages globally.")
+                "Please define for each port assigned stage at least three points to calibrate the stages globally.")
             return
 
         self.finish_step_enabled = True

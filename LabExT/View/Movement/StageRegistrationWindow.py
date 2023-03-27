@@ -168,18 +168,18 @@ class StageRegistrationWindow(Toplevel):
                 self.exclude_active_stages)
             self._stage_table.pack(side=TOP, fill=X, expand=True)
 
+            if self._stage:
+                self._stage_table.set_selected_stage(
+                    stage_cls=self._stage.__class__,
+                    stage_address=self._stage.address,
+                    add_if_missing=True)
+
             self._select_stage_button = Button(
                 stage_selection_frame,
                 text="Select marked stage",
                 state=NORMAL if self._stage_table.has_stages_to_select else DISABLED,
                 command=self._on_stage_selection)
             self._select_stage_button.pack(side=LEFT, pady=2)
-
-            if self._stage:
-                self._stage_table.set_selected_stage(
-                    stage_cls=self._stage.__class__,
-                    stage_address=self._stage.address,
-                    add_if_missing=True)
         else:
             Label(
                 stage_selection_frame,

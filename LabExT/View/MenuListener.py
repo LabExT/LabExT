@@ -285,6 +285,7 @@ class MListener:
         self.calibration_restore_toplevel = LoadStoredCalibrationWindow(
             self._root,
             self._experiment_manager.mover,
+            self._experiment_manager.chip,
             calibration_settings=calibration_settings)
 
     def client_search_for_peak(self):

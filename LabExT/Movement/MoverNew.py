@@ -199,6 +199,15 @@ class MoverNew:
         Read-only. Use register_stage_calibration to register a new stage.
         """
         return self._calibrations
+    
+    @property
+    def port_assigned_calibrations(self) -> List[Type[Calibration]]:
+        """
+        Returns a list of all port assigned calibrations
+        Read-only. Use register_stage_calibration to register a new stage.
+        """
+        return [
+            c for c in self.__port_assigned_calibrations.values() if c is not None]
 
     @property
     def active_stages(self) -> List[Type[Stage]]:
@@ -230,13 +239,10 @@ class MoverNew:
         """
         Returns the mover state for port assigned calibrations
         """
-        port_assigned_calibrations = [
-            c for c in self.__port_assigned_calibrations.values() if c is not None]
-
-        if not port_assigned_calibrations:
+        if not self.port_assigned_calibrations:
             return State.UNINITIALIZED
         
-        return min(c.state for c in port_assigned_calibrations)
+        return min(c.state for c in self.port_assigned_calibrations)
 
     @property
     def has_connected_stages(self) -> bool:
