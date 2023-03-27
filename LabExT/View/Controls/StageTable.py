@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from typing import Type, Any
-from tkinter import Frame
+from tkinter import Frame, Label, TOP
 
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.Movement.Stage import Stage
@@ -41,19 +41,40 @@ class StageTable(Frame):
 
         # Run discovering for available stages.
         self._available_stages = self.mover.get_available_stages()
+        self._stage_table = None
 
+        self.__setup__()
+
+    def __setup__(self) -> None:
+        """
+        Setup stage table.
+        """
         # Setup table containing all stages
-        self._stage_table = CustomTable(
-            self,
-            columns=['ID', 'Description', 'Stage Class', 'Address'],
-            rows=[(
-                idx,
-                str(cls.description),
-                str(cls.__name__),
-                str(address)
-            ) for idx, (cls, address) in enumerate(self._available_stages)],
-            col_width=20,
-            selectmode='browse')
+        if self.has_stages_to_select:
+            self._stage_table = CustomTable(
+                self,
+                columns=['ID', 'Description', 'Stage Class', 'Address'],
+                rows=[(
+                    idx,
+                    str(cls.description),
+                    str(cls.__name__),
+                    str(address)
+                ) for idx, (cls, address) in enumerate(self._available_stages)],
+                col_width=20,
+                selectmode='browse')
+        else:
+            Label(
+                self,
+                text="No stages available.",
+                foreground="#FF3333"
+            ).pack(side=TOP)
+
+    @property
+    def has_stages_to_select(self) -> bool:
+        """
+        Returns True if there are stages to select
+        """
+        return len(self._available_stages) > 0
 
     def get_selected_stage_cls(self) -> Stage:
         """
@@ -71,16 +92,10 @@ class StageTable(Frame):
         if selected_stage_tuple:
             return selected_stage_tuple[1]
 
-    def set_selected_stage(self, stage_cls: Stage, stage_address: Any) -> None:
+    def set_selected_stage(self, stage_idx: int) -> None:
         """
-        Set the current selected entry by the stage class and stage address
+        Set the current selected entry by the stage idx
         """
-        try:
-            stage_idx = self._available_stages[(stage_cls, stage_address)]
-        except IndexError:
-            raise IndexError(
-                f"No available stage with class '{stage_cls}' and address '{stage_address}' found in stage table.")
-
         self._stage_table.select_by_id(stage_idx)
 
     def _get_selected_stage_tuple(self) -> tuple:

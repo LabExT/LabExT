@@ -163,7 +163,7 @@ class Calibration:
     def __init__(
         self,
         mover: Type[MoverNew],
-        stage: Type[Stage],
+        stage: Type[Stage] = None,
         device_port: DevicePort = None,
         stage_polygon: Type[StagePolygon] = None,
         axes_rotation: Type[AxesRotation] = None,
@@ -171,7 +171,7 @@ class Calibration:
         kabsch_rotation: Type[KabschRotation] = None
     ) -> None:
         self.mover = mover
-        self.stage: Type[Stage] = stage
+        self._stage: Type[Stage] = stage
 
         self.device_port = device_port
 
@@ -226,6 +226,22 @@ class Calibration:
         Returns the current calibration state.
         """
         return self._state
+    
+    @property
+    def stage(self) -> Type[Stage]:
+        """
+        Returns the assigned stage.
+        """
+        return self._stage
+
+    @stage.setter
+    def stage(self, new_stage: Type[Stage]) -> None:
+        """
+        Sets a new stage.
+        Determines new state.
+        """
+        self._stage = new_stage
+        self.determine_state(skip_connection=False)
 
     @property
     def is_input_stage(self):
