@@ -58,7 +58,7 @@ class CalibrationTestCase(unittest.TestCase):
         self.mover.import_api_classes()
 
         self.calibration = Calibration(
-            self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
+            self.mover, self.stage, DevicePort.INPUT)
 
     def set_valid_axes_rotation(self):
         for chip_axis, direction, stage_axis in VALID_AXES_MAPPING:
@@ -624,13 +624,11 @@ class CalibrationTest(CalibrationTestCase):
         set_speed_xy_mock.assert_has_calls(
             [call(5000), call(current_speed_xy)])
 
-    def test_dump_includes_orientation_and_port(self):
-        calibration = Calibration(self.mover, self.stage, Orientation.BOTTOM, DevicePort.INPUT)
+    def test_dump_includes_port(self):
+        calibration = Calibration(self.mover, self.stage, DevicePort.INPUT)
         calibration_dump = calibration.dump()
 
-        self.assertEqual(calibration_dump["orientation"], "BOTTOM")
         self.assertEqual(calibration_dump["device_port"], "INPUT")
-
 
     def test_dump_with_no_single_point_offset(self):
         self.assertFalse(self.calibration._single_point_offset.is_valid)
@@ -690,7 +688,7 @@ class CalibrationTest(CalibrationTestCase):
             "Fiber Length": 10e4
         })
         calibration = Calibration(
-            self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT,
+            self.mover, self.stage, DevicePort.INPUT,
             stage_polygon=polygon)
 
         self.assertDictEqual(calibration.dump()["stage_polygon"], {

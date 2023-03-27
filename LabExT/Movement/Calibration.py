@@ -164,7 +164,7 @@ class Calibration:
         self,
         mover: Type[MoverNew],
         stage: Type[Stage],
-        device_port: DevicePort,
+        device_port: DevicePort = None,
         stage_polygon: Type[StagePolygon] = None,
         axes_rotation: Type[AxesRotation] = None,
         single_point_offset: Type[SinglePointOffset] = None,
@@ -870,7 +870,7 @@ class Calibration:
         """
         calibration_dump = {
             "stage_identifier": self.stage.identifier,
-            "device_port": self._device_port.value}
+            "device_port": self.device_port.value}
 
         if axes_rotation and self._axes_rotation.is_valid:
             calibration_dump["axes_rotation"] = self._axes_rotation.dump()
