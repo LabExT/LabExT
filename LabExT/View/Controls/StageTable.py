@@ -44,10 +44,13 @@ class StageTable(Frame):
 
         # Run discovering for available stages.
         self._all_available_stages = self.mover.get_available_stages()
-        self._used_stages = [(s.__class__, s.address)
-                             for s in self.mover.active_stages]
-        self._available_stages = [
-            s for s in self._all_available_stages if s not in self._used_stages]
+        if exclude_active_stages:
+            self._used_stages = [(s.__class__, s.address)
+                                 for s in self.mover.active_stages]
+            self._available_stages = [
+                s for s in self._all_available_stages if s not in self._used_stages]
+        else:
+            self._available_stages = self._all_available_stages
 
         self._stage_table = None
 
