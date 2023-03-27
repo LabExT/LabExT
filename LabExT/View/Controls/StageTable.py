@@ -103,17 +103,30 @@ class StageTable(Frame):
     def set_selected_stage(
         self,
         stage_cls: Stage,
-        stage_address: Any
+        stage_address: Any,
+        add_if_missing: bool = False
     ) -> None:
         """
         Set the current selected entry by the stage idx
         """
+        stage_tuple = (stage_cls, stage_address)
         try:
-            stage_idx = self._available_stages.index(
-                (stage_cls, stage_address))
+            stage_idx = self._available_stages.index(stage_tuple)
         except ValueError:
-            pass
-        self._stage_table.select_by_id(stage_idx)
+            if add_if_missing and stage_tuple in self._all_available_stages:
+                self._available_stages.insert(0, stage_tuple)
+                stage_idx = 0
+
+                # Reload table
+                for child in self.winfo_children():
+                    child.forget()
+
+                self.__setup__()
+            else:
+                stage_idx = -1
+
+        if self._stage_table and stage_idx >= 0:
+            self._stage_table.select_by_id(stage_idx)
 
     def _get_selected_stage_tuple(self) -> tuple:
         """

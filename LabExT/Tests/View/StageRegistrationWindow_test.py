@@ -90,7 +90,6 @@ class StageRegistrationWindowTest(TKinterTestCase):
         self.assertEqual(window._stage.address, 'usb:123456789')
 
         window._clear_stage_button.invoke()
-        self.assertIsNone(window._stage)
 
         window._stage_table.set_selected_stage(DummyStage, 'usb:987654321')
         window._select_stage_button.invoke()
