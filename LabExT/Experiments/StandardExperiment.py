@@ -188,7 +188,7 @@ class StandardExperiment:
 
             # only move if automatic movement is enabled
             if self.exctrl_auto_move_stages:
-                self._mover.move_to_device(self._chip, device)
+                self._mover.move_to_device(device)
                 self.logger.info('Automatically moved to device:' + str(device))
 
             # execute automatic search for peak

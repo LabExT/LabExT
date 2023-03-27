@@ -135,7 +135,7 @@ class ExperimentManager:
         self.main_window.model.status_mover_connected_stages.set(
             self.mover.has_connected_stages)
         self.main_window.model.status_mover_can_move_to_device.set(
-            self.mover.can_move_absolutely)
+            self.mover.can_move_to_device)
         self.main_window.model.status_sfp_initialized.set(
             self.peak_searcher.initialized)
 

@@ -264,7 +264,7 @@ class CoordinatePairingsWindow(Toplevel):
         """
         Asks the user whether to move to the device after selecting the device. This is possible after a single pairing.
         """
-        if self._device is None or not self.mover.can_move_absolutely:
+        if self._device is None or not self.mover.can_move_to_device:
             return
 
         if not messagebox.askyesno(
@@ -275,8 +275,8 @@ class CoordinatePairingsWindow(Toplevel):
 
         run_with_wait_window(
             self, description="Move to device {}".format(
-                self._device.id), function=lambda: self.mover.move_to_device(
-                self.chip, self._device))
+                self._device.id), function=lambda: self.mover.move_to_device(self._device))
+        
     #
     #   Helpers
     #

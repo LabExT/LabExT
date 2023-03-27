@@ -63,7 +63,7 @@ class MoveStagesRelativeWindow(Toplevel):
 
         hint = "Move the stages relative in the chip coordinate system.\n"\
                "Note: the stages are NOT automatically z-lifted before lateral movement.\n"\
-               "The stages will move one after each other in the order: top, right, bottom, left"
+               "The stages will move one after each other in the order below."
         Label(self._main_frame, text=hint).pack(side=TOP, fill=X)
 
         self._buttons_frame = Frame(
@@ -82,7 +82,7 @@ class MoveStagesRelativeWindow(Toplevel):
             side=RIGHT, fill=Y, expand=0)
 
         self.parameter_tables = {}
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             movement_params = {}
             for axis in Axis:
                 movement_params[axis] = ConfigParameter(
@@ -108,7 +108,7 @@ class MoveStagesRelativeWindow(Toplevel):
                 z=float(params[Axis.Z].value))
 
             if not requested_offset.is_zero:
-                movement_commands[calibration.orientation] = requested_offset
+                movement_commands[calibration] = requested_offset
 
         if self._confirm_movement(movement_commands):
             run_with_wait_window(
@@ -121,8 +121,8 @@ class MoveStagesRelativeWindow(Toplevel):
         Asks the user to confirm the movement.
         """
         message = "By proceeding the following movement will be executed: \n\n"
-        for orientation, coord in movement_commands.items():
-            message += f"{orientation} stage is shifted by the offset {coord}.\n"
+        for calibration, coord in movement_commands.items():
+            message += f"{calibration} stage is shifted by the offset {coord}.\n"
 
         message += "\nDo you want to proceed?"
 

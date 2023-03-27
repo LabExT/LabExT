@@ -46,7 +46,7 @@ class MoveStagesDeviceWindow(Toplevel):
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
 
-        if not self.mover.can_move_absolutely:
+        if not self.mover.can_move_to_device:
             raise RuntimeError(
                 f"Cannot perform absolute movement, not all active stages are calibrated correctly. "
                 "Note for each stage a coordinate transformation must be defined.")
@@ -104,7 +104,7 @@ class MoveStagesDeviceWindow(Toplevel):
             run_with_wait_window(
                 self,
                 f"Moving to Device {selected_device.id}",
-                lambda: self.mover.move_to_device(self.chip, selected_device))
+                lambda: self.mover.move_to_device(selected_device))
 
     def _confirm_movement(self, device: Type[Device]) -> bool:
         """

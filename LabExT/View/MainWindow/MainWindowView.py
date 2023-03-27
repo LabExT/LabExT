@@ -63,7 +63,10 @@ class MainWindowContextMenu(Menu):
             command=self._menu_listener.client_quit)
 
         self._movement.add_command(
-            label=f"State: {self._mover.state}",
+            label=f"Global State: {self._mover.state}",
+            state=DISABLED)
+        self._movement.add_command(
+            label=f"Move-to-Device State: {self._mover.state}",
             state=DISABLED)
         self._movement.add_separator()
 
@@ -96,7 +99,7 @@ class MainWindowContextMenu(Menu):
         self._movement.add_command(
             label="Move Stages to Device",
             command=self._menu_listener.client_move_device,
-            state=NORMAL if self._mover.can_move_absolutely else DISABLED)
+            state=NORMAL if self._mover.can_move_to_device else DISABLED)
         self._movement.add_separator()
         self._movement.add_command(
             label="Search for Peak (Ctrl+S)",
@@ -133,7 +136,7 @@ class MainWindowContextMenu(Menu):
         calibration_menu = Menu(self)
 
         calibration_menu.add_command(
-            label=f"State: {calibration.state}",
+            label=f"Stage State: {calibration.state}",
             state=DISABLED)
         calibration_menu.add_command(
             label=f"Automatice movement enabled: {calibration.is_automatic_movement_enabled}",

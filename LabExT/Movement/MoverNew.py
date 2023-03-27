@@ -173,7 +173,7 @@ class MoverNew:
         _main_window.model.status_mover_connected_stages.set(
             self.has_connected_stages)
         _main_window.model.status_mover_can_move_to_device.set(
-            self.can_move_absolutely)
+            self.can_move_to_device)
 
         _main_window.refresh_context_menu()
 
@@ -226,6 +226,19 @@ class MoverNew:
         return min(c.state for c in self.calibrations)
 
     @property
+    def automatic_movement_state(self) -> State:
+        """
+        Returns the mover state for port assigned calibrations
+        """
+        port_assigned_calibrations = [
+            c for c in self.__port_assigned_calibrations.values() if c is not None]
+
+        if not port_assigned_calibrations:
+            return State.UNINITIALIZED
+        
+        return min(c.state for c in port_assigned_calibrations)
+
+    @property
     def has_connected_stages(self) -> bool:
         """
         Returns True if any of the connected stage is connected (opened a connection to the stage).
@@ -237,33 +250,21 @@ class MoverNew:
         """
         Returns True if mover can move absolutely in chip coordinates.
         """
-        if not self.calibrations:
-            return False
-
-        return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
-                   State.FULLY_CALIBRATED for c in self.calibrations)
+        return self.state >= State.SINGLE_POINT_FIXED
 
     @property
     def can_move_relatively(self) -> bool:
         """
         Returns True if mover can move relatively in chip coordinates.
         """
-        if not self.calibrations:
-            return False
-
-        return all(
-            c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations)
+        return self.state >= State.COORDINATE_SYSTEM_FIXED
 
     @property
     def can_move_to_device(self) -> bool:
         """
         Returns True if mover can move to device.
         """
-        port_assigned_calibrations = [
-            c for c in self.__port_assigned_calibrations.values() if c is not None]
-
-        return all(
-            c.state >= State.SINGLE_POINT_FIXED for c in port_assigned_calibrations)
+        return self.automatic_movement_state >= State.SINGLE_POINT_FIXED
 
     @property
     def input_calibration(self) -> Type[Calibration]:
