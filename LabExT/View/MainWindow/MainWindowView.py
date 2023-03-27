@@ -66,7 +66,7 @@ class MainWindowContextMenu(Menu):
             label=f"Global State: {self._mover.state}",
             state=DISABLED)
         self._movement.add_command(
-            label=f"Move-to-Device State: {self._mover.state}",
+            label=f"Move-to-Device State: {self._mover.automatic_movement_state}",
             state=DISABLED)
         self._movement.add_separator()
 
