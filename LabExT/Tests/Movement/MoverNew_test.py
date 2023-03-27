@@ -11,11 +11,11 @@ import json
 from unittest.mock import Mock, patch, call, mock_open
 from parameterized import parameterized
 from LabExT.Movement.Stages.DummyStage import DummyStage
-from LabExT.Movement.Calibration import DevicePort, Orientation
+from LabExT.Movement.Calibration import Calibration
 
 from LabExT.Movement.MoverNew import MoverError, MoverNew, assert_connected_stages
 from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.config import Axis, Direction, CoordinateSystem
+from LabExT.Movement.config import DevicePort, Orientation, Axis, Direction, CoordinateSystem
 
 
 class AssertConnectedStagesTest(unittest.TestCase):
@@ -31,8 +31,8 @@ class AssertConnectedStagesTest(unittest.TestCase):
 
     def test_assert_connected_stages_raises_error_if_no_stage_is_connected(
             self):
-        self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.mover.register_stage_calibration(Calibration(
+            self.mover, self.stage, DevicePort.INPUT))
         self.stage.disconnect()
 
         func = Mock()
@@ -45,8 +45,8 @@ class AssertConnectedStagesTest(unittest.TestCase):
 
     def test_assert_connected_stages_calls_function_if_stage_is_connected(
             self):
-        self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.mover.register_stage_calibration(Calibration(
+            self.mover, self.stage, DevicePort.INPUT))
         self.stage.connect()
 
         func = Mock()
@@ -56,9 +56,9 @@ class AssertConnectedStagesTest(unittest.TestCase):
         func.assert_called_once()
 
 
-class AddStageCalibrationTest(unittest.TestCase):
+class RegisterStageCalibrationTest(unittest.TestCase):
     """
-    Tests adding new calibrations.
+    Tests register new calibrations.
     """
 
     def setUp(self) -> None:
@@ -79,113 +79,68 @@ class AddStageCalibrationTest(unittest.TestCase):
             self.mover.DEFAULT_ACCELERATION_XY)
         self.assertEqual(self.mover._z_lift, self.mover.DEFAULT_Z_LIFT)
 
-    def test_add_stage_calibration_reject_invalid_orientations(self):
+    def test_register_reject_double_ports(self):
+        valid_calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(valid_calibration)
         current_calibrations = self.mover.calibrations
 
-        with self.assertRaises(ValueError):
-            self.mover.add_stage_calibration(
-                self.stage, 1, DevicePort.INPUT)
-
-        self.assertEqual(current_calibrations, self.mover.calibrations)
-
-    def test_add_stage_calibration_reject_invalid_port(self):
-        current_calibrations = self.mover.calibrations
-
-        with self.assertRaises(ValueError):
-            self.mover.add_stage_calibration(self.stage, Orientation.LEFT, 1)
-
-        self.assertEqual(current_calibrations, self.mover.calibrations)
-
-    def test_add_stage_calibration_reject_double_orientations(self):
-        valid_calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        current_calibrations = self.mover.calibrations
-
-        self.assertEqual(current_calibrations[(
-            Orientation.LEFT, DevicePort.INPUT)], valid_calibration)
+        self.assertIn(valid_calibration, self.mover.calibrations)
+        self.assertEqual(
+            self.mover.get_port_assigned_calibration(DevicePort.INPUT),
+            valid_calibration)
 
         with self.assertRaises(MoverError) as error_context:
-            self.mover.add_stage_calibration(
-                self.stage2, Orientation.LEFT, DevicePort.OUTPUT)
-
-        with self.assertRaises(KeyError):
-            self.mover.calibrations[(Orientation.LEFT, DevicePort.OUTPUT)]
+            self.mover.register_stage_calibration(Calibration(
+                self.mover, self.stage2, DevicePort.INPUT))
 
         self.assertEqual(
-            "A stage has already been assigned for Left.", str(
+            "A Stage has already been assigned for device port Input", str(
                 error_context.exception))
         self.assertEqual(current_calibrations, self.mover.calibrations)
         self.assertEqual(1, len(self.mover.calibrations))
 
-    def test_add_stage_calibration_reject_double_ports(self):
-        valid_calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
+    def test_register_stage_calibration_reject_double_stages(self):
+        valid_calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(valid_calibration)
         current_calibrations = self.mover.calibrations
 
-        self.assertEqual(current_calibrations[(
-            Orientation.LEFT, DevicePort.INPUT)], valid_calibration)
-
-        with self.assertRaises(MoverError) as error_context:
-            self.mover.add_stage_calibration(
-                self.stage2, Orientation.RIGHT, DevicePort.INPUT)
-
-        with self.assertRaises(KeyError):
-            self.mover.calibrations[(Orientation.RIGHT, DevicePort.INPUT)]
-
+        self.assertIn(valid_calibration, self.mover.calibrations)
         self.assertEqual(
-            "A stage has already been assigned for the Input port.", str(
-                error_context.exception))
-        self.assertEqual(current_calibrations, self.mover.calibrations)
-        self.assertEqual(1, len(self.mover.calibrations))
-
-    def test_add_stage_calibration_reject_double_stages(self):
-        valid_calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        current_calibrations = self.mover.calibrations
-
-        self.assertEqual(current_calibrations[(
-            Orientation.LEFT, DevicePort.INPUT)], valid_calibration)
+            self.mover.get_port_assigned_calibration(DevicePort.INPUT),
+            valid_calibration)
 
         with self.assertRaises(MoverError) as error_context:
-            self.mover.add_stage_calibration(
-                self.stage, Orientation.TOP, DevicePort.OUTPUT)
+            self.mover.register_stage_calibration(Calibration(
+                self.mover, self.stage, DevicePort.OUTPUT))
 
-        self.assertEqual("Stage {} has already an assignment.".format(
+        self.assertEqual("The stage '{}' has already been registered.".format(
             str(self.stage)), str(error_context.exception))
         self.assertEqual(current_calibrations, self.mover.calibrations)
         self.assertEqual(1, len(self.mover.calibrations))
 
     def test_active_stage_includes_new_stage(self):
-        self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        self.mover.add_stage_calibration(
-            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+        self.mover.register_stage_calibration(Calibration(
+            self.mover, self.stage, DevicePort.INPUT))
+        self.mover.register_stage_calibration(Calibration(
+            self.mover, self.stage2, DevicePort.OUTPUT))
 
         self.assertIn(self.stage, self.mover.active_stages)
         self.assertIn(self.stage2, self.mover.active_stages)
 
     def test_left_and_input_calibration_property(self):
-        calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        self.assertEqual(calibration, self.mover.left_calibration)
+        calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(calibration)
+
         self.assertEqual(calibration, self.mover.input_calibration)
 
     def test_right_and_output_calibration_property(self):
-        calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.RIGHT, DevicePort.OUTPUT)
-        self.assertEqual(calibration, self.mover.right_calibration)
-        self.assertEqual(calibration, self.mover.output_calibration)
+        calibration = Calibration(
+            self.mover, self.stage, DevicePort.OUTPUT)
+        self.mover.register_stage_calibration(calibration)
 
-    def test_top_and_input_calibration_property(self):
-        calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.TOP, DevicePort.INPUT)
-        self.assertEqual(calibration, self.mover.top_calibration)
-        self.assertEqual(calibration, self.mover.input_calibration)
-
-    def test_bottom_and_output_calibration_property(self):
-        calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.BOTTOM, DevicePort.OUTPUT)
-        self.assertEqual(calibration, self.mover.bottom_calibration)
         self.assertEqual(calibration, self.mover.output_calibration)
 
     def test_set_stage_settings_successfully(self):
@@ -193,14 +148,71 @@ class AddStageCalibrationTest(unittest.TestCase):
         self.assertIsNone(self.stage.get_speed_xy())
         self.assertIsNone(self.stage.get_acceleration_xy())
 
-        self.mover.add_stage_calibration(
-            self.stage, Orientation.BOTTOM, DevicePort.OUTPUT)
+        calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(calibration)
 
         self.assertEqual(self.stage.get_speed_xy(), self.mover._speed_xy)
         self.assertEqual(self.stage.get_speed_z(), self.mover._speed_z)
         self.assertEqual(
             self.stage.get_acceleration_xy(),
             self.mover._acceleration_xy)
+
+    def test_deregister_stage_calibration_if_missing(self):
+        calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+
+        self.assertNotIn(calibration, self.mover.calibrations)
+
+        with self.assertRaises(MoverError):
+            self.mover.deregister_stage_calibration(calibration)
+
+    def test_deregister_stage_calibration(self):
+        calibration = Calibration(self.mover, self.stage)
+        self.mover.register_stage_calibration(calibration)
+
+        self.assertIn(calibration, self.mover.calibrations)
+
+        self.mover.deregister_stage_calibration(calibration)
+
+        self.assertNotIn(calibration, self.mover.calibrations)
+
+    def test_deregister_stage_calibration_with_port(self):
+        calibration = Calibration(self.mover, self.stage, DevicePort.INPUT)
+        calibration2 = Calibration(self.mover, self.stage2, DevicePort.OUTPUT)
+        self.mover.register_stage_calibration(calibration)
+        self.mover.register_stage_calibration(calibration2)
+
+        self.assertTrue(calibration.is_automatic_movement_enabled)
+        self.assertTrue(calibration2.is_automatic_movement_enabled)
+
+        self.assertIn(calibration, self.mover.calibrations)
+        self.assertIn(calibration2, self.mover.calibrations)
+        self.assertEqual(
+            self.mover.get_port_assigned_calibration(DevicePort.INPUT),
+            calibration)
+        self.assertEqual(
+            self.mover.get_port_assigned_calibration(DevicePort.OUTPUT),
+            calibration2)
+
+        # Deregister input calibration
+        self.mover.deregister_stage_calibration(calibration)
+
+        self.assertNotIn(calibration, self.mover.calibrations)
+        self.assertIsNone(
+            self.mover.get_port_assigned_calibration(
+                DevicePort.INPUT))
+        self.assertEqual(
+            self.mover.get_port_assigned_calibration(DevicePort.OUTPUT),
+            calibration2)
+
+        # Deregister output calibration
+        self.mover.deregister_stage_calibration(calibration2)
+
+        self.assertNotIn(calibration2, self.mover.calibrations)
+        self.assertIsNone(
+            self.mover.get_port_assigned_calibration(
+                DevicePort.OUTPUT))
 
 
 class MoverStageSettingsTest(unittest.TestCase):
@@ -215,10 +227,11 @@ class MoverStageSettingsTest(unittest.TestCase):
         with patch.object(MoverNew, "MOVER_SETTINGS_FILE", "/mocked/mover_settings.json"):
             self.mover = MoverNew(None)
 
-        self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        self.mover.add_stage_calibration(
-            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+        calibration1 = Calibration(self.mover, self.stage, DevicePort.INPUT)
+        calibration2 = Calibration(self.mover, self.stage2, DevicePort.OUTPUT)
+
+        self.mover.register_stage_calibration(calibration1)
+        self.mover.register_stage_calibration(calibration2)
 
         self.stage.connect()
         self.stage2.connect()
@@ -418,8 +431,9 @@ class CanMoveRelativelyTest(unittest.TestCase):
         self.assertFalse(self.mover.can_move_relatively)
 
     def test_with_one_valid_calibration(self):
-        calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(calibration)
         calibration.connect_to_stage()
 
         self.assertTrue(
@@ -428,8 +442,9 @@ class CanMoveRelativelyTest(unittest.TestCase):
         self.assertTrue(self.mover.can_move_relatively)
 
     def test_with_one_invalid_calibration(self):
-        calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(calibration)
         calibration.connect_to_stage()
 
         calibration.update_axes_rotation(Axis.X, Direction.NEGATIVE, Axis.Y)
@@ -439,15 +454,17 @@ class CanMoveRelativelyTest(unittest.TestCase):
         self.assertFalse(self.mover.can_move_relatively)
 
     def test_with_one_valid_and_one_invalid_calibration(self):
-        valid_calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
+        valid_calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.mover.register_stage_calibration(valid_calibration)
         valid_calibration.connect_to_stage()
 
         self.assertTrue(
             valid_calibration._axes_rotation.is_valid)
 
-        invalid_calibration = self.mover.add_stage_calibration(
-            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+        invalid_calibration = Calibration(
+            self.mover, self.stage2, DevicePort.OUTPUT)
+        self.mover.register_stage_calibration(invalid_calibration)
         invalid_calibration.connect_to_stage()
 
         invalid_calibration.update_axes_rotation(
@@ -466,84 +483,76 @@ class RelativeMovementTest(unittest.TestCase):
 
         self.mover = MoverNew(None)
 
-        self.left_calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        self.right_calibration = self.mover.add_stage_calibration(
-            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+        self.input_calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.output_calibration = Calibration(
+            self.mover, self.stage2, DevicePort.OUTPUT)
 
-        self.left_calibration.connect_to_stage()
-        self.right_calibration.connect_to_stage()
+        self.mover.register_stage_calibration(self.input_calibration)
+        self.mover.register_stage_calibration(self.output_calibration)
+
+        self.input_calibration.connect_to_stage()
+        self.output_calibration.connect_to_stage()
 
     def test_raises_error_if_axes_rotation_in_valid(self):
-        self.left_calibration.update_axes_rotation(
+        self.input_calibration.update_axes_rotation(
             Axis.X, Direction.NEGATIVE, Axis.Y)
-        self.assertFalse(self.left_calibration._axes_rotation.is_valid)
+        self.assertFalse(self.input_calibration._axes_rotation.is_valid)
 
         movement_command = {Orientation.LEFT: ChipCoordinate(1, 2, 3)}
         with self.assertRaises(MoverError):
             self.mover.move_relative(movement_command)
 
     def test_raises_error_if_stage_is_disconnected(self):
-        self.right_calibration.disconnect_to_stage()
+        self.output_calibration.disconnect_to_stage()
 
         movement_command = {Orientation.RIGHT: ChipCoordinate(1, 2, 3)}
         with self.assertRaises(MoverError):
             self.mover.move_relative(movement_command)
 
-    def test_raises_error_if_requested_stage_is_unavailable(self):
-        movement_commands = {Orientation.TOP: ChipCoordinate(1, 2, 3)}
-        with self.assertRaises(MoverError):
-            self.mover.move_relative(movement_commands)
-
     @patch.object(DummyStage, "move_relative")
     def test_move_relative_with_ordering(self, move_relative_mock):
-        self.left_calibration.update_axes_rotation(
+        self.input_calibration.update_axes_rotation(
             Axis.X, Direction.NEGATIVE, Axis.Z)
-        self.left_calibration.update_axes_rotation(
+        self.input_calibration.update_axes_rotation(
             Axis.Y, Direction.POSITIVE, Axis.X)
-        self.left_calibration.update_axes_rotation(
+        self.input_calibration.update_axes_rotation(
             Axis.Z, Direction.NEGATIVE, Axis.Y)
 
-        self.assertTrue(self.left_calibration._axes_rotation.is_valid)
+        self.assertTrue(self.input_calibration._axes_rotation.is_valid)
 
-        self.right_calibration.update_axes_rotation(
+        self.output_calibration.update_axes_rotation(
             Axis.X, Direction.POSITIVE, Axis.Y)
-        self.right_calibration.update_axes_rotation(
+        self.output_calibration.update_axes_rotation(
             Axis.Y, Direction.POSITIVE, Axis.Z)
-        self.right_calibration.update_axes_rotation(
+        self.output_calibration.update_axes_rotation(
             Axis.Z, Direction.NEGATIVE, Axis.X)
 
-        self.assertTrue(self.right_calibration._axes_rotation.is_valid)
+        self.assertTrue(self.output_calibration._axes_rotation.is_valid)
 
-        left_requested_offset = ChipCoordinate(42, 8, -17)
-        right_requested_offset = ChipCoordinate(72, -42, 31)
+        input_requested_offset = ChipCoordinate(42, 8, -17)
+        output_requested_offset = ChipCoordinate(72, -42, 31)
 
-        expected_left_offset = self.left_calibration._axes_rotation.chip_to_stage(
-            left_requested_offset)
-        expected_right_offset = self.right_calibration._axes_rotation.chip_to_stage(
-            right_requested_offset)
+        expected_input_offset = self.input_calibration._axes_rotation.chip_to_stage(
+            input_requested_offset)
+        expected_output_offset = self.output_calibration._axes_rotation.chip_to_stage(
+            output_requested_offset)
 
-        requested_ordering = [
-            Orientation.BOTTOM,
-            Orientation.RIGHT,
-            Orientation.TOP,
-            Orientation.LEFT]
-
-        self.mover.move_relative(
-            {Orientation.LEFT: left_requested_offset, Orientation.RIGHT: right_requested_offset},
-            requested_ordering)
+        self.mover.move_relative({
+            self.input_calibration: input_requested_offset,
+            self.output_calibration: output_requested_offset})
 
         move_relative_mock.assert_has_calls(
             [
                 call(
-                    x=expected_right_offset.x,
-                    y=expected_right_offset.y,
-                    z=expected_right_offset.z,
+                    x=expected_input_offset.x,
+                    y=expected_input_offset.y,
+                    z=expected_input_offset.z,
                     wait_for_stopping=True),
                 call(
-                    x=expected_left_offset.x,
-                    y=expected_left_offset.y,
-                    z=expected_left_offset.z,
+                    x=expected_output_offset.x,
+                    y=expected_output_offset.y,
+                    z=expected_output_offset.z,
                     wait_for_stopping=True),
             ],
             any_order=False)
@@ -556,73 +565,79 @@ class CoordinateSystemControlTest(unittest.TestCase):
 
         self.mover = MoverNew(None)
 
-        self.left_calibration = self.mover.add_stage_calibration(
-            self.stage, Orientation.LEFT, DevicePort.INPUT)
-        self.right_calibration = self.mover.add_stage_calibration(
-            self.stage2, Orientation.RIGHT, DevicePort.OUTPUT)
+        self.input_calibration = Calibration(
+            self.mover, self.stage, DevicePort.INPUT)
+        self.output_calibration = Calibration(
+            self.mover, self.stage2, DevicePort.OUTPUT)
 
-        self.left_calibration.connect_to_stage()
-        self.right_calibration.connect_to_stage()
+        self.mover.register_stage_calibration(self.input_calibration)
+        self.mover.register_stage_calibration(self.output_calibration)
+
+        self.input_calibration.connect_to_stage()
+        self.output_calibration.connect_to_stage()
 
     @parameterized.expand([(CoordinateSystem.CHIP,),
                           (CoordinateSystem.STAGE,), (CoordinateSystem.UNKNOWN,)])
     def test_set_valid_coordinate_system(self, valid_system):
 
-        left_calibration_prior = self.left_calibration.coordinate_system
-        right_calibration_prior = self.right_calibration.coordinate_system
+        left_calibration_prior = self.input_calibration.coordinate_system
+        right_calibration_prior = self.output_calibration.coordinate_system
 
         with self.mover.set_stages_coordinate_system(valid_system):
             self.assertEqual(
-                self.left_calibration.coordinate_system, valid_system)
+                self.input_calibration.coordinate_system, valid_system)
             self.assertEqual(
-                self.right_calibration.coordinate_system, valid_system)
+                self.output_calibration.coordinate_system, valid_system)
 
         self.assertEqual(
-            self.left_calibration.coordinate_system, left_calibration_prior)
+            self.input_calibration.coordinate_system, left_calibration_prior)
         self.assertEqual(
-            self.right_calibration.coordinate_system, right_calibration_prior)
+            self.output_calibration.coordinate_system, right_calibration_prior)
 
     def test_set_valid_coordinate_system_with_block_error(self):
         func = Mock(side_effect=RuntimeError)
 
-        left_calibration_prior = self.left_calibration.coordinate_system
-        right_calibration_prior = self.right_calibration.coordinate_system
+        left_calibration_prior = self.input_calibration.coordinate_system
+        right_calibration_prior = self.output_calibration.coordinate_system
 
         with self.assertRaises(RuntimeError):
             with self.mover.set_stages_coordinate_system(CoordinateSystem.CHIP):
                 func()
 
         self.assertEqual(
-            self.left_calibration.coordinate_system, left_calibration_prior)
+            self.input_calibration.coordinate_system, left_calibration_prior)
         self.assertEqual(
-            self.right_calibration.coordinate_system, right_calibration_prior)
+            self.output_calibration.coordinate_system, right_calibration_prior)
 
     def test_set_nested_coordinate_system(self):
-        self.left_calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
-        self.right_calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
+        self.input_calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
+        self.output_calibration.set_coordinate_system(CoordinateSystem.UNKNOWN)
 
         with self.mover.set_stages_coordinate_system(CoordinateSystem.CHIP):
             self.assertEqual(
-                self.left_calibration.coordinate_system, CoordinateSystem.CHIP)
+                self.input_calibration.coordinate_system,
+                CoordinateSystem.CHIP)
             self.assertEqual(
-                self.right_calibration.coordinate_system,
+                self.output_calibration.coordinate_system,
                 CoordinateSystem.CHIP)
 
             with self.mover.set_stages_coordinate_system(CoordinateSystem.STAGE):
                 self.assertEqual(
-                    self.left_calibration.coordinate_system,
+                    self.input_calibration.coordinate_system,
                     CoordinateSystem.STAGE)
                 self.assertEqual(
-                    self.right_calibration.coordinate_system,
+                    self.output_calibration.coordinate_system,
                     CoordinateSystem.STAGE)
 
             self.assertEqual(
-                self.left_calibration.coordinate_system, CoordinateSystem.CHIP)
+                self.input_calibration.coordinate_system,
+                CoordinateSystem.CHIP)
             self.assertEqual(
-                self.right_calibration.coordinate_system,
+                self.output_calibration.coordinate_system,
                 CoordinateSystem.CHIP)
 
         self.assertEqual(
-            self.left_calibration.coordinate_system, CoordinateSystem.UNKNOWN)
+            self.input_calibration.coordinate_system, CoordinateSystem.UNKNOWN)
         self.assertEqual(
-            self.right_calibration.coordinate_system, CoordinateSystem.UNKNOWN)
+            self.output_calibration.coordinate_system,
+            CoordinateSystem.UNKNOWN)
