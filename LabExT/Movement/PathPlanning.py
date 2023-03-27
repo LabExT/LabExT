@@ -52,6 +52,7 @@ class StagePolygon(ABC):
 
     default_parameters: Dict[str, Any] = {}
 
+    @classmethod
     def load(cls, data: dict) -> Type[StagePolygon]:
         """
         Returns a stage polygon reconstructed from data.
@@ -62,10 +63,7 @@ class StagePolygon(ABC):
         self,
         parameters: dict = {}
     ) -> None:
-        if parameters:
-            self.parameters = parameters
-        else:
-            self.parameters = self.default_parameters
+        self.parameters = {**self.default_parameters, **parameters}
 
     @abstractmethod
     def stage_in_meshgrid(
@@ -193,16 +191,16 @@ class SingleModeFiber(StagePolygon):
         y_max = position.y + safe_fiber_radius
 
         if self.parameters[self.ORIENTATION_KEY] == Orientation.LEFT:
-            x_min -= self.fiber_length
+            x_min -= self.parameters[self.FIBER_LENGTH_KEY]
         elif self.parameters[self.ORIENTATION_KEY] == Orientation.RIGHT:
-            x_max += self.fiber_length
+            x_max += self.parameters[self.FIBER_LENGTH_KEY]
         elif self.parameters[self.ORIENTATION_KEY] == Orientation.BOTTOM:
-            y_min -= self.fiber_length
+            y_min -= self.parameters[self.FIBER_LENGTH_KEY]
         elif self.parameters[self.ORIENTATION_KEY] == Orientation.TOP:
-            y_max += self.fiber_length
+            y_max += self.parameters[self.FIBER_LENGTH_KEY]
         else:
             raise ValueError(
-                f"No Stage Polygon defined for orientation {self.orientation}")
+                f"No Stage Polygon defined for orientation {self.parameters[self.ORIENTATION_KEY]}")
 
         # Make sure, that outline fits into meshgrid
         if np.abs(x_max - x_min) <= grid_size:
