@@ -23,6 +23,7 @@ class StageTable(Frame):
         self,
         parent,
         mover: Type[MoverNew],
+        exclude_active_stages: bool = True
     ) -> None:
         """
         Constructor
@@ -33,6 +34,8 @@ class StageTable(Frame):
             Window in which frame will be placed.
         mover : MoverNew
             Instance of current Mover.
+        exclude_active_stages : bool = True
+            Active stages (already registered) are not displayed
         """
         super(StageTable, self).__init__(parent)
 
@@ -40,7 +43,12 @@ class StageTable(Frame):
         self.logger = logging.getLogger()
 
         # Run discovering for available stages.
-        self._available_stages = self.mover.get_available_stages()
+        self._all_available_stages = self.mover.get_available_stages()
+        self._used_stages = [(s.__class__, s.address)
+                             for s in self.mover.active_stages]
+        self._available_stages = [
+            s for s in self._all_available_stages if s not in self._used_stages]
+
         self._stage_table = None
 
         self.__setup__()
@@ -92,10 +100,19 @@ class StageTable(Frame):
         if selected_stage_tuple:
             return selected_stage_tuple[1]
 
-    def set_selected_stage(self, stage_idx: int) -> None:
+    def set_selected_stage(
+        self,
+        stage_cls: Stage,
+        stage_address: Any
+    ) -> None:
         """
         Set the current selected entry by the stage idx
         """
+        try:
+            stage_idx = self._available_stages.index(
+                (stage_cls, stage_address))
+        except ValueError:
+            pass
         self._stage_table.select_by_id(stage_idx)
 
     def _get_selected_stage_tuple(self) -> tuple:

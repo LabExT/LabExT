@@ -37,7 +37,8 @@ class StageRegistrationWindow(Toplevel):
         master,
         mover: Type[MoverNew],
         on_finish: Type[Callable],
-        calibration: Type[Calibration] = None
+        calibration: Type[Calibration] = None,
+        exclude_active_stages: bool = True
     ) -> None:
         """
         Constructor for new stage registration window.
@@ -52,6 +53,8 @@ class StageRegistrationWindow(Toplevel):
             Callback when finish wizard
         calibration : Calibration = None
             Instance of a calibration. Optional, only when editing a calibration.
+        exclude_active_stages : bool = True
+            Active stages (already registered) are not displayed
         """
         super(StageRegistrationWindow, self).__init__(master)
 
@@ -59,9 +62,10 @@ class StageRegistrationWindow(Toplevel):
 
         self.mover: Type[MoverNew] = mover
         self.on_finish = on_finish
+        self.exclude_active_stages = exclude_active_stages
         self.edit_calibration = calibration is not None
 
-        if self.edit_calibration is None:
+        if self.edit_calibration:
             self._calibration = calibration
         else:
             self._calibration = Calibration(self.mover)
@@ -156,7 +160,10 @@ class StageRegistrationWindow(Toplevel):
                 "If stages are missing, go back one step and check if all drivers are loaded.")
             step_hint.pack(side=TOP, fill=X, pady=5)
 
-            self._stage_table = StageTable(stage_selection_frame, self.mover)
+            self._stage_table = StageTable(
+                stage_selection_frame,
+                self.mover,
+                self.exclude_active_stages)
             self._stage_table.pack(side=TOP, fill=X, expand=True)
 
             self._select_stage_button = Button(
