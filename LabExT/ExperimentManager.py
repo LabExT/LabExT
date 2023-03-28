@@ -19,7 +19,7 @@ from LabExT.Experiments.StandardExperiment import StandardExperiment
 from LabExT.Instruments.InstrumentAPI import InstrumentAPI
 from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
 from LabExT.Movement.MoverNew import MoverNew
-from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
+from LabExT.SearchForPeak import SearchForPeak
 from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
@@ -67,8 +67,7 @@ class ExperimentManager:
         self.addon_settings = None
         self.chip = chip
         self.mover = MoverNew(experiment_manager=self, chip=chip)
-        self.peak_searcher = PeakSearcher(
-            None, self, mover=self.mover, parent=self.root)
+        self.search_for_peak = SearchForPeak(self.mover, experiment_manager=self)
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
         self.live_viewer_cards = {}
@@ -86,7 +85,6 @@ class ExperimentManager:
 
         # create a new StandardExperiment
         self.exp = StandardExperiment(self, root, chip, self.mover)
-        self.peak_searcher.set_experiment(self.exp)
 
         if not skip_setup:  # only True in case of testing
 
@@ -137,7 +135,7 @@ class ExperimentManager:
         self.main_window.model.status_mover_can_move_to_device.set(
             self.mover.can_move_to_device)
         self.main_window.model.status_sfp_initialized.set(
-            self.peak_searcher.initialized)
+            self.search_for_peak.initialized)
 
         # inform user where to find the log file
         self.logger.info("Log file path: " + str(self._log_file_name))
@@ -219,6 +217,9 @@ class ExperimentManager:
         # then we load all stage classes and mover settings
         self.mover.import_api_classes()
         self.mover.load_settings()
+        # then we load all peak searcher classes
+        self.search_for_peak.peak_searcher_api.import_classes()
+        self.search_for_peak.load_settings()
         # finally, we load all cards for the liveviewer
         self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(
             experiment_manager=self)

@@ -135,9 +135,6 @@ class StageSelector(CustomFrame):
                 sticky='we')
             self.__set_width__(role.choices_human_readable_desc, menu)
             menu.config(state=self._can_execute)
-            # register callback to adapt selection of channels
-            role.selected_stage.trace(
-                'w', self._create_choice_changed_callback(role))
             # make row scalable
             self.rowconfigure(r, weight=1)
             r += 1

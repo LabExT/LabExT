@@ -24,6 +24,7 @@ from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugge
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.View.SearchForPeakPlotsWindow import SearchForPeakPlotsWindow
+from LabExT.View.SearchForPeakWindow import SearchForPeakWindow
 from LabExT.View.Movement import (
     CalibrationWizard,
     MoverWizard,
@@ -290,13 +291,13 @@ class MListener:
 
     def client_search_for_peak(self):
         """Called when user wants to open plotting window for search for peak observation."""
+        # self._experiment_manager.search_for_peak.run()
         if try_to_lift_window(self.sfpp_toplevel):
             return
-
-        self.logger.debug('Opening new search for peak window.')
-        sfpp = SearchForPeakPlotsWindow(parent=self._root,
-                                        experiment_manager=self._experiment_manager)
-        self.sfpp_toplevel = sfpp.plot_window
+        
+        self.sfpp_toplevel = SearchForPeakWindow(
+            self._root,
+            self._experiment_manager.search_for_peak)
 
     def client_extra_plots(self):
         """ Called when user wants to open extra plots. """
