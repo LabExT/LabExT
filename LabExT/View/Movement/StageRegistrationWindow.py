@@ -304,6 +304,8 @@ class StageRegistrationWindow(Toplevel):
 
         self._calibration.stage = self._stage
         self._calibration.device_port = self._port
+        self._calibration._axes_rotation = self.mover.load_stored_axes_rotation_for_stage(
+            stage=self._stage)
         self._calibration.stage_polygon = stage_polygon
 
         self.on_finish(self._calibration)
