@@ -49,7 +49,7 @@ class StandardExperiment:
         self._parent = parent  # Tk parent object, needed for Tkinter variables in ConfigParameters and cursor change
 
         self._mover: Type[MoverNew] = mover  # stage mover class, used to move to device in automated sweeps
-        self._peak_searcher = experiment_manager.peak_searcher  # peak server, used to SfP in automated sweeps
+        self._search_for_peak = experiment_manager.search_for_peak  # peak server, used to SfP in automated sweeps
 
         # addon loading
         self.plugin_loader_stats = {}  # contains info on how many measurements from which paths were loaded.
@@ -193,8 +193,8 @@ class StandardExperiment:
 
             # execute automatic search for peak
             if self.exctrl_enable_sfp:
-                self._peak_searcher.update_params_from_savefile()
-                data['search for peak'] = self._peak_searcher.search_for_peak()
+                # self._peak_searcher.update_params_from_savefile()
+                data['search for peak'] = self._search_for_peak.run()
                 self.logger.info('Search for peak done.')
             else:
                 data['search for peak'] = None

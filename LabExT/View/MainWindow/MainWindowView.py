@@ -101,10 +101,14 @@ class MainWindowContextMenu(Menu):
             command=self._menu_listener.client_move_device,
             state=NORMAL if self._mover.can_move_to_device else DISABLED)
         self._movement.add_separator()
+        # self._movement.add_command(
+        #     label="Search for Peak (Ctrl+S)",
+        #     command=self._menu_listener.client_search_for_peak,
+        #     state=NORMAL if self._mover.has_connected_stages else DISABLED)
         self._movement.add_command(
             label="Search for Peak (Ctrl+S)",
             command=self._menu_listener.client_search_for_peak,
-            state=NORMAL if self._mover.has_connected_stages else DISABLED)
+            state=NORMAL)
 
         self._view.add_command(
             label="Open Extra Plots",
