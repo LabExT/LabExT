@@ -103,6 +103,16 @@ class PluginAPI:
         return self._import_stats
 
 
+    def get_class(
+        self,
+        class_name: str,
+        default: Any = None
+    ) -> Any:
+        """
+        Returns class for given class name.
+        """
+        return self.imported_classes.get(str(class_name), default)
+
 class PluginLoader:
     def __init__(self):
         self.__available_plugins = {}

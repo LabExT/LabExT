@@ -84,15 +84,12 @@ class StageWizard(Wizard):
             else:
                 return False
 
-        self.stage_assignment_step.update_polygon_cfg()
+        polygon_cfg = self.stage_assignment_step.read_polygon_cfg()
         for stage, assignment in self.stage_assignment_step.assignment.items():
             orientation, port = assignment
 
-            polygon_cls, polygon_cls_cfg = self.stage_assignment_step.polygon_cfg.get(stage, (
-                self.stage_assignment_step.DEFAULT_POLYGON,
-                self.stage_assignment_step.DEFAULT_POLYGON.get_default_parameters()))
-            stage_polygon = polygon_cls(
-                orientation, parameters=polygon_cls_cfg)
+            polygon_cls, polygon_cls_cfg = polygon_cfg[stage]
+            stage_polygon = polygon_cls.load(polygon_cls_cfg)
 
             try:
                 run_with_wait_window(
@@ -384,9 +381,6 @@ class StageAssignmentStep(Step):
     Wizard Step to assign and connect stages.
     """
 
-    POLYGON_OPTIONS = {
-        pg.__name__: pg for pg in StagePolygon.find_polygon_classes()}
-
     ASSIGNMENT_MENU_PLACEHOLDER = "-- unused --"
 
     DEFAULT_POLYGON = SingleModeFiber
@@ -416,7 +410,8 @@ class StageAssignmentStep(Step):
             c.stage: (o, p)
             for (o, p), c in self.mover.calibrations.items()}
         self.polygon_cfg = {
-            c.stage: (c.stage_polygon.__class__, c.stage_polygon.parameters)
+            c.stage: (c.stage_polygon.__class__, {
+                l: MeasParamAuto(value=v) for l, v in c.stage_polygon.parameters.items()})
             for c in self.mover.calibrations.values()}
 
         self.orientation_vars, self.port_vars, self.polygon_vars = self._build_assignment_variables()
@@ -471,8 +466,7 @@ class StageAssignmentStep(Step):
             polygon_menu = OptionMenu(
                 available_stage_frame,
                 self.polygon_vars[avail_stage],
-                *(list(self.POLYGON_OPTIONS.keys()))
-            )
+                *(list(self.mover.polygon_api.imported_classes.keys())))
             polygon_menu.pack(side=RIGHT, padx=5)
 
             polygon_menu.config(state=DISABLED if self.orientation_vars[avail_stage].get(
@@ -512,16 +506,10 @@ class StageAssignmentStep(Step):
                 polygon_cfg_frame = Frame(stage_assignment_frame)
                 polygon_cfg_frame.pack(side=TOP, fill=X)
 
-                polygon_cls, polygon_cls_cfg = self.polygon_cfg.get(
-                    avail_stage, (self.DEFAULT_POLYGON, self.DEFAULT_POLYGON.get_default_parameters()))
-                polygon_params = {
-                    l: MeasParamAuto(
-                        value=v) for l,
-                    v in polygon_cls_cfg.items()}
-
+                polygon_cls, polygon_cls_cfg = self.polygon_cfg[avail_stage]
                 polygon_cfg_table = ParameterTable(polygon_cfg_frame)
                 polygon_cfg_table.title = f"Configure Polygon: {polygon_cls.__name__}"
-                polygon_cfg_table.parameter_source = polygon_params
+                polygon_cfg_table.parameter_source = polygon_cls_cfg
                 polygon_cfg_table.pack(
                     side=TOP, fill=X, expand=0, padx=2, pady=2)
 
@@ -558,7 +546,7 @@ class StageAssignmentStep(Step):
         port = self.port_vars[stage].get()
         orientation = self.orientation_vars[stage].get()
         polygon_cls_name = self.polygon_vars[stage].get()
-        polygon_cls = self.POLYGON_OPTIONS[polygon_cls_name]
+        polygon_cls = self.mover.polygon_api.get_class(polygon_cls_name)
 
         if orientation == self.ASSIGNMENT_MENU_PLACEHOLDER:
             self.assignment.pop(stage, None)
@@ -566,10 +554,13 @@ class StageAssignmentStep(Step):
             return
 
         if stage in self._stage_polygon_parameter_tables:
-            polygon_cls_cfg = self._stage_polygon_parameter_tables[stage].make_json_able(
+            polygon_cls_cfg = self._stage_polygon_parameter_tables[stage].to_meas_param(
             )
         else:
-            polygon_cls_cfg = polygon_cls.get_default_parameters()
+            polygon_cls_cfg = {
+                l: MeasParamAuto(
+                    value=v) for l,
+                v in polygon_cls.default_parameters.items()}
 
         self.polygon_cfg[stage] = (polygon_cls, polygon_cls_cfg)
         self.assignment[stage] = (
@@ -578,16 +569,19 @@ class StageAssignmentStep(Step):
 
         self.wizard.__reload__()
 
-    def update_polygon_cfg(self) -> None:
+    def read_polygon_cfg(self) -> dict:
         """
         Updates polygon configuration by reading values from table.
         """
+        to_ret = {}
         for stage, polygon_cfg_table in self._stage_polygon_parameter_tables.items():
             polygon_cls_name = self.polygon_vars[stage].get()
-            polygon_cls = self.POLYGON_OPTIONS[polygon_cls_name]
+            polygon_cls = self.mover.polygon_api.get_class(polygon_cls_name)
 
-            self.polygon_cfg[stage] = (
+            to_ret[stage] = (
                 polygon_cls, polygon_cfg_table.make_json_able())
+
+        return to_ret
 
     def _build_assignment_variables(self) -> tuple:
         """

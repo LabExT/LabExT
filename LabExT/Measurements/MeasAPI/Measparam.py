@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from enum import Enum
 
 class MeasParam:
     """Implementation of a single measurement parameter.
@@ -136,5 +137,7 @@ def MeasParamAuto(value=None, unit=None, extra_type=None, selected=None):
         return MeasParamList(options=value, value=selected, unit=unit, extra_type=extra_type)
     elif type(value) is int:
         return MeasParamInt(value=value, unit=unit, extra_type=extra_type)
+    elif issubclass(type(value), Enum):
+            return MeasParamList(options=list(type(value)), value=value, unit=unit, extra_type=extra_type)
     else:
         return MeasParamFloat(value=value, unit=unit, extra_type=extra_type)

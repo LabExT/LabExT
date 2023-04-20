@@ -768,7 +768,8 @@ class MoverNew:
                 c.stage.identifier: c.dump(
                     axes_rotation=True,
                     single_point_offset=False,
-                    kabsch_rotation=False) for c in self.calibrations.values()}, fp)
+                    kabsch_rotation=False,
+                    stage_polygon=False) for c in self.calibrations.values()}, fp)
 
     def dump_settings(self) -> None:
         """

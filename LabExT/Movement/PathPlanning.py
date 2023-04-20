@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import logging
 import numpy as np
+import json
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractclassmethod
 from typing import TYPE_CHECKING, List, Any, Dict, NamedTuple, Tuple, Type, Generator
 
 from scipy.spatial.distance import pdist
@@ -49,81 +50,20 @@ class StagePolygon(ABC):
     This class cannot be initialised.
     """
 
-    @classmethod
-    def load(cls, polygon_data: dict) -> Type[StagePolygon]:
-        """
-        Returns a stage polygon reconstructed from polygon data.
-        """
-        polygon_name = polygon_data.get("polygon_cls")
-        if not polygon_name:
-            raise ValueError(
-                "Cannot find and load stage polygon without polygon class name. "
-                "Please provide a key 'polygon_cls' in polygon_data argument.")
-
-        if (isinstance(polygon_name, type) and
-                issubclass(polygon_name, StagePolygon)):
-            polygon_cls = polygon_name
-        elif isinstance(polygon_name, str):
-            available_classes = StagePolygon.find_polygon_classes()
-            try:
-                polygon_cls = next(
-                    pg for pg in available_classes if pg.__name__ == polygon_name)
-            except StopIteration:
-                available_classes_str = ", ".join(
-                    map(lambda pg: pg.__name__, available_classes))
-                raise ValueError(
-                    f"No polygon class found with name {polygon_name}. The following are available: "
-                    f"{available_classes_str}")
-        else:
-            raise ValueError(
-                f"Cannot restore stage polygon class with 'polygon_cls' equal to {polygon_name} of type {type(polygon_name)}. "
-                "Please provide a value for 'polygon_cls' of type str or StagePolygon. "
-                "If you provide a string, it must be the name of the polygon class.")
-
-        try:
-            orientation = Orientation[polygon_data["orientation"]]
-        except KeyError as err:
-            raise ValueError(
-                f"The parameter 'orientation' in polygon_data is not defined: {err}. "
-                f"Make sure to pass a valid orientation: {', '.join(map(str, list(Orientation)))}")
-
-        return polygon_cls(
-            orientation=orientation,
-            parameters=polygon_data.get("parameters", {}))
+    default_parameters: Dict[str, Any] = {}
 
     @classmethod
-    def find_polygon_classes(cls) -> List[StagePolygon]:
+    def load(cls, data: dict) -> Type[StagePolygon]:
         """
-        Returns a list of available polygon classes.
+        Returns a stage polygon reconstructed from data.
         """
-        return cls.__subclasses__()
-
-    @classmethod
-    def get_default_parameters(cls) -> Dict[str, Any]:
-        """
-        Returns default polygon configuration parameter
-        """
-        return {}
+        return cls(parameters=data)
 
     def __init__(
         self,
-        orientation: Orientation,
-        parameters: Dict[str, Any] = {}
+        parameters: dict = {}
     ) -> None:
-        """
-        Constructor for base  polygon
-        Parameters
-        ----------
-        orientation: Orientation
-            Polygon orientation in chip space
-        parameters: Dict[str, Any] = {}
-            Optional parameters to configure the polygon
-        """
-        self.orientation = orientation
-
-        self.parameters = parameters
-        if not self.parameters:
-            self.parameters = self.get_default_parameters()
+        self.parameters = {**self.default_parameters, **parameters}
 
     @abstractmethod
     def stage_in_meshgrid(
@@ -138,19 +78,11 @@ class StagePolygon(ABC):
         """
         pass
 
-    def dump(self, stringify: bool = True) -> dict:
+    def dump(self) -> dict:
         """
         Returns polygon parameters as dict
         """
-        if stringify:
-            polygon_cls = self.__class__.__name__
-        else:
-            polygon_cls = self.__class__
-
-        return {
-            "polygon_cls": polygon_cls,
-            "orientation": self.orientation.value,
-            "parameters": self.parameters}
+        return self.parameters
 
 
 class SingleModeFiber(StagePolygon):
@@ -158,16 +90,41 @@ class SingleModeFiber(StagePolygon):
     Polygon for single mode fiber.
     """
 
+    ORIENTATION_KEY = "Orientation"
+    FIBER_LENGTH_KEY = "Fiber Length"
+    FIBER_RADIUS_KEY = "Fiber Radius"
+    SAFETY_DISTANCE_KEY = "Safety Distance"
+
+    default_parameters = {
+        ORIENTATION_KEY: Orientation.LEFT,
+        FIBER_LENGTH_KEY: 8e4,                # [um] (8cm)
+        FIBER_RADIUS_KEY: 75.0,               # [um]
+        SAFETY_DISTANCE_KEY: 75.0             # [um]
+    }
+
     @classmethod
-    def get_default_parameters(cls) -> Dict[str, Any]:
+    def load(cls, data: dict) -> Type[SingleModeFiber]:
         """
-        Returns default parameter to set up a single mode fiber polygon
+        Returns a single mode fiber polygon reconstructed from data.
         """
-        return {
-            "Fiber Length": 8e4,        # [um] (8cm)
-            "Fiber Radius": 75.0,       # [um]
-            "Safety Distance": 75.0     # [um]
-        }
+        try:
+            orientation = Orientation[str(data[cls.ORIENTATION_KEY]).upper()]
+        except KeyError as err:
+            raise ValueError(
+                f"The parameter 'orientation' in polygon_data is not defined: {err}. "
+                f"Make sure to pass a valid orientation: {', '.join(map(str, list(Orientation)))}")
+
+        return SingleModeFiber(parameters={
+            cls.ORIENTATION_KEY: orientation,
+            cls.FIBER_LENGTH_KEY: float(data.get(
+                cls.FIBER_LENGTH_KEY,
+                cls.default_parameters[cls.FIBER_LENGTH_KEY])),
+            cls.FIBER_RADIUS_KEY: float(data.get(
+                cls.FIBER_RADIUS_KEY,
+                cls.default_parameters[cls.FIBER_RADIUS_KEY])),
+            cls.SAFETY_DISTANCE_KEY: float(data.get(
+                cls.SAFETY_DISTANCE_KEY,
+                cls.default_parameters[cls.SAFETY_DISTANCE_KEY]))})
 
     def stage_in_meshgrid(
         self,
@@ -225,28 +182,25 @@ class SingleModeFiber(StagePolygon):
         ValueError
             If no outline is defined for the given orientation.
         """
-        fiber_radius = float(self.parameters.get("Fiber Radius", 75.0))
-        fiber_length = float(self.parameters.get("Fiber Length", 8e4))
-        safety_distance = float(self.parameters.get("Safety Distance", 75.0))
-
-        safe_fiber_radius = fiber_radius + safety_distance
+        safe_fiber_radius = self.parameters[self.FIBER_RADIUS_KEY] + \
+            self.parameters[self.SAFETY_DISTANCE_KEY]
 
         x_min = position.x - safe_fiber_radius
         x_max = position.x + safe_fiber_radius
         y_min = position.y - safe_fiber_radius
         y_max = position.y + safe_fiber_radius
 
-        if self.orientation == Orientation.LEFT:
-            x_min -= fiber_length
-        elif self.orientation == Orientation.RIGHT:
-            x_max += fiber_length
-        elif self.orientation == Orientation.BOTTOM:
-            y_min -= fiber_length
-        elif self.orientation == Orientation.TOP:
-            y_max += fiber_length
+        if self.parameters[self.ORIENTATION_KEY] == Orientation.LEFT:
+            x_min -= self.parameters[self.FIBER_LENGTH_KEY]
+        elif self.parameters[self.ORIENTATION_KEY] == Orientation.RIGHT:
+            x_max += self.parameters[self.FIBER_LENGTH_KEY]
+        elif self.parameters[self.ORIENTATION_KEY] == Orientation.BOTTOM:
+            y_min -= self.parameters[self.FIBER_LENGTH_KEY]
+        elif self.parameters[self.ORIENTATION_KEY] == Orientation.TOP:
+            y_max += self.parameters[self.FIBER_LENGTH_KEY]
         else:
             raise ValueError(
-                f"No Stage Polygon defined for orientation {self.orientation}")
+                f"No Stage Polygon defined for orientation {self.parameters[self.ORIENTATION_KEY]}")
 
         # Make sure, that outline fits into meshgrid
         if np.abs(x_max - x_min) <= grid_size:
