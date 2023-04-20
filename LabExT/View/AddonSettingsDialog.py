@@ -139,17 +139,17 @@ class AddonSettingsDialog:
                     selectmode='none')  # custom table inserts itself into the parent frame
 
         #
-        # table with paths for all loaded stage classes
+        # table with paths for all loaded mover API classes
         #
-        loaded_stage_frame = CustomFrame(self.wizard_window)
-        loaded_stage_frame.title = " currently loaded Stage classes "
-        loaded_stage_frame.grid(row=6, column=0, padx=5, pady=5, sticky='nswe')
-        loaded_stage_frame.columnconfigure(0, weight=1)
-        loaded_stage_frame.rowconfigure(0, weight=1)
+        loaded_mover_apis_frame = CustomFrame(self.wizard_window)
+        loaded_mover_apis_frame.title = " currently loaded Mover API classes "
+        loaded_mover_apis_frame.grid(row=6, column=0, padx=5, pady=5, sticky='nswe')
+        loaded_mover_apis_frame.columnconfigure(0, weight=1)
+        loaded_mover_apis_frame.rowconfigure(0, weight=1)
 
-        CustomTable(parent=loaded_stage_frame,
-                columns=('Stage class', 'imported from'),
-                rows=self._get_loaded_stages_and_paths(),
+        CustomTable(parent=loaded_mover_apis_frame,
+                columns=('Class', 'type', 'imported from'),
+                rows=self._get_loaded_mover_api(),
                 selectmode='none')  # custom table inserts itself into the parent frame
 
         #
@@ -195,12 +195,17 @@ class AddonSettingsDialog:
                 ret_list.append(('    ->', '', vi))
         return ret_list
 
-    def _get_loaded_stages_and_paths(self) -> list:
+    def _get_loaded_mover_api(self) -> list:
         ret_list = []
-        for k, v in self._exp_mgr.mover.stage_classes.items():
-            ret_list.append((k, ''))
-            for vi in v.PluginLoader_module_path:
-                ret_list.append(('    ->', vi))
+        for ty, imported_plugins in {
+            "Stage": self._exp_mgr.mover.stage_api.imported_classes.items(),
+            "Stage Polygon": self._exp_mgr.mover.polygon_api.imported_classes.items(),
+        }.items():
+            for name, api_klass in imported_plugins:
+                ret_list.append((name, ty, ''))
+                for vi in api_klass.PluginLoader_module_path:
+                    ret_list.append(('    ->', '', vi))
+
         return ret_list
 
     def save_and_close(self, *args):

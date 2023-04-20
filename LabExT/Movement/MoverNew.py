@@ -12,19 +12,20 @@ import logging
 from time import sleep, time
 from os.path import dirname, join
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Dict, Tuple, Type, List, Any
 from functools import wraps
 from datetime import datetime
 from contextlib import contextmanager
 
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
-from LabExT.Movement.Stage import Stage, StageError
+from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
 from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning, StagePolygon
+from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
 
 from LabExT.Utils import get_configuration_file_path
-from LabExT.PluginLoader import PluginLoader
+from LabExT.PluginLoader import PluginAPI
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
 
@@ -97,10 +98,14 @@ class MoverNew:
         self.experiment_manager = experiment_manager
         self._chip: Type[Chip] = chip
 
-        # Stage classes plugin
-        self._stage_classes: Dict[str, Stage] = {}
-        self._plugin_loader = PluginLoader()
-        self._plugin_loader_stats: Dict[str, int] = {}
+        # Mover API
+        self.stage_api = PluginAPI(
+            base_class=Stage, core_search_path=join(
+                dirname(__file__), 'Stages'))
+        self.polygon_api = PluginAPI(
+            base_class=StagePolygon,
+            core_search_path=dirname(__file__))
+
         # Available Stages
         self._available_stages: List[Type[Stage]] = []
 
@@ -147,7 +152,7 @@ class MoverNew:
         if self._chip == chip:
             return
 
-        # Reset chip sensitive transformations 
+        # Reset chip sensitive transformations
         for calibration in self.calibrations.values():
             calibration.reset_single_point_offset()
             calibration.reset_kabsch_rotation()
@@ -176,35 +181,20 @@ class MoverNew:
 
         _main_window.refresh_context_menu()
 
-    def import_stage_classes(self) -> None:
-        """
-        Imports all stage classes and discovers available stages.
-        """
-        self._stage_classes.clear()
-        self._plugin_loader_stats.clear()
-        self._available_stages.clear()
+    def import_api_classes(self) -> None:
 
-        # prioritize LabExT Core stages over Add-On Stages
-        search_paths = [join(dirname(__file__), 'Stages')]
+        search_paths = []
         if self.experiment_manager:
-            search_paths += self.experiment_manager.addon_settings['addon_search_directories']
+            search_paths = self.experiment_manager.addon_settings['addon_search_directories']
 
-        for path in search_paths:
-            imported_stage_classes = self._plugin_loader.load_plugins(
-                path, plugin_base_class=Stage, recursive=True)
-            unique_stage_classes = {
-                k: v for k,
-                v in imported_stage_classes.items() if k not in self._stage_classes}
+        self.stage_api.import_classes(search_paths)
+        self.polygon_api.import_classes(search_paths)
 
-            self._plugin_loader_stats[path] = len(unique_stage_classes)
-            self._stage_classes.update(unique_stage_classes)
+        # LEGACY: Discover connected stages
+        self._available_stages = []
+        for stage_cls in self.stage_api.imported_classes.values():
+            self._available_stages += stage_cls.find_available_stages()
 
-            for stage_cls in unique_stage_classes.values():
-                self._available_stages += stage_cls.find_available_stages()
-
-        self.logger.debug(
-            'Available stage classes loaded. Found: %s', [
-                k for k in self._stage_classes.keys()])
         self.logger.debug(
             'Discovered stages. Found: %s',
             list(map(str, self._available_stages)))
@@ -212,21 +202,6 @@ class MoverNew:
     #
     #   Properties
     #
-
-    @property
-    def plugin_loader_stats(self) -> Dict[str, int]:
-        """
-        Returns a dict of stats after the import of stage classes.
-        """
-        return self._plugin_loader_stats
-
-    @property
-    def stage_classes(self) -> Dict[str, Stage]:
-        """
-        Returns a list of all Stage classes.
-        Read-only.
-        """
-        return self._stage_classes
 
     @property
     def available_stages(self) -> List[Type[Stage]]:

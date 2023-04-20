@@ -345,7 +345,7 @@ class StageDriverStep(Step):
             text="Below you can see all Stage classes available in LabExT.\nSo that all stages can be found correctly in the following step, make sure that the drivers for each class are loaded."
         ).pack(side=TOP, fill=X)
 
-        if not self.mover.stage_classes:
+        if not self.mover.stage_api.imported_classes:
             Label(
                 frame,
                 text="No stage classes found!",
@@ -353,7 +353,7 @@ class StageDriverStep(Step):
                 side=TOP,
                 fill=X)
 
-        for stage_name, stage_cls in self.mover.stage_classes.items():
+        for stage_name, stage_cls in self.mover.stage_api.imported_classes.items():
             stage_driver_frame = Frame(frame)
             stage_driver_frame.pack(side=TOP, fill=X, pady=2)
 

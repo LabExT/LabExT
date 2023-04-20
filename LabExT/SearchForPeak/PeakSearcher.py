@@ -9,20 +9,21 @@ import json
 import logging
 import os
 import time
-from typing import Type
+from typing import Type, TYPE_CHECKING
 
 import numpy as np
 from scipy.optimize import curve_fit
 
 from LabExT.Measurements.MeasAPI import *
 from LabExT.Movement.MotorProfiles import trapezoidal_velocity_profile_by_integration
-from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.config import CoordinateSystem
 from LabExT.Movement.Transformations import StageCoordinate
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
+if TYPE_CHECKING:
+    from LabExT.Movement.MoverNew import MoverNew
 
 class PeakSearcher(Measurement):
     """
@@ -83,7 +84,7 @@ class PeakSearcher(Measurement):
     def __init__(
         self,
         *args,
-        mover: Type[MoverNew] = None,
+        mover: Type["MoverNew"] = None,
         parent=None,
         **kwargs
     ) -> None:
@@ -99,7 +100,7 @@ class PeakSearcher(Measurement):
         self._parent = parent
         self.name = "SearchForPeak-2DGaussianFit"
         self.settings_filename = "PeakSearcher_settings.json"
-        self.mover = mover
+        self.mover: Type[MoverNew] = mover
 
         self.logger = logging.getLogger()
 
