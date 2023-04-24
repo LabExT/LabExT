@@ -84,15 +84,14 @@ class StageRegistrationWindowTest(TKinterTestCase):
             (DummyStage, 'usb:123456789'), (DummyStage, 'usb:987654321')]
         window = self.setup_window()
 
-        window._stage_table.set_selected_stage(0)
+        window._stage_table.set_selected_stage(DummyStage, 'usb:123456789')
         window._select_stage_button.invoke()
         self.assertIsInstance(window._stage, DummyStage)
         self.assertEqual(window._stage.address, 'usb:123456789')
 
         window._clear_stage_button.invoke()
-        self.assertIsNone(window._stage)
 
-        window._stage_table.set_selected_stage(1)
+        window._stage_table.set_selected_stage(DummyStage, 'usb:987654321')
         window._select_stage_button.invoke()
         self.assertIsInstance(window._stage, DummyStage)
         self.assertEqual(window._stage.address, 'usb:987654321')
@@ -103,7 +102,7 @@ class StageRegistrationWindowTest(TKinterTestCase):
             (DummyStage, 'usb:123456789'), (DummyStage, 'usb:987654321')]
         window = self.setup_window()
 
-        window._stage_table.set_selected_stage(0)
+        window._stage_table.set_selected_stage(DummyStage, 'usb:123456789')
         window._select_stage_button.invoke()
         self.assertIsInstance(window._stage, DummyStage)
         self.assertEqual(window._stage.address, 'usb:123456789')
@@ -123,7 +122,7 @@ class StageRegistrationWindowTest(TKinterTestCase):
             (DummyStage, 'usb:123456789'), (DummyStage, 'usb:987654321')]
         window = self.setup_window()
 
-        window._stage_table.set_selected_stage(1)
+        window._stage_table.set_selected_stage(DummyStage, 'usb:987654321')
         window._select_stage_button.invoke()
         self.assertIsInstance(window._stage, DummyStage)
         self.assertEqual(window._stage.address, 'usb:987654321')
@@ -153,7 +152,7 @@ class StageRegistrationWindowTest(TKinterTestCase):
             (DummyStage, 'usb:123456789'), (DummyStage, 'usb:987654321')]
         window = self.setup_window()
 
-        window._stage_table.set_selected_stage(0)
+        window._stage_table.set_selected_stage(DummyStage, 'usb:123456789')
         window._select_stage_button.invoke()
         self.assertIsInstance(window._stage, DummyStage)
         self.assertEqual(window._stage.address, 'usb:123456789')
@@ -183,7 +182,7 @@ class StageRegistrationWindowTest(TKinterTestCase):
             (DummyStage, 'usb:123456789'), (DummyStage, 'usb:987654321')]
         window = self.setup_window()
 
-        window._stage_table.set_selected_stage(0)
+        window._stage_table.set_selected_stage(DummyStage, 'usb:123456789')
         window._select_stage_button.invoke()
         self.assertIsInstance(window._stage, DummyStage)
         self.assertEqual(window._stage.address, 'usb:123456789')

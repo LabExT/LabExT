@@ -23,6 +23,7 @@ class StageTable(Frame):
         self,
         parent,
         mover: Type[MoverNew],
+        exclude_active_stages: bool = True
     ) -> None:
         """
         Constructor
@@ -33,6 +34,8 @@ class StageTable(Frame):
             Window in which frame will be placed.
         mover : MoverNew
             Instance of current Mover.
+        exclude_active_stages : bool = True
+            Active stages (already registered) are not displayed
         """
         super(StageTable, self).__init__(parent)
 
@@ -40,7 +43,15 @@ class StageTable(Frame):
         self.logger = logging.getLogger()
 
         # Run discovering for available stages.
-        self._available_stages = self.mover.get_available_stages()
+        self._all_available_stages = self.mover.get_available_stages()
+        if exclude_active_stages:
+            self._used_stages = [(s.__class__, s.address)
+                                 for s in self.mover.active_stages]
+            self._available_stages = [
+                s for s in self._all_available_stages if s not in self._used_stages]
+        else:
+            self._available_stages = self._all_available_stages
+
         self._stage_table = None
 
         self.__setup__()
@@ -92,11 +103,33 @@ class StageTable(Frame):
         if selected_stage_tuple:
             return selected_stage_tuple[1]
 
-    def set_selected_stage(self, stage_idx: int) -> None:
+    def set_selected_stage(
+        self,
+        stage_cls: Stage,
+        stage_address: Any,
+        add_if_missing: bool = False
+    ) -> None:
         """
         Set the current selected entry by the stage idx
         """
-        self._stage_table.select_by_id(stage_idx)
+        stage_tuple = (stage_cls, stage_address)
+        try:
+            stage_idx = self._available_stages.index(stage_tuple)
+        except ValueError:
+            if add_if_missing and stage_tuple in self._all_available_stages:
+                self._available_stages.insert(0, stage_tuple)
+                stage_idx = 0
+
+                # Reload table
+                for child in self.winfo_children():
+                    child.forget()
+
+                self.__setup__()
+            else:
+                stage_idx = -1
+
+        if self._stage_table and stage_idx >= 0:
+            self._stage_table.select_by_id(stage_idx)
 
     def _get_selected_stage_tuple(self) -> tuple:
         """

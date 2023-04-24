@@ -10,7 +10,7 @@ import logging
 
 from functools import wraps
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Type
 
 
 class StageError(RuntimeError):
@@ -53,7 +53,7 @@ def assert_driver_loaded(func):
 
 class Stage(ABC):
     """
-    Abstract Interface for Stages in LabExT. 
+    Abstract Interface for Stages in LabExT.
     Inherit from this class to support new stages.
 
     Attributes:
@@ -69,17 +69,11 @@ class Stage(ABC):
     _logger = logging.getLogger()
 
     @classmethod
-    def find_available_stages(cls) -> List[Type[Stage]]:
+    def load(cls, data: dict) -> Type[Stage]:
         """
-        Returns a list of stage objects. Each object represents a found stage.
-        Note: The stage is not yet connected.
+        Loads stage from stored properties.
         """
-        try:
-            return [cls(address) for address in cls.find_stage_addresses()]
-        except StageError as err:
-            cls._logger.error(
-                f"Failed to find available stages for {cls.__name__}: {err}")
-            return []
+        return cls(address=data.get("address"))
 
     @classmethod
     def find_stage_addresses(cls) -> list:
@@ -123,6 +117,17 @@ class Stage(ABC):
         if self.connected:
             self.disconnect()
 
+    def __eq__(self, other: Any) -> bool:
+        """
+        Returns True if both stage objects control the same stage.
+
+        override if stage address is not sufficient.
+        """
+        if isinstance(other, type(self)):
+            return self.address == other.address
+
+        return NotImplemented
+
     @abstractmethod
     def __str__(self) -> str:
         """
@@ -142,9 +147,9 @@ class Stage(ABC):
     def identifier(self) -> str:
         """
         Returns a identifier for given stage.
-        
+
         The identifier is used to uniquely distinguish two stages of the same type.
-        In most cases the identifier is equal to the address of the stage. 
+        In most cases the identifier is equal to the address of the stage.
         """
         raise NotImplementedError
 
@@ -333,3 +338,10 @@ class Stage(ABC):
         """
         pass
 
+    def dump(self) -> dict:
+        """
+        Returns stage properties as dict
+        """
+        return {
+            "address": self.address
+        }

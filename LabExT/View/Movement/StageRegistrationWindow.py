@@ -37,7 +37,8 @@ class StageRegistrationWindow(Toplevel):
         master,
         mover: Type[MoverNew],
         on_finish: Type[Callable],
-        calibration: Type[Calibration] = None
+        calibration: Type[Calibration] = None,
+        exclude_active_stages: bool = True
     ) -> None:
         """
         Constructor for new stage registration window.
@@ -52,6 +53,8 @@ class StageRegistrationWindow(Toplevel):
             Callback when finish wizard
         calibration : Calibration = None
             Instance of a calibration. Optional, only when editing a calibration.
+        exclude_active_stages : bool = True
+            Active stages (already registered) are not displayed
         """
         super(StageRegistrationWindow, self).__init__(master)
 
@@ -59,9 +62,10 @@ class StageRegistrationWindow(Toplevel):
 
         self.mover: Type[MoverNew] = mover
         self.on_finish = on_finish
+        self.exclude_active_stages = exclude_active_stages
         self.edit_calibration = calibration is not None
 
-        if self.edit_calibration is None:
+        if self.edit_calibration:
             self._calibration = calibration
         else:
             self._calibration = Calibration(self.mover)
@@ -75,6 +79,8 @@ class StageRegistrationWindow(Toplevel):
         else:
             self._stage_polygon_cls = self.DEFAULT_POLYGON
             self._stage_polygon_parameters = self.DEFAULT_POLYGON.default_parameters
+
+        self._stage_selection_enabled = self._stage is None
 
         # port menu options
         self._port_menu_options = bidict({
@@ -149,14 +155,17 @@ class StageRegistrationWindow(Toplevel):
         stage_selection_frame.title = "Stage Selection"
         stage_selection_frame.pack(side=TOP, fill=X, pady=5)
 
-        if not self._stage:
+        if self._stage_selection_enabled:
             step_hint = Label(
                 stage_selection_frame,
                 text="Below you can see all the stages found by LabExT.\n "
                 "If stages are missing, go back one step and check if all drivers are loaded.")
             step_hint.pack(side=TOP, fill=X, pady=5)
 
-            self._stage_table = StageTable(stage_selection_frame, self.mover)
+            self._stage_table = StageTable(
+                stage_selection_frame,
+                self.mover,
+                self.exclude_active_stages)
             self._stage_table.pack(side=TOP, fill=X, expand=True)
 
             self._select_stage_button = Button(
@@ -165,6 +174,12 @@ class StageRegistrationWindow(Toplevel):
                 state=NORMAL if self._stage_table.has_stages_to_select else DISABLED,
                 command=self._on_stage_selection)
             self._select_stage_button.pack(side=LEFT, pady=2)
+
+            if self._stage:
+                self._stage_table.set_selected_stage(
+                    stage_cls=self._stage.__class__,
+                    stage_address=self._stage.address,
+                    add_if_missing=True)
         else:
             Label(
                 stage_selection_frame,
@@ -181,7 +196,7 @@ class StageRegistrationWindow(Toplevel):
         """
         Builds a frame to choose the stage usage.
         """
-        if not self._stage:
+        if self._stage_selection_enabled:
             return
 
         stage_usage_frame = CustomFrame(self._main_frame)
@@ -209,7 +224,7 @@ class StageRegistrationWindow(Toplevel):
         """
         Builds a frame to select a stage polygon and properties.
         """
-        if self._port is None or self._stage is None:
+        if self._port is None or self._stage_selection_enabled:
             return
 
         stage_polygon_frame = CustomFrame(self._main_frame)
@@ -311,17 +326,26 @@ class StageRegistrationWindow(Toplevel):
                 "No stage has been selected. Please select one of the available stages and try again.")
             return
 
-        self.logger.info(
-            f"Creating new stage object with class {stage_cls} and address {stage_address}")
+        if self._stage is None:
+            self.logger.info(
+                f"Creating new stage object with class {stage_cls} and address {stage_address}")
+            self._stage = stage_cls(address=stage_address)
+        elif self._stage.__class__ != stage_cls or self._stage.address != stage_address:
+            self.logger.info(
+                f"Replacing stage with new stage object with class {stage_cls} and address {stage_address}")
+            self._stage = stage_cls(address=stage_address)
+        else:
+            self.logger.info(
+                f"Keeping stage {self._stage}")
 
-        self._stage = stage_cls(address=stage_address)
+        self._stage_selection_enabled = False
         self.__reload__()
 
     def _on_stage_selection_clear(self) -> None:
         """
         Callback, when user wants to clear the current stage selection.
         """
-        self._stage = None
+        self._stage_selection_enabled = True
         self.__reload__()
 
     def _on_stage_usage_selection(self, *args, **kwargs) -> None:
