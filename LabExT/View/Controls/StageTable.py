@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from typing import Type, Any
-from tkinter import Frame
+from tkinter import Frame, Label, TOP
 
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.Movement.Stage import Stage
@@ -23,6 +23,7 @@ class StageTable(Frame):
         self,
         parent,
         mover: Type[MoverNew],
+        exclude_active_stages: bool = True
     ) -> None:
         """
         Constructor
@@ -33,6 +34,8 @@ class StageTable(Frame):
             Window in which frame will be placed.
         mover : MoverNew
             Instance of current Mover.
+        exclude_active_stages : bool = True
+            Active stages (already registered) are not displayed
         """
         super(StageTable, self).__init__(parent)
 
@@ -40,20 +43,49 @@ class StageTable(Frame):
         self.logger = logging.getLogger()
 
         # Run discovering for available stages.
-        self._available_stages = self.mover.get_available_stages()
+        self._all_available_stages = self.mover.get_available_stages()
+        if exclude_active_stages:
+            self._used_stages = [(s.__class__, s.address)
+                                 for s in self.mover.active_stages]
+            self._available_stages = [
+                s for s in self._all_available_stages if s not in self._used_stages]
+        else:
+            self._available_stages = self._all_available_stages
 
+        self._stage_table = None
+
+        self.__setup__()
+
+    def __setup__(self) -> None:
+        """
+        Setup stage table.
+        """
         # Setup table containing all stages
-        self._stage_table = CustomTable(
-            self,
-            columns=['ID', 'Description', 'Stage Class', 'Address'],
-            rows=[(
-                idx,
-                str(cls.description),
-                str(cls.__name__),
-                str(address)
-            ) for idx, (cls, address) in enumerate(self._available_stages)],
-            col_width=20,
-            selectmode='browse')
+        if self.has_stages_to_select:
+            self._stage_table = CustomTable(
+                self,
+                columns=['ID', 'Description', 'Stage Class', 'Address'],
+                rows=[(
+                    idx,
+                    str(cls.description),
+                    str(cls.__name__),
+                    str(address)
+                ) for idx, (cls, address) in enumerate(self._available_stages)],
+                col_width=20,
+                selectmode='browse')
+        else:
+            Label(
+                self,
+                text="No stages available.",
+                foreground="#FF3333"
+            ).pack(side=TOP)
+
+    @property
+    def has_stages_to_select(self) -> bool:
+        """
+        Returns True if there are stages to select
+        """
+        return len(self._available_stages) > 0
 
     def get_selected_stage_cls(self) -> Stage:
         """
@@ -71,17 +103,33 @@ class StageTable(Frame):
         if selected_stage_tuple:
             return selected_stage_tuple[1]
 
-    def set_selected_stage(self, stage_cls: Stage, stage_address: Any) -> None:
+    def set_selected_stage(
+        self,
+        stage_cls: Stage,
+        stage_address: Any,
+        add_if_missing: bool = False
+    ) -> None:
         """
-        Set the current selected entry by the stage class and stage address
+        Set the current selected entry by the stage idx
         """
+        stage_tuple = (stage_cls, stage_address)
         try:
-            stage_idx = self._available_stages[(stage_cls, stage_address)]
-        except IndexError:
-            raise IndexError(
-                f"No available stage with class '{stage_cls}' and address '{stage_address}' found in stage table.")
+            stage_idx = self._available_stages.index(stage_tuple)
+        except ValueError:
+            if add_if_missing and stage_tuple in self._all_available_stages:
+                self._available_stages.insert(0, stage_tuple)
+                stage_idx = 0
 
-        self._stage_table.select_by_id(stage_idx)
+                # Reload table
+                for child in self.winfo_children():
+                    child.forget()
+
+                self.__setup__()
+            else:
+                stage_idx = -1
+
+        if self._stage_table and stage_idx >= 0:
+            self._stage_table.select_by_id(stage_idx)
 
     def _get_selected_stage_tuple(self) -> tuple:
         """

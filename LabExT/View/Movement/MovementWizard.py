@@ -11,20 +11,16 @@ from itertools import product
 from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
 from typing import Type, List
 from bidict import bidict
-from LabExT.Movement.PathPlanning import SingleModeFiber, StagePolygon
 
 from LabExT.Utils import run_with_wait_window, try_to_lift_window
 from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
+from LabExT.View.Movement.StageRegistrationWindow import StageRegistrationWindow
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Controls.Wizard import Step, Wizard
-from LabExT.View.Controls.ParameterTable import ParameterTable
 
-from LabExT.Measurements.MeasAPI.Measparam import MeasParamAuto
-
-from LabExT.Movement.config import Orientation, DevicePort, Axis, Direction
-from LabExT.Movement.Stage import Stage, StageError
-from LabExT.Movement.MoverNew import MoverError, MoverNew, Stage
+from LabExT.Movement.config import Axis, Direction
+from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Transformations import CoordinatePairing
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Wafer.Chip import Chip
@@ -52,7 +48,6 @@ class StageWizard(Wizard):
             master,
             width=1100,
             height=800,
-            on_finish=self.finish,
             next_button_label="Next Step",
             previous_button_label="Previous Step",
             cancel_button_label="Cancel",
@@ -70,60 +65,6 @@ class StageWizard(Wizard):
         self.stage_assignment_step.previous_step = self.load_driver_step
 
         self.current_step = self.load_driver_step
-
-    def finish(self) -> bool:
-        """
-        Creates calibrations and connect to stages.
-        """
-        if self.mover.has_connected_stages:
-            if messagebox.askokcancel(
-                "Proceed?",
-                "You have already created stages. If you continue, they will be reset, including the calibrations. Proceed?",
-                    parent=self):
-                self.mover.reset_calibrations()
-            else:
-                return False
-
-        polygon_cfg = self.stage_assignment_step.read_polygon_cfg()
-        for stage, assignment in self.stage_assignment_step.assignment.items():
-            orientation, port = assignment
-
-            polygon_cls, polygon_cls_cfg = polygon_cfg[stage]
-            stage_polygon = polygon_cls.load(polygon_cls_cfg)
-
-            try:
-                run_with_wait_window(
-                    self,
-                    f"Connecting to stage {stage}",
-                    lambda: self.mover.add_stage_calibration(
-                        stage=stage,
-                        orientation=orientation,
-                        port=port,
-                        stage_polygon=stage_polygon))
-            except (ValueError, MoverError, StageError) as e:
-                self.mover.reset_calibrations()
-                messagebox.showerror(
-                    "Error",
-                    f"Connecting to stages failed: {e}",
-                    parent=self)
-                return False
-
-        if not self.experiment_manager:
-            messagebox.showinfo(
-                "Stage Setup completed.",
-                f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
-                parent=self)
-        else:
-            if messagebox.askyesnocancel(
-                "Stage Setup completed.",
-                f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s)."
-                "Do you want to calibrate the stages now?",
-                    parent=self):
-                self.destroy()
-
-                self.experiment_manager.main_window.open_stage_calibration()
-
-        return True
 
 
 class MoverWizard(Wizard):
@@ -381,13 +322,6 @@ class StageAssignmentStep(Step):
     Wizard Step to assign and connect stages.
     """
 
-    ASSIGNMENT_MENU_PLACEHOLDER = "-- unused --"
-
-    DEFAULT_POLYGON = SingleModeFiber
-    DEFAULT_ASSIGNMENT = (
-        ASSIGNMENT_MENU_PLACEHOLDER,
-        DevicePort.INPUT)
-
     def __init__(self, wizard, mover) -> None:
         """
         Constructor for new Wizard step for assigning stages.
@@ -406,16 +340,10 @@ class StageAssignmentStep(Step):
             title="Stage Connection")
         self.mover: Type[MoverNew] = mover
 
-        self.assignment = {
-            c.stage: (o, p)
-            for (o, p), c in self.mover.calibrations.items()}
-        self.polygon_cfg = {
-            c.stage: (c.stage_polygon.__class__, {
-                l: MeasParamAuto(value=v) for l, v in c.stage_polygon.parameters.items()})
-            for c in self.mover.calibrations.values()}
+        self._new_stage_window = None
+        self._edit_stage_window = None
 
-        self.orientation_vars, self.port_vars, self.polygon_vars = self._build_assignment_variables()
-        self._stage_polygon_parameter_tables = {}
+        self._calibrations_table = None
 
     def build(self, frame: Type[CustomFrame]) -> None:
         """
@@ -433,87 +361,146 @@ class StageAssignmentStep(Step):
             text="Below you can see all the stages found by LabExT.\nIf stages are missing, go back one step and check if all drivers are loaded."
         ).pack(side=TOP, fill=X)
 
-        available_stages_frame = CustomFrame(frame)
-        available_stages_frame.title = "Available Stages"
-        available_stages_frame.pack(side=TOP, fill=X)
+        # FRAME FOR CREATED CALIBRATIONS
+        calibrations_frame = CustomFrame(frame)
+        calibrations_frame.title = "Stages In Use"
+        calibrations_frame.pack(side=TOP, fill=X, pady=5)
 
-        CustomTable(
-            parent=available_stages_frame,
-            selectmode='none',
+        calibrations_table_frame = Frame(calibrations_frame)
+        calibrations_table_frame.pack(side=TOP, fill=X, expand=False)
+
+        self._calibrations_table = CustomTable(
+            parent=calibrations_table_frame,
+            selectmode='browse',
             columns=(
-                'ID', 'Description', 'Stage Class', 'Address', 'Connected'
-            ),
-            rows=[
-                (idx,
-                 s.__class__.description,
-                 s.__class__.__name__,
-                 s.address_string,
-                 s.connected)
-                for idx, s in enumerate(self.mover.available_stages)])
+                'ID',
+                'Stage Class',
+                'Stage Address',
+                'Move-to-Device activated?',
+                'Assigned Device Port',
+                'Polygon',
+                'State'),
+            rows=[(
+                str(idx),
+                str(c.stage.__class__.__name__),
+                str(c.stage.address_string),
+                "Yes" if c.is_automatic_movement_enabled else "No",
+                str(c.device_port),
+                str(c.stage_polygon.__class__.__name__) if c.stage_polygon else "None",
+                str(c.state.name)
+            ) for idx, c in enumerate(self.mover.calibrations)])
 
-        stage_assignment_frame = CustomFrame(frame)
-        stage_assignment_frame.title = "Assign Stages"
-        stage_assignment_frame.pack(side=TOP, fill=X)
+        Button(
+            calibrations_frame,
+            text="Register a new stage...",
+            command=self._new_stage_calibration
+        ).pack(side=RIGHT)
 
-        for avail_stage in self.mover.available_stages:
-            available_stage_frame = Frame(stage_assignment_frame)
-            available_stage_frame.pack(side=TOP, fill=X, pady=2)
+        Button(
+            calibrations_frame,
+            text="Unregister selected stage",
+            state=DISABLED if len(self.mover.calibrations) == 0 else NORMAL,
+            command=self._unregister_stage
+        ).pack(side=LEFT)
 
-            Label(
-                available_stage_frame, text=str(avail_stage), anchor="w"
-            ).pack(side=LEFT, fill=X, padx=(0, 10))
+        Button(
+            calibrations_frame,
+            text="Edit selected stage",
+            state=DISABLED if len(self.mover.calibrations) == 0 else NORMAL,
+            command=self._edit_stage
+        ).pack(side=LEFT)
 
-            polygon_menu = OptionMenu(
-                available_stage_frame,
-                self.polygon_vars[avail_stage],
-                *(list(self.mover.polygon_api.imported_classes.keys())))
-            polygon_menu.pack(side=RIGHT, padx=5)
+    def _new_stage_calibration(self):
+        """
+        Callback, when user wants to create a new calibration
+        """
+        if try_to_lift_window(self._new_stage_window):
+            return
 
-            polygon_menu.config(state=DISABLED if self.orientation_vars[avail_stage].get(
-            ) == self.ASSIGNMENT_MENU_PLACEHOLDER else NORMAL)
+        self._new_stage_window = StageRegistrationWindow(
+            self.wizard,
+            self.mover,
+            on_finish=self._register_calibration)
 
-            Label(
-                available_stage_frame, text="Stage type:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+    def _unregister_stage(self):
+        """
+        Callback, when user wants to remove selected stages.
+        """
+        selected_calibration = self._get_selected_calibration()
+        if not selected_calibration:
+            messagebox.showerror(
+                "No stage selected",
+                "No stage has been selected. Please select a stage to be deleted.",
+                parent=self.wizard)
+            return
 
-            port_menu = OptionMenu(
-                available_stage_frame,
-                self.port_vars[avail_stage],
-                *(list(DevicePort))
-            )
-            port_menu.pack(side=RIGHT, padx=5)
+        if not messagebox.askokcancel(
+            "Please confirm",
+            f"Are you sure to delete stage registration for {selected_calibration}",
+                parent=self.wizard):
+            return
 
-            port_menu.config(state=DISABLED if self.orientation_vars[avail_stage].get(
-            ) == self.ASSIGNMENT_MENU_PLACEHOLDER else NORMAL)
+        self.mover.deregister_stage_calibration(selected_calibration)
+        self.wizard.__reload__()
 
-            Label(
-                available_stage_frame, text="Device Port:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+    def _edit_stage(self):
+        """
+        Callback, when user wants to edit selected stage.
+        """
+        if try_to_lift_window(self._edit_stage_window):
+            return
 
-            OptionMenu(
-                available_stage_frame,
-                self.orientation_vars[avail_stage],
-                *([self.ASSIGNMENT_MENU_PLACEHOLDER] + list(Orientation))
-            ).pack(side=RIGHT, padx=5)
+        selected_calibration = self._get_selected_calibration()
+        if not selected_calibration:
+            messagebox.showerror(
+                "No stage selected",
+                "No stage has been selected. Please select a stage to be edited.",
+                parent=self.wizard)
+            return
 
-            Label(
-                available_stage_frame, text="Stage Orientation:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+        self._edit_stage_window = StageRegistrationWindow(
+            self.wizard,
+            self.mover,
+            calibration=selected_calibration,
+            on_finish=self._register_calibration)
 
-            # Enable configuration if orientation is selected
-            if self.orientation_vars[avail_stage].get(
-            ) != self.ASSIGNMENT_MENU_PLACEHOLDER:
-                polygon_cfg_frame = Frame(stage_assignment_frame)
-                polygon_cfg_frame.pack(side=TOP, fill=X)
+    def _register_calibration(self, calibration) -> None:
+        """
+        Registers a new calibration.
 
-                polygon_cls, polygon_cls_cfg = self.polygon_cfg[avail_stage]
-                polygon_cfg_table = ParameterTable(polygon_cfg_frame)
-                polygon_cfg_table.title = f"Configure Polygon: {polygon_cls.__name__}"
-                polygon_cfg_table.parameter_source = polygon_cls_cfg
-                polygon_cfg_table.pack(
-                    side=TOP, fill=X, expand=0, padx=2, pady=2)
+        If the calibration already exists, it will first deregistered.
+        """
+        if calibration in self.mover.calibrations:
+            self.mover.deregister_stage_calibration(calibration)
 
-                self._stage_polygon_parameter_tables[avail_stage] = polygon_cfg_table
+        try:
+            self.mover.register_stage_calibration(calibration)
+        except Exception as err:
+            messagebox.showerror(
+                "Failed to register stage",
+                f"Failed to register stage: {err}",
+                parent=self.wizard)
+
+        self.wizard.__reload__()
+
+    def _get_selected_calibration(self) -> Type[Calibration]:
+        """
+        Returns a list of selected pairings in table.
+        """
+        if not self._calibrations_table:
+            return None
+
+        checked_iids = self._calibrations_table._tree.selection()
+        if len(checked_iids) == 0:
+            return None
+
+        calibration_idx = int(
+            self._calibrations_table._tree.set(
+                checked_iids[0], 0))
+        try:
+            return self.mover.calibrations[calibration_idx]
+        except (IndexError, ValueError):
+            return None
 
     def on_reload(self) -> None:
         """
@@ -521,99 +508,13 @@ class StageAssignmentStep(Step):
 
         Checks if there is an assignment and if no stage, orientation or port was used twice.
         """
-        if not self.assignment:
-            self.finish_step_enabled = False
-            self.wizard.set_error("Please assign at least one to proceed.")
-            return
-
-        orientations, ports = zip(*self.assignment.values())
-        double_orientations = len(orientations) != len(set(orientations))
-        ports_orientations = len(ports) != len(set(ports))
-        if double_orientations or ports_orientations:
+        if len(self.mover.calibrations) == 0:
             self.finish_step_enabled = False
             self.wizard.set_error(
-                "Please do not assign a orientation or device port twice.")
-            return
-
-        self.finish_step_enabled = True
-        self.wizard.set_error("")
-
-    def change_assignment(self, stage: Stage) -> None:
-        """
-        Callback, when user changes a stage assignment.
-        Updates internal wizard state and reloads contents.
-        """
-        port = self.port_vars[stage].get()
-        orientation = self.orientation_vars[stage].get()
-        polygon_cls_name = self.polygon_vars[stage].get()
-        polygon_cls = self.mover.polygon_api.get_class(polygon_cls_name)
-
-        if orientation == self.ASSIGNMENT_MENU_PLACEHOLDER:
-            self.assignment.pop(stage, None)
-            self.wizard.__reload__()
-            return
-
-        if stage in self._stage_polygon_parameter_tables:
-            polygon_cls_cfg = self._stage_polygon_parameter_tables[stage].to_meas_param(
-            )
+                "Please register at least one stage to proceed.")
         else:
-            polygon_cls_cfg = {
-                l: MeasParamAuto(
-                    value=v) for l,
-                v in polygon_cls.default_parameters.items()}
-
-        self.polygon_cfg[stage] = (polygon_cls, polygon_cls_cfg)
-        self.assignment[stage] = (
-            Orientation[orientation.upper()],
-            DevicePort[port.upper()])
-
-        self.wizard.__reload__()
-
-    def read_polygon_cfg(self) -> dict:
-        """
-        Updates polygon configuration by reading values from table.
-        """
-        to_ret = {}
-        for stage, polygon_cfg_table in self._stage_polygon_parameter_tables.items():
-            polygon_cls_name = self.polygon_vars[stage].get()
-            polygon_cls = self.mover.polygon_api.get_class(polygon_cls_name)
-
-            to_ret[stage] = (
-                polygon_cls, polygon_cfg_table.make_json_able())
-
-        return to_ret
-
-    def _build_assignment_variables(self) -> tuple:
-        """
-        Builds and returns Tkinter variables for orrientation and port selection.
-        """
-        orientation_vars = {}
-        port_vars = {}
-        polygon_vars = {}
-
-        for stage in self.mover.available_stages:
-            orientation, port = self.assignment.get(
-                stage, self.DEFAULT_ASSIGNMENT)
-            polygon_cls, _ = self.polygon_cfg.get(
-                stage, (self.DEFAULT_POLYGON, {}))
-
-            port_var = StringVar(self.wizard, port)
-            port_var.trace(
-                W, lambda *_, stage=stage: self.change_assignment(stage))
-
-            orientation_var = StringVar(self.wizard, orientation)
-            orientation_var.trace(
-                W, lambda *_, stage=stage: self.change_assignment(stage))
-
-            polygon_var = StringVar(self.wizard, polygon_cls.__name__)
-            polygon_var.trace(
-                W, lambda *_, stage=stage: self.change_assignment(stage))
-
-            orientation_vars[stage] = orientation_var
-            port_vars[stage] = port_var
-            polygon_vars[stage] = polygon_var
-
-        return orientation_vars, port_vars, polygon_vars
+            self.finish_step_enabled = True
+            self.wizard.set_error("")
 
 
 class ConfigureMoverStep(Step):
@@ -747,7 +648,7 @@ class AxesCalibrationStep(Step):
         Builds and returns Tkinter variables for axes calibration.
         """
         vars = {}
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             # Get current mapping
             _current_mapping = {}
             if calibration._axes_rotation and calibration._axes_rotation.is_valid:
@@ -784,7 +685,7 @@ class AxesCalibrationStep(Step):
             text="In order for each stage to move relative to the chip coordinates, the direction of each axis of each stage must be defined. \n Postive Y-Axis: North of chip, Positive X-Axis: East of chip, Positive Z-Axis: Lift stage"
         ).pack(side=TOP, fill=X)
 
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             stage_calibration_frame = CustomFrame(frame)
             stage_calibration_frame.title = str(calibration)
             stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
@@ -822,7 +723,7 @@ class AxesCalibrationStep(Step):
         Callback, when coordinate system fixation step gets reloaded.
         Checks, if the current assignment is valid.
         """
-        if all(c._axes_rotation.is_valid for c in self.mover.calibrations.values()):
+        if all(c._axes_rotation.is_valid for c in self.mover.calibrations):
             self.next_step_enabled = True
             self.wizard.set_error("")
         else:
@@ -938,7 +839,7 @@ class CoordinatePairingStep(Step):
         Returns a list of current pairings.
         """
         pairings = []
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             _kabsch_rotation = calibration._kabsch_rotation
             if _kabsch_rotation and _kabsch_rotation.is_valid:
                 pairings += _kabsch_rotation.pairings
@@ -1042,7 +943,7 @@ class CoordinatePairingStep(Step):
         calibration_summary_frame = CustomFrame(frame)
         calibration_summary_frame.pack(side=TOP, fill=X, pady=5)
 
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             stage_calibration_frame = CustomFrame(calibration_summary_frame)
             stage_calibration_frame.title = str(calibration)
             stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
@@ -1126,14 +1027,14 @@ class CoordinatePairingStep(Step):
             return
 
         if not all(
-                c._single_point_offset.is_valid for c in self.mover.calibrations.values()):
+                c._single_point_offset.is_valid for c in self.mover.calibrations):
             self.next_step_enabled = False
             self.finish_step_enabled = False
             self.wizard.set_error("Please fix for each stage a single point.")
             return
 
         if not all(
-                c._kabsch_rotation.is_valid for c in self.mover.calibrations.values()):
+                c._kabsch_rotation.is_valid for c in self.mover.calibrations):
             self.next_step_enabled = False
             self.finish_step_enabled = True
             self.wizard.set_error(
@@ -1158,7 +1059,7 @@ class CoordinatePairingStep(Step):
                 parent=self.wizard):
             return
 
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             calibration.reset_single_point_offset()
             calibration.reset_kabsch_rotation()
 
@@ -1185,7 +1086,7 @@ class CoordinatePairingStep(Step):
             p for p in self.pairings if p not in blacklisted_pairings]
 
         # Reset all
-        for calibration in self.mover.calibrations.values():
+        for calibration in self.mover.calibrations:
             calibration.reset_single_point_offset()
             calibration.reset_kabsch_rotation()
 
