@@ -89,8 +89,7 @@ class Calibration:
     def load(
         cls,
         mover: Type[MoverNew],
-        stage: Type[Stage],
-        calibration_data: dict,
+        data: dict,
         chip: Type[Chip] = None
     ) -> Type[Calibration]:
         """
@@ -100,9 +99,7 @@ class Calibration:
         ----------
         mover : Mover
             Instance of mover associated with this calibration.
-        stage : Stage
-            Instance of a stage
-        calibration_data : dict
+        data : dict
             Dumped calibration data
 
         Returns
@@ -110,43 +107,50 @@ class Calibration:
         Calibration
             Instance of calibration
         """
-        try:
-            device_port = DevicePort[calibration_data["device_port"]]
-        except KeyError as err:
-            raise CalibrationError(
-                f"The parameter is not defined: {err}. "
-                "Make sure to pass a valid device port.")
+        device_port = None
+        if "device_port" in data:
+            device_port = DevicePort[data["device_port"]]
+
+        stage = None
+        if "stage" in data:
+            stage_cls_name = data["stage"].get("class")
+            stage_cls = mover.stage_api.get_class(stage_cls_name)
+            if stage_cls:
+                stage = stage_cls.load(data["stage"].get("parameters", {}))
+            else:
+                cls._logger.debug(
+                    f"Cannot set stage. Stage class '{stage_cls_name}' not found.")
 
         axes_rotation = None
-        if "axes_rotation" in calibration_data:
+        if "axes_rotation" in data:
             axes_rotation = AxesRotation.load(
-                calibration_data["axes_rotation"])
+                data["axes_rotation"])
 
         single_point_offset = None
-        if "single_point_offset" in calibration_data:
+        if "single_point_offset" in data:
             if axes_rotation is not None and chip is not None:
                 single_point_offset = SinglePointOffset.load(
-                    calibration_data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
+                    data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
             else:
                 cls._logger.debug(
                     "Cannot set single point offset when axes rotation or chip is not defined")
 
         kabsch_rotation = None
-        if "kabsch_rotation" in calibration_data:
+        if "kabsch_rotation" in data:
             if axes_rotation is not None and chip is not None:
                 kabsch_rotation = KabschRotation.load(
-                    calibration_data["kabsch_rotation"], chip=chip, axes_rotation=axes_rotation)
+                    data["kabsch_rotation"], chip=chip, axes_rotation=axes_rotation)
             else:
                 cls._logger.debug(
                     "Cannot set kabsch rotation when axes rotation or chip is not defined")
 
         stage_polygon = None
-        if "stage_polygon" in calibration_data:
-            polygon_cls_name = calibration_data["stage_polygon"].get("class")
+        if "stage_polygon" in data:
+            polygon_cls_name = data["stage_polygon"].get("class")
             stage_polygon_cls = mover.polygon_api.get_class(polygon_cls_name)
             if stage_polygon_cls:
                 stage_polygon = stage_polygon_cls.load(
-                    calibration_data["stage_polygon"].get("parameters", {}))
+                    data["stage_polygon"].get("parameters", {}))
             else:
                 cls._logger.debug(
                     f"Cannot set stage polygon. Polygon class '{polygon_cls_name}' not found.")
@@ -226,7 +230,7 @@ class Calibration:
         Returns the current calibration state.
         """
         return self._state
-    
+
     @property
     def stage(self) -> Type[Stage]:
         """
@@ -876,6 +880,7 @@ class Calibration:
 
     def dump(
         self,
+        stage: bool = True,
         axes_rotation: bool = True,
         single_point_offset: bool = True,
         kabsch_rotation: bool = True,
@@ -884,9 +889,15 @@ class Calibration:
         """
         Returns a dict of all calibration properties.
         """
-        calibration_dump = {
-            "stage_identifier": self.stage.identifier,
-            "device_port": self.device_port.value}
+        calibration_dump = {}
+
+        if self.device_port is not None:
+            calibration_dump["device_port"] = self.device_port.value
+
+        if stage and self.stage:
+            calibration_dump["stage"] = {
+                "class": self.stage.__class__.__name__,
+                "parameters": self.stage.dump()}
 
         if axes_rotation and self._axes_rotation.is_valid:
             calibration_dump["axes_rotation"] = self._axes_rotation.dump()

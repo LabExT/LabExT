@@ -10,7 +10,7 @@ import logging
 
 from functools import wraps
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Type
 
 
 class StageError(RuntimeError):
@@ -67,6 +67,13 @@ class Stage(ABC):
     description: str = ""
 
     _logger = logging.getLogger()
+
+    @classmethod
+    def load(cls, data: dict) -> Type[Stage]:
+        """
+        Loads stage from stored properties.
+        """
+        return cls(address=data.get("address"))
 
     @classmethod
     def find_stage_addresses(cls) -> list:
@@ -330,3 +337,11 @@ class Stage(ABC):
             i.e., all axes are stopped.
         """
         pass
+
+    def dump(self) -> dict:
+        """
+        Returns stage properties as dict
+        """
+        return {
+            "address": self.address
+        }
