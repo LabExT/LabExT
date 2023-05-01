@@ -624,6 +624,17 @@ class CalibrationTest(CalibrationTestCase):
         set_speed_xy_mock.assert_has_calls(
             [call(5000), call(current_speed_xy)])
 
+    def test_dump_includes_stage(self):
+        calibration = Calibration(self.mover, self.stage, DevicePort.INPUT)
+        calibration_dump = calibration.dump()
+
+        self.assertEqual(calibration_dump["stage"], {
+            "class": "DummyStage",
+            "parameters": {
+                "address": "usb:123456789"
+            }
+        })
+
     def test_dump_includes_port(self):
         calibration = Calibration(self.mover, self.stage, DevicePort.INPUT)
         calibration_dump = calibration.dump()
@@ -703,10 +714,14 @@ class CalibrationTest(CalibrationTestCase):
 
 
     def test_load_with_axes_rotation(self):
-        self.stage.connect()
         calibration_data = {
-            "orientation": "LEFT",
             "device_port": "INPUT",
+            "stage": {
+                "class": "DummyStage",
+                "parameters": {
+                    "address": "tcp:192.168.0.42:1234"
+                }
+            },
             "axes_rotation": {
                 'X': ('NEGATIVE', 'Z'),
                 'Y': ('POSITIVE', 'X'),
@@ -714,11 +729,11 @@ class CalibrationTest(CalibrationTestCase):
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data)
+        restored_calibration = Calibration.load(self.mover, calibration_data)
+        restored_calibration.connect_to_stage()
         self.assertEqual(restored_calibration.state, State.COORDINATE_SYSTEM_FIXED)
 
     def test_load_with_single_point_offset(self):
-        self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
             devices=[
@@ -726,8 +741,13 @@ class CalibrationTest(CalibrationTestCase):
             ])
 
         calibration_data = {
-            "orientation": "LEFT",
             "device_port": "INPUT",
+            "stage": {
+                "class": "DummyStage",
+                "parameters": {
+                    "address": "tcp:192.168.0.42:1234"
+                }
+            },
             "axes_rotation": {
                 'X': ('NEGATIVE', 'Z'),
                 'Y': ('POSITIVE', 'X'),
@@ -740,7 +760,8 @@ class CalibrationTest(CalibrationTestCase):
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip=chip)
+        restored_calibration = Calibration.load(self.mover, calibration_data, chip=chip)
+        restored_calibration.connect_to_stage()
         self.assertEqual(restored_calibration.state, State.SINGLE_POINT_FIXED)
 
     def test_load_with_kabsch_rotation(self):
@@ -755,8 +776,13 @@ class CalibrationTest(CalibrationTestCase):
             ])
 
         calibration_data = {
-            "orientation": "LEFT",
             "device_port": "INPUT",
+            "stage": {
+                "class": "DummyStage",
+                "parameters": {
+                    "address": "tcp:192.168.0.42:1234"
+                }
+            },
             "axes_rotation": {
                 'X': ('NEGATIVE', 'Z'),
                 'Y': ('POSITIVE', 'X'),
@@ -791,7 +817,8 @@ class CalibrationTest(CalibrationTestCase):
             ]
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
+        restored_calibration = Calibration.load(self.mover, calibration_data, chip)
+        restored_calibration.connect_to_stage()
         self.assertEqual(restored_calibration.state, State.FULLY_CALIBRATED)
 
     def test_load_with_stage_polygon(self):
@@ -806,8 +833,13 @@ class CalibrationTest(CalibrationTestCase):
             ])
 
         calibration_data = {
-            "orientation": "LEFT",
             "device_port": "INPUT",
+            "stage": {
+                "class": "DummyStage",
+                "parameters": {
+                    "address": "tcp:192.168.0.42:1234"
+                }
+            },
             "stage_polygon":  {
                 "class": "SingleModeFiber",
                 "parameters": {
@@ -819,7 +851,8 @@ class CalibrationTest(CalibrationTestCase):
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
+        restored_calibration = Calibration.load(self.mover, calibration_data, chip)
+        restored_calibration.connect_to_stage()
         
         self.assertIsInstance(restored_calibration.stage_polygon, SingleModeFiber)
         self.assertDictEqual(restored_calibration.stage_polygon.parameters, {
