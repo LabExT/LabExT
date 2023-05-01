@@ -14,7 +14,7 @@ from time import sleep
 
 import numpy as np
 
-from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction, CoordinateSystem
+from LabExT.Movement.config import DevicePort, State, Axis, Direction, CoordinateSystem
 from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
 from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
@@ -89,8 +89,7 @@ class Calibration:
     def load(
         cls,
         mover: Type[MoverNew],
-        stage: Type[Stage],
-        calibration_data: dict,
+        data: dict,
         chip: Type[Chip] = None
     ) -> Type[Calibration]:
         """
@@ -100,9 +99,7 @@ class Calibration:
         ----------
         mover : Mover
             Instance of mover associated with this calibration.
-        stage : Stage
-            Instance of a stage
-        calibration_data : dict
+        data : dict
             Dumped calibration data
 
         Returns
@@ -110,46 +107,57 @@ class Calibration:
         Calibration
             Instance of calibration
         """
-        try:
-            orientation = Orientation[calibration_data["orientation"]]
-            device_port = DevicePort[calibration_data["device_port"]]
-        except KeyError as err:
-            raise CalibrationError(
-                f"The parameter is not defined: {err}. "
-                "Make sure to pass a valid orientation and device port.")
+        device_port = None
+        if "device_port" in data:
+            device_port = DevicePort[data["device_port"]]
+
+        stage = None
+        if "stage" in data:
+            stage_cls_name = data["stage"].get("class")
+            stage_cls = mover.stage_api.get_class(stage_cls_name)
+            if stage_cls:
+                stage = stage_cls.load(data["stage"].get("parameters", {}))
+            else:
+                cls._logger.debug(
+                    f"Cannot set stage. Stage class '{stage_cls_name}' not found.")
 
         axes_rotation = None
-        if "axes_rotation" in calibration_data:
+        if "axes_rotation" in data:
             axes_rotation = AxesRotation.load(
-                calibration_data["axes_rotation"])
+                data["axes_rotation"])
 
         single_point_offset = None
-        if "single_point_offset" in calibration_data:
+        if "single_point_offset" in data:
             if axes_rotation is not None and chip is not None:
                 single_point_offset = SinglePointOffset.load(
-                    calibration_data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
+                    data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
             else:
                 cls._logger.debug(
                     "Cannot set single point offset when axes rotation or chip is not defined")
 
         kabsch_rotation = None
-        if "kabsch_rotation" in calibration_data:
+        if "kabsch_rotation" in data:
             if axes_rotation is not None and chip is not None:
                 kabsch_rotation = KabschRotation.load(
-                    calibration_data["kabsch_rotation"], chip=chip, axes_rotation=axes_rotation)
+                    data["kabsch_rotation"], chip=chip, axes_rotation=axes_rotation)
             else:
                 cls._logger.debug(
                     "Cannot set kabsch rotation when axes rotation or chip is not defined")
 
         stage_polygon = None
-        if "stage_polygon" in calibration_data:
-            stage_polygon = StagePolygon.load(
-                calibration_data["stage_polygon"])
+        if "stage_polygon" in data:
+            polygon_cls_name = data["stage_polygon"].get("class")
+            stage_polygon_cls = mover.polygon_api.get_class(polygon_cls_name)
+            if stage_polygon_cls:
+                stage_polygon = stage_polygon_cls.load(
+                    data["stage_polygon"].get("parameters", {}))
+            else:
+                cls._logger.debug(
+                    f"Cannot set stage polygon. Polygon class '{polygon_cls_name}' not found.")
 
         return cls(
             mover,
-            stage,
-            orientation=orientation,
+            stage=stage,
             device_port=device_port,
             stage_polygon=stage_polygon,
             axes_rotation=axes_rotation,
@@ -159,27 +167,26 @@ class Calibration:
     def __init__(
         self,
         mover: Type[MoverNew],
-        stage: Type[Stage],
-        orientation: Orientation,
-        device_port: DevicePort,
+        stage: Type[Stage] = None,
+        device_port: DevicePort = None,
         stage_polygon: Type[StagePolygon] = None,
         axes_rotation: Type[AxesRotation] = None,
         single_point_offset: Type[SinglePointOffset] = None,
         kabsch_rotation: Type[KabschRotation] = None
     ) -> None:
         self.mover = mover
-        self.stage: Type[Stage] = stage
+        self._stage: Type[Stage] = stage
 
-        self._orientation = orientation
-        self._device_port = device_port
+        self.device_port = device_port
 
+        self._state = State.UNINITIALIZED
         self._coordinate_system = CoordinateSystem.UNKNOWN
 
         self._is_lifted = False
 
         self.stage_polygon = stage_polygon
         if stage_polygon is None:
-            self.stage_polygon = SingleModeFiber(orientation)
+            self.stage_polygon = SingleModeFiber()
 
         self._axes_rotation = axes_rotation
         if axes_rotation is None:
@@ -196,7 +203,13 @@ class Calibration:
         assert self._single_point_offset.axes_rotation == self._axes_rotation, "Axes rotation for single point offset must be the same than for the calibration."
         assert self._kabsch_rotation.axes_rotation == self._axes_rotation, "Axes rotation for kabsch rotation must be the same than for the calibration"
 
-        self._state = State.UNINITIALIZED
+        # Sanity check: If stage as assigned device port, we request a stage
+        # polygon.
+        if self.device_port is not None and self.stage_polygon is None:
+            raise ValueError(
+                "Cannot create a calibration without a stage polygon."
+                f"A device port '{self.device_port}' was assigned to the calibration. A stage polygon is required.")
+
         self.determine_state(skip_connection=False)
         self.mover.update_main_model()
 
@@ -205,12 +218,7 @@ class Calibration:
     #
 
     def __str__(self) -> str:
-        return "{} Stage ({})".format(str(self.orientation), str(self.stage))
-
-    @property
-    def short_str(self) -> str:
-        return "{} Stage ({})".format(
-            str(self.orientation), str(self._device_port))
+        return "{} Stage ({})".format(str(self.device_port), str(self.stage))
 
     #
     #   Properties
@@ -224,25 +232,34 @@ class Calibration:
         return self._state
 
     @property
-    def orientation(self) -> Orientation:
+    def stage(self) -> Type[Stage]:
         """
-        Returns the orientation of the stage: Left, Right, Top or Bottom
+        Returns the assigned stage.
         """
-        return self._orientation
+        return self._stage
+
+    @stage.setter
+    def stage(self, new_stage: Type[Stage]) -> None:
+        """
+        Sets a new stage.
+        Determines new state.
+        """
+        self._stage = new_stage
+        self.determine_state(skip_connection=False)
 
     @property
     def is_input_stage(self):
         """
         Returns True if the stage will move to the input of a device.
         """
-        return self._device_port == DevicePort.INPUT
+        return self.device_port == DevicePort.INPUT
 
     @property
     def is_output_stage(self):
         """
         Returns True if the stage will move to the output of a device.
         """
-        return self._device_port == DevicePort.OUTPUT
+        return self.device_port == DevicePort.OUTPUT
 
     @property
     def is_lifted(self) -> bool:
@@ -250,6 +267,13 @@ class Calibration:
         Returns True if stage is lifted.
         """
         return self._is_lifted
+
+    @property
+    def is_automatic_movement_enabled(self) -> bool:
+        """
+        Returns True if stage is enabled.
+        """
+        return self.device_port is not None and self.stage_polygon is not None
 
     #
     #   Coordinate System Control
@@ -856,6 +880,7 @@ class Calibration:
 
     def dump(
         self,
+        stage: bool = True,
         axes_rotation: bool = True,
         single_point_offset: bool = True,
         kabsch_rotation: bool = True,
@@ -864,10 +889,15 @@ class Calibration:
         """
         Returns a dict of all calibration properties.
         """
-        calibration_dump = {
-            "stage_identifier": self.stage.identifier,
-            "orientation": self.orientation.value,
-            "device_port": self._device_port.value}
+        calibration_dump = {}
+
+        if self.device_port is not None:
+            calibration_dump["device_port"] = self.device_port.value
+
+        if stage and self.stage:
+            calibration_dump["stage"] = {
+                "class": self.stage.__class__.__name__,
+                "parameters": self.stage.dump()}
 
         if axes_rotation and self._axes_rotation.is_valid:
             calibration_dump["axes_rotation"] = self._axes_rotation.dump()
@@ -880,7 +910,8 @@ class Calibration:
             calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()
 
         if stage_polygon and self.stage_polygon is not None:
-            calibration_dump["stage_polygon"] = self.stage_polygon.dump(
-                stringify=True)
+            calibration_dump["stage_polygon"] = {
+                "class": self.stage_polygon.__class__.__name__,
+                "parameters": self.stage_polygon.dump()}
 
         return calibration_dump

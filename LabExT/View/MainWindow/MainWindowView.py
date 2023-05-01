@@ -71,7 +71,7 @@ class MainWindowContextMenu(Menu):
             self._movement.add_command(
                 label=f"{len(self._mover.calibrations)} connected stage(s):",
                 state=DISABLED)
-            for c in self._mover.calibrations.values():
+            for c in self._mover.calibrations:
                 self._movement.add_cascade(
                     label=str(c),
                     menu=self._make_calibration_menu(c))
@@ -136,10 +136,10 @@ class MainWindowContextMenu(Menu):
             label=f"State: {calibration.state}",
             state=DISABLED)
         calibration_menu.add_command(
-            label=f"Orientation: {calibration._orientation}",
+            label=f"Automatice movement enabled: {calibration.is_automatic_movement_enabled}",
             state=DISABLED)
         calibration_menu.add_command(
-            label=f"Device Port: {calibration._device_port}",
+            label=f"Device Port: {calibration.device_port}",
             state=DISABLED)
 
         return calibration_menu
