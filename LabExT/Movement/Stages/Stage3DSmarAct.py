@@ -4,13 +4,15 @@
 LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+from __future__ import annotations
+
 import sys
 import json
 import time
 import ctypes as ct
 
 from enum import Enum
-from typing import List
+from typing import List, Type
 
 from LabExT.Movement.config import Axis
 from LabExT.Movement.Stage import Stage, StageError, assert_stage_connected, assert_driver_loaded
@@ -55,6 +57,23 @@ class Stage3DSmarAct(Stage):
     driver_path_dialog = None
     driver_specifiable = True
     description = "SmarAct Modular Control System"
+
+    @classmethod
+    def load(cls, data: dict) -> Type[Stage3DSmarAct]:
+        """
+        Loads a SmarAct stage with given properties.
+        """
+        address = str(data.get("address"))
+        if not address:
+            raise ValueError(
+                "Cannot load SmarAct stage without address.")
+
+        available_addresses = cls.find_stage_addresses()
+        if address not in available_addresses:
+            raise ValueError(
+                f"Cannot load SmarAct stage with address {address}. Address is not available.")
+
+        return Stage3DSmarAct(address=address)
 
     @classmethod
     def load_driver(cls, parent) -> bool:
@@ -598,6 +617,14 @@ class Stage3DSmarAct(Stage):
 
         if wait_for_stopping:
             self._wait_for_stopping()
+
+    def dump(self) -> dict:
+        """
+        Returns a SmarAct stage as dict.
+        """
+        return {
+            "address": self.address.decode('utf-8')
+        }
 
     # Helper methods
 

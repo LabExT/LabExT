@@ -13,6 +13,8 @@ from LabExT.Movement.config import DevicePort, Orientation
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Stage import Stage
 from LabExT.Tests.Utils import TKinterTestCase
+
+from LabExT.Movement.Calibration import Calibration
 from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow
 
 from LabExT.Wafer.Device import Device
@@ -41,10 +43,11 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         self.on_finish = Mock()
 
     def setup_calibrations(self):
-        self.in_calibration = self.mover.add_stage_calibration(
-            self.stage_1, Orientation.LEFT, DevicePort.INPUT)
-        self.out_calibration = self.mover.add_stage_calibration(
-            self.stage_2, Orientation.RIGHT, DevicePort.OUTPUT)
+        self.in_calibration = Calibration(self.mover, self.stage_1, DevicePort.INPUT)
+        self.out_calibration = Calibration(self.mover, self.stage_2, DevicePort.OUTPUT)
+
+        self.mover.register_stage_calibration(self.in_calibration)
+        self.mover.register_stage_calibration(self.out_calibration)
 
     def setup_window(self, with_input_stage=True, with_output_stage=True):
         return CoordinatePairingsWindow(

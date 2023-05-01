@@ -310,7 +310,7 @@ class CoordinatePairingsWindow(Toplevel):
         Builds and returns a frame to display the current pairing state.
         """
         pairing_frame = CustomFrame(parent)
-        pairing_frame.title = calibration.short_str
+        pairing_frame.title = str(calibration)
         pairing_frame.pack(side=TOP, fill=X, pady=5)
 
         if self._device:
