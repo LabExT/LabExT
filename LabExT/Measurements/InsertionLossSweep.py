@@ -4,8 +4,10 @@
 LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
-
+import json
 import time
+
+import numpy as np
 
 from LabExT.Measurements.MeasAPI import *
 
@@ -20,9 +22,13 @@ class InsertionLossSweep(Measurement):
     detection sampling. The resulting arrays of wavelength and detected signal samples provide a spectrum showing the
     wavelength dependence of the DUT.
 
-    Currently this measurement supports Agilent/Keysight swept lasers (model numbers 816x) and triggered power
+    Currently, this measurement supports Agilent/Keysight swept lasers (model numbers 816x) and triggered power
     meters (model numbers 816x or N77xx). The measurement procedure is described in the Keysight application
     note 5992-1125EN, see https://www.keysight.com/ch/de/assets/7018-04983/application-notes/5992-1125.pdf.
+
+    You may optionally specify a reference file path. If you do, another result vector will be stored in the output
+    data that represents the insertion loss with respect to the reference, instead the absolute recorded power. Note
+    that the reference file must have been recorded with the same parameters as the executing measurement!
 
     #### example lab setup
     ```
@@ -30,7 +36,7 @@ class InsertionLossSweep(Measurement):
       \--trigger-cable--/
     ```
     If your optical power meter is NOT in the same mainframe as the swept laser, you must connect the laser's trigger
-    output port to the power meters's trigger input port with a BNC cable!
+    output port to the power meter's trigger input port with a BNC cable!
 
     #### laser parameters
     * **wavelength start**: starting wavelength of the laser sweep in [nm]
@@ -41,6 +47,9 @@ class InsertionLossSweep(Measurement):
 
     #### power meter parameter
     * **powermeter range**: range of the power meter in [dBm]
+
+    #### reference paramters
+    * **file path to reference meas.**: optionally specify a previously measured InsertionLossSweep to be the reference.
 
     #### user parameter
     * **users comment**: this string will simply get stored in the saved output data file. Use this at your discretion.
@@ -53,6 +62,8 @@ class InsertionLossSweep(Measurement):
         self.settings_path = 'InsertionLossSweep_settings.json'
         self.instr_laser = None
         self.instr_pm = None
+
+        self.ref_data = None
 
     @staticmethod
     def get_default_parameter():
@@ -69,6 +80,8 @@ class InsertionLossSweep(Measurement):
             'laser power': MeasParamFloat(value=6.0, unit='dBm'),
             # range of the power meter in dBm
             'powermeter range': MeasParamFloat(value=10.0, unit='dBm'),
+            # apply reference scan to recorded data
+            'file path to reference meas.': MeasParamString(value='', extra_type='openfile'),
             # let the user give some own comment
             'users comment': MeasParamString(value=''),
         }
@@ -86,6 +99,10 @@ class InsertionLossSweep(Measurement):
         sweep_speed = parameters.get('sweep speed').value
         laser_power = parameters.get('laser power').value
         pm_range = parameters.get('powermeter range').value
+
+        # check if reference data valid
+        if parameters['file path to reference meas.'].value.strip():
+            self.check_if_reference_valid(parameters=parameters)
 
         # get instrument pointers
         self.instr_pm = instruments['Power Meter']
@@ -181,7 +198,57 @@ class InsertionLossSweep(Measurement):
         self.instr_laser.close()
         self.instr_pm.close()
 
+        # apply reference data
+        if parameters['file path to reference meas.'].value.strip():
+            self.apply_reference_to_data(data=data)
+
         # sanity check if data contains all necessary keys
         self._check_data(data)
 
         return data
+
+    def check_if_reference_valid(self, parameters):
+
+        # load reference file
+        ref_fp = parameters['file path to reference meas.'].value.strip()
+        try:
+            with open(ref_fp, 'r') as fp:
+                ref_raw_data = json.load(fp=fp)
+        except FileNotFoundError:
+            raise FileNotFoundError(f'Reference file "{ref_fp:s}" not found.')
+        except json.decoder.JSONDecodeError:
+            raise RuntimeError(f'Reference file "{ref_fp:s}" could not be JSON decoded.')
+
+        # check reference parameters
+        if ref_raw_data['measurement name'] != self.name:
+            raise ValueError(f'Reference file "{ref_fp:s}" has wrong measurement name, should be {self.name:s}.')
+        check_params = ['wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power']
+        for pname in check_params:
+            if ref_raw_data['measurement settings'][pname]['value'] != parameters[pname].value:
+                raise ValueError(f'Parameters used to record reference in file "{ref_fp:s}" do not match this '
+                                 f"ToDo's settings. Make sure you are using the same settings in the ToDo as "
+                                 f"were used to record the reference file for these parameters: {check_params}.")
+
+        self.ref_data = {
+            'wl': np.array(ref_raw_data['values']['wavelength [nm]']),
+            'tm': np.array(ref_raw_data['values']['transmission [dBm]'])
+        }
+
+    def apply_reference_to_data(self, data):
+
+        assert self.ref_data is not None, 'Reference data is not loaded!'
+
+        # get data back to numpy arrays
+        rec_wl = np.array(data['values']['wavelength [nm]']),
+        rec_tm = np.array(data['values']['transmission [dBm]'])
+
+        # notify user if wavelengths differ > 1pm
+        if any(np.abs(rec_wl - self.ref_data['wl']) > 1e-3):
+            self.logger.warning('Referenced and recorded wavelengths differ by > 1pm!')
+
+        # apply referencing
+        ref_data_diff = rec_tm - self.ref_data['tm']
+        data['values']['referenced transmission [dB]'] = ref_data_diff.tolist()
+
+        # ref data is used, clear to ensure a clean load on subsequent use
+        self.ref_data = None
