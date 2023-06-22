@@ -239,7 +239,7 @@ class InsertionLossSweep(Measurement):
         assert self.ref_data is not None, 'Reference data is not loaded!'
 
         # get data back to numpy arrays
-        rec_wl = np.array(data['values']['wavelength [nm]']),
+        rec_wl = np.array(data['values']['wavelength [nm]'])
         rec_tm = np.array(data['values']['transmission [dBm]'])
 
         # notify user if wavelengths differ > 1pm
