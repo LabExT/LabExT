@@ -138,6 +138,7 @@ class MainWindowTest(TKinterTestCase):
                 'sweep speed': random.randint(40, 100),
                 'laser power': random.randint(-20, 10),
                 'powermeter range': random.randint(-80, -20),
+                'file path to reference meas.': '',  # don't use any reference data
                 'users comment': 'automated testing ' + randomword(random.randint(2, 40))
             }
             ps = new_meas_wizard_c.view.s3_measurement_param_table._parameter_source
@@ -147,6 +148,7 @@ class MainWindowTest(TKinterTestCase):
             ps['sweep speed'].value = random_meas_props['sweep speed']
             ps['laser power'].value = random_meas_props['laser power']
             ps['powermeter range'].value = random_meas_props['powermeter range']
+            ps['file path to reference meas.'].value = random_meas_props['file path to reference meas.']
             ps['users comment'].value = random_meas_props['users comment']
 
             # this would otherwise save the test params to the user's settings
@@ -177,10 +179,12 @@ class MainWindowTest(TKinterTestCase):
             self.assertEqual(new_meas.parameters['sweep speed'].value, random_meas_props['sweep speed'])
             self.assertEqual(new_meas.parameters['laser power'].value, random_meas_props['laser power'])
             self.assertEqual(new_meas.parameters['powermeter range'].value, random_meas_props['powermeter range'])
+            self.assertEqual(new_meas.parameters['file path to reference meas.'].value,
+                             random_meas_props['file path to reference meas.'])
             self.assertEqual(new_meas.parameters['users comment'].value, random_meas_props['users comment'])
             self.assertEqual(set(new_meas.parameters.keys()),
                              {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                              'powermeter range', 'users comment'})
+                              'powermeter range', 'users comment', 'file path to reference meas.'})
 
             # Back to Main Window: run simulation measurement
             # various patches necessary s.t. tkinter runs although there is no main thread
