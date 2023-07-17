@@ -45,10 +45,12 @@ def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_prop
         testinst.assertEqual(executed_meas['sweep speed']['value'], meas_props['sweep speed'])
         testinst.assertEqual(executed_meas['laser power']['value'], meas_props['laser power'])
         testinst.assertEqual(executed_meas['powermeter range']['value'], meas_props['powermeter range'])
+        testinst.assertEqual(executed_meas['file path to reference meas.']['value'],
+                             meas_props['file path to reference meas.'])
         testinst.assertEqual(executed_meas['users comment']['value'], meas_props['users comment'])
         testinst.assertEqual(set(executed_meas.keys()),
                              {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                              'powermeter range', 'users comment'})
+                              'powermeter range', 'users comment', 'file path to reference meas.'})
 
 
 @mark_as_gui_integration_test
