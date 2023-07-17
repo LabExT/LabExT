@@ -211,6 +211,7 @@ class ExperimentWizardTest(TKinterTestCase):
             'sweep speed': random.randint(40, 100),
             'laser power': random.randint(-20, 10),
             'powermeter range': random.randint(-80, -20),
+            'file path to reference meas.': '',  # don't use any reference data
             'users comment': 'automated testing ' + randomword(random.randint(2, 40))
         }
         ps = settings_subwindow._meas_param_tables['InsertionLossSweep']._parameter_source
@@ -220,6 +221,7 @@ class ExperimentWizardTest(TKinterTestCase):
         ps['sweep speed'].value = random_ilm_props['sweep speed']
         ps['laser power'].value = random_ilm_props['laser power']
         ps['powermeter range'].value = random_ilm_props['powermeter range']
+        ps['file path to reference meas.'].value = random_ilm_props['file path to reference meas.']
         ps['users comment'].value = random_ilm_props['users comment']
 
         with patch.object(settings_subwindow._meas_param_tables['DummyMeas'], 'serialize'):
