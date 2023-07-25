@@ -135,6 +135,8 @@ class MainWindowModel:
         self.commands[0].can_execute = True  # enable the start button
         self.commands[1].can_execute = False  # disable the stop button
         # enable change in save file parameters
+        if not self.experiment_manager.chip:
+            self.allow_change_chip_params.set(True)
         self.allow_change_save_params.set(True)
 
     def exctrl_vars_changed(self, *args):
