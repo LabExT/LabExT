@@ -261,7 +261,7 @@ class LiveViewerController:
 
         for csp in cards_search_path:
             plugins = plugin_loader.load_plugins(csp, plugin_base_class=CardFrame, recursive=True)
-            unique_plugins = {v.instrument_type: v for v in plugins.values() if v.instrument_type not in return_dict}
+            unique_plugins = {v.CARD_TITLE: v for v in plugins.values() if v.CARD_TITLE not in return_dict}
             plugin_loader_stats[csp] = len(unique_plugins)
             return_dict.update(unique_plugins)
 

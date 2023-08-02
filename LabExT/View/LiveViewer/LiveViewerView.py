@@ -162,12 +162,12 @@ class ControlFrame(Frame):
         """
         Function to render all cards from the corellating model
         """
-        for i, (card_type, card) in enumerate(self.model.cards):
+        for i, (card_title, card) in enumerate(self.model.cards):
             if card is not None:
                 continue
             # set up new card
-            new_card = self.model.lvcards_classes[card_type](self.content_carrier, self.controller, self.model, i)
-            self.model.cards[i] = (card_type, new_card)
+            new_card = self.model.lvcards_classes[card_title](self.content_carrier, self.controller, self.model, i)
+            self.model.cards[i] = (card_title, new_card)
             new_card.pack(side='top', anchor='nw', fill='x', pady=(0, 20))
 
             # when a card is newly created, we enable the GUI elements s.t. the user can set the parameters

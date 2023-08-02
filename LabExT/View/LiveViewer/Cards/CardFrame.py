@@ -59,6 +59,7 @@ class CardFrame(Frame):
     """
 
     INSTRUMENT_TYPE = 'FILL ME'
+    CARD_TITLE = 'FILL ME'
     PLOTTING_ENABLED = True
 
     default_parameters = {}
@@ -92,7 +93,7 @@ class CardFrame(Frame):
         #
 
         # row 0: title
-        self.label = Label(self, text=self.INSTRUMENT_TYPE)
+        self.label = Label(self, text=self.CARD_TITLE)
         self.label.grid(row=0, column=0, padx=2, pady=2, sticky='NSW')
 
         # row 0: color selection button

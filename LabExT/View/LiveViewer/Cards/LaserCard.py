@@ -25,8 +25,9 @@ class LaserCard(CardFrame):
         'laser power': MeasParamFloat(value=6.0, unit='dBm'),
     }
 
-    # static variable that defines the cards type
-    instrument_type = "Laser"
+    INSTRUMENT_TYPE = 'Laser'
+    CARD_TITLE = 'Laser'
+    PLOTTING_ENABLED = False
 
     def __init__(self, parent, controller, model, index):
         """Constructor.
@@ -42,8 +43,6 @@ class LaserCard(CardFrame):
         index :
             This cards index
         """
-        self.INSTRUMENT_TYPE = 'Laser'
-        self.PLOTTING_ENABLED = False
         self.laser_enabled_warning_text = StringVar()
 
         # create basic GUI elements from super class

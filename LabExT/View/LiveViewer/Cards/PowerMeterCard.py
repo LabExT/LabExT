@@ -32,8 +32,9 @@ class PowerMeterCard(CardFrame):
         'powermeter wavelength': MeasParamFloat(value=1550.0, unit='nm'),
     }
 
-    # static variable that defines the cards type
-    instrument_type = "Power Meter"
+    INSTRUMENT_TYPE = 'Power Meter'
+    CARD_TITLE = 'Poll Power Meter Channel'
+    PLOTTING_ENABLED = True
 
     def __init__(self, parent, controller, model, index):
         """Constructor.
@@ -49,8 +50,6 @@ class PowerMeterCard(CardFrame):
         index :
             This cards index
         """
-        self.INSTRUMENT_TYPE = 'Power Meter'
-        self.PLOTTING_ENABLED = True
 
         # create basics GUI elements from super class
         super().__init__(parent, controller, model, index)
