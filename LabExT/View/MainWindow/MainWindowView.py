@@ -555,7 +555,6 @@ class MainWindowFrame(Frame):
         self.control_panel = None
 
         self.selec_plot = None
-        self.live_plot = None
         self.axes_frame = None
 
         self.logging_frame = None
@@ -593,17 +592,9 @@ class MainWindowFrame(Frame):
         self.selec_plot.title = "Measurement Selection Plot"
         self.selec_plot.show_grid = True
         self.selec_plot.data_source = self.model.selec_plot_data
-        self.selec_plot.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="nswe")
+        self.selec_plot.grid(row=0, column=1, rowspan=2, columnspan=2, padx=10, pady=10, sticky='nswe')
         self.selec_plot.rowconfigure(0, weight=1)
         self.selec_plot.columnconfigure(0, weight=1)
-
-        self.live_plot = PlotControl(self, add_toolbar=True, figsize=(5, 5), polling_time_s=0.5)
-        self.live_plot.title = "Live Plot"
-        self.live_plot.show_grid = True
-        self.live_plot.data_source = self.model.live_plot_data
-        self.live_plot.grid(row=0, column=2, rowspan=2, padx=10, pady=10, sticky="nswe")
-        self.live_plot.rowconfigure(0, weight=1)
-        self.live_plot.columnconfigure(0, weight=1)
 
     def set_up_logging_frame(self):
         """
@@ -672,10 +663,10 @@ class MainWindowView:
         self.frame.set_up_control_frame()
 
         self.frame.set_up_logging_frame()
+
         #
         # active and finished measurement tables
         #
-
         self.frame.set_up_auxiliary_tables()
 
     def set_up_context_menu(self):
