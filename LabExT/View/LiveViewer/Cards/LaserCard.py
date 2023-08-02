@@ -89,12 +89,6 @@ class LaserCard(CardFrame):
         self.buttons_inactive_when_settings_enabled.append(self.disable_button)
         self.buttons_inactive_when_settings_enabled.append(self.update_button)
 
-    def tear_down(self):
-        """
-        Called on card destruction.
-        """
-        self.stop_laser(None, None, self.laser_enabled_warning_text)
-
     @show_errors_as_popup()
     def start_laser(self, instr, parameters, warning_variable):
         """
@@ -154,5 +148,11 @@ class LaserCard(CardFrame):
     def stop_instr(self):
         """
         This function is needed as a generic stopping function.
+        """
+        self.stop_laser(None, None, self.laser_enabled_warning_text)
+
+    def tear_down(self):
+        """
+        Called on card destruction.
         """
         self.stop_laser(None, None, self.laser_enabled_warning_text)

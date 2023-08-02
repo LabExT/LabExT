@@ -88,12 +88,6 @@ class PowerMeterCard(CardFrame):
         self.buttons_inactive_when_settings_enabled.append(self.disable_button)
         self.buttons_inactive_when_settings_enabled.append(self.update_button)
 
-    def tear_down(self):
-        """
-        Called on card destruction.
-        """
-        self.stop_pm(None, None)
-
     @show_errors_as_popup()
     def start_pm(self, instr, parameters, color):
         """
@@ -220,5 +214,11 @@ class PowerMeterCard(CardFrame):
     def stop_instr(self):
         """
         This function is needed as a generic stopping function.
+        """
+        self.stop_pm(None, None)
+
+    def tear_down(self):
+        """
+        Called on card destruction.
         """
         self.stop_pm(None, None)

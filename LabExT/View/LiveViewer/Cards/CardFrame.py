@@ -141,23 +141,6 @@ class CardFrame(Frame):
         for role_name, role_instrs in self.available_instruments.items():
             selected_instruments.update({role_name: role_instrs.choice})
 
-            # do not let card load an instrument if any other card already has the same instrument active
-            for i, (_, card) in enumerate(self.model.cards):
-                if card is self:
-                    continue
-                if card.INSTRUMENT_TYPE is not self.INSTRUMENT_TYPE:
-                    continue
-                if not card.enabled:
-                    continue
-                if card.instrument is None:
-                    continue
-                self_desc = role_instrs.choice
-                foreign_desc = card.instrument.instrument_config_descriptor
-                if self_desc['visa'] == foreign_desc['visa'] \
-                        and self_desc['class'] == foreign_desc['class'] \
-                        and self_desc['channel'] == foreign_desc['channel']:
-                    raise RuntimeError('This instrument is already active in another card.')
-
         loaded_instr = self.controller.experiment_manager.instrument_api.create_instrument_obj(self.INSTRUMENT_TYPE,
                                                                                                selected_instruments,
                                                                                                {})
