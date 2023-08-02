@@ -73,7 +73,6 @@ class LiveViewerMainWindow(Toplevel):
         """
         Overloading of the destroy operator. Makes sure, that all parameters are saved and the instruments closed.
         """
-        self.controller.save_parameters()
         self.controller.close_all_instruments()
         Toplevel.destroy(self)
 
@@ -167,7 +166,7 @@ class ControlFrame(Frame):
             if card is not None:
                 continue
             # set up new card
-            new_card = self.model.options[card_type](self.content_carrier, self.controller, self.model, i)
+            new_card = self.model.lvcards_classes[card_type](self.content_carrier, self.controller, self.model, i)
             self.model.cards[i] = (card_type, new_card)
             new_card.pack(side='top', anchor='nw', fill='x', pady=(0, 20))
 
@@ -226,7 +225,8 @@ class PlotWidget (PlotControl):
                              figsize=(12, 6),
                              autoscale_axis=True,
                              no_x_autoscale=True,
-                             min_y_axis_span=None
+                             min_y_axis_span=None,
+                             polling_time_s=0.01
                              )
 
         self.parent = parent
@@ -279,7 +279,7 @@ class CardManager(Frame):
 
         self.add_card_button.grid(row=0, column=0, sticky='EW')
 
-        options = model.options
+        options = model.lvcards_classes
 
         self.selected_value = StringVar()
         self.selected_value.set([*options][0])
@@ -295,10 +295,10 @@ class CardManager(Frame):
         self.ptable.parameter_source = self.model.general_settings
         self.ptable.grid(row=0, column=1, sticky='NESW', padx=(12, 0))
 
-        self.add_card_button = Button(self,
-                                      text="Update Settings",
-                                      command=lambda: self.controller.update_settings(self.ptable.to_meas_param()))
-        self.add_card_button.grid(row=1, column=1, sticky='EW', padx=(12, 0))
+        _update_settings_button = Button(self,
+                                         text="Update Settings",
+                                         command=lambda: self.controller.update_settings(self.ptable.to_meas_param()))
+        _update_settings_button.grid(row=1, column=1, sticky='EW', padx=(12, 0))
 
     def add_card(self):
         """

@@ -63,10 +63,7 @@ class PowerMeterCard(CardFrame):
         # row 0: parameter table
         self.ptable = ParameterTable(content_frame)
         self.ptable.title = 'Parameters'
-        try:
-            self.ptable.parameter_source = self.model.old_params[index]
-        except IndexError:
-            self.ptable.parameter_source = self.default_parameters.copy()
+        self.ptable.parameter_source = self.default_parameters.copy()
         self.ptable.grid(row=0, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
 
         # row 1: control buttons

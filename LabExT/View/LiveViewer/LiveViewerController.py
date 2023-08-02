@@ -41,10 +41,7 @@ class LiveViewerController:
 
         # set up the liveviewer model
         self.model = LiveViewerModel(root)
-
-        self.model.options = self.experiment_manager.live_viewer_cards
-        # loads old, saved parameters
-        self.load_parameters()
+        self.model.lvcards_classes.update(self.experiment_manager.live_viewer_cards)
 
         # set up the liveviewer view
         self.view = LiveViewerView(self.root, self, self.model, experiment_manager)
@@ -52,67 +49,6 @@ class LiveViewerController:
         # sets the member variable current_window, needed by the LabExT backend
         self.current_window = self.view.main_window
 
-        self.model.old_params = []
-
-    def save_parameters(self):
-        """Saves all parameters to a config file, so that when the next instance of the liveviewer is loaded,
-        all the parameters remain the same.
-
-        Parameters
-        ----------
-        """
-        # initialize json element
-        to_save = []
-        # loop over all cards
-        for (type, card) in self.model.cards:
-            # for each card, make a json out of the parameter tables
-            params = card.ptable.make_json_able()
-
-            instr_data = {}
-            for role_name in card.available_instruments:
-                instr_data[role_name] = card.available_instruments[role_name].choice
-            # build the config object
-            config = [type, params, instr_data]
-            # add the config to the list
-            to_save.append(config)
-
-        # write all elements to the json file
-        fname = get_configuration_file_path('LiveViewerConfig.json')
-        with open(fname, 'w') as json_file:
-            json_file.write(json.dumps(to_save))
-
-    def load_parameters(self):
-        """Loads all parameters from a config file, so that when the next instance of the liveviewer is loaded,
-        all the parameters remain the same.
-
-        Parameters
-        ----------
-        """
-        # try to open the json.
-        try:
-            fname = get_configuration_file_path('LiveViewerConfig.json')
-            with open(fname, 'r') as json_file:
-                data = json.loads(json_file.read())
-
-            # read all configs from the json
-            for old_card in data:
-                # save the config to the model, by appending cards directly to the model
-                self.model.cards.append((old_card[0], None))
-                # load the config
-                old_param = {}
-                for op in old_card[1]:
-                    old_param[op] = MeasParamAuto(old_card[1][op])
-
-                # add the parameters to the old_params list
-                self.model.old_params.append(old_param)
-                self.model.old_instr.append(old_card[2])
-
-        # if we do not succeed, the json does not exist and we do nothing
-        except json.JSONDecodeError as e:
-            pass
-
-        except FileNotFoundError as e:
-            pass
 
     def close_all_instruments(self):
         """Wrapper function that closes all instruments.

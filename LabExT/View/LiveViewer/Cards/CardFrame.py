@@ -109,13 +109,6 @@ class CardFrame(Frame):
         io_set = get_visa_address(self.INSTRUMENT_TYPE)
         self.available_instruments.update({self.INSTRUMENT_TYPE: InstrumentRole(self._root, io_set)})
 
-        try:
-            for role_name in self.model.old_instr[index]:
-                if role_name in self.available_instruments:
-                    self.available_instruments[role_name].create_and_set(self.model.old_instr[index][role_name])
-        except IndexError:
-            pass
-
         self.instr_selec = InstrumentSelector(self)
         self.instr_selec.title = 'Instrument'
         self.instr_selec.instrument_source = self.available_instruments

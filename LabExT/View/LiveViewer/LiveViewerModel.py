@@ -35,13 +35,10 @@ class LiveViewerModel:
 
         # the options when selecting a new card
         # this is dynamically filled in during start of the live viewer
-        self.options = {}
+        self.lvcards_classes = {}
 
         # the cards list
         self.cards = []
-        # the old parameters, used when loading from an existing instance of the liveviewer
-        self.old_params = []
-        self.old_instr = []
 
         # the current live plot
         self.live_plot = None
