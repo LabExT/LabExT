@@ -89,7 +89,7 @@ class CardFrame(Frame):
 
         # plot color
         self.color = colors.get(self.model.new_color_idx)
-        self.model.new_color_idx += 1
+        self.model.new_color_idx = (self.model.new_color_idx + 1) % len(colors)
 
         # keep my references which buttons to gray out when
         self.buttons_active_when_settings_enabled = []
