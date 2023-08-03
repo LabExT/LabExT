@@ -6,6 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+import tkinter
 from functools import wraps
 from tkinter import Frame, Button, Label, colorchooser, messagebox, BooleanVar
 
@@ -149,10 +150,15 @@ class CardFrame(Frame):
     def _card_active_status_changed(self, *args):
         # callback on the card_active variable
         # automatically set GUI elements depending on if card is active or not
-        if self.card_active.get():
-            self.disable_settings_interaction()
-        else:
-            self.enable_settings_interaction()
+        try:
+            if self.card_active.get():
+                self.disable_settings_interaction()
+            else:
+                self.enable_settings_interaction()
+        except tkinter.TclError:
+            # sometimes the card is already destroyed
+            # so changes in GUI raise TclError but can safely be ignored
+            pass
 
     def enable_settings_interaction(self):
         # call this function when you want to enable GUI elements for changing settings
