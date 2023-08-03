@@ -114,11 +114,8 @@ class LiveViewerController:
         top right of a card.
         """
 
-        # call the cards tear down function
-        card.tear_down()
-
-        # issue the tk command to destroy the card
-        card.destroy()
+        # stop any interaction w/ instrument
+        card.stop_instr()
 
         # clean up the data from the plot
         if card.plot_data is not None:
@@ -126,6 +123,9 @@ class LiveViewerController:
 
         # delete the cards record from the list of all cards
         self.model.cards.remove((card.CARD_TITLE, card))
+
+        # issue the tk command to destroy the card
+        card.destroy()
 
     def update_color(self, card, color):
         """ Updates the color of a plot with a new one.

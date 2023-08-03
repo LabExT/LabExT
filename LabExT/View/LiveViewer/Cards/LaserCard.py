@@ -107,8 +107,7 @@ class LaserCard(CardFrame):
         warning_variable.set("LASER ENABLED")
 
         self.instrument = loaded_instr
-        self.enabled = True
-        self.disable_settings_interaction()
+        self.card_active.set(True)
 
     @show_errors_as_popup()
     def stop_laser(self, instr, parameters, warning_variable):
@@ -121,8 +120,7 @@ class LaserCard(CardFrame):
         with loaded_instr.thread_lock:
             loaded_instr.enable = False
         warning_variable.set("")
-        self.enabled = False
-        self.enable_settings_interaction()
+        self.card_active.set(False)
 
         self.instrument.close()
         self.instrument = None
@@ -146,11 +144,5 @@ class LaserCard(CardFrame):
     def stop_instr(self):
         """
         This function is needed as a generic stopping function.
-        """
-        self.stop_laser(None, None, self.laser_enabled_warning_text)
-
-    def tear_down(self):
-        """
-        Called on card destruction.
         """
         self.stop_laser(None, None, self.laser_enabled_warning_text)

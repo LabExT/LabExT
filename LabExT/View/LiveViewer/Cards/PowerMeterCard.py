@@ -57,6 +57,10 @@ class PowerMeterCard(CardFrame):
         content_frame.columnconfigure(2, minsize=120)
         content_frame.columnconfigure(3, weight=4)
 
+        # thread-control related
+        self.paused = False
+        self.thread_finished = True
+
         # row 0: parameter table
         self.ptable = ParameterTable(content_frame)
         self.ptable.title = 'Parameters'
@@ -91,16 +95,14 @@ class PowerMeterCard(CardFrame):
         """
         Sets up the pm and starts it.
         """
-        if self.initialized:
+        if self.plot_data is not None:
             self.model.plot_collection.remove(self.plot_data)
-            self.initialized = False
 
         loaded_instr = self.load_instrument_instance()
 
         loaded_instr.open()
 
         plot = PlotData(ObservableList(), ObservableList(), color=color)
-        self.model.plot_collection.append(plot)
 
         nopk = self.model.plot_size
 
@@ -119,27 +121,24 @@ class PowerMeterCard(CardFrame):
             loaded_instr.trigger(continuous=False)
 
         func = lambda: self.poll_pm()
-
         th = threading.Thread(target=func, name="live viewer measurement")
 
         self.instrument = loaded_instr
-        self.polling_function = func
         self.active_thread = th
-        self.enabled = True
+        self.card_active.set(True)
         self.plot_data = plot
-        self.initialized = True
+        self.model.plot_collection.append(plot)
 
+        # Startet die Motoren!
         self.thread_finished = False
         th.start()
-        self.disable_settings_interaction()
 
     @show_errors_as_popup()
     def stop_pm(self, instr, parameters):
         """
         Stops the pm.
         """
-        self.enabled = False
-        loaded_instr = self.instrument
+        self.card_active.set(False)
 
         # the following block is needed for a few reasons. We want for the polling thread to be finished, to make sure
         # there are no requests or communications to the instruments left pending. If we however do not call the
@@ -149,28 +148,26 @@ class PowerMeterCard(CardFrame):
         while not self.thread_finished:
             self.update_idletasks()
             self.update()
-        if loaded_instr is None:
-            return
 
-        self.enable_settings_interaction()
         # since we know that the thread finished, we can now join the thread without risking a deadlock
-        self.active_thread.join()
+        if self.active_thread is not None:
+            self.active_thread.join()
 
-        self.instrument.close()
-        self.instrument = None
+        if self.instrument is not None:
+            self.instrument.close()
+            self.instrument = None
 
     @show_errors_as_popup()
     def update_pm(self, instr, parameters):
         """
         Updates the power meters parameters.
         """
-        self.paused = True
-        sleep(0.2)
-
         loaded_instr = self.instrument
         if loaded_instr is None:
-            self.paused = False
             return
+
+        self.paused = True
+        sleep(0.2)
 
         pm_range = parameters['powermeter range'].value
         pm_atime = parameters['powermeter averagetime'].value
@@ -196,8 +193,8 @@ class PowerMeterCard(CardFrame):
         loaded_instr = self.instrument
         plot = self.plot_data
 
-        while self.enabled:
-            if self.paused:
+        while self.card_active.get():
+            if self.paused:  # ToDo test pause / update properties feature!
                 sleep(0.2)
             else:
                 with loaded_instr.thread_lock:
@@ -212,11 +209,5 @@ class PowerMeterCard(CardFrame):
     def stop_instr(self):
         """
         This function is needed as a generic stopping function.
-        """
-        self.stop_pm(None, None)
-
-    def tear_down(self):
-        """
-        Called on card destruction.
         """
         self.stop_pm(None, None)

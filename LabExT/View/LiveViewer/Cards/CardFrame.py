@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from functools import wraps
-from tkinter import Frame, Button, Label, colorchooser, messagebox
+from tkinter import Frame, Button, Label, colorchooser, messagebox, BooleanVar
 
 from LabExT.Utils import get_visa_address
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
@@ -76,9 +76,20 @@ class CardFrame(Frame):
         self._root = parent
         # logger, is always handy
         self.logger = logging.getLogger()
+
+        # card attributes
+        self.instrument = None  # reference to instantiated instrument driver
+        self.active_thread = None  # reference to sub-thread (used for polling etc.)
+        self.plot_data = None  # reference to PlotData instance holding this card's plot
+        self.card_active = BooleanVar(master=parent, value=False)  # indicator if card is active or not
+        self.card_active.trace('w', self._card_active_status_changed)
+
+        self.last_instrument_type = ""  # keep instrument info for saving out traces to file
+
         # plot color
         self.color = colors.get(self.model.new_color_idx)
         self.model.new_color_idx += 1
+
         # keep my references which buttons to gray out when
         self.buttons_active_when_settings_enabled = []
         self.buttons_inactive_when_settings_enabled = []
@@ -120,20 +131,6 @@ class CardFrame(Frame):
         self.content_frame = Frame(self)
         self.content_frame.grid(row=2, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
 
-        # define the card-related attributes
-        self.instrument = None
-        self.polling_function = None
-        self.active_thread = None
-        self.enabled = None
-        self.paused = False
-        self.thread_finished = True
-        self.plot_data = None
-
-        self.string_var = None
-        self.initialized = False
-
-        self.last_instrument_type = ""
-
     def load_instrument_instance(self):
         """
         Use this function to get an instance from the instrument selector dropdown.
@@ -148,6 +145,14 @@ class CardFrame(Frame):
 
         self.last_instrument_type = loaded_instr.instrument_parameters['class']
         return loaded_instr
+
+    def _card_active_status_changed(self, *args):
+        # callback on the card_active variable
+        # automatically set GUI elements depending on if card is active or not
+        if self.card_active.get():
+            self.disable_settings_interaction()
+        else:
+            self.enable_settings_interaction()
 
     def enable_settings_interaction(self):
         # call this function when you want to enable GUI elements for changing settings
@@ -181,7 +186,4 @@ class CardFrame(Frame):
         self.controller.update_color(self, self.color)
 
     def stop_instr(self):
-        raise NotImplementedError
-
-    def tear_down(self):
         raise NotImplementedError
