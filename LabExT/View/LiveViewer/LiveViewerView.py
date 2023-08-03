@@ -109,6 +109,9 @@ class MainFrame(Frame):
 class ControlFrame(Frame):
     """
     The control Frame. Contains all cards.
+
+    ToDo: this control frame currently bugs when turning MouseWheel, we might need to disable
+    see https://gist.github.com/JackTheEngineer/81df334f3dcff09fd19e4169dd560c59
     """
     def __init__(self, parent, controller, model):
         """Constructor.
@@ -154,7 +157,7 @@ class ControlFrame(Frame):
         self.content_carrier = Frame(self.canvas)
 
         # add the content frame to the canvas
-        self.canvas_frame = self.canvas.create_window(0, 0, window=self.content_carrier, anchor='nw')
+        self.canvas.create_window(0, 0, window=self.content_carrier, anchor='nw')
 
         self.set_cards()
 
