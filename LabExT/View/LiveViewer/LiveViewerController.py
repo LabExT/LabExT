@@ -49,37 +49,14 @@ class LiveViewerController:
         # sets the member variable current_window, needed by the LabExT backend
         self.current_window = self.view.main_window
 
-
     def close_all_instruments(self):
         """Wrapper function that closes all instruments.
 
         Parameters
         ----------
         """
-        for (card_type, card) in self.model.cards:
+        for (_, card) in self.model.cards:
             card.stop_instr()
-
-    def toggle_card_mode_enable(self, index):
-        """ Switches one card at index to enable mode. This is, such that buttons can be greyed out while
-        an instrument is active.
-
-        Parameters
-        ----------
-        index :
-            index of the card that needs to be toggled
-        """
-        self.model.cards[index][1].enable_settings_interaction()
-
-    def toggle_card_mode_disable(self, index):
-        """ Switches one card at index to disable mode. This is, such that buttons can be greyed out while
-        an instrument is disabled.
-
-        Parameters
-        ----------
-        index :
-            index of the card that needs to be toggled
-        """
-        self.model.cards[index][1].disable_settings_interaction()
 
     def update_settings(self, parameters):
         """ Updates the main parameters of the plot. These are the ones represented without a card, present
@@ -132,49 +109,30 @@ class LiveViewerController:
         self.model.live_plot.min_y_axis_span = min_y
         self.model.min_y_span = min_y
 
-    def remove_card(self, index):
+    def remove_card(self, card):
         """ Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
         top right of a card.
-
-        Parameters
-        ----------
-        index :
-            Index of card that will be removed
         """
-        # find the card that we need to remove
-        (c_type, card) = self.model.cards[index]
+
         # call the cards tear down function
         card.tear_down()
 
         # issue the tk command to destroy the card
         card.destroy()
 
-        # clean up the data
-        # remove the plot collection
-        if card.initialized:
+        # clean up the data from the plot
+        if card.plot_data is not None:
             self.model.plot_collection.remove(card.plot_data)
 
         # delete the cards record from the list of all cards
-        del(self.model.cards[index])
+        self.model.cards.remove((card.CARD_TITLE, card))
 
-        # update the indices of all cards.
-        # this is a slight work-around, but all cards need to know their index, to simplify and speedup various commands
-        for i, (card_type, card) in enumerate(self.model.cards):
-            card.index = i
-
-    def update_color(self, index, color):
+    def update_color(self, card, color):
         """ Updates the color of a plot with a new one.
-
-        Parameters
-        ----------
-        index :
-            Index of card that will change color
-        color :
-            The new color for the plot
         """
         # update the plot_data element
-        if self.model.cards[index][1].plot_data is not None:
-            self.model.cards[index][1].plot_data.color = color
+        if card.plot_data is not None:
+            card.plot_data.color = color
 
     def show_main_window(self):
         """ Lifts the LiveViewer main window to the front.

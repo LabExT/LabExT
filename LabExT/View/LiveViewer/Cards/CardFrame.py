@@ -13,14 +13,16 @@ from LabExT.Utils import get_visa_address
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
 
 colors = {
-    0: 'red',
-    1: 'purple',
-    2: 'blue',
-    3: 'green',
-    4: 'skyblue',
-    5: 'black',
-    6: 'orange',
-    7: 'yellow'
+    0: '#1f77b4',
+    1: '#ff7f0e',
+    2: '#2ca02c',
+    3: '#d62728',
+    4: '#9467bd',
+    5: '#8c564b',
+    6: '#e377c2',
+    7: '#7f7f7f',
+    8: '#bcbd22',
+    9: '#17becf'
 }
 
 
@@ -64,19 +66,19 @@ class CardFrame(Frame):
 
     default_parameters = {}
 
-    def __init__(self, parent, controller, model, index):
+    def __init__(self, parent, controller, model):
 
         # refs to LiveViewer objects
         self.model = model
         self.controller = controller
-        # my index
-        self.index = index
+
         # root window where I will be placed
         self._root = parent
         # logger, is always handy
         self.logger = logging.getLogger()
         # plot color
-        self.color = colors.get(index, 'gray')
+        self.color = colors.get(self.model.new_color_idx)
+        self.model.new_color_idx += 1
         # keep my references which buttons to gray out when
         self.buttons_active_when_settings_enabled = []
         self.buttons_inactive_when_settings_enabled = []
@@ -95,14 +97,13 @@ class CardFrame(Frame):
         # row 0: title
         self.label = Label(self, text=self.CARD_TITLE)
         self.label.grid(row=0, column=0, padx=2, pady=2, sticky='NSW')
-
         # row 0: color selection button
         if self.PLOTTING_ENABLED:
             self.color_button = Button(self, text="", command=self.choose_color, bg=self.color)
             self.color_button.grid(row=0, column=1, sticky='NESW')
 
         # row 0: remove card button
-        self.remove_button = Button(self, text="X", command=lambda: controller.remove_card(self.index))
+        self.remove_button = Button(self, text="X", command=lambda: controller.remove_card(self))
         self.remove_button.grid(row=0, column=3, sticky='NE')
 
         # row 1: instrument selector
@@ -177,7 +178,7 @@ class CardFrame(Frame):
         self.color = color_code[1]
         self.controller.show_main_window()
         self.color_button.configure(bg=color_code[1])
-        self.controller.update_color(self.index, self.color)
+        self.controller.update_color(self, self.color)
 
     def stop_instr(self):
         raise NotImplementedError

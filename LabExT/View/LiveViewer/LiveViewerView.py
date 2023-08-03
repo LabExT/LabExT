@@ -160,13 +160,13 @@ class ControlFrame(Frame):
 
     def set_cards(self):
         """
-        Function to render all cards from the corellating model
+        Function to render all cards from the correlating model
         """
         for i, (card_title, card) in enumerate(self.model.cards):
             if card is not None:
                 continue
             # set up new card
-            new_card = self.model.lvcards_classes[card_title](self.content_carrier, self.controller, self.model, i)
+            new_card = self.model.lvcards_classes[card_title](self.content_carrier, self.controller, self.model)
             self.model.cards[i] = (card_title, new_card)
             new_card.pack(side='top', anchor='nw', fill='x', pady=(0, 20))
 

@@ -42,6 +42,7 @@ class LiveViewerModel:
 
         # the current live plot
         self.live_plot = None
+        self.new_color_idx = 0
 
         # the number of points kept
         self.plot_size = 100

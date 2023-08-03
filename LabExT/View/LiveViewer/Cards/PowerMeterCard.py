@@ -36,7 +36,7 @@ class PowerMeterCard(CardFrame):
     CARD_TITLE = 'Poll Power Meter Channel'
     PLOTTING_ENABLED = True
 
-    def __init__(self, parent, controller, model, index):
+    def __init__(self, parent, controller, model):
         """Constructor.
 
         Parameters
@@ -47,12 +47,10 @@ class PowerMeterCard(CardFrame):
             The Live viewer controller
         model :
             The Live viewer model
-        index :
-            This cards index
         """
 
         # create basics GUI elements from super class
-        super().__init__(parent, controller, model, index)
+        super().__init__(parent, controller, model)
         content_frame = self.content_frame  # created in constructor of super class
         content_frame.columnconfigure(0, minsize=120)
         content_frame.columnconfigure(1, minsize=120)
