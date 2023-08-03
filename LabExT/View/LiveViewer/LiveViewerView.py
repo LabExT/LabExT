@@ -222,6 +222,9 @@ class PlotWidget (PlotControl):
         model :
             The Live viewer model
         """
+
+        # ToDo: plotting is very unperformant - debug with py-spy and speedscope
+
         PlotControl.__init__(self,
                              parent,
                              add_toolbar=True,
