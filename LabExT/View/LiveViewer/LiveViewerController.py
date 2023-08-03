@@ -119,7 +119,12 @@ class LiveViewerController:
 
         # clean up the data from the plot
         if card.plot_data is not None:
-            self.model.plot_collection.remove(card.plot_data)
+            try:
+                self.model.plot_collection.remove(card.plot_data)
+            except ValueError:
+                # when closing the window during destruction of the plot, the plot data sources will be cleared
+                # so this remove call will fail
+                pass
 
         # delete the cards record from the list of all cards
         self.model.cards.remove((card.CARD_TITLE, card))
