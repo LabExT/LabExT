@@ -5,11 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas, TOP, BOTH
-
-from matplotlib.backends._backend_tk import NavigationToolbar2Tk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
+from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
 
 from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.PlotControl import PlotControl
@@ -19,7 +15,6 @@ class LiveViewerView:
     """
     Viewer class for the live viewer. Contains all functionality related to widgets.
     """
-
     def __init__(self, root, controller, model, experiment_manager):
         """Constructor.
 
@@ -46,7 +41,6 @@ class LiveViewerMainWindow(Toplevel):
     """
     The main window itself. Inherits from TopLevel and acts as a standalone window.
     """
-
     def __init__(self, root, controller, model):
         """Constructor.
 
@@ -87,7 +81,6 @@ class MainFrame(Frame):
     """
     The main Frame. Contains all other smaller frames.
     """
-
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -120,7 +113,6 @@ class ControlFrame(Frame):
     ToDo: this control frame currently bugs when turning MouseWheel, we might need to disable
     see https://gist.github.com/JackTheEngineer/81df334f3dcff09fd19e4169dd560c59
     """
-
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -194,7 +186,6 @@ class PlotFrame(Frame):
     """
     Plot Frame, containing the live plot.
     """
-
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -217,11 +208,60 @@ class PlotFrame(Frame):
         self.columnconfigure(0, weight=1)
 
 
+class PlotWidget (PlotControl):
+    """
+    Plot Widget class. Resides inside the Plotwindow.
+    """
+    def __init__(self, parent, model):
+        """Constructor.
+
+        Parameters
+        ----------
+        parent : Tk
+            Tkinter parent frame
+        model :
+            The Live viewer model
+        """
+
+        # ToDo: plotting is very unperformant - debug with py-spy and speedscope
+
+        PlotControl.__init__(self,
+                             parent,
+                             add_toolbar=True,
+                             figsize=(12, 6),
+                             autoscale_axis=True,
+                             no_x_autoscale=True,
+                             min_y_axis_span=None
+                             )
+
+        self.parent = parent
+        self.model = model
+
+        self.model.live_plot = self
+
+        self.title = 'Live Plot'
+        self.show_grid = True
+        self.data_source = self.model.plot_collection
+
+        current_nopk = self.model.general_settings['number of points kept'].value
+        current_y_min = self.model.general_settings['minimum y-axis span'].value
+
+        self.ax.set_xlim([0, current_nopk])
+        self.min_y_axis_span = current_y_min
+
+    def destroy(self):
+        # this is a workaround for the LiveViewer thread
+        # This thread is usually waiting on a function return
+        # Once we close this frame however, the call would be blocking forever
+        # Hence we close it
+        self.return_queue.put(None)
+        PlotControl.destroy(self)
+
+
 class CardManager(Frame):
     """
     Card manager frame, containing buttons and menus to add more cards.
     """
-
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -271,99 +311,3 @@ class CardManager(Frame):
         """
         self.model.cards.append((self.selected_value.get(), None))
         self.parent.set_cards()
-
-
-class LiveViewerPlot(Frame):
-
-    def __init__(self,
-                 parent,
-                 polling_time_s=0.02,
-                 min_y_axis_span=None):
-        super(LiveViewerPlot, self).__init__(parent)  # call the parent controls constructor
-
-        self._root = parent  # keep a reference for the ui root
-        self._min_y_axis_span = min_y_axis_span
-
-        # set automatic updating time
-        if polling_time_s < 1e-5:
-            raise ValueError('Polling time must be larger than 10ums.')
-        self._polling_time_ms = int(polling_time_s * 1000)
-        self._polling_running = False  # flag to not start polling thread multiple times
-        self._polling_kill_flag = False  # Gets set to true when the class is destroyed in order to stop polling
-
-        self._x_label = "x"
-        self._y_label = "y"
-
-        self._figure = Figure(figsize=(12, 6), dpi=100)  # define plot size
-        self.ax = self._figure.add_subplot(111)  # add subplot and save reference
-
-        self._canvas = FigureCanvasTkAgg(self._figure, self)  # add figure to canvas
-
-        self._canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)  # place canvas
-        self._canvas.draw()  # show canvas
-
-        self._toolbar = NavigationToolbar2Tk(self._canvas, self)  # enable plot toolbar
-        self._toolbar.update()  # update toolbar
-        self._canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
-
-        # start polling
-        self._polling_kill_flag = False
-        self._polling_running = True
-        self._root.after(self._polling_time_ms, self.__polling__)
-
-    def __polling__(self):
-        """ Polls and updates data """
-        if self._data_source is not None:
-            for item in self._data_source:
-                self.__plotdata_changed__(item)
-        if not self._polling_kill_flag:
-            # reschedule if not killed
-            self._root.after(self._polling_time_ms, self.__polling__)
-        else:
-            # otherwise set running flag to false to signal completion
-            self._polling_running = False
-
-    def stop_polling(self):
-        self._polling_kill_flag = True
-
-
-
-class PlotWidget(LiveViewerPlot):
-    """
-    Plot Widget class. Resides inside the Plotwindow.
-    """
-
-    def __init__(self, parent, model):
-        """Constructor.
-
-        Parameters
-        ----------
-        parent : Tk
-            Tkinter parent frame
-        model :
-            The Live viewer model
-        """
-
-        # ToDo: plotting is very unperformant - debug with py-spy and speedscope
-
-        LiveViewerPlot.__init__(self,
-                                parent,
-                                polling_time_s=0.02,
-                                min_y_axis_span=None
-                             )
-
-        self.parent = parent
-        self.model = model
-
-        self.model.live_plot = self
-
-        self.title = 'Live Plot'
-        self.show_grid = True
-        self.data_source = self.model.plot_collection
-
-        current_nopk = self.model.general_settings['number of points kept'].value
-        current_y_min = self.model.general_settings['minimum y-axis span'].value
-
-        self.ax.set_xlim([0, current_nopk])
-        self.min_y_axis_span = current_y_min
-
