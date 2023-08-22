@@ -56,6 +56,8 @@ class Stage3DSmarAct(Stage):
     driver_specifiable = True
     description = "SmarAct Modular Control System"
 
+    live_position_refreshing_rate = 1000
+
     @classmethod
     def load_driver(cls, parent) -> bool:
         """

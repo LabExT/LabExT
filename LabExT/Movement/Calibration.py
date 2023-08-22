@@ -251,6 +251,16 @@ class Calibration:
         """
         return self._is_lifted
 
+    @property
+    def supports_live_position(self) -> bool:
+        """
+        Returns True if stage supports live position.
+        """
+        if not self.stage:
+            return False
+
+        return self.stage.live_position_refreshing_rate > 0
+
     #
     #   Coordinate System Control
     #

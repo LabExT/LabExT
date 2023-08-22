@@ -21,6 +21,8 @@ class DummyStage(Stage):
     driver_specifiable = False
     description = "Dummy Stage Vendor"
 
+    live_position_refreshing_rate = -1
+
     @classmethod
     def find_stage_addresses(cls):
         return [

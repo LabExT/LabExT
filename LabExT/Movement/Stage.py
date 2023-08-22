@@ -68,6 +68,8 @@ class Stage(ABC):
 
     _logger = logging.getLogger()
 
+    live_position_refreshing_rate: int = -1
+
     @classmethod
     def find_available_stages(cls) -> List[Type[Stage]]:
         """
