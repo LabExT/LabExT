@@ -24,6 +24,7 @@ if __name__ == '__main__':
 # import LabExT submodules
 from LabExT.ExperimentManager import ExperimentManager
 from LabExT.Logs.CustomLogFormatter import CustomLogFormatter
+from LabExT.Logs.MaxLevelFilter import MaxLevelFilter
 from LabExT.Utils import get_configuration_file_path, setup_user_settings_directory
 
 
@@ -50,9 +51,24 @@ def main():
     argparser.add_argument('-l', '--log-file-level', type=str,
                            help='Logging level of the log file, i.e. all messages of the level at least chosen here are'
                                 ' printed to the log file, any lower levels are omitted. The lowest level "debug" '
-                                'prints all SCPI communication to the log file, too! By default set to "info"',
+                                'prints all SCPI communication to the log file, too! By default set to "info".',
                            choices=["debug", "info", "warning", "error", "critical"],
                            default="info")
+    argparser.add_argument("-v", "--verbose",
+                           help="Makes the console output verbose. This flag is ignored if -q or -V are set.",
+                           action="store_true",
+                           dest='verbose',
+                           default=False)
+    argparser.add_argument("-V", "--Verbose",
+                           help="Makes the console output very verbose. This flag is ignored if -q is set.",
+                           action="store_true",
+                           dest="Verbose",
+                           default=False)
+    argparser.add_argument("-q", "--quiet",
+                           help="Hides warnings from console output.",
+                           action="store_true",
+                           dest="quiet",
+                           default=False)
     args = argparser.parse_args()
 
     #
@@ -71,9 +87,17 @@ def main():
 
     # create console output for warnings
     sh = logging.StreamHandler(sys.stderr)
-    sh.setLevel(logging.WARNING)
+    sh.setLevel(logging.ERROR if args.quiet else logging.WARNING)
     sh.setFormatter(clf)
     logger.addHandler(sh)
+
+    # create console output for infos and debugs
+    if not args.quiet and (args.verbose or args.Verbose):
+        cons = logging.StreamHandler(sys.stdout)
+        cons.setLevel(logging.DEBUG if args.Verbose else logging.INFO)
+        cons.addFilter(MaxLevelFilter(logging.INFO))
+        cons.setFormatter(clf)
+        logger.addHandler(cons)
 
     # create log file rotating handler for debugs and above
     log_file_path = get_configuration_file_path('debug.log')
