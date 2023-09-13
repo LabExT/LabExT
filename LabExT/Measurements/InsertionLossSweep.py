@@ -212,7 +212,7 @@ class InsertionLossSweep(Measurement):
             self.apply_reference_to_data(data=data)
 
         # if user wants to save disk space by discarding raw data, do it now
-        if parameters['discard raw transmission data']:
+        if parameters['discard raw transmission data'].value:
             data['values'].pop('transmission [dBm]')
 
         # sanity check if data contains all necessary keys
