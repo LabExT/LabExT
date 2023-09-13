@@ -47,10 +47,13 @@ def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_prop
         testinst.assertEqual(executed_meas['powermeter range']['value'], meas_props['powermeter range'])
         testinst.assertEqual(executed_meas['file path to reference meas.']['value'],
                              meas_props['file path to reference meas.'])
+        testinst.assertEqual(executed_meas['discard raw transmission data']['value'],
+                             meas_props['discard raw transmission data'])
         testinst.assertEqual(executed_meas['users comment']['value'], meas_props['users comment'])
         testinst.assertEqual(set(executed_meas.keys()),
                              {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                              'powermeter range', 'users comment', 'file path to reference meas.'})
+                              'powermeter range', 'users comment', 'file path to reference meas.',
+                              'discard raw transmission data'})
 
 
 @mark_as_gui_integration_test
@@ -141,6 +144,7 @@ class MainWindowTest(TKinterTestCase):
                 'laser power': random.randint(-20, 10),
                 'powermeter range': random.randint(-80, -20),
                 'file path to reference meas.': '',  # don't use any reference data
+                'discard raw transmission data': False,  # don't use a reference file
                 'users comment': 'automated testing ' + randomword(random.randint(2, 40))
             }
             ps = new_meas_wizard_c.view.s3_measurement_param_table._parameter_source
@@ -151,6 +155,7 @@ class MainWindowTest(TKinterTestCase):
             ps['laser power'].value = random_meas_props['laser power']
             ps['powermeter range'].value = random_meas_props['powermeter range']
             ps['file path to reference meas.'].value = random_meas_props['file path to reference meas.']
+            ps['discard raw transmission data'].value = random_meas_props['discard raw transmission data']
             ps['users comment'].value = random_meas_props['users comment']
 
             # this would otherwise save the test params to the user's settings
@@ -183,10 +188,13 @@ class MainWindowTest(TKinterTestCase):
             self.assertEqual(new_meas.parameters['powermeter range'].value, random_meas_props['powermeter range'])
             self.assertEqual(new_meas.parameters['file path to reference meas.'].value,
                              random_meas_props['file path to reference meas.'])
+            self.assertEqual(new_meas.parameters['discard raw transmission data'].value,
+                             random_meas_props['discard raw transmission data'])
             self.assertEqual(new_meas.parameters['users comment'].value, random_meas_props['users comment'])
             self.assertEqual(set(new_meas.parameters.keys()),
                              {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                              'powermeter range', 'users comment', 'file path to reference meas.'})
+                              'powermeter range', 'users comment', 'file path to reference meas.',
+                              'discard raw transmission data'})
 
             # Back to Main Window: run simulation measurement
             # various patches necessary s.t. tkinter runs although there is no main thread
