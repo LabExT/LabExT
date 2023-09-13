@@ -207,9 +207,11 @@ class InsertionLossSweep(Measurement):
         self.instr_laser.close()
         self.instr_pm.close()
 
-        # apply reference data
+        # apply reference to data
         if parameters['file path to reference meas.'].value.strip():
             self.apply_reference_to_data(data=data)
+        else:
+            data['values']['referenced transmission [dB]'] = []
 
         # if user wants to save disk space by discarding raw data, do it now
         if parameters['discard raw transmission data'].value:
