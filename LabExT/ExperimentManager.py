@@ -71,6 +71,7 @@ class ExperimentManager:
             None, self, mover=self.mover, parent=self.root)
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
+        self.already_shown_docu_path = False
         self.live_viewer_cards = {}
         self.lvcards_import_stats = {}
 
@@ -206,6 +207,9 @@ class ExperimentManager:
 
     def show_documentation(self, event):
         if self.docu.docu_available:
+            if not self.already_shown_docu_path:
+                self.logger.info(f'Documentation available at {self.docu.temp_file:s}.')
+                self.already_shown_docu_path = True
             webbrowser.open(self.docu.temp_file)
 
     def setup_runner(self):
