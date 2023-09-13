@@ -142,7 +142,10 @@ class MainWindowController:
             if default_y in self._choices:
                 v = default_y
             else:
-                v = list(self._choices)[1]
+                if len(self._choices) > 1:
+                    v = list(self._choices)[1]
+                else:
+                    v = list(self._choices)[0]
             self.view.frame.axes_frame.y_axis_choice.set(v)
         if not self._choices:
             self.view.frame.axes_frame.x_axis_choice.set('')
