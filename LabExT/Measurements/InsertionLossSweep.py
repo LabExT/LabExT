@@ -50,6 +50,9 @@ class InsertionLossSweep(Measurement):
 
     #### reference paramters
     * **file path to reference meas.**: optionally specify a previously measured InsertionLossSweep to be the reference.
+      Leave empty to not apply a reference.
+    * **discard raw transmission data**: enable to discard raw measurement data and save only referenced
+      transmission to save disk space.
 
     #### user parameter
     * **users comment**: this string will simply get stored in the saved output data file. Use this at your discretion.
@@ -82,6 +85,8 @@ class InsertionLossSweep(Measurement):
             'powermeter range': MeasParamFloat(value=10.0, unit='dBm'),
             # apply reference scan to recorded data
             'file path to reference meas.': MeasParamString(value='', extra_type='openfile'),
+            # let user choose to save raw data
+            'discard raw transmission data': MeasParamBool(value=False),
             # let the user give some own comment
             'users comment': MeasParamString(value=''),
         }
@@ -103,6 +108,10 @@ class InsertionLossSweep(Measurement):
         # check if reference data valid
         if parameters['file path to reference meas.'].value.strip():
             self.check_if_reference_valid(parameters=parameters)
+        else:
+            if parameters['discard raw transmission data'].value:
+                raise ValueError('Discarding raw transmission data when not using a reference file does not make sense!'
+                                 ' No useful data would be left to save.')
 
         # get instrument pointers
         self.instr_pm = instruments['Power Meter']
@@ -201,6 +210,10 @@ class InsertionLossSweep(Measurement):
         # apply reference data
         if parameters['file path to reference meas.'].value.strip():
             self.apply_reference_to_data(data=data)
+
+        # if user wants to save disk space by discarding raw data, do it now
+        if parameters['discard raw transmission data']:
+            data['values'].pop('transmission [dBm]')
 
         # sanity check if data contains all necessary keys
         self._check_data(data)
