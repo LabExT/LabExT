@@ -236,3 +236,22 @@ class InstrumentSelector(CustomFrame):
             if role_name in self._instrument_source:
                 self._instrument_source[role_name].create_and_set(data[role_name])
         self.__setup__()
+
+    def serialize_to_dict(self, settings: dict):
+        """Serializes data in table to given dict."""
+        if self._instrument_source is None:
+            return
+
+        for role_name in self._instrument_source:
+            settings[role_name] = self._instrument_source[role_name].choice
+
+    def deserialize_from_dict(self, settings: dict):
+        """Deserializes the table data from a given dict and loads it
+        into the cells."""
+        if self._instrument_source is None:
+            return
+            
+        for role_name, role in settings.items():
+            if role_name in self._instrument_source:
+                self._instrument_source[role_name].create_and_set(role)
+        self.__setup__()
