@@ -7,6 +7,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 
+from typing import List
+
 
 class Measurement:
     """Super class for measurement algorithms for LabExT.
@@ -183,7 +185,7 @@ class Measurement:
         raise NotImplementedError()
 
     @staticmethod
-    def get_wanted_instrument():
+    def get_wanted_instrument() -> List[str]:
         """The list of all instrument types (strings) required in this measurement.
 
         Inside the `algorithm`, you can access the instantiated instrument driver classes by accessing the

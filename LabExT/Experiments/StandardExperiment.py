@@ -358,7 +358,7 @@ class StandardExperiment:
         self.measurements_hashes.remove(mh)
         self.measurements.remove(meas_dict)
 
-    def create_measurement_object(self, class_name):
+    def create_measurement_object(self, class_name) -> Measurement:
         """Import, load and initialise measurement.
 
         Parameters
