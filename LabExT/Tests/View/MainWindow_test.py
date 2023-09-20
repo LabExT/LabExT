@@ -100,24 +100,24 @@ class MainWindowTest(TKinterTestCase):
                 'id': randomword(random.randint(5, 25)),
                 'type': randomword(random.randint(5, 25))
             }
-            new_meas_wizard_c.view.s0_adhoc_frame._entry_id.delete(0, "end")
-            new_meas_wizard_c.view.s0_adhoc_frame._entry_id.insert(0, str(random_dev_props['id']))
-            new_meas_wizard_c.view.s0_adhoc_frame._entry_type.delete(0, "end")
-            new_meas_wizard_c.view.s0_adhoc_frame._entry_type.insert(0, str(random_dev_props['type']))
-            with patch.object(new_meas_wizard_c.view.s0_adhoc_frame, 'serialize'):
+            new_meas_wizard_c.entry_controllers[0]._view.content._entry_id.delete(0, "end")
+            new_meas_wizard_c.entry_controllers[0]._view.content._entry_id.insert(0, str(random_dev_props['id']))
+            new_meas_wizard_c.entry_controllers[0]._view.content._entry_type.delete(0, "end")
+            new_meas_wizard_c.entry_controllers[0]._view.content._entry_type.insert(0, str(random_dev_props['type']))
+            with patch.object(new_meas_wizard_c.entry_controllers[0]._view.content, 'serialize'):
                 with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
-                    new_meas_wizard_c.view.section_frames[0].continue_button.invoke()
+                    new_meas_wizard_c.entry_controllers[0]._view.continue_button.invoke()
                     self.pump_events()
 
             # stage 1: meas selection
-            new_meas_wizard_c.view.s1_meas_name.set('InsertionLossSweep')
+            new_meas_wizard_c.entry_controllers[1]._view.meas_name.set('InsertionLossSweep')
             with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
-                new_meas_wizard_c.view.section_frames[1].continue_button.invoke()
+                new_meas_wizard_c.entry_controllers[1]._view.continue_button.invoke()
                 self.pump_events()
 
             # stage 2: instrument selection - modify saved roles
-            laser_role = new_meas_wizard_c.view.s2_instrument_selector.instrument_source['Laser']
-            opm_role = new_meas_wizard_c.view.s2_instrument_selector.instrument_source['Power Meter']
+            laser_role = new_meas_wizard_c.entry_controllers[2]._view.content.instrument_source['Laser']
+            opm_role = new_meas_wizard_c.entry_controllers[2]._view.content.instrument_source['Power Meter']
             lsim = [l for l in laser_role.choices_human_readable_desc if "LaserSimulator" in l][0]
             pmsim = [l for l in opm_role.choices_human_readable_desc if "PowerMeterSimulator" in l][0]
             laser_role.selected_instr.set(lsim)
@@ -125,9 +125,9 @@ class MainWindowTest(TKinterTestCase):
             opm_role.selected_instr.set(pmsim)
             opm_role.selected_channel.set("1")
 
-            with patch.object(new_meas_wizard_c.view.s2_instrument_selector, 'serialize', lambda _: None):
+            with patch.object(new_meas_wizard_c.entry_controllers[2]._view.content, 'serialize', lambda _: None):
                 with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
-                    new_meas_wizard_c.view.section_frames[2].continue_button.invoke()
+                    new_meas_wizard_c.entry_controllers[2]._view.continue_button.invoke()
                     self.pump_events()
 
             # stage 3: parameter selection with randomly generated params
@@ -140,7 +140,7 @@ class MainWindowTest(TKinterTestCase):
                 'powermeter range': random.randint(-80, -20),
                 'users comment': 'automated testing ' + randomword(random.randint(2, 40))
             }
-            ps = new_meas_wizard_c.view.s3_measurement_param_table._parameter_source
+            ps = new_meas_wizard_c.entry_controllers[3]._view.content._parameter_source
             ps['wavelength start'].value = random_meas_props['wavelength start']
             ps['wavelength stop'].value = random_meas_props['wavelength stop']
             ps['wavelength step'].value = random_meas_props['wavelength step']
@@ -150,13 +150,13 @@ class MainWindowTest(TKinterTestCase):
             ps['users comment'].value = random_meas_props['users comment']
 
             # this would otherwise save the test params to the user's settings
-            with patch.object(new_meas_wizard_c.view.s3_measurement_param_table, 'serialize'):
+            with patch.object(new_meas_wizard_c.entry_controllers[3]._view.content, 'serialize'):
                 with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
-                    new_meas_wizard_c.view.section_frames[3].continue_button.invoke()
+                    new_meas_wizard_c.entry_controllers[3]._view.continue_button.invoke()
                     self.pump_events()
 
             # stage 4: save
-            new_meas_wizard_c.view.section_frames[4].continue_button.invoke()
+            new_meas_wizard_c.entry_controllers[4]._view.continue_button.invoke()
             self.pump_events()
 
             # check if GUI provided values made it into the generated measurement
