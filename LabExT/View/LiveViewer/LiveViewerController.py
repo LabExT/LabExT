@@ -85,18 +85,18 @@ class LiveViewerController:
         # clean the plots, loop over all cards
         for c in self.model.cards:
             # find out whether the card has a plot attached
-            if c[1].plot_data is not None:
+            for pd in c[1].plotdata_to_show.values():
                 # clean
                 if diff > 0:
                     # we need to remove points. The amount was calculated beforehand
-                    pd = c[1].plot_data
+                    pd = pd
                     for i in range(diff):
                         del(pd.y[0])
                         del(pd.x[nopk])
                 elif diff < 0:
                     # we need to add points. The amount was calculated beforehand
-                    c[1].plot_data.x.extend([x for x in range(self.model.plot_size, nopk)])
-                    c[1].plot_data.y[0:0] = [float('nan') for _ in range(nopk - self.model.plot_size)]
+                    pd.x.extend([x for x in range(self.model.plot_size, nopk)])
+                    pd.y[0:0] = [float('nan') for _ in range(nopk - self.model.plot_size)]
 
         # set the number of point kepts in the model structure
         self.model.plot_size = nopk
@@ -118,13 +118,14 @@ class LiveViewerController:
         card.stop_instr()
 
         # clean up the data from the plot
-        if card.plot_data is not None:
+        for pd in card.plotdata_to_show.values():
             try:
-                self.model.plot_collection.remove(card.plot_data)
+                self.model.plot_collection.remove(pd)
             except ValueError:
                 # when closing the window during destruction of the plot, the plot data sources will be cleared
                 # so this remove call will fail
                 pass
+        card.plotdata_to_show.clear()
 
         # delete the cards record from the list of all cards
         self.model.cards.remove((card.CARD_TITLE, card))
@@ -136,8 +137,8 @@ class LiveViewerController:
         """ Updates the color of a plot with a new one.
         """
         # update the plot_data element
-        if card.plot_data is not None:
-            card.plot_data.color = color
+        for pd in card.plotdata_to_show.values():
+            pd.color = color
 
     def show_main_window(self):
         """ Lifts the LiveViewer main window to the front.
@@ -201,9 +202,9 @@ class LiveViewerController:
         data['error'] = {}
 
         for i, (card_type, card) in enumerate(self.model.cards):
-            if card.plot_data is not None:
-                data['values'][str(card_type) + " " + str(i) + ": " + card.last_instrument_type] = card.plot_data.y
-                data['values']["x"] = card.plot_data.x
+            for chlabel, pd in card.plotdata_to_show.items():
+                data['values'][str(card_type) + " " + str(i) + ": " + str(chlabel)] = pd.y
+                data['values']["x"] = pd.x
 
         data['finished'] = True
 

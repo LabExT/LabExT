@@ -231,7 +231,8 @@ class PlotWidget (PlotControl):
                              figsize=(12, 6),
                              autoscale_axis=True,
                              no_x_autoscale=True,
-                             min_y_axis_span=None
+                             min_y_axis_span=None,
+                             polling_time_s=0.02
                              )
 
         self.parent = parent

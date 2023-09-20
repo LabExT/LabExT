@@ -81,7 +81,7 @@ class CardFrame(Frame):
         # card attributes
         self.instrument = None  # reference to instantiated instrument driver
         self.active_thread = None  # reference to sub-thread (used for polling etc.)
-        self.plot_data = None  # reference to PlotData instance holding this card's plot
+        self.plotdata_to_show = {}  # PlotData instances of this card's data to plot
         self.card_active = BooleanVar(master=parent, value=False)  # indicator if card is active or not
         self.card_active.trace('w', self._card_active_status_changed)
 
@@ -111,6 +111,7 @@ class CardFrame(Frame):
         self.label.grid(row=0, column=0, padx=2, pady=2, sticky='NSW')
         # row 0: color selection button
         if self.PLOTTING_ENABLED:
+            # ToDo: disable button
             self.color_button = Button(self, text="", command=self.choose_color, bg=self.color)
             self.color_button.grid(row=0, column=1, sticky='NESW')
 
@@ -182,6 +183,7 @@ class CardFrame(Frame):
         """
         Displays the color selection tool.
         """
+        # todo disable this method
         if not self.PLOTTING_ENABLED:
             raise NotImplementedError('Plotting is not implemented for this card. Cannot choose color.')
         # variable to store hexadecimal code of color
