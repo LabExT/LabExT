@@ -322,7 +322,10 @@ class PlotControl(Frame):
         self.send_queue = queue.Queue()
         self.return_queue = queue.Queue()
         self.foreign_exec_lock = threading.Lock()
-        self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
+        if not self._polling:
+            # if we are polling, all plot updates happen in the GUI thread anyhow, so no need to call the foreign
+            # functions updater -> ToDo: raise error if something is in queue
+            self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
 
         self._x_label = "x"
         self._y_label = "y"
