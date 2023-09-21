@@ -387,7 +387,8 @@ class PlotControl(Frame):
         """ Polls and updates data """
         if self._data_source is not None:
             for item in self._data_source:
-                self.__plotdata_changed__(item)
+                self.__plotdata_changed__(item, update_canvas=False)
+            self.__update_canvas__()
         if not self._polling_kill_flag:
             # reschedule if not killed
             self._root.after(self._polling_time_ms, self.__polling__)
@@ -456,7 +457,7 @@ class PlotControl(Frame):
         return x_data, y_data
 
     @execute_in_plotting_thread
-    def __plotdata_changed__(self, plot_data: PlotData):
+    def __plotdata_changed__(self, plot_data: PlotData, update_canvas=True):
         """Gets called if a plot data item gets changed. (e.g. the y collection is overwritten with new data)"""
         x_data, y_data = self.sanitize_plot_data(plot_data=plot_data)
         if x_data is None or y_data is None:
@@ -473,7 +474,8 @@ class PlotControl(Frame):
             if plot_data.color is not None:
                 plot_data.line_handle.set_color(plot_data.color)
 
-        self.__update_canvas__()
+        if update_canvas:
+            self.__update_canvas__()
 
     @execute_in_plotting_thread
     def __add_plot__(self, plot_data: PlotData):

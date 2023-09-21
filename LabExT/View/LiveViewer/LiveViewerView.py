@@ -232,7 +232,7 @@ class PlotWidget (PlotControl):
                              autoscale_axis=True,
                              no_x_autoscale=True,
                              min_y_axis_span=None,
-                             polling_time_s=0.02
+                             polling_time_s=0.03
                              )
 
         self.parent = parent
