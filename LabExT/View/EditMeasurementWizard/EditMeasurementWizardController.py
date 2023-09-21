@@ -13,7 +13,7 @@ from tkinter import messagebox, TclError
 from typing import TYPE_CHECKING, List
 
 from LabExT.Experiments.ToDo import ToDo
-from LabExT.Utils import get_visa_address, get_configuration_file_path
+from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole
 from LabExT.View.EditMeasurementWizard.EditMeasurementWizardModel import EditMeasurementWizardModel
 from LabExT.View.EditMeasurementWizard.EditMeasurementWizardView import EditMeasurementWizardView

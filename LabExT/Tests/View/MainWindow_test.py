@@ -75,7 +75,7 @@ class MainWindowTest(TKinterTestCase):
         self.test_mainwindow_single_IL_sweep()
 
     def test_mainwindow_single_IL_sweep(self):
-        with patch('LabExT.View.EditMeasurementWizard.EditMeasurementWizardController.get_visa_address',
+        with patch('LabExT.View.EditMeasurementWizard.WizardEntry.MeasurementSelect.get_visa_address',
                    simulator_only_instruments_descriptions):
             self.main_window_setup()
 
