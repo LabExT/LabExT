@@ -369,7 +369,7 @@ class PlotControl(Frame):
     # timed redrawing functions, either because of data polling or function exeuctions by foreign threads
     #
 
-    _foreign_function_execution_period_ms = 10
+    _foreign_function_execution_period_ms = 50
 
     def __execute_foreign_functions__(self):
         """
