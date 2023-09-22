@@ -104,7 +104,7 @@ def execute_in_plotting_thread(func):
             # also we are using a threading.Lock such that only one foreign thread can execute something in the
             # plotting thread at the same time
             with plot_control.foreign_exec_lock:
-                plot_control.send_queue.put(partial(func, plot_control, *args, **kwargs))
+                plot_control.send_queue.put(partial(func, plot_control, *args, **kwargs), block=False)
                 return_values = plot_control.return_queue.get(True)  # blocking call
                 return return_values
     return decorator
@@ -319,12 +319,12 @@ class PlotControl(Frame):
 
         # executing functions for foreign threads to make sure matplotlib is always accessed by the same thread
         self.plotting_thread = threading.current_thread()  # save reference to thread which owns the plots
-        self.send_queue = queue.Queue()
-        self.return_queue = queue.Queue()
+        self.send_queue = queue.Queue(maxsize=1 if self._polling else 0)  # size 0 means no maximum queue size
+        self.return_queue = queue.Queue(maxsize=1 if self._polling else 0)
         self.foreign_exec_lock = threading.Lock()
         if not self._polling:
             # if we are polling, all plot updates happen in the GUI thread anyhow, so no need to call the foreign
-            # functions updater -> ToDo: raise error if something is in queue
+            # functions updater
             self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
 
         self._x_label = "x"
@@ -380,7 +380,7 @@ class PlotControl(Frame):
         try:
             foreign_function = self.send_queue.get(False)  # get function from queue, false=doesn't block
             return_parameters = foreign_function()  # run function from queue
-            self.return_queue.put(return_parameters)
+            self.return_queue.put(return_parameters, block=False)
         except queue.Empty:
             pass
         # this reschedules this function to run again after 10ms

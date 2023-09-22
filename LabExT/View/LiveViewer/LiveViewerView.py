@@ -250,14 +250,6 @@ class PlotWidget (PlotControl):
         self.ax.set_xlim([0, current_nopk])
         self.min_y_axis_span = current_y_min
 
-    def destroy(self):
-        # this is a workaround for the LiveViewer thread
-        # This thread is usually waiting on a function return
-        # Once we close this frame however, the call would be blocking forever
-        # Hence we close it
-        self.return_queue.put(None)
-        PlotControl.destroy(self)
-
 
 class CardManager(Frame):
     """
