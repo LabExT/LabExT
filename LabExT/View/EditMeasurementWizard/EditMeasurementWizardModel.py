@@ -7,6 +7,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 
+from typing import Dict
+from collections import defaultdict
+
 
 class EditMeasurementWizardModel:
     """
@@ -21,7 +24,7 @@ class EditMeasurementWizardModel:
 
         self._experiment_manager = experiment_manager
         self._experiment = self._experiment_manager.exp
-        self.chip_available = True if self._experiment_manager.chip is not None else False
+        self.chip_available = self._experiment_manager.chip is not None
 
         self.logger = logging.getLogger()
 
@@ -30,64 +33,12 @@ class EditMeasurementWizardModel:
 
         # saved user settings
         self.settings_file_name = 'EditMeasurementWizard_settings.json'
-        self.instrument_settings_file_name = 'EditMeasurementWizard_instr_settings.json'
-        self.adhoc_device_save_file_name = 'EditMeasurementWizard_adhoc_settings.json'
-        self.saved_s0_device_id = None
-        self.saved_s1_measurement_name = None
-        self.saved_s1_measurement_nr = None
 
         # user selected data
-        self.s0_device = None
-        self.s1_measurement = None
-        self.s1_available_instruments = None
-
-    @property
-    def saved_s0_device_id(self):
-        return self._saved_s0_device_id
-
-    @saved_s0_device_id.setter
-    def saved_s0_device_id(self, new_id):
-        self._saved_s0_device_id = new_id
-
-    @property
-    def saved_s1_measurement_name(self):
-        return self._saved_s1_measurement_name
-
-    @saved_s1_measurement_name.setter
-    def saved_s1_measurement_name(self, new_name):
-        self._saved_s1_measurement_name = new_name
-
-    @property
-    def saved_s1_measurement_nr(self):
-        return self._saved_s1_measurement_nr
-
-    @saved_s1_measurement_nr.setter
-    def saved_s1_measurement_nr(self, new_nr):
-        self._saved_s1_measurement_nr = new_nr
-
-    @property
-    def s0_device(self):
-        return self._s0_device
-
-    @s0_device.setter
-    def s0_device(self, new_dev):
-        self._s0_device = new_dev
-
-    @property
-    def s1_measurement(self):
-        return self._s1_measurement
-
-    @s1_measurement.setter
-    def s1_measurement(self, new_measurement):
-        self._s1_measurement = new_measurement
-
-    @property
-    def s1_available_instruments(self):
-        return self._s1_available_instruments
-
-    @s1_available_instruments.setter
-    def s1_available_instruments(self, new_instr):
-        self._s1_available_instruments = new_instr
+        self.settings: Dict[int, Dict] = defaultdict(lambda: {})
+        """Maps the stage number to the previous entries of the WizardEntry."""
+        self.results: Dict[int] = {}
+        """Maps the stage number to the results of the WizardEntry."""
 
     def set_view(self, view):
         self._view = view

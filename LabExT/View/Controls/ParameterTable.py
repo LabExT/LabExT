@@ -44,7 +44,8 @@ class ConfigParameter(object):
         elif parameter_type == 'bool':
             self.variable = BooleanVar(parent, value)
         elif parameter_type == 'dropdown':
-            self.variable = StringVar(parent, value[0] if ddvar is None else ddvar)
+            self.variable = StringVar(
+                parent, value[0] if ddvar is None else ddvar)
             self.options = value
         else:
             self.variable = StringVar(parent, value)
@@ -125,7 +126,8 @@ class ParameterTable(CustomFrame):
         # add the fields for all the parameters
         r = 0
         for parameter_name in self.parameter_source:
-            parameter = self.parameter_source[parameter_name]  # get the next parameter
+            # get the next parameter
+            parameter = self.parameter_source[parameter_name]
             self.add_widget(Label(self, text='{}:'.format(parameter_name)),
                             row=r,
                             column=0,
@@ -247,6 +249,14 @@ class ParameterTable(CustomFrame):
             json_file.write(json.dumps(data))
         return True
 
+    def serialize_to_dict(self, settings: dict):
+        """Serializes data in table to dict. Takes a dict as parameter and first converts all the data
+        of this parameter table to json-able format and then writes this to the provided dict with the new key 'data'."""
+        if self._parameter_source is None:
+            return False
+        settings['data'] = self.make_json_able()
+        return True
+
     def deserialize(self, file_name):
         """Deserializes the table data from a given file and loads it
         into the cells."""
@@ -259,7 +269,29 @@ class ParameterTable(CustomFrame):
             try:
                 self._parameter_source[parameter_name].value = data[parameter_name]
             except KeyError:
-                self._logger.warning("Unknown key in save file: " + str(parameter_name) + ". Ignoring this parameter.")
+                self._logger.warning(
+                    "Unknown key in save file: " + str(parameter_name) + ". Ignoring this parameter.")
+        self.__setup__()
+        return True
+
+    def deserialize_from_dict(self, settings: dict):
+        """Deserializes the table data from a given dict and loads it
+        into the cells."""
+        if self._parameter_source is None:
+            return False
+
+        try:
+            data = settings['data']
+        except KeyError:
+            return False
+
+        for parameter_name in data:
+            try:
+                self._parameter_source[parameter_name].value = data[parameter_name]
+            except KeyError:
+                self._logger.warning(
+                    f"Unknown key in save file: {parameter_name}. Ignoring this parameter.")
+
         self.__setup__()
         return True
 
@@ -275,7 +307,8 @@ class ParameterTable(CustomFrame):
             try:
                 _ = v.value
             except TclError as e:
-                error_texts.append('"' + str(k) + '" got wrong value type: ' + str(e))
+                error_texts.append(
+                    '"' + str(k) + '" got wrong value type: ' + str(e))
         if error_texts:
             raise ValueError("\n".join(error_texts))
 
@@ -288,9 +321,11 @@ class ParameterTable(CustomFrame):
         to_ret = {}
         for k, v in self._parameter_source.items():
             if v.parameter_type == 'dropdown':
-                to_ret[k] = MeasParamAuto(value=v.options, selected=v.value, unit=v.unit, extra_type=v.parameter_type)
+                to_ret[k] = MeasParamAuto(
+                    value=v.options, selected=v.value, unit=v.unit, extra_type=v.parameter_type)
             else:
-                to_ret[k] = MeasParamAuto(value=v.value, unit=v.unit, extra_type=v.parameter_type)
+                to_ret[k] = MeasParamAuto(
+                    value=v.value, unit=v.unit, extra_type=v.parameter_type)
         return to_ret
 
     def writeback_meas_values(self, event=None):
