@@ -38,6 +38,7 @@ class PlotTrace:
     timestamps: list[float] = field(default_factory=list)
     y_values: list[float] = field(default_factory=list)
     line_handle: matplotlib.lines.Line2D = None
+    annotation_handle: matplotlib.figure.Text = None
 
     @property
     def delta_time_to_now(self):
@@ -55,6 +56,8 @@ class PlotTrace:
 
     def update_line_data(self):
         self.line_handle.set_data(self.delta_time_to_now, self.y_values)
+        self.annotation_handle.set_y(self.y_values[-1])
+        self.annotation_handle.set_text(f'{self.y_values[-1]:.3f}')
 
 
 class LiveViewerPlot(Frame):
@@ -117,10 +120,13 @@ class LiveViewerPlot(Frame):
                         color = LIVE_VIWER_PLOT_COLOR_CYCLE[self.model.new_color_idx]
                         self.model.new_color_idx = (self.model.new_color_idx + 1) % len(LIVE_VIWER_PLOT_COLOR_CYCLE)
 
-                        line, = self.ax.plot([], [], color=color)
+                        line_label = f'{card.instance_title:s}: {plot_data_point.trace_name:s}'
+                        line, = self.ax.plot([], [], color=color, label=line_label)
+                        annotation = self.ax.text(x=0, y=0, s='', fontdict={'color': color})
                         self.model.traces_to_plot[trace_key] = PlotTrace(timestamps=[plot_data_point.timestamp],
                                                                          y_values=[plot_data_point.y_value],
-                                                                         line_handle=line)
+                                                                         line_handle=line,
+                                                                         annotation_handle=annotation)
                         continue
 
                     # append new data point to internal datastructure
@@ -160,3 +166,6 @@ class LiveViewerPlot(Frame):
 
         # do x-axis re-scaling of plot
         self.ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
+
+        # # update legend
+        # self.ax.legend(loc='lower left')
