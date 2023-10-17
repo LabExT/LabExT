@@ -12,6 +12,7 @@ from tkinter import Tk, Frame, TOP, BOTH
 import matplotlib.animation as animation
 import matplotlib.lines
 import numpy as np
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -90,9 +91,13 @@ class LiveViewerPlot(Frame):
 
         self.canvas = FigureCanvasTkAgg(self.fig, self)
         self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
+
+        self._toolbar = NavigationToolbar2Tk(self.canvas, self)
+        self._toolbar.update()
+        self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
+
         self.canvas.draw()
 
-        # ToDo: add toolbar
         # ToDo: different instruments might have different units?
 
     def animation_tick(self, _):
@@ -118,10 +123,11 @@ class LiveViewerPlot(Frame):
                         self.model.new_color_idx = (self.model.new_color_idx + 1) % len(LIVE_VIWER_PLOT_COLOR_CYCLE)
 
                         line, = self.ax.plot([], [], color=color)
-                        self.model.traces_to_plot[fqtn] = PlotTrace(timestamps=[],
-                                                              y_values=[],
+                        self.model.traces_to_plot[fqtn] = PlotTrace(timestamps=[plot_data_point.timestamp],
+                                                              y_values=[plot_data_point.y_value],
                                                               line_handle=line,
                                                               card_handle=card)
+                        continue
 
                     # append new data point to internal datastructure
                     self.model.traces_to_plot[fqtn].add_plot_data_point(plot_data_point)
@@ -136,27 +142,25 @@ class LiveViewerPlot(Frame):
             plot_trace.update_line_data()
 
         # do re-scaling of the plot
-        if self.model.traces_to_plot:
-            # get current max/min of all traces
-            y_min = []
-            y_max = []
-            for plot_trace in self.model.traces_to_plot.values():
+        # get current max/min of all traces
+        y_min = []
+        y_max = []
+        for plot_trace in self.model.traces_to_plot.values():
+            if plot_trace.y_values:
                 y_min.append(min(plot_trace.y_values))
                 y_max.append(max(plot_trace.y_values))
-            y_min = min(y_min)
-            y_max = max(y_max)
-            # make sure that we have a small border
-            dy = y_max - y_min
-            y_min -= dy * 0.1
-            y_max += dy * 0.1
-            # make sure to adhere to the user-defined minimum y-range
-            dy_scaled = y_max - y_min
-            if dy_scaled < self.model.min_y_span:
-                incr_by = self.model.min_y_span - dy_scaled
-                y_min -= incr_by / 2
-                y_max += incr_by / 2
-            self.ax.set_ylim([y_min, y_max])
+        y_min = min(y_min) if y_min else 0.0
+        y_max = max(y_max) if y_max else 0.0
+        # make sure that we have a small margin
+        dy = y_max - y_min
+        y_min -= dy * 0.1
+        y_max += dy * 0.1
+        # make sure to adhere to the user-defined minimum y-range
+        dy_scaled = y_max - y_min
+        if dy_scaled < self.model.min_y_span:
+            incr_by = self.model.min_y_span - dy_scaled
+            y_min -= incr_by / 2
+            y_max += incr_by / 2
+        self.ax.set_ylim([y_min, y_max])
 
         self.ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
-
-        self.ax.autoscale_view()
