@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
 
-from LabExT.View.Controls.LiveViewerPlot import LiveViewerPlot
+from LabExT.View.LiveViewer.LiveViewerPlot import LiveViewerPlot
 from LabExT.View.Controls.ParameterTable import ParameterTable
 
 
