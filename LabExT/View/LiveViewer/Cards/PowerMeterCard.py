@@ -6,14 +6,14 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import threading
+import time
 from time import sleep
 from tkinter import Button
 
 from LabExT.Measurements.MeasAPI import MeasParamInt, MeasParamFloat, MeasParamString
 from LabExT.View.Controls.ParameterTable import ParameterTable
-from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.View.LiveViewer.Cards.CardFrame import CardFrame, show_errors_as_popup
-from LabExT.ViewModel.Utilities.ObservableList import ObservableList
+from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint
 
 
 class PowerMeterCard(CardFrame):
@@ -35,7 +35,6 @@ class PowerMeterCard(CardFrame):
 
     INSTRUMENT_TYPE = 'Power Meter'
     CARD_TITLE = 'Poll Power Meter Channels'
-    PLOTTING_ENABLED = True
 
     def __init__(self, parent, controller, model):
         """Constructor.
@@ -79,13 +78,16 @@ class PowerMeterCard(CardFrame):
         self.disable_button.grid(row=1, column=1, padx=2, pady=2, sticky='NESW')
         self.update_button = Button(content_frame,
                                     text="Update Settings",
-                                    command=lambda: self.update_pm_errpopup(self.ptable.to_meas_param()))
+                                    command=lambda: self.update_pm(self.ptable.to_meas_param()))
         self.update_button.grid(row=1, column=2, padx=2, pady=2, sticky='NESW')
 
         # register which buttons to enable / disable on state change
         self.buttons_active_when_settings_enabled.append(self.enable_button)
         self.buttons_inactive_when_settings_enabled.append(self.disable_button)
         self.buttons_inactive_when_settings_enabled.append(self.update_button)
+
+        # internal state keeping: which channels are enabled?
+        self.enabled_channels = {}
 
     @show_errors_as_popup()
     def start_pm(self, parameters):
@@ -95,9 +97,8 @@ class PowerMeterCard(CardFrame):
         if self.card_active.get():
             raise RuntimeError('Cannot start pm when already started.')
 
-        for pd in self.plotdata_to_show.values():
-            self.model.plot_collection.remove(pd)
-        self.plotdata_to_show.clear()
+        for ch_int, trace in self.enabled_channels.items():
+            self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace, delete_trace=True))
 
         loaded_instr = self.load_instrument_instance()
         loaded_instr.open()
@@ -106,7 +107,7 @@ class PowerMeterCard(CardFrame):
         # ToDo - nice to have would be saving existing instrument parameters and restoring them afterwards
 
         # do the first setting of params
-        self.update_pm(parameters)
+        self.update_pm_raise_errors(parameters)
 
         # Startet die Motoren!
         self._start_polling()
@@ -124,20 +125,8 @@ class PowerMeterCard(CardFrame):
     def _stop_polling(self):
         """ stop polling thread (busy wait until thread terminated) """
         self.stop_thread = True
-
-        # the following block is needed for a few reasons. We want for the polling thread to be finished, to make sure
-        # there are no requests or communications to the instruments left pending. If we however do not call the
-        # update_idletasks() function, the plot window cannot update (as we, the main thread are waiting in a spinlock,
-        # and in tk only the main thread is allowed to alter GUI elements), and therefore the thread will never exit,
-        # leading to a deadlock. Hence we manually update the TK GUI, and allow the thread to finish.
-        while not self.thread_finished:
-            self.update_idletasks()
-            self.update()
-            sleep(1e-6)
-
-        # # since we know that the thread finished, we can now join the thread without risking a deadlock
-        # if self.active_thread is not None:
-        #     self.active_thread.join()
+        if self.active_thread is not None:
+            self.active_thread.join()
 
     @show_errors_as_popup()
     def stop_pm(self):
@@ -154,10 +143,10 @@ class PowerMeterCard(CardFrame):
         self.card_active.set(False)
 
     @show_errors_as_popup()
-    def update_pm_errpopup(self, *args, **kwargs):
-        self.update_pm(*args, **kwargs)
+    def update_pm(self, *args, **kwargs):
+        self.update_pm_raise_errors(*args, **kwargs)
 
-    def update_pm(self, parameters):
+    def update_pm_raise_errors(self, parameters):
         """
         Updates the power meters parameters.
         """
@@ -181,24 +170,21 @@ class PowerMeterCard(CardFrame):
 
         # remove plots for previously enabled, now disabled channels
         to_remove = []
-        for ac, plot in self.plotdata_to_show.items():
+        for ac, trace in self.enabled_channels.items():
             if ac not in channel_designators:
-                self.model.plot_collection.remove(plot)
+                self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace, delete_trace=True))
                 to_remove.append(ac)
         for ac in to_remove:
-            self.plotdata_to_show.pop(ac)
+            self.enabled_channels.pop(ac)
 
-        # add plots for previously disabled, now enabled channels
+        # add trace name for each newly enabled channel
         for ac in channel_designators:
-            if ac in self.plotdata_to_show:
+            if ac in self.enabled_channels:
                 continue
-            plot = PlotData(ObservableList(), ObservableList(), color=self.color, label=f'Ch{ac:s}')
-            plot.x.extend([x for x in range(self.model.plot_size)])
-            plot.y.extend([float('nan') for _ in range(self.model.plot_size)])
-            self.plotdata_to_show[ac] = plot  # this keeps track of this card's plots
-            self.model.plot_collection.append(plot)  # this puts the plot data onto the live viewer plot
+            self.enabled_channels[ac] = f'Ch{ac:s}'
 
-        for ac in self.plotdata_to_show.keys():
+        # configure the instrument for each activated channel
+        for ac in self.enabled_channels.keys():
             with loaded_instr.thread_lock:
                 loaded_instr.channel = ac
                 loaded_instr.wavelength = pm_wavelength
@@ -212,17 +198,26 @@ class PowerMeterCard(CardFrame):
     @show_errors_as_popup()
     def poll_pm(self):
         """
-        Function to be run in a thread, continuously polls the pm
+        Function to be run in a thread, continuously polls the pm.
+        To update the graph really smoothly, we apply the following trick:
+        We first fetch the previously acquired measurement value, and then trigger
+        the PM again. This allows the PM to execute the measurement while our
+        software is busy updating the graph or so.
         """
+        first = True
         while not self.stop_thread:
             with self.instrument.thread_lock:
-                for ac, plot in self.plotdata_to_show.items():
+                for ac, trace in self.enabled_channels.items():
                     self.instrument.channel = ac
+                    if not first:
+                        time_stamp = time.time()
+                        power_data = self.instrument.fetch_power()
+                        self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace,
+                                                                  timestamp=time_stamp,
+                                                                  y_value=power_data))
+                    first = False
                     self.instrument.trigger()
-                    power_data = self.instrument.fetch_power()
-                    del plot.y[0]
-                    plot.y.append(power_data)
-            sleep(1e-6)
+            sleep(1e-3)
 
         self.thread_finished = True
 

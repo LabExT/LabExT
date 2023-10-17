@@ -7,8 +7,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
 
+from LabExT.View.Controls.LiveViewerPlot import LiveViewerPlot
 from LabExT.View.Controls.ParameterTable import ParameterTable
-from LabExT.View.Controls.PlotControl import PlotControl
 
 
 class LiveViewerView:
@@ -100,10 +100,11 @@ class MainFrame(Frame):
         self.control_wrapper.grid(row=0, column=1, padx=2, pady=2, sticky='NESW')
 
         # add the plot window
-        self.plot_wrapper = PlotFrame(self, controller, model)
+        self.plot_wrapper = LiveViewerPlot(self)
         self.plot_wrapper.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
-        self.grid_rowconfigure(0, weight=1)  # this needed to be added
+        self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
+        self.plot_wrapper.model = model
 
 
 class ControlFrame(Frame):
@@ -180,75 +181,6 @@ class ControlFrame(Frame):
         self.canvas.update()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.canvas.configure(width=self.canvas.bbox("all")[2])
-
-
-class PlotFrame(Frame):
-    """
-    Plot Frame, containing the live plot.
-    """
-    def __init__(self, parent, controller, model):
-        """Constructor.
-
-        Parameters
-        ----------
-        parent : Tk
-            Tkinter parent frame
-        controller :
-            The Live viewer controller
-        model :
-            The Live viewer model
-        """
-        self.model = model
-        self.controller = controller
-        Frame.__init__(self, parent)
-        self.plot_widget = PlotWidget(self, self.model)
-
-        self.plot_widget.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky='nswe')
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
-
-
-class PlotWidget (PlotControl):
-    """
-    Plot Widget class. Resides inside the Plotwindow.
-    """
-    def __init__(self, parent, model):
-        """Constructor.
-
-        Parameters
-        ----------
-        parent : Tk
-            Tkinter parent frame
-        model :
-            The Live viewer model
-        """
-
-        # ToDo: plotting is very unperformant - debug with py-spy and speedscope
-
-        PlotControl.__init__(self,
-                             parent,
-                             add_toolbar=True,
-                             figsize=(12, 6),
-                             autoscale_axis=True,
-                             no_x_autoscale=True,
-                             min_y_axis_span=None,
-                             polling_time_s=0.03
-                             )
-
-        self.parent = parent
-        self.model = model
-
-        self.model.live_plot = self
-
-        self.title = 'Live Plot'
-        self.show_grid = True
-        self.data_source = self.model.plot_collection
-
-        current_nopk = self.model.general_settings['number of points kept'].value
-        current_y_min = self.model.general_settings['minimum y-axis span'].value
-
-        self.ax.set_xlim([0, current_nopk])
-        self.min_y_axis_span = current_y_min
 
 
 class CardManager(Frame):

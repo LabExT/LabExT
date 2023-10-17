@@ -27,7 +27,6 @@ class LaserCard(CardFrame):
 
     INSTRUMENT_TYPE = 'Laser'
     CARD_TITLE = 'Laser'
-    PLOTTING_ENABLED = False
 
     def __init__(self, parent, controller, model):
         """Constructor.

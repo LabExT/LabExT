@@ -6,25 +6,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+import queue
 import tkinter
 from functools import wraps
-from tkinter import Frame, Button, Label, colorchooser, messagebox, BooleanVar
+from tkinter import Frame, Button, Label, messagebox, BooleanVar
 
 from LabExT.Utils import get_visa_address
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
-
-colors = {
-    0: '#1f77b4',
-    1: '#ff7f0e',
-    2: '#2ca02c',
-    3: '#d62728',
-    4: '#9467bd',
-    5: '#8c564b',
-    6: '#e377c2',
-    7: '#7f7f7f',
-    8: '#bcbd22',
-    9: '#17becf'
-}
 
 
 def show_errors_as_popup(caught_err_classes=(Exception,)):
@@ -63,7 +51,6 @@ class CardFrame(Frame):
 
     INSTRUMENT_TYPE = 'FILL ME'
     CARD_TITLE = 'FILL ME'
-    PLOTTING_ENABLED = True
 
     default_parameters = {}
 
@@ -81,15 +68,11 @@ class CardFrame(Frame):
         # card attributes
         self.instrument = None  # reference to instantiated instrument driver
         self.active_thread = None  # reference to sub-thread (used for polling etc.)
-        self.plotdata_to_show = {}  # PlotData instances of this card's data to plot
+        self.data_to_plot_queue = queue.SimpleQueue()
         self.card_active = BooleanVar(master=parent, value=False)  # indicator if card is active or not
         self.card_active.trace('w', self._card_active_status_changed)
 
         self.last_instrument_type = ""  # keep instrument info for saving out traces to file
-
-        # plot color
-        self.color = colors.get(self.model.new_color_idx)
-        self.model.new_color_idx = (self.model.new_color_idx + 1) % len(colors)
 
         # keep my references which buttons to gray out when
         self.buttons_active_when_settings_enabled = []
@@ -109,11 +92,6 @@ class CardFrame(Frame):
         # row 0: title
         self.label = Label(self, text=self.CARD_TITLE)
         self.label.grid(row=0, column=0, padx=2, pady=2, sticky='NSW')
-        # row 0: color selection button
-        if self.PLOTTING_ENABLED:
-            # ToDo: disable button
-            self.color_button = Button(self, text="", command=self.choose_color, bg=self.color)
-            self.color_button.grid(row=0, column=1, sticky='NESW')
 
         # row 0: remove card button
         self.remove_button = Button(self, text="X", command=lambda: controller.remove_card(self))
@@ -178,20 +156,6 @@ class CardFrame(Frame):
         for b in self.buttons_inactive_when_settings_enabled:
             b["state"] = "active"
         self.instr_selec.enabled = False
-
-    def choose_color(self):
-        """
-        Displays the color selection tool.
-        """
-        # todo disable this method
-        if not self.PLOTTING_ENABLED:
-            raise NotImplementedError('Plotting is not implemented for this card. Cannot choose color.')
-        # variable to store hexadecimal code of color
-        color_code = colorchooser.askcolor(title="Choose color")
-        self.color = color_code[1]
-        self.controller.show_main_window()
-        self.color_button.configure(bg=color_code[1])
-        self.controller.update_color(self, self.color)
 
     def stop_instr(self):
         raise NotImplementedError

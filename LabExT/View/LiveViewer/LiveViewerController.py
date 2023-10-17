@@ -6,15 +6,12 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import datetime
-import json
 from collections import OrderedDict
 from os import makedirs
 from os.path import dirname, join
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
-from LabExT.Measurements.MeasAPI import MeasParamAuto
 from LabExT.PluginLoader import PluginLoader
-from LabExT.Utils import get_configuration_file_path
 from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.LiveViewer.Cards import CardFrame
 from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
@@ -68,46 +65,11 @@ class LiveViewerController:
             List of new parameters
         """
 
-        #
-        # update x axis length
-        #
+        # only keep this many seconds in the live plot
+        self.model.plot_cutoff_seconds = abs(parameters['time range to display'].value)
 
-        # load the number of points kept
-        nopk = parameters['number of points kept'].value
-        # find the difference in plot size
-        diff = self.model.plot_size - nopk
-
-        # set the axes to the new plot size
-        self.model.live_plot.ax.set_xlim([0, nopk - 1])
-        # manually update the canvas
-        self.model.live_plot.__update_canvas__()
-
-        # clean the plots, loop over all cards
-        for c in self.model.cards:
-            # find out whether the card has a plot attached
-            for pd in c[1].plotdata_to_show.values():
-                # clean
-                if diff > 0:
-                    # we need to remove points. The amount was calculated beforehand
-                    pd = pd
-                    for i in range(diff):
-                        del(pd.y[0])
-                        del(pd.x[nopk])
-                elif diff < 0:
-                    # we need to add points. The amount was calculated beforehand
-                    pd.x.extend([x for x in range(self.model.plot_size, nopk)])
-                    pd.y[0:0] = [float('nan') for _ in range(nopk - self.model.plot_size)]
-
-        # set the number of point kepts in the model structure
-        self.model.plot_size = nopk
-
-        #
-        # update min y span
-        #
-
-        min_y = parameters['minimum y-axis span'].value
-        self.model.live_plot.min_y_axis_span = min_y
-        self.model.min_y_span = min_y
+        # the minimum y span
+        self.model.min_y_span = abs(parameters['minimum y-axis span'].value)
 
     def remove_card(self, card):
         """ Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
@@ -118,27 +80,19 @@ class LiveViewerController:
         card.stop_instr()
 
         # clean up the data from the plot
-        for pd in card.plotdata_to_show.values():
-            try:
-                self.model.plot_collection.remove(pd)
-            except ValueError:
-                # when closing the window during destruction of the plot, the plot data sources will be cleared
-                # so this remove call will fail
-                pass
-        card.plotdata_to_show.clear()
+        to_remove = []
+        for fqtn, plot_trace in self.model.traces_to_plot.items():
+            if plot_trace.card_handle is card:
+                to_remove.append(fqtn)
+        for fqtn in to_remove:
+            self.model.traces_to_plot[fqtn].line_handle.remove()
+            self.model.traces_to_plot.pop(fqtn, None)
 
         # delete the cards record from the list of all cards
         self.model.cards.remove((card.CARD_TITLE, card))
 
         # issue the tk command to destroy the card
         card.destroy()
-
-    def update_color(self, card, color):
-        """ Updates the color of a plot with a new one.
-        """
-        # update the plot_data element
-        for pd in card.plotdata_to_show.values():
-            pd.color = color
 
     def show_main_window(self):
         """ Lifts the LiveViewer main window to the front.
@@ -149,6 +103,9 @@ class LiveViewerController:
         self.view.main_window.lift()
 
     def create_snapshot(self):
+
+        # ToDo: update with new method of storing plotting data
+
         param_output_path = str(self.experiment_manager.exp.save_parameters['Raw output path'].value)
         makedirs(param_output_path, exist_ok=True)
 
@@ -202,7 +159,7 @@ class LiveViewerController:
         data['error'] = {}
 
         for i, (card_type, card) in enumerate(self.model.cards):
-            for chlabel, pd in card.plotdata_to_show.items():
+            for chlabel, pd in card.enabled_channels.items():
                 data['values'][str(card_type) + " " + str(i) + ": " + str(chlabel)] = pd.y
                 data['values']["x"] = pd.x
 
