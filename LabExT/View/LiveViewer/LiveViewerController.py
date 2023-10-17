@@ -104,16 +104,14 @@ class LiveViewerController:
 
     def create_snapshot(self):
 
-        # ToDo: update with new method of storing plotting data
-
         param_output_path = str(self.experiment_manager.exp.save_parameters['Raw output path'].value)
         makedirs(param_output_path, exist_ok=True)
 
         inst_data = {}
 
-        for i, (card_type, card) in enumerate(self.model.cards):
+        for _, card in self.model.cards:
             try:
-                inst_data[card_type + str(i)] = card.instrument.get_instrument_parameter()
+                inst_data[card.instance_title] = card.instrument.get_instrument_parameter()
             except AttributeError as e:
                 pass
 
@@ -158,10 +156,12 @@ class LiveViewerController:
         data['values'] = OrderedDict()
         data['error'] = {}
 
-        for i, (card_type, card) in enumerate(self.model.cards):
-            for chlabel, pd in card.enabled_channels.items():
-                data['values'][str(card_type) + " " + str(i) + ": " + str(chlabel)] = pd.y
-                data['values']["x"] = pd.x
+        for trace_key, plot_trace in self.model.traces_to_plot.items():
+            this_card = trace_key[0]
+            trace_name = trace_key[1]
+            fqtn = f'{this_card.instance_title:s}: {trace_name:s}'
+            data['values'][f'{fqtn:s}: y-values'] = plot_trace.y_values
+            data['values'][f'{fqtn:s}: timestamps'] = plot_trace.timestamps
 
         data['finished'] = True
 
