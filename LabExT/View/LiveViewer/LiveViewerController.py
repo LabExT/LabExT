@@ -81,12 +81,12 @@ class LiveViewerController:
 
         # clean up the data from the plot
         to_remove = []
-        for fqtn, plot_trace in self.model.traces_to_plot.items():
-            if plot_trace.card_handle is card:
-                to_remove.append(fqtn)
-        for fqtn in to_remove:
-            self.model.traces_to_plot[fqtn].line_handle.remove()
-            self.model.traces_to_plot.pop(fqtn, None)
+        for trace_key in self.model.traces_to_plot.keys():
+            if trace_key[0] is card:
+                to_remove.append(trace_key)
+        for trace_key in to_remove:
+            self.model.traces_to_plot[trace_key].line_handle.remove()
+            self.model.traces_to_plot.pop(trace_key, None)
 
         # delete the cards record from the list of all cards
         self.model.cards.remove((card.CARD_TITLE, card))

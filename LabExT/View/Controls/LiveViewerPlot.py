@@ -16,9 +16,7 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
-from LabExT.View.LiveViewer.Cards import CardFrame
 from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint
-
 
 LIVE_VIWER_PLOT_COLOR_CYCLE = {
     0: '#1f77b4',
@@ -40,7 +38,6 @@ class PlotTrace:
     timestamps: list[float] = field(default_factory=list)
     y_values: list[float] = field(default_factory=list)
     line_handle: matplotlib.lines.Line2D = None
-    card_handle: CardFrame = None
 
     @property
     def delta_time_to_now(self):
@@ -107,48 +104,47 @@ class LiveViewerPlot(Frame):
                 while True:
                     plot_data_point: PlotDataPoint = card.data_to_plot_queue.get_nowait()
 
-                    card_trace_prefix = str(card_type) + " " + str(cidx) + ": "
-                    fqtn = card_trace_prefix + plot_data_point.trace_name  # "fully qualified trace name"
+                    trace_key = (card, plot_data_point.trace_name)
 
                     # line delete flag is set, remove line from axis and delete internal data structure
-                    if plot_data_point.delete_trace and (fqtn in self.model.traces_to_plot):
-                        self.model.traces_to_plot[fqtn].line_handle.remove()  # removes this line from axis
-                        self.model.traces_to_plot.pop(fqtn, None)
+                    if plot_data_point.delete_trace and (trace_key in self.model.traces_to_plot):
+                        self.model.traces_to_plot[trace_key].line_handle.remove()  # removes this line from axis
+                        self.model.traces_to_plot.pop(trace_key, None)
                         continue
 
                     # we got a new trace name, setup internal data structure and put line onto axis
-                    if fqtn not in self.model.traces_to_plot:
+                    if trace_key not in self.model.traces_to_plot:
                         # figure out which color to use for the line
                         color = LIVE_VIWER_PLOT_COLOR_CYCLE[self.model.new_color_idx]
                         self.model.new_color_idx = (self.model.new_color_idx + 1) % len(LIVE_VIWER_PLOT_COLOR_CYCLE)
 
                         line, = self.ax.plot([], [], color=color)
-                        self.model.traces_to_plot[fqtn] = PlotTrace(timestamps=[plot_data_point.timestamp],
-                                                              y_values=[plot_data_point.y_value],
-                                                              line_handle=line,
-                                                              card_handle=card)
+                        self.model.traces_to_plot[trace_key] = PlotTrace(timestamps=[plot_data_point.timestamp],
+                                                                         y_values=[plot_data_point.y_value],
+                                                                         line_handle=line)
                         continue
 
                     # append new data point to internal datastructure
-                    self.model.traces_to_plot[fqtn].add_plot_data_point(plot_data_point)
+                    self.model.traces_to_plot[trace_key].add_plot_data_point(plot_data_point)
 
             except Empty:
                 # jumps to next card if no more plot values left to process
                 continue
 
         # update the line data for all traces
-        for fqtn, plot_trace in self.model.traces_to_plot.items():
+        for plot_trace in self.model.traces_to_plot.values():
             plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
             plot_trace.update_line_data()
 
-        # do re-scaling of the plot
+        # do y-axis re-scaling of plot
         # get current max/min of all traces
         y_min = []
         y_max = []
         for plot_trace in self.model.traces_to_plot.values():
-            if plot_trace.y_values:
-                y_min.append(min(plot_trace.y_values))
-                y_max.append(max(plot_trace.y_values))
+            y_values = np.array(plot_trace.y_values)[np.isfinite(plot_trace.y_values)]
+            if len(y_values) > 0:
+                y_min.append(min(y_values))
+                y_max.append(max(y_values))
         y_min = min(y_min) if y_min else 0.0
         y_max = max(y_max) if y_max else 0.0
         # make sure that we have a small margin
@@ -163,4 +159,5 @@ class LiveViewerPlot(Frame):
             y_max += incr_by / 2
         self.ax.set_ylim([y_min, y_max])
 
+        # do x-axis re-scaling of plot
         self.ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
