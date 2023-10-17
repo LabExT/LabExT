@@ -70,7 +70,7 @@ class LiveViewerPlot(Frame):
         # some constants
         self._figsize = (6, 4)
         self._title = 'Live Plot'
-        self._animate_interval_ms = 200
+        self._animate_interval_ms = 100
 
         self.__setup__()
 
@@ -81,14 +81,13 @@ class LiveViewerPlot(Frame):
         self.fig = Figure(figsize=self._figsize)
 
         self.ax = self.fig.add_subplot(111)
+        self.ax.grid(color='gray', linestyle='-', linewidth=0.5)
 
         self.ax.set_title(self._title)
         self.ax.set_xlabel('elapsed time [s]')
         self.ax.set_ylabel('Power [dBm]')
 
         self.canvas = FigureCanvasTkAgg(self.fig, self)
-        self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
-
         self._toolbar = NavigationToolbar2Tk(self.canvas, self)
         self._toolbar.update()
         self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
