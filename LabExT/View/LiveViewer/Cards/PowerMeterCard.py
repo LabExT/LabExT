@@ -199,24 +199,16 @@ class PowerMeterCard(CardFrame):
     def poll_pm(self):
         """
         Function to be run in a thread, continuously polls the pm.
-        To update the graph really smoothly, we apply the following trick:
-        We first fetch the previously acquired measurement value, and then trigger
-        the PM again. This allows the PM to execute the measurement while our
-        software is busy updating the graph or so.
         """
-        first = True
         while not self.stop_thread:
             with self.instrument.thread_lock:
                 for ac, trace in self.enabled_channels.items():
                     self.instrument.channel = ac
-                    if not first:
-                        time_stamp = time.time()
-                        power_data = self.instrument.fetch_power()
-                        self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace,
-                                                                  timestamp=time_stamp,
-                                                                  y_value=power_data))
-                    first = False
-                    self.instrument.trigger()
+                    power_data = self.instrument.power
+                    time_stamp = time.time()
+                    self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace,
+                                                              timestamp=time_stamp,
+                                                              y_value=power_data))
             sleep(1e-3)
 
         self.thread_finished = True
