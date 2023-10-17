@@ -6,9 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 from dataclasses import dataclass
 
-from LabExT.Measurements.MeasAPI import MeasParamInt, MeasParamFloat
-
-from LabExT.ViewModel.Utilities.ObservableList import ObservableList
+from LabExT.Measurements.MeasAPI import MeasParamFloat
 
 
 @dataclass
@@ -24,6 +22,7 @@ class LiveViewerModel:
     """
     Model class for the live viewer. Contains all data needed for the operation of the liveviewer.
     """
+
     def __init__(self, root):
         """Constructor.
 
@@ -46,6 +45,7 @@ class LiveViewerModel:
 
         # the cards list
         self.cards = []
+        self.next_card_index = 1
 
         # the currently plotted traces in the live viewer plot
         self.traces_to_plot = {}

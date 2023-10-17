@@ -66,6 +66,8 @@ class CardFrame(Frame):
         self.logger = logging.getLogger()
 
         # card attributes
+        self.instance_title = f'{self.CARD_TITLE:s} {self.model.next_card_index:d}'
+        self.model.next_card_index += 1
         self.instrument = None  # reference to instantiated instrument driver
         self.active_thread = None  # reference to sub-thread (used for polling etc.)
         self.data_to_plot_queue = queue.SimpleQueue()
@@ -90,7 +92,7 @@ class CardFrame(Frame):
         #
 
         # row 0: title
-        self.label = Label(self, text=self.CARD_TITLE)
+        self.label = Label(self, text=self.instance_title)
         self.label.grid(row=0, column=0, padx=2, pady=2, sticky='NSW')
 
         # row 0: remove card button
