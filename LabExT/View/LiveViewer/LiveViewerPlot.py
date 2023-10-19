@@ -71,6 +71,7 @@ class LiveViewerPlot(Frame):
         self.model = None
 
         self.bar_collection = []
+        self.bar_collection_labels = []
 
         self._ani = None
 
@@ -89,7 +90,13 @@ class LiveViewerPlot(Frame):
         self.fig, (self.ax, self.ax_bar) = subplots(nrows=1,
                                                     ncols=2,
                                                     sharey='all',
-                                                    gridspec_kw={'width_ratios': (5, 1)},
+                                                    gridspec_kw={'width_ratios': (4, 1),
+                                                                 'left': 0.12,
+                                                                 'bottom': 0.088,
+                                                                 'right': 0.93,
+                                                                 'top': 0.93,
+                                                                 'wspace': 0.0,
+                                                                 'hspace': 0.0},
                                                     figsize=self._figsize)
 
         self.fig.suptitle(self._title)
@@ -185,6 +192,7 @@ class LiveViewerPlot(Frame):
             x = []
             height = []
             colors = []
+            labels = []
             for tidx, (_, plot_trace) in enumerate(self.model.traces_to_plot.items()):
                 plot_trace.bar_index = tidx
                 y_values = plot_trace.finite_y_values
@@ -195,11 +203,19 @@ class LiveViewerPlot(Frame):
                 height.append(y_val - y_min)
                 x.append(tidx)
                 colors.append(plot_trace.line_handle.get_color())
+                labels.append(plot_trace.line_handle.get_label())
             self.bar_collection = self.ax_bar.bar(x, height, bottom=y_min, color=colors)
             self.ax_bar.set_xlim([-0.6, len(x)-0.4])
+            self.ax_bar.set_xticks([i for i in range(len(x))])
+            self.ax_bar.set_xticklabels(labels, rotation=90, va='bottom')
+            self.ax_bar.tick_params(axis='x', length=0.0, pad=-10.0, direction='in')
         else:
             for _, plot_trace in self.model.traces_to_plot.items():
                 y_values = plot_trace.finite_y_values
                 if len(y_values) > 0:
                     self.bar_collection[plot_trace.bar_index].set_height(y_values[-1] - y_min)
                     self.bar_collection[plot_trace.bar_index].set_y(y_min)
+            if len(self.bar_collection) > 0:
+                for lbl in self.bar_collection_labels:
+                    lbl.remove()
+                self.bar_collection_labels = self.ax_bar.bar_label(self.bar_collection, fmt='%.3f')
