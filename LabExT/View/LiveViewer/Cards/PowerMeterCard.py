@@ -200,15 +200,27 @@ class PowerMeterCard(CardFrame):
         """
         Function to be run in a thread, continuously polls the pm.
         """
+        first = True
         while not self.stop_thread:
             with self.instrument.thread_lock:
                 for ac, trace in self.enabled_channels.items():
+
+                    # check break conditions
+                    if self.stop_thread or (self.instrument is None):
+                        break
+
+                    # get up-to-date power value
                     self.instrument.channel = ac
-                    power_data = self.instrument.power
-                    time_stamp = time.time()
-                    self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace,
-                                                              timestamp=time_stamp,
-                                                              y_value=power_data))
+                    if not first:
+                        power_data = self.instrument.fetch_power()
+                        time_stamp = time.time()
+                        self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace,
+                                                                  timestamp=time_stamp,
+                                                                  y_value=power_data))
+
+                    # trigger channel anew
+                    self.instrument.trigger()
+            first = False
             sleep(1e-3)
 
         self.thread_finished = True
