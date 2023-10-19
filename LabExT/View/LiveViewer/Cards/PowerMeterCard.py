@@ -34,7 +34,7 @@ class PowerMeterCard(CardFrame):
     }
 
     INSTRUMENT_TYPE = 'Power Meter'
-    CARD_TITLE = 'Poll Power Meter Channels'
+    CARD_TITLE = 'Poll OPM'
 
     def __init__(self, parent, controller, model):
         """Constructor.
