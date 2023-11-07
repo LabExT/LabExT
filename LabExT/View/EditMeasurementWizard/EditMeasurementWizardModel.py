@@ -33,6 +33,7 @@ class EditMeasurementWizardModel:
 
         # saved user settings
         self.settings_file_name = 'EditMeasurementWizard_settings.json'
+        """The file name used for caching user-entries for the next time the wizard is opened."""
 
         # user selected data
         self.settings: Dict[int, Dict] = defaultdict(lambda: {})
