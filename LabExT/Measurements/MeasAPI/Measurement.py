@@ -193,13 +193,13 @@ class Measurement:
     def get_non_sweepable_parameters() -> Dict[str, MeasParam]:
         """A `dict` mapping names of the parameters that are explicitly non-sweepable to the corresponding `MeasParam`.
         
-        If all parameters are sweepable this method should return `None`.
-        The default implementation also returns `None`.
+        If all parameters are sweepable this method should return an empty `dict`.
+        The default implementation also returns an empty `dict`.
         
         Returns:
             dict[str, MeasParam]: names of the parameters that aren't sweepable mapped to the corresponding parameters
         """
-        return None
+        return dict()
 
     @staticmethod
     def get_wanted_instrument() -> List[str]:
