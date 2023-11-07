@@ -7,11 +7,18 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from time import sleep
 
+from typing import TYPE_CHECKING, Dict
+
 import numpy as np
 
 from LabExT.Measurements.MeasAPI import *
 from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
+
+if TYPE_CHECKING:
+    from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+else:
+    MeasParam = None
 
 
 class DummyMeas(Measurement):
@@ -56,8 +63,16 @@ class DummyMeas(Measurement):
             'simulate measurement error': MeasParamBool(value=False)
         }
 
-    @classmethod
-    def get_wanted_instrument(cls):
+    @staticmethod
+    def get_non_sweepable_parameters() -> Dict[str, MeasParam]:
+        def_params = DummyMeas.get_default_parameter()
+        return {
+            "number of points": def_params["number of points"],
+            "total measurement time": def_params["total measurement time"]
+        }
+
+    @staticmethod
+    def get_wanted_instrument():
         return []
 
     def algorithm(self, device, data, instruments, parameters):

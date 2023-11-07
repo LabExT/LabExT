@@ -7,7 +7,12 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 
-from typing import List
+from typing import TYPE_CHECKING, List, Dict
+
+if TYPE_CHECKING:
+    from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+else:
+    MeasParam = None
 
 
 class Measurement:
@@ -183,6 +188,18 @@ class Measurement:
 
         """
         raise NotImplementedError()
+
+    @staticmethod
+    def get_non_sweepable_parameters() -> Dict[str, MeasParam]:
+        """A `dict` mapping names of the parameters that are explicitly non-sweepable to the corresponding `MeasParam`.
+        
+        If all parameters are sweepable this method should return `None`.
+        The default implementation also returns `None`.
+        
+        Returns:
+            dict[str, MeasParam]: names of the parameters that aren't sweepable mapped to the corresponding parameters
+        """
+        return None
 
     @staticmethod
     def get_wanted_instrument() -> List[str]:

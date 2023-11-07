@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from typing import Literal, Union
 
 class MeasParam:
     """Implementation of a single measurement parameter.
@@ -38,6 +39,12 @@ class MeasParam:
             d.update({'unit': self.unit})
         return d
 
+    @property
+    def sweep_type(self) -> Union[None, Literal["binary", "range"]]:
+        """Returns the type of sweep this parameter supports.
+        """
+        return False
+
     def __str__(self):
         """Converts this parameter to a string.
         """
@@ -55,6 +62,10 @@ class MeasParamInt(MeasParam):
     @property
     def value(self):
         return self._value
+
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+        return "range"
 
     @value.setter
     def value(self, new_val):
@@ -76,6 +87,10 @@ class MeasParamFloat(MeasParam):
     @property
     def value(self):
         return self._value
+
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+        return "range"
 
     @value.setter
     def value(self, new_val):
@@ -100,6 +115,10 @@ class MeasParamBool(MeasParam):
 
     Gets rendered as a check-box.
     """
+
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+        return "binary"
 
     def __init__(self, value=None, unit=None, extra_type=None):
         super().__init__(value, unit, extra_type)
