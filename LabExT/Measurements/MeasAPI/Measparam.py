@@ -31,6 +31,12 @@ class MeasParam:
         # TODO: consider removing this
         self.extra_type = extra_type
 
+    def copy(self) -> "MeasParam":
+        """Creates and returns a shallow copy of this `MeasParam`.
+        """
+        new = type(self)(self.value, self.unit, self.extra_type)
+        return new
+
     def as_dict(self):
         """Returns the stored value as part of a dict.
         """
@@ -139,6 +145,9 @@ class MeasParamList(MeasParam):
         """
         super().__init__(value, unit, extra_type)
         self.options = options
+
+    def copy(self) -> MeasParam:
+        return MeasParamList(self.options, self.value, self.unit, self.extra_type)
 
     def __str__(self):
         return str(type(self)) + ": " + str(self.options) + " selected: " + str(self.value)
