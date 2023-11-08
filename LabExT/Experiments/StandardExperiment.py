@@ -170,11 +170,10 @@ class StandardExperiment:
 
             save_file_name = make_filename_compliant(save_file_name)
 
-            if current_todo.dictionary_wrapper.subfolder_name == "":
-                current_todo.dictionary_wrapper.subfolder_name = save_file_name
-                makedirs(join(self.param_output_path, save_file_name))
-
             if current_todo.part_of_sweep:
+                if current_todo.dictionary_wrapper.subfolder_name == "":
+                    current_todo.dictionary_wrapper.subfolder_name = save_file_name
+                    makedirs(join(self.param_output_path, save_file_name))
                 save_file_path = join(self.param_output_path, 
                                       current_todo.dictionary_wrapper.subfolder_name,
                                       save_file_name)
