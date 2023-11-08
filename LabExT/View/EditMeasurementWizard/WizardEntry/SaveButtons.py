@@ -52,6 +52,8 @@ class SaveButtonsController(WizardEntryController):
             new_meas = self._main_controller._experiment.create_measurement_object(
                 meas_class_name)
 
+            new_meas.instruments = measurement.instruments.copy()
+
             new_meas.parameters = measurement.parameters.copy()
             for name, value in zip(row.index, row):
                 new_param = measurement.parameters[name].copy()
