@@ -10,6 +10,8 @@ from os import remove
 from flaky import flaky
 from unittest.mock import patch
 
+from typing import TYPE_CHECKING
+
 import LabExT.Wafer.Device
 import LabExT.Measurements.MeasAPI
 from LabExT.ExperimentManager import ExperimentManager
@@ -18,6 +20,13 @@ from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
 from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
+
+if TYPE_CHECKING:
+    from LabExT.View.Controls.InstrumentSelector import InstrumentSelector
+    from LabExT.View.Controls.SweepParameterFrame import SweepParameterFrame
+else:
+    InstrumentSelector = None
+    SweepParameterFrame = None
 
 
 def simulator_only_instruments_descriptions(name):
@@ -121,19 +130,21 @@ class MainWindowTest(TKinterTestCase):
                 self.pump_events()
 
             # stage 2: instrument selection - modify saved roles
-            laser_role = new_meas_wizard_c.entry_controllers[2]._view.content.instrument_source['Laser']
-            opm_role = new_meas_wizard_c.entry_controllers[2]._view.content.instrument_source['Power Meter']
-            lsim = [l for l in laser_role.choices_human_readable_desc if "LaserSimulator" in l][0]
-            pmsim = [l for l in opm_role.choices_human_readable_desc if "PowerMeterSimulator" in l][0]
+            content: InstrumentSelector = new_meas_wizard_c.entry_controllers[2]._view.content
+            laser_role = content.instrument_source['Laser']
+            opm_role = content.instrument_source['Power Meter']
+            lsim = next(l for l in laser_role.choices_human_readable_desc if "LaserSimulator" in l)
+            pmsim = next(l for l in opm_role.choices_human_readable_desc if "PowerMeterSimulator" in l)
             laser_role.selected_instr.set(lsim)
             laser_role.selected_channel.set("0")
             opm_role.selected_instr.set(pmsim)
             opm_role.selected_channel.set("1")
 
-            with patch.object(new_meas_wizard_c.entry_controllers[2]._view.content, 'serialize', lambda _: None):
+            with patch.object(new_meas_wizard_c.entry_controllers[2]._view.content, 'serialize_to_dict', lambda _: None):
                 with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
-                    new_meas_wizard_c.entry_controllers[2]._view.continue_button.invoke()
-                    self.pump_events()
+                    with patch.object(new_meas_wizard_c, 'stage_start_logic'):
+                        new_meas_wizard_c.entry_controllers[2]._view.continue_button.invoke()
+                        self.pump_events()
 
             # stage 3: parameter selection with randomly generated params
             random_meas_props = {
@@ -159,43 +170,90 @@ class MainWindowTest(TKinterTestCase):
             ps['users comment'].value = random_meas_props['users comment']
 
             # this would otherwise save the test params to the user's settings
-            with patch.object(new_meas_wizard_c.entry_controllers[3]._view.content, 'serialize'):
+            with patch.object(new_meas_wizard_c.entry_controllers[3]._view.content, 'serialize_to_dict'):
                 with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
-                    new_meas_wizard_c.entry_controllers[3]._view.continue_button.invoke()
+                    with patch.object(new_meas_wizard_c, 'stage_start_logic'):
+                        new_meas_wizard_c.entry_controllers[3]._view.continue_button.invoke()
+                        self.pump_events()
+
+            # stage 4: sweeps
+            random_reps = 1 #random.randint(2, 6)
+            sweep_param_frame: SweepParameterFrame = new_meas_wizard_c.entry_controllers[4]._view.content
+            sweep_param_frame._plus_button.invoke()
+            self.pump_events()
+            sweep_param_frame._ranges[0][2].set("wavelength start")
+            self.pump_events()
+            sweep_param_frame._ranges[0][1]._step_category.set(sweep_param_frame._ranges[0][1]._selection["step_count_repetition"])
+            sweep_param_frame._ranges[0][1]._step_entry.delete(0, "end")
+            sweep_param_frame._ranges[0][1]._step_entry.insert(0, str(random_reps))
+
+            self.assertEqual(len(sweep_param_frame._ranges), 1)
+
+            sweep_param_frame._plus_button.invoke()
+            self.pump_events()
+            self.assertEqual(len(sweep_param_frame._ranges), 2)
+            sweep_param_frame._plus_button.invoke()
+            self.pump_events()
+            self.assertEqual(len(sweep_param_frame._ranges), 3)
+            sweep_param_frame._minus_button.invoke()
+            self.pump_events()
+            self.assertEqual(len(sweep_param_frame._ranges), 2)
+
+            random_start = random.randint(-10, 10)
+            sweep_param_frame._ranges[1][2].set("wavelength stop")
+            self.pump_events()
+            sweep_param_frame._ranges[1][1]._step_category.set(sweep_param_frame._ranges[1][1]._selection["step_count_linear"])
+            sweep_param_frame._ranges[1][1]._from_entry.delete(0, "end")
+            sweep_param_frame._ranges[1][1]._from_entry.insert(0, str(random_start))
+            sweep_param_frame._ranges[1][1]._to_entry.delete(0, "end")
+            sweep_param_frame._ranges[1][1]._to_entry.insert(0, str(random_start + 2))
+            sweep_param_frame._ranges[1][1]._step_entry.delete(0, "end")
+            sweep_param_frame._ranges[1][1]._step_entry.insert(0, "3")
+
+            with patch.object(new_meas_wizard_c.entry_controllers[4]._view.content, 'serialize'):
+                with patch.object(new_meas_wizard_c, 'serialize_settings', lambda: None):
+                    new_meas_wizard_c.entry_controllers[4]._view.continue_button.invoke()
                     self.pump_events()
 
-            # stage 4: save
-            new_meas_wizard_c.entry_controllers[4]._view.continue_button.invoke()
+            # stage 5: save
+            new_meas_wizard_c.entry_controllers[5]._view.continue_button.invoke()
             self.pump_events()
 
             # check if GUI provided values made it into the generated measurement
-            self.assertEqual(len(self.expm.exp.to_do_list), 1)
+            self.assertEqual(len(self.expm.exp.to_do_list), random_reps * 3)
             self.assertEqual(len(self.expm.exp.measurements), 0)
-            new_to_do = self.expm.exp.to_do_list[0]
 
-            new_dev = new_to_do.device
-            self.assertTrue(isinstance(new_dev, LabExT.Wafer.Device.Device))
-            self.assertEqual(new_dev.id, random_dev_props['id'])
-            self.assertEqual(new_dev.type, random_dev_props['type'])
+            for i, new_to_do in enumerate(self.expm.exp.to_do_list):
+                new_dev = new_to_do.device
+                self.assertTrue(isinstance(new_dev, LabExT.Wafer.Device.Device))
+                self.assertEqual(new_dev.id, random_dev_props['id'])
+                self.assertEqual(new_dev.type, random_dev_props['type'])
 
-            new_meas = new_to_do.measurement
-            self.assertTrue(isinstance(new_meas, LabExT.Measurements.MeasAPI.Measurement))
-            self.assertEqual(new_meas.parameters['wavelength start'].value, random_meas_props['wavelength start'])
-            self.assertEqual(new_meas.parameters['wavelength stop'].value, random_meas_props['wavelength stop'])
-            self.assertEqual(new_meas.parameters['wavelength step'].value, random_meas_props['wavelength step'])
-            self.assertEqual(new_meas.parameters['sweep speed'].value, random_meas_props['sweep speed'])
-            self.assertEqual(new_meas.parameters['laser power'].value, random_meas_props['laser power'])
-            self.assertEqual(new_meas.parameters['powermeter range'].value, random_meas_props['powermeter range'])
-            self.assertEqual(new_meas.parameters['file path to reference meas.'].value,
-                             random_meas_props['file path to reference meas.'])
-            self.assertEqual(new_meas.parameters['discard raw transmission data'].value,
-                             random_meas_props['discard raw transmission data'])
-            self.assertEqual(new_meas.parameters['users comment'].value, random_meas_props['users comment'])
-            self.assertEqual(set(new_meas.parameters.keys()),
-                             {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
-                              'powermeter range', 'users comment', 'file path to reference meas.',
-                              'discard raw transmission data'})
+                new_meas = new_to_do.measurement
+                self.assertTrue(isinstance(new_meas, LabExT.Measurements.MeasAPI.Measurement))
+                self.assertEqual(new_meas.parameters['wavelength start'].value, random_meas_props['wavelength start'])
+                self.assertEqual(new_meas.parameters['wavelength stop'].value, random_start + (i % 3))
+                self.assertEqual(new_meas.parameters['wavelength step'].value, random_meas_props['wavelength step'])
+                self.assertEqual(new_meas.parameters['sweep speed'].value, random_meas_props['sweep speed'])
+                self.assertEqual(new_meas.parameters['laser power'].value, random_meas_props['laser power'])
+                self.assertEqual(new_meas.parameters['powermeter range'].value, random_meas_props['powermeter range'])
+                self.assertEqual(new_meas.parameters['file path to reference meas.'].value,
+                                 random_meas_props['file path to reference meas.'])
+                self.assertEqual(new_meas.parameters['discard raw transmission data'].value,
+                                 random_meas_props['discard raw transmission data'])
+                self.assertEqual(new_meas.parameters['users comment'].value, random_meas_props['users comment'])
+                self.assertEqual(set(new_meas.parameters.keys()),
+                                 {'wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power',
+                                  'powermeter range', 'users comment', 'file path to reference meas.',
+                                  'discard raw transmission data'})
 
+            # enable automatic mode (GUI updates disabled, so hard-code setting experiment property)
+            self.expm.exp.exctrl_pause_after_device = False
+            # override show-messagebox (GUI updates disabled, so hard-code setting experiment property)
+            self.expm.exp.show_meas_finished_infobox = lambda: None
+
+            print(self.expm.exp.to_do_list[0].sweep_parameters)
+            params = self.expm.exp.to_do_list[0].sweep_parameters
             # Back to Main Window: run simulation measurement
             # various patches necessary s.t. tkinter runs although there is no main thread
             with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
@@ -206,31 +264,38 @@ class MainWindowTest(TKinterTestCase):
             # wait for the simulated measurement to complete
             self.mwm.experiment_handler._experiment_thread.join()
             self.pump_events()
+            print(params[['id', 'finished']])
 
             # check if provided values are actually saved to the objects in LabExT
             self.assertEqual(len(self.expm.exp.to_do_list), 0)
-            self.assertEqual(len(self.expm.exp.measurements), 1)
-            executed_measurement = self.expm.exp.measurements[0]
+            self.assertEqual(len(self.expm.exp.measurements), random_reps * 3)
 
-            # check content in the dictionary saved in the executed measurements
-            check_InsertionLossSweep_meas_dict_meta_data(self,
-                                                         executed_measurement,
-                                                         random_dev_props,
-                                                         random_meas_props)
-            # for checking the simulated data, we can re-use the checker function from the measurement's test
-            check_InsertionLossSweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=random_meas_props)
+            for i, executed_measurement in enumerate(self.expm.exp.measurements):
+                random_meas_props['wavelength stop'] = random_start + (i % 3)
+                # check content in the dictionary saved in the executed measurements
+                check_InsertionLossSweep_meas_dict_meta_data(self,
+                                                             executed_measurement,
+                                                             random_dev_props,
+                                                             random_meas_props)
+                # for checking the simulated data, we can re-use the checker function from the measurement's test
+                check_InsertionLossSweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=random_meas_props)
 
-            # do the same analysis on the saved file
-            fpath = executed_measurement['file_path_known']
-            with open(fpath, 'r') as fp:
-                fsaved_meas = json.load(fp)  # tests if valid JSON
+                # do the same analysis on the saved file
+                fpath = executed_measurement['file_path_known']
+                with open(fpath, 'r') as fp:
+                    fsaved_meas = json.load(fp)  # tests if valid JSON
 
-            # check content of saved file
-            check_InsertionLossSweep_meas_dict_meta_data(self,
-                                                         fsaved_meas,
-                                                         random_dev_props,
-                                                         random_meas_props)
-            check_InsertionLossSweep_data_output(test_inst=self, data_dict=fsaved_meas, params_dict=random_meas_props)
+                # check content of saved file
+                check_InsertionLossSweep_meas_dict_meta_data(self,
+                                                             fsaved_meas,
+                                                             random_dev_props,
+                                                             random_meas_props)
+                check_InsertionLossSweep_data_output(test_inst=self, data_dict=fsaved_meas, params_dict=random_meas_props)
 
-            # delete the generated save file
-            remove(fpath)
+                # delete the generated save file
+                remove(fpath)
+            import shutil
+            import os
+            if os.path.isdir(os.path.dirname(fpath)):
+                shutil.rmtree(os.path.dirname(fpath))
+
