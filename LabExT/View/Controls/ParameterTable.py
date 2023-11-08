@@ -285,12 +285,11 @@ class ParameterTable(CustomFrame):
         except KeyError:
             return False
 
-        for parameter_name in data:
+        for parameter_name in data.copy():
             try:
                 self._parameter_source[parameter_name].value = data[parameter_name]
             except KeyError:
-                self._logger.warning(
-                    f"Unknown key in save file: {parameter_name}. Ignoring this parameter.")
+                del data[parameter_name]
 
         self.__setup__()
         return True
