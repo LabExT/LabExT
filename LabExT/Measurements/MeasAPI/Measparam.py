@@ -49,7 +49,7 @@ class MeasParam:
     def sweep_type(self) -> Union[None, Literal["binary", "range"]]:
         """Returns the type of sweep this parameter supports.
         """
-        return False
+        return None
 
     def __str__(self):
         """Converts this parameter to a string.
