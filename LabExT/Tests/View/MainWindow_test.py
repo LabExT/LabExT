@@ -199,7 +199,7 @@ class MainWindowTest(TKinterTestCase):
             self.pump_events()
             self.assertEqual(len(sweep_param_frame._ranges), 2)
 
-            random_start = random.randint(-10, 10)
+            random_start = random.randint(1560, 1630)
             sweep_param_frame._ranges[1][2].set("wavelength stop")
             self.pump_events()
             sweep_param_frame._ranges[1][1]._step_category.set(sweep_param_frame._ranges[1][1]._selection["step_count_linear"])
@@ -252,7 +252,6 @@ class MainWindowTest(TKinterTestCase):
             # override show-messagebox (GUI updates disabled, so hard-code setting experiment property)
             self.expm.exp.show_meas_finished_infobox = lambda: None
 
-            print(self.expm.exp.to_do_list[0].sweep_parameters)
             params = self.expm.exp.to_do_list[0].sweep_parameters
             # Back to Main Window: run simulation measurement
             # various patches necessary s.t. tkinter runs although there is no main thread
@@ -264,7 +263,6 @@ class MainWindowTest(TKinterTestCase):
             # wait for the simulated measurement to complete
             self.mwm.experiment_handler._experiment_thread.join()
             self.pump_events()
-            print(params[['id', 'finished']])
 
             # check if provided values are actually saved to the objects in LabExT
             self.assertEqual(len(self.expm.exp.to_do_list), 0)
