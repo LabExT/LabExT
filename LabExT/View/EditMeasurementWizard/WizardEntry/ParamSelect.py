@@ -67,4 +67,8 @@ class WizardEntryParameterSelect(WizardEntryView):
         content: ParameterTable = self.content
         content.check_parameter_validity()
 
+        prev_res: Measurement = self.controller.model.results[self.stage - 2]['measurement']
+        for param_name, param in content._parameter_source.items():
+            prev_res.parameters[param_name].value = param.value
+
         return None
