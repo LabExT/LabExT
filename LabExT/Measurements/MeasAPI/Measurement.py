@@ -9,6 +9,8 @@ import logging
 
 from typing import TYPE_CHECKING, List, Dict, Tuple, Optional
 
+import uuid
+
 if TYPE_CHECKING:
     from LabExT.Measurements.MeasAPI.Measparam import MeasParam
     from LabExT.Experiments.StandardExperiment import StandardExperiment
@@ -99,6 +101,22 @@ class Measurement:
         self.logger = logging.getLogger()
         """Logger object, use this to log to console and log file"""
 
+        self._id: uuid.UUID = None
+        """A random id for the measurement. It is based on the measurement name and the parameters."""
+
+    @property
+    def id(self) -> uuid.UUID:
+        """Returns a unique ID for this measurement based on its name and its parameters.
+        
+        Measurements with the same name and parameters will have the same id.
+        """
+        if self._id is None:
+            _hash_string = ""
+            for name, param in self.parameters.items():
+                _hash_string += name + str(param.value)
+            self._id = uuid.uuid5(uuid.NAMESPACE_DNS, self.name + _hash_string)
+        return self._id
+
     @property
     def parameters(self) -> Dict[str, MeasParam]:
         """`dict` of `MeasParam`: access the currently set parameters for this measurement. If no parameters were set,
@@ -128,7 +146,7 @@ class Measurement:
     def get_name_with_id(self) -> str:
         """Returns the measurements `name` property and the unique id for this measurement's instance.
         """
-        return str(self.name) + " (id " + str(id(self))[-5:] + ")"
+        return str(self.name) + " (shortened id = " + self.id.hex[-5:] + ")"
 
     def init_instruments(self):
         """Instantiates instrument drivers according to `self.selected_instruments` and saves them in `self.instruments`
