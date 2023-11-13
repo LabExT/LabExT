@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import Literal, Union
+from typing import Literal, Union, Optional
 
 class MeasParam:
     """Implementation of a single measurement parameter.
@@ -18,7 +18,7 @@ class MeasParam:
         extra_type: Extra type, should be removed in future versions.
     """
 
-    def __init__(self, value=None, unit=None, extra_type=None):
+    def __init__(self, value: Optional[Union[str, float, int, bool, list]] = None, unit=None, extra_type=None):
         """Constructor.
 
         Arguments:
@@ -26,7 +26,7 @@ class MeasParam:
             unit (str): What unit the parameter has. Purely visual as a help for the user, does not influence calculations.
             extra_type: Extra type, should be removed in future versions.
         """
-        self.value = value
+        self.value: Union[str, float, int, bool, list] = value
         self.unit = unit
         # TODO: consider removing this
         self.extra_type = extra_type
