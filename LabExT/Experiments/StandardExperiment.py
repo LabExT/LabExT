@@ -11,6 +11,8 @@ import socket
 import sys
 import time
 import traceback
+import uuid
+import json
 from collections import OrderedDict
 from glob import glob
 from os import rename, makedirs
@@ -39,6 +41,7 @@ def calc_measurement_key(measurement):
     hash_str += str(measurement["device"]["id"])
     hash_str += str(measurement["device"]["type"])
     hash_str += str(measurement["name_known"])
+    hash_str += str(measurement["measurement id long"])
     return hash_str
 
 
@@ -196,6 +199,7 @@ class StandardExperiment:
 
             data['measurement name'] = measurement.name
             data['measurement name and id'] = measurement.get_name_with_id()
+            data['measurement id long'] = measurement.id.hex
             data['instruments'] = measurement._get_data_from_all_instruments()
             data['measurement settings'] = {}
             data['values'] = OrderedDict()
@@ -404,6 +408,17 @@ class StandardExperiment:
                 break
         else:
             raise KeyError('"measurement name" or "name"')
+
+        # check if measurement supports new id system
+        try:
+            _ = meas_dict["measurement id long"]
+        except KeyError:
+            self.logger.warning(f"Measurement '{meas_dict['measurement name and id']}' does not " +
+                                "have a new unique id. Creating one...")
+            meas_dict["measurement id long"] = uuid.uuid4().hex
+            with open(file_path, "w") as f:
+                json.dump(meas_dict, f)
+
         for k in ['timestamp iso start', 'timestamp_known']:
             if k in meas_dict:
                 meas_dict['timestamp_iso_known'] = meas_dict[k]
