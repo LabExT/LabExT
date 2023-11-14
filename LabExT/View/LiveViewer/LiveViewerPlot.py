@@ -119,7 +119,7 @@ class LiveViewerPlot(Frame):
         self._ani.pause()
         del self._ani
 
-    def animation_tick(self):
+    def animation_tick(self, _):
 
         redraw_bars = False
         for cidx, (card_type, card) in enumerate(self.model.cards):
