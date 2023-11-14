@@ -14,7 +14,7 @@ from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.PluginLoader import PluginLoader
 from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.LiveViewer.Cards import CardFrame
-from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
+from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel, PlotDataPoint
 from LabExT.View.LiveViewer.LiveViewerView import LiveViewerView
 
 
@@ -79,19 +79,20 @@ class LiveViewerController:
         # stop any interaction w/ instrument
         card.stop_instr()
 
-        # clean up the data from the plot
-        to_remove = []
+        # tell plot to delete the corresponding traces
         for trace_key in self.model.traces_to_plot.keys():
             if trace_key[0] is card:
-                to_remove.append(trace_key)
-        for trace_key in to_remove:
-            self.model.traces_to_plot[trace_key].line_handle.remove()
-            self.model.traces_to_plot.pop(trace_key, None)
+                card.data_to_plot_queue.put(PlotDataPoint(trace_name=trace_key[1], delete_trace=True))
 
-        # delete the cards record from the list of all cards
+        # hide card by removing from geometry manager, the card will be only destroyed later
+        card.pack_forget()
+
+        # schedule card frame for deletion after plot update tick
+        self.root.after(int(2.0 * self.view.main_window.main_frame.plot_wrapper._animate_interval_ms), lambda: self._destroy_card(card))
+
+    def _destroy_card(self, card):
+        """ deferred call to destroy card frame after corresponding traces were removed """
         self.model.cards.remove((card.CARD_TITLE, card))
-
-        # issue the tk command to destroy the card
         card.destroy()
 
     def show_main_window(self):
