@@ -235,8 +235,6 @@ class InsertionLossSweep(Measurement):
             raise RuntimeError(f'Reference file "{ref_fp:s}" could not be JSON decoded.')
 
         # check reference parameters
-        if ref_raw_data['measurement name'] != self.name:
-            raise ValueError(f'Reference file "{ref_fp:s}" has wrong measurement name, should be {self.name:s}.')
         check_params = ['wavelength start', 'wavelength stop', 'wavelength step', 'sweep speed', 'laser power']
         for pname in check_params:
             if ref_raw_data['measurement settings'][pname]['value'] != parameters[pname].value:
