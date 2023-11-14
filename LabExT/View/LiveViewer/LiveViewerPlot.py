@@ -115,7 +115,11 @@ class LiveViewerPlot(Frame):
 
         # ToDo: different instruments might have different units?
 
-    def animation_tick(self, _):
+    def stop_animation(self):
+        self._ani.pause()
+        del self._ani
+
+    def animation_tick(self):
 
         redraw_bars = False
         for cidx, (card_type, card) in enumerate(self.model.cards):

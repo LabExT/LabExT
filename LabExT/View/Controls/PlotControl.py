@@ -316,16 +316,18 @@ class PlotControl(Frame):
             self._polling_time_ms = None
         self._polling_running = False  # flag to not start polling thread multiple times
         self._polling_kill_flag = False  # Gets set to true when the class is destroyed in order to stop polling
+        self._polling_exec_ref = None
 
         # executing functions for foreign threads to make sure matplotlib is always accessed by the same thread
         self.plotting_thread = threading.current_thread()  # save reference to thread which owns the plots
         self.send_queue = queue.Queue(maxsize=1 if self._polling else 0)  # size 0 means no maximum queue size
         self.return_queue = queue.Queue(maxsize=1 if self._polling else 0)
         self.foreign_exec_lock = threading.Lock()
+        self.foreign_exec_ref = None
         if not self._polling:
             # if we are polling, all plot updates happen in the GUI thread anyhow, so no need to call the foreign
             # functions updater
-            self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
+            self.foreign_exec_ref = self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
 
         self._x_label = "x"
         self._y_label = "y"
@@ -357,7 +359,14 @@ class PlotControl(Frame):
         if self._polling and not self._polling_running:
             self._polling_kill_flag = False
             self._polling_running = True
-            self._root.after(self._polling_time_ms, self.__polling__)
+            self._polling_exec_ref = self._root.after(self._polling_time_ms, self.__polling__)
+
+    def destroy(self):
+        self._root.after_cancel(self.foreign_exec_ref)
+        self._polling_kill_flag = True
+        if self._polling_exec_ref is not None:
+            self._root.after_cancel(self._polling_exec_ref)
+        Frame.destroy(self)
 
     @execute_in_plotting_thread
     def set_axes(self, x_ax_label, y_ax_label):
@@ -384,7 +393,7 @@ class PlotControl(Frame):
         except queue.Empty:
             pass
         # this reschedules this function to run again after 10ms
-        self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
+        self.foreign_exec_ref = self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
 
     def __polling__(self):
         """ Polls and updates data """
@@ -394,7 +403,7 @@ class PlotControl(Frame):
             self.__update_canvas__()
         if not self._polling_kill_flag:
             # reschedule if not killed
-            self._root.after(self._polling_time_ms, self.__polling__)
+            self._polling_exec_ref = self._root.after(self._polling_time_ms, self.__polling__)
         else:
             # otherwise set running flag to false to signal completion
             self._polling_running = False

@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import time
 from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
 
 from LabExT.View.LiveViewer.LiveViewerPlot import LiveViewerPlot
@@ -73,6 +74,7 @@ class LiveViewerMainWindow(Toplevel):
         """
         Overloading of the destroy operator. Makes sure, that all parameters are saved and the instruments closed.
         """
+        self.main_frame.plot_wrapper.stop_animation()
         self.controller.close_all_instruments()
         Toplevel.destroy(self)
 
