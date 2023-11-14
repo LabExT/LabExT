@@ -191,8 +191,13 @@ class LiveViewerPlot(Frame):
 
         # update bar data
         if redraw_bars:
+            
             for b in self.bar_collection:
                 b.remove()
+            for l in self.bar_collection_labels:
+                l.remove()
+            self.bar_collection_labels.clear()
+            
             x = []
             height = []
             colors = []
@@ -208,18 +213,23 @@ class LiveViewerPlot(Frame):
                 x.append(tidx)
                 colors.append(plot_trace.line_handle.get_color())
                 labels.append(plot_trace.line_handle.get_label())
+                self.bar_collection_labels.append(
+                    self.ax_bar.text(x=tidx, y=y_min, s=f'{y_val:.3f}\n', va='bottom', ha='center'))
+            
             self.bar_collection = self.ax_bar.bar(x, height, bottom=y_min, color=colors)
+            
             self.ax_bar.set_xlim([-0.6, len(x)-0.4])
             self.ax_bar.set_xticks([i for i in range(len(x))])
             self.ax_bar.set_xticklabels(labels, rotation=90, va='bottom')
-            self.ax_bar.tick_params(axis='x', length=0.0, pad=-10.0, direction='in')
+            self.ax_bar.tick_params(axis='x', length=0.0, pad=-35.0, direction='in')
+
         else:
             for _, plot_trace in self.model.traces_to_plot.items():
                 y_values = plot_trace.finite_y_values
                 if len(y_values) > 0:
                     self.bar_collection[plot_trace.bar_index].set_height(y_values[-1] - y_min)
                     self.bar_collection[plot_trace.bar_index].set_y(y_min)
-            if len(self.bar_collection) > 0:
-                for lbl in self.bar_collection_labels:
-                    lbl.remove()
-                self.bar_collection_labels = self.ax_bar.bar_label(self.bar_collection, fmt='%.3f')
+                    self.bar_collection_labels[plot_trace.bar_index].set_text(f'{y_values[-1]:.3f}\n')
+                    self.bar_collection_labels[plot_trace.bar_index].set_y(y_min)
+                else:
+                    self.bar_collection_labels[plot_trace.bar_index].set_text('N/A')
