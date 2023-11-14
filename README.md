@@ -7,7 +7,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6602553.svg)](https://doi.org/10.5281/zenodo.6602553)
 
 LabExT, short for Laboratory Experiment Tool, is a software environment for performing laboratory
-experiments on silicon-photonic devices and chips. The tool is free, written in Python 3.8 and uses the I/O API VISA
+experiments on silicon-photonic devices and chips. The tool is free, written in Python 3.9 and uses the I/O API VISA
 through [pyvisa](https://github.com/pyvisa/pyvisa).
 
 More general: if you need to run measurement algorithms with SCPI-talking instruments in a laboratory, it is highly
@@ -43,7 +43,7 @@ Here are the three most important pieces of documentation you will need:
 ## Installation
 Assuming you use conda as environment manager, installation is straight forward:
 ```
-conda create -n LabExT_env python=3.8
+conda create -n LabExT_env python=3.9
 conda activate LabExT_env
 pip install LabExT-pkg
 ```
