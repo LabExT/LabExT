@@ -50,16 +50,19 @@ class PlotTrace:
 
     def delete_older_than(self, cutoff_s):
         deltas = self.delta_time_to_now
-        n_elems_older_than_cutoff = np.count_nonzero(np.abs(deltas) > np.abs(cutoff_s))
-        self.timestamps[:n_elems_older_than_cutoff] = []
-        self.y_values[:n_elems_older_than_cutoff] = []
+        n_elems_older_than_cutoff = np.count_nonzero(np.abs(deltas) > np.abs(cutoff_s)) - 1
+        if n_elems_older_than_cutoff > 0:
+            self.timestamps[:n_elems_older_than_cutoff] = []
+            self.y_values[:n_elems_older_than_cutoff] = []
 
     def add_plot_data_point(self, pdp: PlotDataPoint):
         self.timestamps.append(pdp.timestamp)
         self.y_values.append(pdp.y_value)
 
     def update_line_data(self):
-        self.line_handle.set_data(self.delta_time_to_now, self.y_values)
+        x = np.hstack((self.delta_time_to_now, 1))
+        y = np.hstack((self.y_values, self.y_values[-1]))
+        self.line_handle.set_data(x, y)
 
 
 class LiveViewerPlot(Frame):
