@@ -56,8 +56,11 @@ class LiveViewerMainWindow(Toplevel):
         """
         Toplevel.__init__(self, root)
         self.controller = controller
-        w, h = root.winfo_screenwidth() - 20, root.winfo_screenheight() - 100
-        self.geometry("%dx%d+0+0" % (w, h))
+        ws, hs = root.winfo_screenwidth(), root.winfo_screenheight()
+        # limit window size - otherwise performance suffers heavily on large-screen systems
+        w = ws if ws < 2000 else 2000
+        h = hs if hs < 1200 else 1200
+        self.geometry(f"{w:d}x{h:d}+{int((ws-w)/2)}+{int((hs-h)/2)}")
         self.lift()
         # self.attributes('-topmost', 'true')
         # self.protocol('WM_DELETE_WINDOW', self.controller.close_wizard)
