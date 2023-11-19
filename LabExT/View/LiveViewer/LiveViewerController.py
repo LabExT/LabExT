@@ -39,6 +39,7 @@ class LiveViewerController:
         # set up the liveviewer model
         self.model = LiveViewerModel(root)
         self.model.lvcards_classes.update(self.experiment_manager.live_viewer_cards)
+        self.experiment_manager.live_viewer_model = self.model
 
         # set up the liveviewer view
         self.view = LiveViewerView(self.root, self, self.model, experiment_manager)
