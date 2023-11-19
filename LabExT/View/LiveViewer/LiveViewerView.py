@@ -138,9 +138,12 @@ class ControlFrame(Frame):
         # add the CardManager
         self.cardM = CardManager(self, controller, model)
         self.cardM.grid(row=0, column=0, sticky='NEW', pady=(12, 20))
-
+        
+        self.pause_button = Button(self, text='Pause Plotting', command=self.controller.toggle_plotting_active)
+        self.pause_button.grid(row=2, column=0, sticky='SEW', pady=(12, 1))
+ 
         self.save_button = Button(self, text="Save current Data", command=self.controller.create_snapshot)
-        self.save_button.grid(row=2, column=0, sticky='SEW', pady=(12, 20))
+        self.save_button.grid(row=3, column=0, sticky='SEW', pady=(1, 20))
 
         self.card_full_container = Frame(self)
         self.card_full_container.grid(row=1, column=0, sticky='NESW')

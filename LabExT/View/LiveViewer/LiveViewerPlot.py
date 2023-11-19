@@ -115,9 +115,11 @@ class LiveViewerPlot(Frame):
 
         # ToDo: different instruments might have different units?
 
+    def start_animation(self):
+        self._ani.resume()
+
     def stop_animation(self):
         self._ani.pause()
-        del self._ani
 
     def animation_tick(self, _):
 

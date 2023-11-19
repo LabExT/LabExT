@@ -49,6 +49,7 @@ class LiveViewerModel:
 
         # the currently plotted traces in the live viewer plot
         self.traces_to_plot = {}
+        self.plotting_active = True
 
         # the color index to be used for the next trace
         self.new_color_idx = 0
