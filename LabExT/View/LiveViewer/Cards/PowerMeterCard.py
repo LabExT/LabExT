@@ -91,7 +91,7 @@ class PowerMeterCard(CardFrame):
         if self.card_active.get():
             raise RuntimeError('Cannot start pm when already started.')
 
-        for ch_int, trace in self.enabled_channels.items():
+        for _, trace in self.enabled_channels.items():
             self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace, delete_trace=True))
 
         loaded_instr = self.load_instrument_instance()
@@ -110,6 +110,8 @@ class PowerMeterCard(CardFrame):
 
     def _start_polling(self):
         """ start polling thread """
+        if self.active_thread is not None:
+            return  # do not start thread twice 
         th = threading.Thread(target=lambda: self.poll_pm(), name="live viewer measurement")
         self.active_thread = th
         self.stop_thread = False
@@ -121,6 +123,7 @@ class PowerMeterCard(CardFrame):
         self.stop_thread = True
         if self.active_thread is not None:
             self.active_thread.join()
+        self.active_thread = None
 
     @show_errors_as_popup()
     def stop_pm(self):
