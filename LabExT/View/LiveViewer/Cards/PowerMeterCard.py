@@ -61,25 +61,19 @@ class PowerMeterCard(CardFrame):
         self.stop_thread = False
         self.thread_finished = True
 
-        # row 0: parameter table
-        self.ptable = ParameterTable(content_frame)
-        self.ptable.title = 'Parameters'
-        self.ptable.parameter_source = self.default_parameters.copy()
-        self.ptable.grid(row=0, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
-
-        # row 1: control buttons
+        # row 0: control buttons
         self.enable_button = Button(content_frame,
                                     text="Start PM",
-                                    command=lambda: self.start_pm(self.ptable.to_meas_param()))
-        self.enable_button.grid(row=1, column=0, padx=2, pady=2, sticky='NESW')
+                                    command=lambda: self.start_pm())
+        self.enable_button.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
         self.disable_button = Button(content_frame,
                                      text="Stop PM",
                                      command=lambda: self.stop_pm())
-        self.disable_button.grid(row=1, column=1, padx=2, pady=2, sticky='NESW')
+        self.disable_button.grid(row=0, column=1, padx=2, pady=2, sticky='NESW')
         self.update_button = Button(content_frame,
                                     text="Update Settings",
-                                    command=lambda: self.update_pm(self.ptable.to_meas_param()))
-        self.update_button.grid(row=1, column=2, padx=2, pady=2, sticky='NESW')
+                                    command=lambda: self.update_pm())
+        self.update_button.grid(row=0, column=2, padx=2, pady=2, sticky='NESW')
 
         # register which buttons to enable / disable on state change
         self.buttons_active_when_settings_enabled.append(self.enable_button)
@@ -90,7 +84,7 @@ class PowerMeterCard(CardFrame):
         self.enabled_channels = {}
 
     @show_errors_as_popup()
-    def start_pm(self, parameters):
+    def start_pm(self):
         """
         Sets up the pm and starts it.
         """
@@ -107,7 +101,7 @@ class PowerMeterCard(CardFrame):
         # ToDo - nice to have would be saving existing instrument parameters and restoring them afterwards
 
         # do the first setting of params
-        self.update_pm_raise_errors(parameters)
+        self.update_pm_raise_errors()
 
         # Startet die Motoren!
         self._start_polling()
@@ -146,13 +140,15 @@ class PowerMeterCard(CardFrame):
     def update_pm(self, *args, **kwargs):
         self.update_pm_raise_errors(*args, **kwargs)
 
-    def update_pm_raise_errors(self, parameters):
+    def update_pm_raise_errors(self):
         """
         Updates the power meters parameters.
         """
         loaded_instr = self.instrument
         if loaded_instr is None:
             raise RuntimeError('Instrument pointer is None, instrument is not loaded so cannot update.')
+
+        parameters = self.ptable.to_meas_param()
 
         pm_range = parameters['powermeter range'].value
         pm_atime = parameters['powermeter averagetime'].value

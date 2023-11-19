@@ -12,6 +12,7 @@ from functools import wraps
 from tkinter import Frame, Button, Label, messagebox, BooleanVar
 
 from LabExT.Utils import get_visa_address
+from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
 
 
@@ -109,9 +110,15 @@ class CardFrame(Frame):
         self.instr_selec.instrument_source = self.available_instruments
         self.instr_selec.grid(row=1, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
 
-        # row 2: user's content frame, filled by subclasses
+        # row 2: parameter table for this card
+        self.ptable = ParameterTable(self)
+        self.ptable.title = 'Parameters'
+        self.ptable.parameter_source = self.default_parameters.copy()
+        self.ptable.grid(row=2, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
+
+        # row 3: user's content frame, filled by subclasses
         self.content_frame = Frame(self)
-        self.content_frame.grid(row=2, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
+        self.content_frame.grid(row=3, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
 
     def load_instrument_instance(self):
         """

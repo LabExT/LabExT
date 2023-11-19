@@ -50,35 +50,29 @@ class LaserCard(CardFrame):
         content_frame.columnconfigure(2, minsize=120)
         content_frame.columnconfigure(3, weight=4)
 
-        # row 0: parameter table
-        self.ptable = ParameterTable(content_frame)
-        self.ptable.title = 'Parameters'
-        self.ptable.parameter_source = self.default_parameters.copy()
-        self.ptable.grid(row=0, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
-
-        # row 1: control buttons
+        # row 0: control buttons
         self.enable_button = Button(content_frame, text="Start Laser",
                                     command=lambda: self.start_laser(self.available_instruments,
                                                                      self.ptable.to_meas_param(),
                                                                      self.laser_enabled_warning_text))
-        self.enable_button.grid(row=1, column=0, padx=2, pady=2, sticky='NESW')
+        self.enable_button.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
         self.disable_button = Button(content_frame, text="Stop Laser",
                                      command=lambda: self.stop_laser(self.available_instruments,
                                                                      self.ptable.to_meas_param(),
                                                                      self.laser_enabled_warning_text))
-        self.disable_button.grid(row=1, column=1, padx=2, pady=2, sticky='NESW')
+        self.disable_button.grid(row=0, column=1, padx=2, pady=2, sticky='NESW')
         self.update_button = Button(content_frame, text="Update Settings",
                                     command=lambda: self.update_laser(self.available_instruments,
                                                                       self.ptable.to_meas_param(),
                                                                       self.laser_enabled_warning_text))
-        self.update_button.grid(row=1, column=2, padx=2, pady=2, sticky='NESW')
+        self.update_button.grid(row=0, column=2, padx=2, pady=2, sticky='NESW')
 
-        # row 1: laser enabled warning text
+        # row 0: laser enabled warning text
         self.label_en = Label(content_frame,
                               text="LASER ENABLED",
                               textvariable=self.laser_enabled_warning_text,
                               width=15)
-        self.label_en.grid(row=1, column=3, padx=2, pady=2, sticky='NESW')
+        self.label_en.grid(row=0, column=3, padx=2, pady=2, sticky='NESW')
         self.label_en.config(fg='#f00')
 
         # register which buttons to enable / disable on state change
