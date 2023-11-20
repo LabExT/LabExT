@@ -76,7 +76,7 @@ class StandardExperiment:
 
         # datastructure to store all FUTURE measurements
         self.to_do_list = []  # list to contain all future ToDos, do not redefine!
-        self.last_executed_todo = None  # store last executed to do (Tuple(Device, Measurement))
+        self.last_executed_todos = []  # store last executed to do (Tuple(Device, Measurement))
         self._fqdn_of_exp_runner = socket.getfqdn()  # get the FQDN of the running computer to save into datasets
         self._labext_vers = get_labext_version()  # get the LabExT version to save into datasets
 
@@ -258,7 +258,7 @@ class StandardExperiment:
                                  final_path)
 
                 # save to do reference in case user hits "Redo last measurement" button
-                self.last_executed_todo = (device, measurement)
+                self.last_executed_todos.append((device, measurement))
 
             # shift to do to executed measurements when successful
             if measurement_executed:

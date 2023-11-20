@@ -9,7 +9,7 @@ import json
 import logging
 import os
 from tkinter import Tk, Toplevel, messagebox
-from datetime import datetime
+from tkinter.simpledialog import askinteger
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import DeprecatedException, get_configuration_file_path
@@ -258,25 +258,34 @@ class MainWindowController:
         """
         self.logger.debug("Requested repeating of last executed measurement.")
 
-        last_todo = self.experiment_manager.exp.last_executed_todo
-        if last_todo is None:
+        last_executed_todos = self.experiment_manager.exp.last_executed_todos
+
+        if not last_executed_todos:
             msg = 'No measurement has yet been executed. There is nothing to repeat.'
             messagebox.showwarning('No Previous Measurement', msg)
             self.logger.warning(msg)
             return
 
-        # copy last measurement
-        last_device, last_meas = last_todo
-        new_meas = self.experiment_manager.exp.duplicate_measurement(last_meas)
-        self.experiment_manager.exp.to_do_list.insert(0, ToDo(last_device, new_meas))
+        recall_amount = askinteger(title='Repeat Last Measurements',
+                                   prompt='How many of the previously executed measurements should be repeated?',
+                                   initialvalue=1,
+                                   minvalue=1)
+        if recall_amount is None:
+            return
+        
+        if recall_amount > len(last_executed_todos):
+            recall_amount = len(last_executed_todos)
+
+        for last_todo in self.experiment_manager.exp.last_executed_todos[:(-1 * recall_amount - 1):-1]:
+            last_device, last_meas = last_todo
+            new_meas = self.experiment_manager.exp.duplicate_measurement(last_meas)
+            self.experiment_manager.exp.to_do_list.insert(0, ToDo(last_device, new_meas))
 
         # tell GUI to update the tables
         self.update_tables()
 
         # log action
-        msg = "Cloned ToDo with measurement id {:s} to id {:s} and device id {:s} to list position {:d}.".format(
-            last_meas.get_name_with_id(), new_meas.get_name_with_id(), str(last_device.id), 0
-        )
+        msg = f"Cloned the last {recall_amount:d} executed measurements into new ToDos."
         self.logger.info(msg)
 
     def check_all_measurements(self):
