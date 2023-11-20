@@ -209,7 +209,8 @@ class LiveViewerController:
 
         lv_state_to_save = []
 
-        global_settings = self.view.main_window.main_frame.control_wrapper.cardM.ptable.make_json_able()
+        global_settings = {}
+        self.view.main_window.main_frame.control_wrapper.cardM.ptable.serialize_to_dict(global_settings)
         lv_state_to_save.append(global_settings)
 
         for ctype, card in self.model.cards:
@@ -218,7 +219,8 @@ class LiveViewerController:
             for irolename, irole in card.available_instruments.items():
                 instr_data[irolename] = irole.choice
 
-            param_data = card.ptable.make_json_able()
+            param_data = {}
+            card.ptable.serialize_to_dict(param_data)
 
             lv_state_to_save.append((ctype, instr_data, param_data))
 
@@ -239,7 +241,7 @@ class LiveViewerController:
             return
 
         # apply global settings
-        self.view.main_window.main_frame.control_wrapper.cardM.ptable.from_json_able(loaded_lv_state[0])
+        self.view.main_window.main_frame.control_wrapper.cardM.ptable.deserialize_from_dict(loaded_lv_state[0])
         self.update_settings(self.view.main_window.main_frame.control_wrapper.cardM.ptable.to_meas_param())
 
         # create cards
@@ -250,5 +252,5 @@ class LiveViewerController:
         # restore card settings
         for cidx, (_, instr_data, param_data) in enumerate(loaded_lv_state[1:]):
             _, card = self.model.cards[cidx]
-            card.instr_selec.from_json_able(instr_data)
-            card.ptable.from_json_able(param_data)
+            card.instr_selec.deserialize_from_dict(instr_data)
+            card.ptable.deserialize_from_dict(param_data)

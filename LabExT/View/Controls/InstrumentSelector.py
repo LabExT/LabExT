@@ -211,16 +211,14 @@ class InstrumentSelector(CustomFrame):
 
     def serialize(self, file_name):
         """Serializes data in table to json."""
-        if self._instrument_source is None:
-            return
         settings_path = get_configuration_file_path(file_name)
         if os.path.isfile(settings_path):
             with open(settings_path, 'r') as json_file:
                 data = json.loads(json_file.read())
         else:
             data = {}
-        for role_name in self._instrument_source:
-            data[role_name] = self._instrument_source[role_name].choice
+        if not self.serialize_to_dict(data):
+            return False
         with open(settings_path, 'w') as json_file:
             json_file.write(json.dumps(data))
 
@@ -232,13 +230,7 @@ class InstrumentSelector(CustomFrame):
             return
         with open(settings_path, 'r') as json_file:
             data = json.loads(json_file.read())
-        self.from_json_able(data)
-
-    def from_json_able(self, state):
-        for role_name in state:
-            if role_name in self._instrument_source:
-                self._instrument_source[role_name].create_and_set(state[role_name])
-        self.__setup__()
+        self.deserialize_from_dict(settings=data)
 
     def serialize_to_dict(self, settings: dict):
         """Serializes data in table to given dict."""
