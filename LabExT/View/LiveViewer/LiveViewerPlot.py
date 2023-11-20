@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass, field
 from queue import Empty
 from tkinter import Tk, Frame, TOP, BOTH
+from typing import List
 
 import matplotlib.animation as animation
 import matplotlib.lines
@@ -35,8 +36,8 @@ LIVE_VIEWER_PLOT_COLOR_CYCLE = {
 @dataclass
 class PlotTrace:
     """ stores data and ax/line references for a trace to plot """
-    timestamps: list[float] = field(default_factory=list)
-    y_values: list[float] = field(default_factory=list)
+    timestamps: List[float] = field(default_factory=list)
+    y_values: List[float] = field(default_factory=list)
     line_handle: matplotlib.lines.Line2D = None
     bar_index: int = None
 
