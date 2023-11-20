@@ -101,7 +101,7 @@ class Measurement:
         self.logger = logging.getLogger()
         """Logger object, use this to log to console and log file"""
 
-        self._id: uuid.UUID = None
+        self._id: uuid.UUID = uuid.uuid4()
         """A random id for the measurement. It is based on the measurement name and the parameters."""
 
     @property
@@ -110,11 +110,6 @@ class Measurement:
         
         Measurements with the same name and parameters will have the same id.
         """
-        if self._id is None:
-            _hash_string = ""
-            for name, param in self.parameters.items():
-                _hash_string += name + str(param.value)
-            self._id = uuid.uuid5(uuid.NAMESPACE_DNS, self.name + _hash_string)
         return self._id
 
     @property
