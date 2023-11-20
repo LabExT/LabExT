@@ -35,7 +35,7 @@ class DummyInstrument(Instrument):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(visa_address=kwargs['visa_address'], channel=None)
+        super().__init__(visa_address=kwargs.get('visa_address', ''), channel=None)
         self._dummy_open = False
 
     def __getattr__(self, item):
