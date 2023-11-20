@@ -232,9 +232,12 @@ class InstrumentSelector(CustomFrame):
             return
         with open(settings_path, 'r') as json_file:
             data = json.loads(json_file.read())
-        for role_name in data:
+        self.from_json_able(data)
+
+    def from_json_able(self, state):
+        for role_name in state:
             if role_name in self._instrument_source:
-                self._instrument_source[role_name].create_and_set(data[role_name])
+                self._instrument_source[role_name].create_and_set(state[role_name])
         self.__setup__()
 
     def serialize_to_dict(self, settings: dict):

@@ -79,6 +79,7 @@ class LiveViewerMainWindow(Toplevel):
         """
         self.main_frame.plot_wrapper.stop_animation()
         self.controller.close_all_instruments()
+        self.controller.save_parameters()
         Toplevel.destroy(self)
 
 

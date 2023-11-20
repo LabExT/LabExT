@@ -7,12 +7,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import datetime
 from collections import OrderedDict
+import json
 from os import makedirs
 from os.path import dirname, join
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.PluginLoader import PluginLoader
-from LabExT.Utils import make_filename_compliant, get_labext_version
+from LabExT.Utils import get_configuration_file_path, make_filename_compliant, get_labext_version
 from LabExT.View.LiveViewer.Cards import CardFrame
 from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel, PlotDataPoint
 from LabExT.View.LiveViewer.LiveViewerView import LiveViewerView
@@ -46,6 +47,9 @@ class LiveViewerController:
 
         # sets the member variable current_window, needed by the LabExT backend
         self.current_window = self.view.main_window
+
+        # restore previously saved state
+        self.restore_lv_from_saved_parameters()
 
     def close_all_instruments(self):
         """Wrapper function that closes all instruments.
@@ -199,3 +203,52 @@ class LiveViewerController:
             return_dict.update(unique_plugins)
 
         return return_dict, plugin_loader_stats
+    
+    def save_parameters(self):
+        """ saves current parameters of live viewer to file, this includes global parameters and configured cards """
+
+        lv_state_to_save = []
+
+        global_settings = self.view.main_window.main_frame.control_wrapper.cardM.ptable.make_json_able()
+        lv_state_to_save.append(global_settings)
+
+        for ctype, card in self.model.cards:
+
+            instr_data = {}
+            for irolename, irole in card.available_instruments.items():
+                instr_data[irolename] = irole.choice
+
+            param_data = card.ptable.make_json_able()
+
+            lv_state_to_save.append((ctype, instr_data, param_data))
+
+        # write all elements to the json file
+        fname = get_configuration_file_path('LiveViewerConfig.json')
+        with open(fname, 'w') as json_file:
+            json_file.write(json.dumps(lv_state_to_save))
+
+    def restore_lv_from_saved_parameters(self):
+        """ restores a liveviewer state given previously saved parameters """
+
+        try:
+            fname = get_configuration_file_path('LiveViewerConfig.json')
+            with open(fname, 'r') as json_file:
+                loaded_lv_state = json.loads(json_file.read())
+        except FileNotFoundError as e:
+            # save file does not exist, don't care
+            return
+
+        # apply global settings
+        self.view.main_window.main_frame.control_wrapper.cardM.ptable.from_json_able(loaded_lv_state[0])
+        self.update_settings(self.view.main_window.main_frame.control_wrapper.cardM.ptable.to_meas_param())
+
+        # create cards
+        for ctype, _, _ in loaded_lv_state[1:]:
+            self.model.cards.append((ctype, None))
+        self.view.main_window.main_frame.control_wrapper.set_cards()
+
+        # restore card settings
+        for cidx, (_, instr_data, param_data) in enumerate(loaded_lv_state[1:]):
+            _, card = self.model.cards[cidx]
+            card.instr_selec.from_json_able(instr_data)
+            card.ptable.from_json_able(param_data)
