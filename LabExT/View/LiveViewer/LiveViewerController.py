@@ -5,6 +5,9 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from typing import TYPE_CHECKING
+
+import uuid
 import datetime
 import json
 from collections import OrderedDict
@@ -20,13 +23,17 @@ from LabExT.View.LiveViewer.Cards import CardFrame
 from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
 from LabExT.View.LiveViewer.LiveViewerView import LiveViewerView
 
+if TYPE_CHECKING:
+    from LabExT.ExperimentManager import ExperimentManager
+else:
+    ExperimentManager = None
 
 class LiveViewerController:
     """
     Controller class for the live viewer. Contains all functions interacting the view and model classes.
     """
 
-    def __init__(self, root, experiment_manager):
+    def __init__(self, root, experiment_manager: ExperimentManager):
         """Constructor.
 
         Parameters
@@ -294,8 +301,10 @@ class LiveViewerController:
         data['device']['out_position'] = "Not Available"
         data['device']['type'] = "Live Viewed Chip"
 
+        long_id = uuid.uuid4()
         data['measurement name'] = "Liveviewer Snapshot"
-        data['measurement name and id'] = "Liveviewer Snapshot"
+        data['measurement name and id'] = f"Liveviewer Snapshot ({long_id.hex[-5:]})"
+        data['measurement id long'] = long_id
         data['instruments'] = inst_data
         data['measurement settings'] = {}
         data['values'] = OrderedDict()
