@@ -5,10 +5,17 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from typing import TYPE_CHECKING
+
 from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
 
 from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.PlotControl import PlotControl
+
+if TYPE_CHECKING:
+    from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
+else:
+    LiveViewerController = None
 
 
 class LiveViewerView:
@@ -124,7 +131,7 @@ class ControlFrame(Frame):
             The Live viewer model
         """
         self.model = model
-        self.controller = controller
+        self.controller: LiveViewerController = controller
         Frame.__init__(self, parent)
 
         # add the CardManager
