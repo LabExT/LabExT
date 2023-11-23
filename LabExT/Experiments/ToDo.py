@@ -68,6 +68,13 @@ class DictionaryWrapper:
     
     It acts like a pointer, such that many objects can have a view onto the 
     same data, but the data can be changed as a whole after initialization.
+
+    This is needed for measurements belonging to a sweep. They all need to 
+    share the dictionary with the summary information of the sweep, however,
+    this is only created once the first measurement is run. To be able to 
+    update the references the other measurements use, they are given a reference
+    to this wrapper class instead, which holds a reference to the final dictionary
+    once it's created.
     """
 
     def __init__(self, dictionary: dict = None) -> None:
@@ -90,7 +97,7 @@ class DictionaryWrapper:
 
     @property
     def get(self) -> dict:
-        """Returns a reference to the wrapped dictionary or `None`."""
+        """Returns a reference to the wrapped dictionary or `None` if `self.available == False`."""
         return self._dictionary
 
     def wrap(self, dictionary: dict) -> None:

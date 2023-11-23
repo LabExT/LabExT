@@ -174,6 +174,7 @@ class StandardExperiment:
             save_file_name = make_filename_compliant(save_file_name)
 
             if current_todo.part_of_sweep:
+                # make sure measurements belonging to sweep share the file path for summary file
                 if current_todo.dictionary_wrapper.subfolder_name == "":
                     current_todo.dictionary_wrapper.subfolder_name = save_file_name
                     makedirs(join(self.param_output_path, save_file_name))
@@ -210,7 +211,10 @@ class StandardExperiment:
             data['sweep_information']['sweep_association'] = OrderedDict()
             if current_todo.part_of_sweep:
                 sweep_params = current_todo.sweep_parameters
+                # we select all columns except 'finished and 'file_path'
                 for _, row in sweep_params.loc[:, (sweep_params.columns != 'finished') & (sweep_params.columns != 'file_path')].iterrows():
+                    # iterate through the rows (i.e. Measurements) belonging to this sweep and store
+                    # to metadata
                     data['sweep_information']['sweep_association'][row['id']] = \
                         {name: value for name, value in zip(
                             row.index, row)}
@@ -302,21 +306,27 @@ class StandardExperiment:
                     sweep_params.loc[meas_index, 'finished'] = True
                     sweep_params.loc[meas_index, 'file_path'] = final_path
 
+                    # make sure all measurements of this sweep share the same summary dictionary
                     if not current_todo.dictionary_wrapper.available:
                         current_todo.dictionary_wrapper.wrap(self._write_metadata(
                             file_path=save_file_path + "_sweep_summary.json"))
 
+                    # this is the dictionary storing the association list of measurements and 
+                    # parameters in the summary file
                     sweep_list = OrderedDict()
 
+                    # store the names of the parameters used in sweep
                     param_names = list(sweep_params.columns)
                     param_names.remove('id')
                     param_names.remove('finished')
+                    # go through all measurements and store parameters for each
                     for _, row in sweep_params.iterrows():
                         sweep_list[row['id']] = {
                             param_name: param_value
                             for param_name, param_value in zip(param_names, row[param_names])
                         }
 
+                    # store summary data in shared dictionary and write to disk
                     current_todo.dictionary_wrapper.get['sweep_association_list'] = sweep_list
                     current_todo.dictionary_wrapper.get.save()
 
@@ -416,8 +426,6 @@ class StandardExperiment:
             self.logger.warning(f"Measurement '{meas_dict['measurement name and id']}' does not " +
                                 "have a new unique id. Creating one...")
             meas_dict["measurement id long"] = uuid.uuid4().hex
-            with open(file_path, "w") as f:
-                json.dump(meas_dict, f)
 
         for k in ['timestamp iso start', 'timestamp_known']:
             if k in meas_dict:
