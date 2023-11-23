@@ -163,7 +163,10 @@ class EditMeasurementWizardController:
         if os.path.isfile(settings_path):
             with open(settings_path, 'r') as json_file:
                 settings = json.loads(json_file.read())
-                settings = {int(k): v for k, v in settings.items()}
+                try:
+                    settings = {int(k): v for k, v in settings.items()}
+                except ValueError:
+                    self._update_cache_files()
         else:
             settings = {}
 
