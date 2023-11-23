@@ -46,11 +46,10 @@ def calc_measurement_key(measurement):
 
 
 class StandardExperiment:
-    """ StandardExperiment implements the routine of performing single or multiple measurements and gathers their
-    output data dictionary. """
+    """StandardExperiment implements the routine of performing single or multiple measurements and gathers their
+    output data dictionary."""
 
     def __init__(self, experiment_manager, parent: Tk, chip, mover=None):
-
         self.logger = logging.getLogger()
 
         self._experiment_manager = experiment_manager  # LabExT main class
@@ -73,8 +72,7 @@ class StandardExperiment:
         self._chip = chip
         self.chip_parameters = {}
         self.save_parameters = {}
-        self._default_save_path = join(
-            str(Path.home()), "laboratory_measurements")
+        self._default_save_path = join(str(Path.home()), "laboratory_measurements")
         # variables updated at each experiment run
         self.param_output_path = ""
         self.param_chip_file_path = ""
@@ -92,7 +90,8 @@ class StandardExperiment:
         self.selected_measurements = []
 
         # datastructure to store all FUTURE measurements
-        self.to_do_list: List[ToDo] = []  # list to contain all future ToDos, do not redefine!
+        # list to contain all future ToDos, do not redefine!
+        self.to_do_list: List[ToDo] = []
         # store last executed to do (Tuple(Device, Measurement))
         self.last_executed_todo = None
         # get the FQDN of the running computer to save into datasets
@@ -114,40 +113,33 @@ class StandardExperiment:
 
     @property
     def measurement_list(self):
-        """ measurement_list is a read-only set of all registered measurement class names """
+        """measurement_list is a read-only set of all registered measurement class names"""
         return set(self.measurements_classes.keys())
 
     def __setup__(self):
-        """Initialise all experiment specific parameters.
-        """
-        self.chip_parameters['Chip name'] = ConfigParameter(
-            self._parent,
-            value=self._chip.name if self._chip else 'UnknownChip',
-            parameter_type='text')
-        self.chip_parameters['Chip path'] = ConfigParameter(
-            self._parent,
-            value=self._chip.path if self._chip else '',
-            parameter_type='text',
-            allow_user_changes=False)
-        self.save_parameters['Raw output path'] = ConfigParameter(
-            self._parent,
-            value=self._default_save_path,
-            parameter_type='folder')
+        """Initialise all experiment specific parameters."""
+        self.chip_parameters["Chip name"] = ConfigParameter(
+            self._parent, value=self._chip.name if self._chip else "UnknownChip", parameter_type="text"
+        )
+        self.chip_parameters["Chip path"] = ConfigParameter(
+            self._parent, value=self._chip.path if self._chip else "", parameter_type="text", allow_user_changes=False
+        )
+        self.save_parameters["Raw output path"] = ConfigParameter(
+            self._parent, value=self._default_save_path, parameter_type="folder"
+        )
 
     def read_parameters_to_variables(self):
         # update local parameters
-        self.param_chip_name = str(self.chip_parameters['Chip name'].value)
-        self.param_chip_file_path = str(
-            self.chip_parameters['Chip path'].value)
-        self.param_output_path = str(
-            self.save_parameters['Raw output path'].value)
+        self.param_chip_name = str(self.chip_parameters["Chip name"].value)
+        self.param_chip_file_path = str(self.chip_parameters["Chip path"].value)
+        self.param_output_path = str(self.save_parameters["Raw output path"].value)
         makedirs(self.param_output_path, exist_ok=True)
 
     def show_meas_finished_infobox(self):
         messagebox.showinfo("Measurements finished!", "Measurements finished!")
 
     def run(self):
-        self.logger.info('Running experiment.')
+        self.logger.info("Running experiment.")
 
         # update local exctrl variables from GUI, just for safety
         self._experiment_manager.main_window.model.exctrl_vars_changed()
@@ -156,20 +148,18 @@ class StandardExperiment:
 
         # we iterate over every measurement of every device in the To Do Queue
         while 0 < len(self.to_do_list):
-
             current_todo = self.to_do_list[0]
             device = current_todo.device
             measurement = current_todo.measurement
 
-            self.logger.debug('Popped device:%s with measurement:%s',
-                              device, measurement.get_name_with_id())
+            self.logger.debug("Popped device:%s with measurement:%s", device, measurement.get_name_with_id())
 
             now = datetime.datetime.now()
-            ts = str('{date:%Y-%m-%d_%H%M%S}'.format(date=now))
+            ts = str("{date:%Y-%m-%d_%H%M%S}".format(date=now))
             ts_iso = str(datetime.datetime.isoformat(now))
 
             # save result to file and to execute measurements list
-            save_file_name = f'{self.param_chip_name}_id{device.id}_{device.type}_{measurement.name}_{ts}'
+            save_file_name = f"{self.param_chip_name}_id{device.id}_{device.type}_{measurement.name}_{ts}"
 
             save_file_name = make_filename_compliant(save_file_name)
 
@@ -178,68 +168,65 @@ class StandardExperiment:
                 if current_todo.dictionary_wrapper.subfolder_name == "":
                     current_todo.dictionary_wrapper.subfolder_name = save_file_name
                     makedirs(join(self.param_output_path, save_file_name))
-                save_file_path = join(self.param_output_path, 
-                                      current_todo.dictionary_wrapper.subfolder_name,
-                                      save_file_name)
+                save_file_path = join(
+                    self.param_output_path, current_todo.dictionary_wrapper.subfolder_name, save_file_name
+                )
             else:
                 save_file_path = join(self.param_output_path, save_file_name)
             save_file_path = self.uniquify_safe_file_name(save_file_path)
             save_file_ending = ".json.part"
 
             # create and populate output data save dictionary
-            data = AutosaveDict(
-                freq=50, file_path=save_file_path + save_file_ending)
+            data = AutosaveDict(freq=50, file_path=save_file_path + save_file_ending)
 
             self._write_metadata(data)
 
-            data['device'] = device.as_dict()
+            data["device"] = device.as_dict()
 
-            data['timestamp start'] = ts
-            data['timestamp iso start'] = ts_iso
-            data['timestamp'] = ts
+            data["timestamp start"] = ts
+            data["timestamp iso start"] = ts_iso
+            data["timestamp"] = ts
 
-            data['measurement name'] = measurement.name
-            data['measurement name and id'] = measurement.get_name_with_id()
-            data['measurement id long'] = measurement.id.hex
-            data['instruments'] = measurement._get_data_from_all_instruments()
-            data['measurement settings'] = {}
-            data['values'] = OrderedDict()
-            data['error'] = {}
+            data["measurement name"] = measurement.name
+            data["measurement name and id"] = measurement.get_name_with_id()
+            data["measurement id long"] = measurement.id.hex
+            data["instruments"] = measurement._get_data_from_all_instruments()
+            data["measurement settings"] = {}
+            data["values"] = OrderedDict()
+            data["error"] = {}
 
-            data['sweep_information'] = OrderedDict()
-            data['sweep_information']['part_of_sweep'] = current_todo.part_of_sweep
-            data['sweep_information']['sweep_association'] = OrderedDict()
+            data["sweep_information"] = OrderedDict()
+            data["sweep_information"]["part_of_sweep"] = current_todo.part_of_sweep
+            data["sweep_information"]["sweep_association"] = OrderedDict()
             if current_todo.part_of_sweep:
                 sweep_params = current_todo.sweep_parameters
                 # we select all columns except 'finished and 'file_path'
-                for _, row in sweep_params.loc[:, (sweep_params.columns != 'finished') & (sweep_params.columns != 'file_path')].iterrows():
+                for _, row in sweep_params.loc[
+                    :, (sweep_params.columns != "finished") & (sweep_params.columns != "file_path")
+                ].iterrows():
                     # iterate through the rows (i.e. Measurements) belonging to this sweep and store
                     # to metadata
-                    data['sweep_information']['sweep_association'][row['id']] = \
-                        {name: value for name, value in zip(
-                            row.index, row)}
+                    data["sweep_information"]["sweep_association"][row["id"]] = {
+                        name: value for name, value in zip(row.index, row)
+                    }
 
-            data['finished'] = False
+            data["finished"] = False
 
             # only move if automatic movement is enabled
             if self.exctrl_auto_move_stages:
                 self._mover.move_to_device(self._chip, device)
-                self.logger.info(
-                    'Automatically moved to device:' + str(device))
+                self.logger.info("Automatically moved to device:" + str(device))
 
             # execute automatic search for peak
             if self.exctrl_enable_sfp:
                 self._peak_searcher.update_params_from_savefile()
-                data['search for peak'] = self._peak_searcher.search_for_peak()
-                self.logger.info('Search for peak done.')
+                data["search for peak"] = self._peak_searcher.search_for_peak()
+                self.logger.info("Search for peak done.")
             else:
-                data['search for peak'] = None
-                self.logger.debug(
-                    'Search for peak not enabled. Not executing automatic search for peak.')
+                data["search for peak"] = None
+                self.logger.debug("Search for peak not enabled. Not executing automatic search for peak.")
 
-            self.logger.info('Executing measurement %s on device %s.',
-                             measurement.get_name_with_id(),
-                             device)
+            self.logger.info("Executing measurement %s on device %s.", measurement.get_name_with_id(), device)
 
             measurement_executed = False
             try:
@@ -249,42 +236,38 @@ class StandardExperiment:
             except Exception as exc:
                 # log error to file
                 etype, evalue, _ = sys.exc_info()
-                data['error'] = OrderedDict()
-                data['error']['type'] = str(etype)
-                data['error']['desc'] = repr(evalue)
-                data['error']['traceback'] = traceback.format_exc()
+                data["error"] = OrderedDict()
+                data["error"]["type"] = str(etype)
+                data["error"]["desc"] = repr(evalue)
+                data["error"]["traceback"] = traceback.format_exc()
                 # error during measurement, go into pause mode
-                self._experiment_manager.main_window.model.var_mm_pause.set(
-                    True)
-                msg = 'Error occurred during measurement: ' + repr(exc)
-                messagebox.showinfo('Measurement Error', msg)
+                self._experiment_manager.main_window.model.var_mm_pause.set(True)
+                msg = "Error occurred during measurement: " + repr(exc)
+                messagebox.showinfo("Measurement Error", msg)
                 self.logger.exception(msg)
                 save_file_ending = "_error.json"
             except SystemExit:
                 # log error to file
                 etype, evalue, _ = sys.exc_info()
-                data['error'] = OrderedDict()
-                data['error']['type'] = "Abort"
-                data['error']['desc'] = "Measurement aborted by user."
-                data['error']['traceback'] = traceback.format_exc()
+                data["error"] = OrderedDict()
+                data["error"]["type"] = "Abort"
+                data["error"]["desc"] = "Measurement aborted by user."
+                data["error"]["traceback"] = traceback.format_exc()
                 save_file_ending = "_abort.json"
 
             finally:
-
                 # clear live plots after experiment finished
                 while len(self.live_plot_collection) > 0:
-                    self.live_plot_collection.remove(
-                        self.live_plot_collection[0])
+                    self.live_plot_collection.remove(self.live_plot_collection[0])
 
                 # save instrument parameters again
-                data['instruments'] = measurement._get_data_from_all_instruments()
+                data["instruments"] = measurement._get_data_from_all_instruments()
 
                 # get measurement end timestamp
-                ts = str(
-                    '{date:%Y-%m-%d_%H%M%S}'.format(date=datetime.datetime.now()))
-                data['timestamp end'] = ts
-                data['timestamp'] = ts
-                data['finished'] = True
+                ts = str("{date:%Y-%m-%d_%H%M%S}".format(date=datetime.datetime.now()))
+                data["timestamp end"] = ts
+                data["timestamp"] = ts
+                data["finished"] = True
 
                 # save current measurement's data on disk
                 data.save()
@@ -292,42 +275,41 @@ class StandardExperiment:
                 final_path = save_file_path + save_file_ending
                 rename(data.file_path, final_path)
 
-                self.logger.info('Saved data of current measurement: %s to %s',
-                                 measurement.get_name_with_id(),
-                                 final_path)
+                self.logger.info(
+                    "Saved data of current measurement: %s to %s", measurement.get_name_with_id(), final_path
+                )
 
                 if current_todo.part_of_sweep:
                     sweep_params = current_todo.sweep_parameters
                     # update sweep information
-                    meas_mask = sweep_params['id'] == measurement.get_name_with_id(
-                    )
+                    meas_mask = sweep_params["id"] == measurement.get_name_with_id()
                     meas_index = sweep_params[meas_mask].index.to_list()[0]
 
-                    sweep_params.loc[meas_index, 'finished'] = True
-                    sweep_params.loc[meas_index, 'file_path'] = final_path
+                    sweep_params.loc[meas_index, "finished"] = True
+                    sweep_params.loc[meas_index, "file_path"] = final_path
 
                     # make sure all measurements of this sweep share the same summary dictionary
                     if not current_todo.dictionary_wrapper.available:
-                        current_todo.dictionary_wrapper.wrap(self._write_metadata(
-                            file_path=save_file_path + "_sweep_summary.json"))
+                        current_todo.dictionary_wrapper.wrap(
+                            self._write_metadata(file_path=save_file_path + "_sweep_summary.json")
+                        )
 
-                    # this is the dictionary storing the association list of measurements and 
+                    # this is the dictionary storing the association list of measurements and
                     # parameters in the summary file
                     sweep_list = OrderedDict()
 
                     # store the names of the parameters used in sweep
                     param_names = list(sweep_params.columns)
-                    param_names.remove('id')
-                    param_names.remove('finished')
+                    param_names.remove("id")
+                    param_names.remove("finished")
                     # go through all measurements and store parameters for each
                     for _, row in sweep_params.iterrows():
-                        sweep_list[row['id']] = {
-                            param_name: param_value
-                            for param_name, param_value in zip(param_names, row[param_names])
+                        sweep_list[row["id"]] = {
+                            param_name: param_value for param_name, param_value in zip(param_names, row[param_names])
                         }
 
                     # store summary data in shared dictionary and write to disk
-                    current_todo.dictionary_wrapper.get['sweep_association_list'] = sweep_list
+                    current_todo.dictionary_wrapper.get["sweep_association_list"] = sweep_list
                     current_todo.dictionary_wrapper.get.save()
 
                 # save to do reference in case user hits "Redo last measurement" button
@@ -335,8 +317,7 @@ class StandardExperiment:
 
             # shift to do to executed measurements when successful
             if measurement_executed:
-                self.load_measurement_dataset(
-                    data, final_path, force_gui_update=False)
+                self.load_measurement_dataset(data, final_path, force_gui_update=False)
                 self.to_do_list.pop(0)
 
             # tell GUI to update
@@ -350,13 +331,11 @@ class StandardExperiment:
             # then we finished measuring everything
             if not self.to_do_list:
                 self.show_meas_finished_infobox()
-                self.logger.info(
-                    "Experiment and hereby all measurements finished.")
+                self.logger.info("Experiment and hereby all measurements finished.")
                 return
 
             if self.exctrl_inter_measurement_wait_time > 0.0:
-                self.logger.info(
-                    f"Waiting {self.exctrl_inter_measurement_wait_time:.0f}s before continuing...")
+                self.logger.info(f"Waiting {self.exctrl_inter_measurement_wait_time:.0f}s before continuing...")
                 time.sleep(self.exctrl_inter_measurement_wait_time)
 
     def _write_metadata(self, target: dict = None, file_path: str = "tmp.json") -> dict:
@@ -365,8 +344,7 @@ class StandardExperiment:
 
         Args:
             target: The dictionary to write the metadata to.
-            file_path: If no `target` is given, this file_path is used to initialize 
-                the `AutosaveDict` that will be returned.
+            file_path: If no `target` is given, this file_path is used to initialize the `AutosaveDict` that will be returned.
 
         Returns:
             The dictionary with the data written to it.
@@ -374,20 +352,20 @@ class StandardExperiment:
         if target is None:
             target = AutosaveDict(file_path=file_path)
 
-        target['software'] = OrderedDict()
-        target['software']['name'] = "LabExT"
-        target['software']['version'] = self._labext_vers[0]
-        target['software']['git rev'] = self._labext_vers[1]
-        target['software']['computer'] = self._fqdn_of_exp_runner
+        target["software"] = OrderedDict()
+        target["software"]["name"] = "LabExT"
+        target["software"]["version"] = self._labext_vers[0]
+        target["software"]["git rev"] = self._labext_vers[1]
+        target["software"]["computer"] = self._fqdn_of_exp_runner
 
-        target['experiment settings'] = OrderedDict()
-        target['experiment settings']['pause after each device'] = self.exctrl_pause_after_device
-        target['experiment settings']['auto move stages to device'] = self.exctrl_auto_move_stages
-        target['experiment settings']['execute search for peak'] = self.exctrl_enable_sfp
+        target["experiment settings"] = OrderedDict()
+        target["experiment settings"]["pause after each device"] = self.exctrl_pause_after_device
+        target["experiment settings"]["auto move stages to device"] = self.exctrl_auto_move_stages
+        target["experiment settings"]["execute search for peak"] = self.exctrl_enable_sfp
 
-        target['chip'] = OrderedDict()
-        target['chip']['name'] = self.param_chip_name
-        target['chip']['description file path'] = self.param_chip_file_path
+        target["chip"] = OrderedDict()
+        target["chip"]["name"] = self.param_chip_name
+        target["chip"]["description file path"] = self.param_chip_file_path
 
         return target
 
@@ -397,24 +375,23 @@ class StandardExperiment:
         takes over error checking of loaded datasets.
         """
         # trigger key error if chip is not present
-        _ = meas_dict['chip']
+        _ = meas_dict["chip"]
         # trigger key error if device is not present
-        _ = meas_dict['device']
+        _ = meas_dict["device"]
         # check if id and type are there of device
-        for dk in ['id', 'type']:
-            if dk not in meas_dict['device']:
+        for dk in ["id", "type"]:
+            if dk not in meas_dict["device"]:
                 raise KeyError("device->" + str(dk))
         # check multi option keys
-        for k in ['timestamp start', 'timestamp', 'timestamp end']:
+        for k in ["timestamp start", "timestamp", "timestamp end"]:
             if k in meas_dict:
-                meas_dict['timestamp_known'] = meas_dict[k]
+                meas_dict["timestamp_known"] = meas_dict[k]
                 break
         else:
-            raise KeyError(
-                '"timestamp" or "timestamp end" or "timestamp start"')
-        for k in ['measurement name', 'name']:
+            raise KeyError('"timestamp" or "timestamp end" or "timestamp start"')
+        for k in ["measurement name", "name"]:
             if k in meas_dict:
-                meas_dict['name_known'] = meas_dict[k]  # copy to known name
+                meas_dict["name_known"] = meas_dict[k]  # copy to known name
                 break
         else:
             raise KeyError('"measurement name" or "name"')
@@ -423,19 +400,20 @@ class StandardExperiment:
         try:
             _ = meas_dict["measurement id long"]
         except KeyError:
-            self.logger.warning(f"Measurement '{meas_dict['measurement name and id']}' does not " +
-                                "have a new unique id. Creating one...")
+            self.logger.warning(
+                f"Measurement '{meas_dict['measurement name and id']}' does not "
+                + "have a new unique id. Creating one..."
+            )
             meas_dict["measurement id long"] = uuid.uuid4().hex
 
-        for k in ['timestamp iso start', 'timestamp_known']:
+        for k in ["timestamp iso start", "timestamp_known"]:
             if k in meas_dict:
-                meas_dict['timestamp_iso_known'] = meas_dict[k]
+                meas_dict["timestamp_iso_known"] = meas_dict[k]
                 break
 
         # check if values is present and if any values vector is present
-        if not len(meas_dict['values']) > 0:
-            raise ValueError(
-                "Measurement record needs to contain at least one values dict.")
+        if not len(meas_dict["values"]) > 0:
+            raise ValueError("Measurement record needs to contain at least one values dict.")
 
         # check for duplicates
         meas_hash = calc_measurement_key(meas_dict)
@@ -463,19 +441,16 @@ class StandardExperiment:
         self.plugin_loader_stats.clear()
 
         # include Meas. from LabExT core first
-        meas_search_paths = [join(dirname(dirname(__file__)), 'Measurements')]
-        meas_search_paths += self._experiment_manager.addon_settings['addon_search_directories']
+        meas_search_paths = [join(dirname(dirname(__file__)), "Measurements")]
+        meas_search_paths += self._experiment_manager.addon_settings["addon_search_directories"]
 
         for msp in meas_search_paths:
-            plugins = self.plugin_loader.load_plugins(
-                msp, plugin_base_class=Measurement, recursive=True)
-            unique_plugins = {k: v for k, v in plugins.items(
-            ) if k not in self.measurements_classes}
+            plugins = self.plugin_loader.load_plugins(msp, plugin_base_class=Measurement, recursive=True)
+            unique_plugins = {k: v for k, v in plugins.items() if k not in self.measurements_classes}
             self.plugin_loader_stats[msp] = len(unique_plugins)
             self.measurements_classes.update(unique_plugins)
 
-        self.logger.debug(
-            'Available measurements loaded. Found: %s', self.measurement_list)
+        self.logger.debug("Available measurements loaded. Found: %s", self.measurement_list)
 
     def remove_measurement_dataset(self, meas_dict):
         mh = calc_measurement_key(meas_dict)
@@ -490,10 +465,9 @@ class StandardExperiment:
         class_name : str
             Name of the measurement to be initialised.
         """
-        self.logger.debug('Loading measurement: %s', class_name)
+        self.logger.debug("Loading measurement: %s", class_name)
         meas_class = self.measurements_classes[class_name]
-        measurement = meas_class(
-            experiment=self, experiment_manager=self._experiment_manager)
+        measurement = meas_class(experiment=self, experiment_manager=self._experiment_manager)
         self.selected_measurements.append(measurement)
         return measurement
 
@@ -526,21 +500,19 @@ class StandardExperiment:
         chip : Chip
             New chip object
         """
-        self.logger.debug('Updating chip... New chip: %s', chip)
+        self.logger.debug("Updating chip... New chip: %s", chip)
         self._chip = chip
-        self.chip_parameters['Chip name'].value = chip.name
-        self.chip_parameters['Chip path'].value = chip.path
+        self.chip_parameters["Chip name"].value = chip.name
+        self.chip_parameters["Chip path"].value = chip.path
 
         self.update()
 
     def update(self, plot_new_meas=False):
-        """Updates main window tables.
-        """
-        self._experiment_manager.main_window.update_tables(
-            plot_new_meas=plot_new_meas)
+        """Updates main window tables."""
+        self._experiment_manager.main_window.update_tables(plot_new_meas=plot_new_meas)
 
     def uniquify_safe_file_name(self, desired_filename):
-        """ Makes filename unique for safe files. """
+        """Makes filename unique for safe files."""
         existing = glob(desired_filename + "*")
         if len(existing) > 0:
             add_idx = 2
