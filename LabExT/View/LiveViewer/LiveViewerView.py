@@ -16,6 +16,7 @@ class LiveViewerView:
     """
     Viewer class for the live viewer. Contains all functionality related to widgets.
     """
+
     def __init__(self, root, controller, model, experiment_manager):
         """Constructor.
 
@@ -42,6 +43,7 @@ class LiveViewerMainWindow(Toplevel):
     """
     The main window itself. Inherits from TopLevel and acts as a standalone window.
     """
+
     def __init__(self, root, controller, model):
         """Constructor.
 
@@ -64,10 +66,10 @@ class LiveViewerMainWindow(Toplevel):
         self.lift()
         # self.attributes('-topmost', 'true')
         # self.protocol('WM_DELETE_WINDOW', self.controller.close_wizard)
-        self.bind('<F1>', self.controller.experiment_manager.show_documentation)
+        self.bind("<F1>", self.controller.experiment_manager.show_documentation)
 
         self.main_frame = MainFrame(self, controller, model)
-        self.main_frame.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
+        self.main_frame.grid(row=0, column=0, padx=2, pady=2, sticky="NESW")
         self.grid_rowconfigure(0, weight=1)  # this needed to be added
         self.grid_columnconfigure(0, weight=1)
 
@@ -87,6 +89,7 @@ class MainFrame(Frame):
     """
     The main Frame. Contains all other smaller frames.
     """
+
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -103,11 +106,11 @@ class MainFrame(Frame):
 
         # add the selector bar
         self.control_wrapper = ControlFrame(self, controller, model)
-        self.control_wrapper.grid(row=0, column=1, padx=2, pady=2, sticky='NESW')
+        self.control_wrapper.grid(row=0, column=1, padx=2, pady=2, sticky="NESW")
 
         # add the plot window
         self.plot_wrapper = LiveViewerPlot(self, model=model)
-        self.plot_wrapper.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
+        self.plot_wrapper.grid(row=0, column=0, padx=2, pady=2, sticky="NESW")
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
@@ -119,6 +122,7 @@ class ControlFrame(Frame):
     ToDo: this control frame currently bugs when turning MouseWheel, we might need to disable
     see https://gist.github.com/JackTheEngineer/81df334f3dcff09fd19e4169dd560c59
     """
+
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -137,24 +141,24 @@ class ControlFrame(Frame):
 
         # add the CardManager
         self.cardM = CardManager(self, controller, model)
-        self.cardM.grid(row=0, column=0, sticky='NEW', pady=(12, 20))
-        
-        self.pause_button = Button(self, text='Pause Plotting', command=self.controller.toggle_plotting_active)
-        self.pause_button.grid(row=2, column=0, sticky='SEW', pady=(12, 1))
- 
+        self.cardM.grid(row=0, column=0, sticky="NEW", pady=(12, 20))
+
+        self.pause_button = Button(self, text="Pause Plotting", command=self.controller.toggle_plotting_active)
+        self.pause_button.grid(row=2, column=0, sticky="SEW", pady=(12, 1))
+
         self.save_button = Button(self, text="Save current Data", command=self.controller.create_snapshot)
-        self.save_button.grid(row=3, column=0, sticky='SEW', pady=(1, 20))
+        self.save_button.grid(row=3, column=0, sticky="SEW", pady=(1, 20))
 
         self.card_full_container = Frame(self)
-        self.card_full_container.grid(row=1, column=0, sticky='NESW')
+        self.card_full_container.grid(row=1, column=0, sticky="NESW")
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        vscrollbar = Scrollbar(self.card_full_container, orient='vertical')
-        vscrollbar.pack(side='right', fill='y')
+        vscrollbar = Scrollbar(self.card_full_container, orient="vertical")
+        vscrollbar.pack(side="right", fill="y")
 
         self.canvas = Canvas(self.card_full_container, yscrollcommand=vscrollbar.set)
-        self.canvas.pack(side='left', fill='y')
+        self.canvas.pack(side="left", fill="y")
 
         vscrollbar.config(command=self.canvas.yview)
 
@@ -166,7 +170,7 @@ class ControlFrame(Frame):
         self.content_carrier = Frame(self.canvas)
 
         # add the content frame to the canvas
-        self.canvas.create_window(0, 0, window=self.content_carrier, anchor='nw')
+        self.canvas.create_window(0, 0, window=self.content_carrier, anchor="nw")
 
         self.set_cards()
 
@@ -180,7 +184,7 @@ class ControlFrame(Frame):
             # set up new card
             new_card = self.model.lvcards_classes[card_title](self.content_carrier, self.controller, self.model)
             self.model.cards[i] = (card_title, new_card)
-            new_card.pack(side='top', anchor='nw', fill='x', pady=(0, 20))
+            new_card.pack(side="top", anchor="nw", fill="x", pady=(0, 20))
 
             # when a card is newly created, we enable the GUI elements s.t. the user can set the parameters
             # this can only happen after the card has been rendered in the "pack" call above
@@ -195,6 +199,7 @@ class CardManager(Frame):
     """
     Card manager frame, containing buttons and menus to add more cards.
     """
+
     def __init__(self, parent, controller, model):
         """Constructor.
 
@@ -215,7 +220,7 @@ class CardManager(Frame):
 
         self.add_card_button = Button(self, text="Add Instrument", command=self.add_card)
 
-        self.add_card_button.grid(row=0, column=0, sticky='EW')
+        self.add_card_button.grid(row=0, column=0, sticky="EW")
 
         options = model.lvcards_classes
 
@@ -224,19 +229,19 @@ class CardManager(Frame):
 
         self.card_selector = OptionMenu(self, self.selected_value, *[*options])
 
-        self.card_selector.grid(row=1, column=0, sticky='EW')
+        self.card_selector.grid(row=1, column=0, sticky="EW")
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
 
         self.ptable = ParameterTable(self)
-        self.ptable.title = 'General Parameters'
+        self.ptable.title = "General Parameters"
         self.ptable.parameter_source = self.model.general_settings
-        self.ptable.grid(row=0, column=1, sticky='NESW', padx=(12, 0))
+        self.ptable.grid(row=0, column=1, sticky="NESW", padx=(12, 0))
 
-        _update_settings_button = Button(self,
-                                         text="Update Settings",
-                                         command=lambda: self.controller.update_settings(self.ptable.to_meas_param()))
-        _update_settings_button.grid(row=1, column=1, sticky='EW', padx=(12, 0))
+        _update_settings_button = Button(
+            self, text="Update Settings", command=lambda: self.controller.update_settings(self.ptable.to_meas_param())
+        )
+        _update_settings_button.grid(row=1, column=1, sticky="EW", padx=(12, 0))
 
     def add_card(self):
         """

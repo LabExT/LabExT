@@ -11,10 +11,11 @@ from LabExT.Measurements.MeasAPI import MeasParamFloat, MeasParamBool
 
 @dataclass
 class PlotDataPoint:
-    """ use this object to transfer data to the live plotter """
+    """use this object to transfer data to the live plotter"""
+
     trace_name: str
-    timestamp: float = float('nan')
-    y_value: float = float('nan')
+    timestamp: float = float("nan")
+    y_value: float = float("nan")
     delete_trace: bool = False
 
 
@@ -32,14 +33,14 @@ class LiveViewerModel:
             Tkinter root window.
         """
 
-        self.settings_file_name = 'LiveViewerConfig.json'
+        self.settings_file_name = "LiveViewerConfig.json"
 
         # these are the general settings
         self.general_settings = {
             # number of points kept
-            'time range to display': MeasParamFloat(value=20.0, unit='s'),
-            'minimum y-axis span': MeasParamFloat(value=4.0),
-            'show bar plots': MeasParamBool(value=True),
+            "time range to display": MeasParamFloat(value=20.0, unit="s"),
+            "minimum y-axis span": MeasParamFloat(value=4.0),
+            "show bar plots": MeasParamBool(value=True),
         }
 
         # the options when selecting a new card
