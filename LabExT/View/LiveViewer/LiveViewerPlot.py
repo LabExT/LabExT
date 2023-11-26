@@ -87,7 +87,7 @@ class LiveViewerPlot(Frame):
         self.__setup__()
 
         # configure timed updating, starts automatically
-        self._ani = animation.FuncAnimation(self.fig, self.animation_tick, interval=self._animate_interval_ms)
+        self._ani = animation.FuncAnimation(self.fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False)
 
     def __setup__(self):
 
