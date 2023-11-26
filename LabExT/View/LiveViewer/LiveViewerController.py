@@ -8,6 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import datetime
 from collections import OrderedDict
 import json
+from json import JSONDecodeError
 from os import makedirs
 from os.path import dirname, join
 
@@ -225,32 +226,35 @@ class LiveViewerController:
             lv_state_to_save.append((ctype, instr_data, param_data))
 
         # write all elements to the json file
-        fname = get_configuration_file_path('LiveViewerConfig.json')
+        fname = get_configuration_file_path(self.model.settings_file_name)
         with open(fname, 'w') as json_file:
             json_file.write(json.dumps(lv_state_to_save))
 
     def restore_lv_from_saved_parameters(self):
         """ restores a liveviewer state given previously saved parameters """
-
         try:
-            fname = get_configuration_file_path('LiveViewerConfig.json')
+            # load state from file
+            fname = get_configuration_file_path(self.model.settings_file_name)
             with open(fname, 'r') as json_file:
                 loaded_lv_state = json.loads(json_file.read())
-        except FileNotFoundError as e:
+
+            # apply global settings
+            self.view.main_window.main_frame.control_wrapper.cardM.ptable.deserialize_from_dict(loaded_lv_state[0])
+            self.update_settings(self.view.main_window.main_frame.control_wrapper.cardM.ptable.to_meas_param())
+
+            # create cards
+            for ctype, _, _ in loaded_lv_state[1:]:
+                self.model.cards.append((ctype, None))
+            self.view.main_window.main_frame.control_wrapper.set_cards()
+
+            # restore card settings
+            for cidx, (_, instr_data, param_data) in enumerate(loaded_lv_state[1:]):
+                _, card = self.model.cards[cidx]
+                card.instr_selec.deserialize_from_dict(instr_data)
+                card.ptable.deserialize_from_dict(param_data)
+        except FileNotFoundError:
             # save file does not exist, don't care
             return
-
-        # apply global settings
-        self.view.main_window.main_frame.control_wrapper.cardM.ptable.deserialize_from_dict(loaded_lv_state[0])
-        self.update_settings(self.view.main_window.main_frame.control_wrapper.cardM.ptable.to_meas_param())
-
-        # create cards
-        for ctype, _, _ in loaded_lv_state[1:]:
-            self.model.cards.append((ctype, None))
-        self.view.main_window.main_frame.control_wrapper.set_cards()
-
-        # restore card settings
-        for cidx, (_, instr_data, param_data) in enumerate(loaded_lv_state[1:]):
-            _, card = self.model.cards[cidx]
-            card.instr_selec.deserialize_from_dict(instr_data)
-            card.ptable.deserialize_from_dict(param_data)
+        except (KeyError, IndexError, ValueError, TypeError, JSONDecodeError) as _:
+            # loading errors can be safely ignored as the state will be written anew upon liveviewer termination
+            self.experiment_manager.logger.warning("Could not load live viewer state from saved file. Live viewer reset to default settings.")

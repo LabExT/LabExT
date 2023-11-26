@@ -32,6 +32,8 @@ class LiveViewerModel:
             Tkinter root window.
         """
 
+        self.settings_file_name = 'LiveViewerConfig.json'
+
         # these are the general settings
         self.general_settings = {
             # number of points kept
