@@ -1,6 +1,6 @@
 # Installation Instructions
 
-It is recommended to work with [Python virtual environments](https://docs.python.org/3.8/library/venv.html#module-venv)
+It is recommended to work with [Python virtual environments](https://docs.python.org/3.9/library/venv.html#module-venv)
 or conda environments. In these installation examples, we assume that we are working on a Windows machine
 and you have a working [Anaconda3](https://www.anaconda.com/products/individual/) installation available.
 
@@ -15,7 +15,7 @@ After the installation of LabExT, we suggest to configure the available instrume
 We assume that you have Anaconda installed (or anything else that provides the conda environment manager). Open the 
 "Anaconda Prompt" console, then the installation for usage is straight forward via conda and pip:
 ```
-conda create -n LabExT_env python=3.8
+conda create -n LabExT_env python=3.9
 conda activate LabExT_env
 pip install LabExT-pkg
 ```
