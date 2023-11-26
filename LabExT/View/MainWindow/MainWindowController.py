@@ -9,7 +9,7 @@ import json
 import logging
 import os
 from tkinter import Tk, Toplevel, messagebox
-from datetime import datetime
+from tkinter.simpledialog import askinteger
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import DeprecatedException, get_configuration_file_path
@@ -26,8 +26,7 @@ class MainWindowController:
     sets up the view and model classes.
     """
 
-    def __init__(self, parent: Tk,
-                 experiment_manager):
+    def __init__(self, parent: Tk, experiment_manager):
         """Constructor.
 
         Parameters
@@ -52,7 +51,7 @@ class MainWindowController:
 
         self.view.set_up_platform()
 
-        self.logger.debug('MainWindow frame initialised.')
+        self.logger.debug("MainWindow frame initialised.")
 
         self.view.set_up_root_window()
 
@@ -75,11 +74,11 @@ class MainWindowController:
         # remove any chip path from parameters if chip is not loaded -> prevent offering reloading-of not loaded chip
         # on next startup
         if self.experiment_manager.chip is None:
-            self.model.chip_parameters['Chip path'].value = ""
+            self.model.chip_parameters["Chip path"].value = ""
         if self.view.frame.parameter_frame.chip_parameter_table.serialize(self.model.chiptable_settings_path):
-            self.logger.info('Saved chip settings to file.')
+            self.logger.info("Saved chip settings to file.")
         if self.view.frame.parameter_frame.save_parameter_table.serialize(self.model.savetable_settings_path):
-            self.logger.info('Saved json save path settings to file.')
+            self.logger.info("Saved json save path settings to file.")
 
         self.on_shutdown()
 
@@ -87,28 +86,27 @@ class MainWindowController:
         raise DeprecatedException("Experiment object must not be recreated!")
 
     def update_tables(self, plot_new_meas=False):
-        """Updates the two tables in the main window.
-        """
+        """Updates the two tables in the main window."""
         if not self.allow_GUI_changes:
             return
 
-        self.logger.debug('Updating tables...')
+        self.logger.debug("Updating tables...")
         # set the cursor to loading
-        self.root.config(cursor='circle')
+        self.root.config(cursor="circle")
         self.view.frame.to_do_table.regenerate()
         self.view.frame.measurement_table.regenerate(plot_new_meas=plot_new_meas)
         # set the cursor back to normal
-        self.root.config(cursor='')
-        self.logger.debug('Done updating tables')
+        self.root.config(cursor="")
+        self.logger.debug("Done updating tables")
 
     def refresh_context_menu(self):
         """
         Refreshes context menu.
         """
-        self.view.set_up_context_menu() 
+        self.view.set_up_context_menu()
 
     def set_selec_plot_title(self, title):
-        """ set the title of the selected measurements plot """
+        """set the title of the selected measurements plot"""
         self.view.frame.selec_plot.title = title
 
     def axis_changed(self, *args):
@@ -126,7 +124,7 @@ class MainWindowController:
         self._axis_being_changed = True
 
         # inform user
-        self.logger.debug('Axis changed. Choices are: %s', self._choices)
+        self.logger.debug("Axis changed. Choices are: %s", self._choices)
 
         # load from settings file
         default_x, default_y = self._load_axis_settings()
@@ -148,8 +146,8 @@ class MainWindowController:
                     v = list(self._choices)[0]
             self.view.frame.axes_frame.y_axis_choice.set(v)
         if not self._choices:
-            self.view.frame.axes_frame.x_axis_choice.set('')
-            self.view.frame.axes_frame.y_axis_choice.set('')
+            self.view.frame.axes_frame.x_axis_choice.set("")
+            self.view.frame.axes_frame.y_axis_choice.set("")
 
         # store new axes settings to file
         self._store_axis_settings()
@@ -158,10 +156,12 @@ class MainWindowController:
         self._axis_being_changed = False
 
         # update GUI
-        self.view.frame.selec_plot.set_axes(self.view.frame.axes_frame.x_axis_choice.get(),
-                                            self.view.frame.axes_frame.y_axis_choice.get())
-        self.view.frame.measurement_table.repaint(self.view.frame.axes_frame.x_axis_choice.get(),
-                                                  self.view.frame.axes_frame.y_axis_choice.get())
+        self.view.frame.selec_plot.set_axes(
+            self.view.frame.axes_frame.x_axis_choice.get(), self.view.frame.axes_frame.y_axis_choice.get()
+        )
+        self.view.frame.measurement_table.repaint(
+            self.view.frame.axes_frame.x_axis_choice.get(), self.view.frame.axes_frame.y_axis_choice.get()
+        )
 
     def _axis_options_changed(self, options, measurement_name):
         """Called by MeasurementTable when the possible axes changed,
@@ -173,32 +173,32 @@ class MainWindowController:
         options : list
             Possible axes.
         """
-        self.logger.debug('Refreshing all dropdown options..')
+        self.logger.debug("Refreshing all dropdown options..")
         self.model.currently_plotted_meas_name = measurement_name
 
         # Sort dropdown options
         options = sorted(options)
 
         # remove all dropdown options
-        menu_x = self.view.frame.axes_frame.x_axis_plot_selector['menu']
-        menu_x.delete(0, 'end')
+        menu_x = self.view.frame.axes_frame.x_axis_plot_selector["menu"]
+        menu_x.delete(0, "end")
         # create new dropdown entry for every option
         for option in options:
             menu_x.add_command(
-                label=option,
-                command=lambda value=option: self.view.frame.axes_frame.x_axis_choice.set(value))
+                label=option, command=lambda value=option: self.view.frame.axes_frame.x_axis_choice.set(value)
+            )
 
         # remove all dropdown options
-        menu_y = self.view.frame.axes_frame.y_axis_plot_selector['menu']
-        menu_y.delete(0, 'end')
+        menu_y = self.view.frame.axes_frame.y_axis_plot_selector["menu"]
+        menu_y.delete(0, "end")
         # create new dropdown entry for every option
         for option in options:
             menu_y.add_command(
-                label=option,
-                command=lambda value=option: self.view.frame.axes_frame.y_axis_choice.set(value))
+                label=option, command=lambda value=option: self.view.frame.axes_frame.y_axis_choice.set(value)
+            )
 
         self._choices = options
-        self.logger.debug('Choices are: %s ', self._choices)
+        self.logger.debug("Choices are: %s ", self._choices)
 
         self.axis_changed()
 
@@ -214,8 +214,8 @@ class MainWindowController:
             existing_settings = {}
 
         # get settings for currently selected measurement name, using None in case not saved yet
-        meas_axis_settings = existing_settings.get(self.model.currently_plotted_meas_name, {'x': None, 'y': None})
-        return meas_axis_settings['x'], meas_axis_settings['y']
+        meas_axis_settings = existing_settings.get(self.model.currently_plotted_meas_name, {"x": None, "y": None})
+        return meas_axis_settings["x"], meas_axis_settings["y"]
 
     def _store_axis_settings(self):
         """
@@ -235,8 +235,8 @@ class MainWindowController:
 
         # overwrite currently plotted measurement axis setting
         existing_settings[self.model.currently_plotted_meas_name] = {
-            'x': self.view.frame.axes_frame.x_axis_choice.get(),
-            'y': self.view.frame.axes_frame.y_axis_choice.get()
+            "x": self.view.frame.axes_frame.x_axis_choice.get(),
+            "y": self.view.frame.axes_frame.y_axis_choice.get(),
         }
 
         # save back to file
@@ -244,16 +244,16 @@ class MainWindowController:
             json.dump(existing_settings, fp)
 
     def open_settings_window(self):
-        """Opens the settings window.
-        """
+        """Opens the settings window."""
         raise DeprecationWarning("Open Settings window is deprecated. Do not use!")
 
     def open_edit_measurement_wizard(self):
         """
         Open
         """
-        self.model.last_opened_new_meas_wizard_controller = \
-            EditMeasurementWizardController(self.root, self.experiment_manager)
+        self.model.last_opened_new_meas_wizard_controller = EditMeasurementWizardController(
+            self.root, self.experiment_manager
+        )
 
     def repeat_last_exec_measurement(self):
         """
@@ -261,25 +261,36 @@ class MainWindowController:
         """
         self.logger.debug("Requested repeating of last executed measurement.")
 
-        last_todo = self.experiment_manager.exp.last_executed_todo
-        if last_todo is None:
-            msg = 'No measurement has yet been executed. There is nothing to repeat.'
-            messagebox.showwarning('No Previous Measurement', msg)
+        last_executed_todos = self.experiment_manager.exp.last_executed_todos
+
+        if not last_executed_todos:
+            msg = "No measurement has yet been executed. There is nothing to repeat."
+            messagebox.showwarning("No Previous Measurement", msg)
             self.logger.warning(msg)
             return
 
-        # copy last measurement
-        last_device, last_meas = last_todo
-        new_meas = self.experiment_manager.exp.duplicate_measurement(last_meas)
-        self.experiment_manager.exp.to_do_list.insert(0, ToDo(last_device, new_meas))
+        recall_amount = askinteger(
+            title="Repeat Last Measurements",
+            prompt="How many of the previously executed measurements should be repeated?",
+            initialvalue=1,
+            minvalue=1,
+        )
+        if recall_amount is None:
+            return
+
+        if recall_amount > len(last_executed_todos):
+            recall_amount = len(last_executed_todos)
+
+        for last_todo in self.experiment_manager.exp.last_executed_todos[: (-1 * recall_amount - 1) : -1]:
+            last_device, last_meas = last_todo
+            new_meas = self.experiment_manager.exp.duplicate_measurement(last_meas)
+            self.experiment_manager.exp.to_do_list.insert(0, ToDo(last_device, new_meas))
 
         # tell GUI to update the tables
         self.update_tables()
 
         # log action
-        msg = "Cloned ToDo with measurement id {:s} to id {:s} and device id {:s} to list position {:d}.".format(
-            last_meas.get_name_with_id(), new_meas.get_name_with_id(), str(last_device.id), 0
-        )
+        msg = f"Cloned the last {recall_amount:d} executed measurements into new ToDos."
         self.logger.info(msg)
 
     def check_all_measurements(self):
@@ -301,9 +312,11 @@ class MainWindowController:
         current_selection = self.view.frame.measurement_table.selected_measurements
         if len(current_selection) == 0:
             return
-        flag = messagebox.askyesno('Remove Checked Measurements',
-                                   'Do you really want to remove all checked measurements? \n' +
-                                   'Notice: the save files of the measurements will NOT be deleted.')
+        flag = messagebox.askyesno(
+            "Remove Checked Measurements",
+            "Do you really want to remove all checked measurements? \n"
+            + "Notice: the save files of the measurements will NOT be deleted.",
+        )
         if flag:
             cur_sel = [v for v in current_selection.values()]
             cur_sel_hashes = [k for k in current_selection.keys()]
@@ -313,7 +326,7 @@ class MainWindowController:
             for meas_dict in cur_sel:
                 self.experiment_manager.exp.remove_measurement_dataset(meas_dict)
             # inform user
-            msg = f'Removed {len(cur_sel):d} measurement datasets.'
+            msg = f"Removed {len(cur_sel):d} measurement datasets."
             self.logger.info(msg)
             # force reloading of all tables
             self.update_tables()
@@ -322,9 +335,11 @@ class MainWindowController:
         """
         Called on user click on "Remove All"
         """
-        flag = messagebox.askyesno('Remove All Measurements',
-                                   'Do you really want to remove all measurements? \n' +
-                                   'Notice: the save files of the measurements will NOT be deleted.')
+        flag = messagebox.askyesno(
+            "Remove All Measurements",
+            "Do you really want to remove all measurements? \n"
+            + "Notice: the save files of the measurements will NOT be deleted.",
+        )
         if flag:
             # get copy of list of all measurements
             cur_sel = list(self.experiment_manager.exp.measurements)
@@ -334,7 +349,7 @@ class MainWindowController:
             for meas_dict in cur_sel:
                 self.experiment_manager.exp.remove_measurement_dataset(meas_dict)
             # inform user
-            msg = f'Removed {len(cur_sel):d} measurement datasets.'
+            msg = f"Removed {len(cur_sel):d} measurement datasets."
             self.logger.info(msg)
             # force reloading of all tables
             self.update_tables()
@@ -357,15 +372,16 @@ class MainWindowController:
             edit_meas_list = [selected_todo.measurement]
             # run SettingsWindow
             set_window = Toplevel(self.root)
-            set_window.geometry('%dx%d' % (800, 800))
+            set_window.geometry("%dx%d" % (800, 800))
             set_window.lift()
             set_window.focus_force()
-            SettingsWindow(set_window,
-                           self.experiment_manager,
-                           edit_meas_list=edit_meas_list,
-                           device_list=dev_list,
-                           force_noload=True
-                           )
+            SettingsWindow(
+                set_window,
+                self.experiment_manager,
+                edit_meas_list=edit_meas_list,
+                device_list=dev_list,
+                force_noload=True,
+            )
             self.root.wait_window(set_window)
 
             # tell GUI to update the tables
@@ -377,9 +393,9 @@ class MainWindowController:
             )
             self.logger.info(msg)
         else:
-            msg = 'No ToDo selected for editing. Click on the row in the ToDo Queue you want to edit.'
+            msg = "No ToDo selected for editing. Click on the row in the ToDo Queue you want to edit."
             self.logger.warning(msg)
-            messagebox.showwarning('No ToDo Selected', msg)
+            messagebox.showwarning("No ToDo Selected", msg)
 
     def todo_clone(self):
         """
@@ -403,9 +419,9 @@ class MainWindowController:
             )
             self.logger.info(msg)
         else:
-            msg = 'No ToDo selected for cloning. Click on the row in the ToDo Queue you want to clone.'
+            msg = "No ToDo selected for cloning. Click on the row in the ToDo Queue you want to clone."
             self.logger.warning(msg)
-            messagebox.showwarning('No ToDo Selected', msg)
+            messagebox.showwarning("No ToDo Selected", msg)
 
     def todo_delete(self):
         """
@@ -419,13 +435,15 @@ class MainWindowController:
 
             # tell GUI to update the table contents
             self.update_tables()
-            self.logger.info("Deleted ToDo with measurement id {:s} and device id {:s} at list index {:d}.".format(
-                meas_to_del.get_name_with_id(), str(dev_to_del.id), selected_todo_idx
-            ))
+            self.logger.info(
+                "Deleted ToDo with measurement id {:s} and device id {:s} at list index {:d}.".format(
+                    meas_to_del.get_name_with_id(), str(dev_to_del.id), selected_todo_idx
+                )
+            )
         else:
-            msg = 'No ToDo selected for deleting. Click on the row in the ToDo Queue which you want to delete.'
+            msg = "No ToDo selected for deleting. Click on the row in the ToDo Queue which you want to delete."
             self.logger.warning(msg)
-            messagebox.showwarning('No ToDo Selected', msg)
+            messagebox.showwarning("No ToDo Selected", msg)
 
     def todo_side_window(self):
         """
@@ -440,12 +458,15 @@ class MainWindowController:
             self.logger.info(
                 "Opened Side Window for ToDo with measurement id {:s} and device id {:s} at list index {:d}.".format(
                     sel_meas.get_name_with_id(), str(sel_device.id), selected_todo_idx
-                ))
+                )
+            )
         else:
-            msg = 'No ToDo selected for opening the side window.' + \
-                  'Click on the row in the ToDo Queue for which you want to open a side window.'
+            msg = (
+                "No ToDo selected for opening the side window."
+                + "Click on the row in the ToDo Queue for which you want to open a side window."
+            )
             self.logger.warning(msg)
-            messagebox.showwarning('No ToDo Selected', msg)
+            messagebox.showwarning("No ToDo Selected", msg)
 
     def move_todo_up(self):
         """
@@ -454,17 +475,16 @@ class MainWindowController:
         sel_idx = self.view.frame.to_do_table.get_selected_todo_index()
         todo_list = self.experiment_manager.exp.to_do_list
         if sel_idx == 0:
-            msg = 'ToDo already in first place.'
+            msg = "ToDo already in first place."
             self.logger.info(msg)
         elif sel_idx is not None and sel_idx < len(todo_list):
             todo_list[sel_idx - 1], todo_list[sel_idx] = todo_list[sel_idx], todo_list[sel_idx - 1]
             # tell GUI to update the tables
             self.update_tables()
         else:
-            msg = 'No ToDo selected for moving up.' + \
-                  'Click on the row in the ToDo Queue which you want to move up.'
+            msg = "No ToDo selected for moving up." + "Click on the row in the ToDo Queue which you want to move up."
             self.logger.warning(msg)
-            messagebox.showwarning('No ToDo Selected', msg)
+            messagebox.showwarning("No ToDo Selected", msg)
 
     def move_todo_down(self):
         """
@@ -473,23 +493,24 @@ class MainWindowController:
         sel_idx = self.view.frame.to_do_table.get_selected_todo_index()
         todo_list = self.experiment_manager.exp.to_do_list
         if sel_idx == len(todo_list) - 1:
-            msg = 'ToDo already in last place.'
+            msg = "ToDo already in last place."
             self.logger.info(msg)
         elif sel_idx is not None and sel_idx < len(todo_list):
             todo_list[sel_idx + 1], todo_list[sel_idx] = todo_list[sel_idx], todo_list[sel_idx + 1]
             # tell GUI to update the tables
             self.update_tables()
         else:
-            msg = 'No ToDo selected for moving down.' + \
-                  'Click on the row in the ToDo Queue which you want to move down.'
+            msg = (
+                "No ToDo selected for moving down." + "Click on the row in the ToDo Queue which you want to move down."
+            )
             self.logger.warning(msg)
-            messagebox.showwarning('No ToDo Selected', msg)
+            messagebox.showwarning("No ToDo Selected", msg)
 
     def todo_delete_all(self):
         """
         Called on user click on "Delete All"
         """
-        flag = messagebox.askyesno('Remove All To Dos', 'Do you really want to remove all ToDos?')
+        flag = messagebox.askyesno("Remove All To Dos", "Do you really want to remove all ToDos?")
         if flag:
             for i in range(len(self.experiment_manager.exp.to_do_list)):
                 self.experiment_manager.exp.to_do_list.pop()
@@ -497,8 +518,8 @@ class MainWindowController:
             self.logger.info("Deleted All ToDos.")
 
     def offer_chip_reload_possibility(self):
-        chip_name = self.model.chip_parameters['Chip name'].value
-        chip_path = self.model.chip_parameters['Chip path'].value
+        chip_name = self.model.chip_parameters["Chip name"].value
+        chip_path = self.model.chip_parameters["Chip path"].value
         # chip_path is only set if the user did the "load chip" functionality
         # so to offer to re-load the same chip, its sufficient to check if chip_path was set to anything
         if not chip_path:
@@ -507,7 +528,8 @@ class MainWindowController:
         user_wants_chip_reload = messagebox.askyesno(
             title="Previously used chip path found!",
             message=f"A previously used chip named\n {chip_name} \nwith description file\n {chip_path}\nwas found."
-                    f" Do you want to continue using this chip?")
+            f" Do you want to continue using this chip?",
+        )
         if not user_wants_chip_reload:
             return
         self.experiment_manager.import_chip(chip_path, chip_name)
@@ -518,27 +540,25 @@ class MainWindowController:
         """
         self.view.frame.menu_listener.client_restore_calibration(chip)
 
-
     def open_import_chip(self):
-        """ opens window to import new chip """
+        """opens window to import new chip"""
         self.view.frame.menu_listener.client_import_chip()
 
     def open_live_viewer(self):
-        """ opens live-viewer window by calling appropriate menu listener function """
+        """opens live-viewer window by calling appropriate menu listener function"""
         self.view.frame.menu_listener.client_live_view()
 
     def open_peak_searcher(self):
-        """ opens search for peak window by calling appropriate menu listener function """
+        """opens search for peak window by calling appropriate menu listener function"""
         self.view.frame.menu_listener.client_search_for_peak()
 
     def open_stage_calibration(self):
-        """ opens window to calibrate stages """
+        """opens window to calibrate stages"""
         self.view.frame.menu_listener.client_calibrate_stage()
 
     def start(self):
-        """Calls the experiment handler to start the experiment.
-        """
-        self.logger.debug('Start experiment')
+        """Calls the experiment handler to start the experiment."""
+        self.logger.debug("Start experiment")
 
         # internal callback
         self.model.on_experiment_start()
@@ -550,7 +570,7 @@ class MainWindowController:
         """Stops the experiment manually. Called when user presses stop
         button.
         """
-        self.logger.debug('Stop experiment')
+        self.logger.debug("Stop experiment")
         # interrupt the experiment
         self.model.experiment_handler.stop_experiment()
         # cleanup
@@ -567,7 +587,7 @@ class MainWindowController:
         """Gets called once the application is trying to close.
         Terminates the currently running experiment.
         """
-        self.logger.debug('ViewModel trying to close')
+        self.logger.debug("ViewModel trying to close")
         self.model.experiment_handler.stop_experiment()
         # call the cleanup function of the documentation engine
         self.experiment_manager.docu.cleanup()
@@ -575,26 +595,38 @@ class MainWindowController:
         self.root.destroy()
 
     def _register_keyboard_shortcuts(self):
-        self.root.bind("<F1>",
-                       self.experiment_manager.show_documentation)
-        self.root.bind("<F5>",
-                       callback_if_btn_enabled(lambda event: self.start(),
-                                               self.model.commands[0].button_handle))
-        self.root.bind("<Escape>",
-                       callback_if_btn_enabled(lambda event: self.stop(),
-                                               self.model.commands[1].button_handle))
-        self.root.bind("<Control-r>",
-                       callback_if_btn_enabled(lambda event: self.repeat_last_exec_measurement(),
-                                               self.view.frame.buttons_frame.repeat_meas_button))
-        self.root.bind("<Control-n>",
-                       callback_if_btn_enabled(lambda event: self.new_single_measurement(),
-                                               self.view.frame.buttons_frame.new_meas_button))
-        self.root.bind("<Delete>",
-                       callback_if_btn_enabled(lambda event: self.todo_delete(),
-                                               self.view.frame.to_do_frame.delete_todo_meas))
-        self.root.bind("<Control-l>",
-                       callback_if_btn_enabled(lambda event: self.open_live_viewer(),
-                                               self.view.frame.coupling_tools_panel.live_viewer_btn))
-        self.root.bind("<Control-s>",
-                       callback_if_btn_enabled(lambda event: self.open_peak_searcher(),
-                                               self.view.frame.coupling_tools_panel.peak_searcher_btn))
+        self.root.bind("<F1>", self.experiment_manager.show_documentation)
+        self.root.bind(
+            "<F5>", callback_if_btn_enabled(lambda event: self.start(), self.model.commands[0].button_handle)
+        )
+        self.root.bind(
+            "<Escape>", callback_if_btn_enabled(lambda event: self.stop(), self.model.commands[1].button_handle)
+        )
+        self.root.bind(
+            "<Control-r>",
+            callback_if_btn_enabled(
+                lambda event: self.repeat_last_exec_measurement(), self.view.frame.buttons_frame.repeat_meas_button
+            ),
+        )
+        self.root.bind(
+            "<Control-n>",
+            callback_if_btn_enabled(
+                lambda event: self.new_single_measurement(), self.view.frame.buttons_frame.new_meas_button
+            ),
+        )
+        self.root.bind(
+            "<Delete>",
+            callback_if_btn_enabled(lambda event: self.todo_delete(), self.view.frame.to_do_frame.delete_todo_meas),
+        )
+        self.root.bind(
+            "<Control-l>",
+            callback_if_btn_enabled(
+                lambda event: self.open_live_viewer(), self.view.frame.coupling_tools_panel.live_viewer_btn
+            ),
+        )
+        self.root.bind(
+            "<Control-s>",
+            callback_if_btn_enabled(
+                lambda event: self.open_peak_searcher(), self.view.frame.coupling_tools_panel.peak_searcher_btn
+            ),
+        )
