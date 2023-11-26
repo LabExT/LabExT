@@ -106,11 +106,10 @@ class MainFrame(Frame):
         self.control_wrapper.grid(row=0, column=1, padx=2, pady=2, sticky='NESW')
 
         # add the plot window
-        self.plot_wrapper = LiveViewerPlot(self)
+        self.plot_wrapper = LiveViewerPlot(self, model=model)
         self.plot_wrapper.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-        self.plot_wrapper.model = model
 
 
 class ControlFrame(Frame):

@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from queue import Empty
 from tkinter import Tk, Frame, TOP, BOTH
-from typing import List
+from typing import List, TYPE_CHECKING
 
 import matplotlib.animation as animation
 import matplotlib.lines
@@ -18,6 +18,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.pyplot import subplots
 
 from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint
+
+if TYPE_CHECKING:
+    from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
+else:
+    LiveViewerModel = None
+
 
 LIVE_VIEWER_PLOT_COLOR_CYCLE = {
     0: '#1f77b4',
@@ -68,40 +74,61 @@ class PlotTrace:
 
 class LiveViewerPlot(Frame):
 
-    def __init__(self, parent: Tk):
+    def __init__(self, parent: Tk, model: LiveViewerModel):
         super().__init__(parent, highlightbackground='grey', highlightthickness=1)
         self._root = parent
 
-        self.model = None
-
-        self.bar_collection = []
-        self.bar_collection_labels = []
-
-        self._ani = None
+        self.model = model
 
         # some constants
         self._figsize = (6, 4)
         self._title = 'Live Plot'
         self._animate_interval_ms = 100
 
+        # plot object refs
+        self._ani = None
+        self._toolbar = None
+        self.canvas = None
+        self.fig = None
+        self.ax = None
+        self.ax_bar = None
+        self.bar_collection = []
+        self.bar_collection_labels = []
+
         self.__setup__()
 
-        # configure timed updating, starts automatically
-        self._ani = animation.FuncAnimation(self.fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False)
-
     def __setup__(self):
+        if self._ani is not None:
+            self.stop_animation()
+        if self.canvas is not None:
+            self.canvas.get_tk_widget().pack_forget()
+        if self._toolbar is not None:
+            self._toolbar.pack_forget()
 
-        self.fig, (self.ax, self.ax_bar) = subplots(nrows=1,
-                                                    ncols=2,
-                                                    sharey='all',
-                                                    gridspec_kw={'width_ratios': (4, 1),
-                                                                 'left': 0.12,
-                                                                 'bottom': 0.088,
-                                                                 'right': 0.93,
-                                                                 'top': 0.93,
-                                                                 'wspace': 0.0,
-                                                                 'hspace': 0.0},
-                                                    figsize=self._figsize)
+        if self.model.show_bar_plots:
+            self.fig, (self.ax, self.ax_bar) = subplots(nrows=1,
+                                                        ncols=2,
+                                                        sharey='all',
+                                                        gridspec_kw={'width_ratios': (4, 1),
+                                                                    'left': 0.12,
+                                                                    'bottom': 0.088,
+                                                                    'right': 0.93,
+                                                                    'top': 0.93,
+                                                                    'wspace': 0.0,
+                                                                    'hspace': 0.0},
+                                                        figsize=self._figsize)
+        else:
+            self.fig, self.ax = subplots(nrows=1,
+                                                        ncols=1,
+                                                        sharey='all',
+                                                        gridspec_kw={'left': 0.12,
+                                                                    'bottom': 0.088,
+                                                                    'right': 0.93,
+                                                                    'top': 0.93,
+                                                                    'wspace': 0.0,
+                                                                    'hspace': 0.0},
+                                                        figsize=self._figsize)
+            self.ax_bar = None
 
         self.fig.suptitle(self._title)
 
@@ -117,7 +144,8 @@ class LiveViewerPlot(Frame):
 
         self.canvas.draw()
 
-        # ToDo: different instruments might have different units?
+        # configure timed updating, starts automatically
+        self._ani = animation.FuncAnimation(self.fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False)
 
     def start_animation(self):
         self._ani.resume()
@@ -127,8 +155,18 @@ class LiveViewerPlot(Frame):
 
     def animation_tick(self, _):
 
+        if (self.ax_bar is not None) != self.model.show_bar_plots:
+            # show/hiding bar plot changed, we need to start anew with the plot setup
+            for trace in self.model.traces_to_plot.values():
+                trace.line_handle.remove()
+            self.model.traces_to_plot.clear()
+            self.__setup__()
+            # setup started a new animation loop, return here
+            return
+        
         redraw_bars = False
-        for _, (_, card) in enumerate(self.model.cards):
+
+        for (_, card) in self.model.cards:
             try:
                 while True:
                     plot_data_point: PlotDataPoint = card.data_to_plot_queue.get_nowait()
@@ -196,7 +234,7 @@ class LiveViewerPlot(Frame):
         self.ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
 
         # update bar data
-        if redraw_bars:
+        if redraw_bars and (self.ax_bar is not None):
             
             for b in self.bar_collection:
                 b.remove()

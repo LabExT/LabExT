@@ -77,6 +77,9 @@ class LiveViewerController:
         # the minimum y span
         self.model.min_y_span = abs(parameters['minimum y-axis span'].value)
 
+        # enable or disable the bar plots on the right
+        self.model.show_bar_plots = parameters['show bar plots'].value
+
     def remove_card(self, card):
         """ Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
         top right of a card.

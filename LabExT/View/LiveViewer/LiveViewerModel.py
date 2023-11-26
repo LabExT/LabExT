@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 from dataclasses import dataclass
 
-from LabExT.Measurements.MeasAPI import MeasParamFloat
+from LabExT.Measurements.MeasAPI import MeasParamFloat, MeasParamBool
 
 
 @dataclass
@@ -39,6 +39,7 @@ class LiveViewerModel:
             # number of points kept
             'time range to display': MeasParamFloat(value=20.0, unit='s'),
             'minimum y-axis span': MeasParamFloat(value=4.0),
+            'show bar plots': MeasParamBool(value=True),
         }
 
         # the options when selecting a new card
@@ -61,3 +62,6 @@ class LiveViewerModel:
 
         # the minimum y span
         self.min_y_span = 4.0
+
+        # if bar pot should be shown
+        self.show_bar_plots = True
