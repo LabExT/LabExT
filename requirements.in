@@ -11,6 +11,7 @@
 numpy
 scipy
 matplotlib
+pandas
 
 # interface to VISA library
 pyvisa
