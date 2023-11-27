@@ -566,8 +566,9 @@ class StageAssignmentStep(Step):
             return
 
         if stage in self._stage_polygon_parameter_tables:
-            polygon_cls_cfg = self._stage_polygon_parameter_tables[stage].make_json_able(
-            )
+            settings = {}
+            self._stage_polygon_parameter_tables[stage].serialize_to_dict(settings)
+            polygon_cls_cfg = settings['data']
         else:
             polygon_cls_cfg = polygon_cls.get_default_parameters()
 
@@ -586,8 +587,9 @@ class StageAssignmentStep(Step):
             polygon_cls_name = self.polygon_vars[stage].get()
             polygon_cls = self.POLYGON_OPTIONS[polygon_cls_name]
 
-            self.polygon_cfg[stage] = (
-                polygon_cls, polygon_cfg_table.make_json_able())
+            settings = {}
+            polygon_cfg_table.serialize_to_dict(settings)
+            self.polygon_cfg[stage] = (polygon_cls, settings['data'])
 
     def _build_assignment_variables(self) -> tuple:
         """
