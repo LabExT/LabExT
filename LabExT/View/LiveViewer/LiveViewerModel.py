@@ -100,7 +100,6 @@ class LiveViewerModel:
 
         # these are the general settings
         self.general_settings = {
-            # number of points kept
             "time range to display": MeasParamFloat(value=20.0, unit="s"),
             "minimum y-axis span": MeasParamFloat(value=4.0),
             "show bar plots": MeasParamBool(value=True),

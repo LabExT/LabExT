@@ -38,25 +38,26 @@ class LiveViewerPlot(Frame):
         # plot object refs
         self._ani = None
         self._toolbar = None
-        self.canvas = None
-        self.fig = None
-        self.ax = None
-        self.ax_bar = None
-        self.bar_collection = []
-        self.bar_collection_labels = []
+        self._canvas = None
+        self._fig = None
+        self._ax = None
+        self._ax_bar = None
+        self._bar_collection = []
+        self._bar_collection_labels = []
+        self._legend = None
 
         self.__setup__()
 
     def __setup__(self):
         if self._ani is not None:
             self.stop_animation()
-        if self.canvas is not None:
-            self.canvas.get_tk_widget().pack_forget()
+        if self._canvas is not None:
+            self._canvas.get_tk_widget().pack_forget()
         if self._toolbar is not None:
             self._toolbar.pack_forget()
 
         if self.model.show_bar_plots:
-            self.fig, (self.ax, self.ax_bar) = subplots(
+            self._fig, (self._ax, self._ax_bar) = subplots(
                 nrows=1,
                 ncols=2,
                 sharey="all",
@@ -72,32 +73,32 @@ class LiveViewerPlot(Frame):
                 figsize=self._figsize,
             )
         else:
-            self.fig, self.ax = subplots(
+            self._fig, self._ax = subplots(
                 nrows=1,
                 ncols=1,
                 sharey="all",
                 gridspec_kw={"left": 0.12, "bottom": 0.088, "right": 0.93, "top": 0.93, "wspace": 0.0, "hspace": 0.0},
                 figsize=self._figsize,
             )
-            self.ax_bar = None
+            self._ax_bar = None
 
-        self.fig.suptitle(self._title)
+        self._fig.suptitle(self._title)
 
         # self.ax = self.fig.add_subplot(1, 2, 1)
-        self.ax.grid(color="gray", linestyle="-", linewidth=0.5)
-        self.ax.set_xlabel("elapsed time [s]")
-        self.ax.set_ylabel("Power [dBm]")
+        self._ax.grid(color="gray", linestyle="-", linewidth=0.5)
+        self._ax.set_xlabel("elapsed time [s]")
+        self._ax.set_ylabel("Power [dBm]")
 
-        self.canvas = FigureCanvasTkAgg(self.fig, self)
-        self._toolbar = NavigationToolbar2Tk(self.canvas, self)
+        self._canvas = FigureCanvasTkAgg(self._fig, self)
+        self._toolbar = NavigationToolbar2Tk(self._canvas, self)
         self._toolbar.update()
-        self.canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
+        self._canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
 
-        self.canvas.draw()
+        self._canvas.draw()
 
         # configure timed updating, starts automatically
         self._ani = animation.FuncAnimation(
-            self.fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False
+            self._fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False
         )
 
     def start_animation(self):
@@ -107,7 +108,7 @@ class LiveViewerPlot(Frame):
         self._ani.pause()
 
     def animation_tick(self, _):
-        if (self.ax_bar is not None) != self.model.show_bar_plots:
+        if (self._ax_bar is not None) != self.model.show_bar_plots:
             # show/hiding bar plot changed, we need to start anew with the plot setup
             for trace in self.model.traces_to_plot.values():
                 trace.line_handle.remove()
@@ -136,7 +137,7 @@ class LiveViewerPlot(Frame):
                     if trace_key not in self.model.traces_to_plot:
                         color_index = self.model.get_next_plot_color_index()
                         line_label = f"{card.instance_title:s}: {plot_data_point.trace_name:s}"
-                        (line,) = self.ax.plot(
+                        (line,) = self._ax.plot(
                             [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label
                         )
                         self.model.traces_to_plot[trace_key] = PlotTrace(
@@ -182,18 +183,28 @@ class LiveViewerPlot(Frame):
             incr_by = self.model.min_y_span - dy_scaled
             y_min -= incr_by / 2
             y_max += incr_by / 2
-        self.ax.set_ylim([y_min, y_max])
+        self._ax.set_ylim([y_min, y_max])
 
         # do x-axis re-scaling of plot
-        self.ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
+        self._ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
+
+        # handle legend: show legend only if there are traces to plot
+        # only do changes to the legend if there are any changes to the shown traces
+        if redraw_bars:
+            if self.model.traces_to_plot:
+                self._legend = self._ax.legend(loc="upper left", frameon=False)
+            else:
+                if self._legend is not None:
+                    self._legend.remove()
+                    self._legend = None
 
         # update bar data
-        if redraw_bars and (self.ax_bar is not None):
-            for b in self.bar_collection:
+        if redraw_bars and (self._ax_bar is not None):
+            for b in self._bar_collection:
                 b.remove()
-            for l in self.bar_collection_labels:
+            for l in self._bar_collection_labels:
                 l.remove()
-            self.bar_collection_labels.clear()
+            self._bar_collection_labels.clear()
 
             x = []
             height = []
@@ -210,24 +221,24 @@ class LiveViewerPlot(Frame):
                 x.append(tidx)
                 colors.append(plot_trace.line_handle.get_color())
                 labels.append(plot_trace.line_handle.get_label())
-                self.bar_collection_labels.append(
-                    self.ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center")
+                self._bar_collection_labels.append(
+                    self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center")
                 )
 
-            self.bar_collection = self.ax_bar.bar(x, height, bottom=y_min, color=colors)
+            self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors)
 
-            self.ax_bar.set_xlim([-0.6, len(x) - 0.4])
-            self.ax_bar.set_xticks([i for i in range(len(x))])
-            self.ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
-            self.ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
+            self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
+            self._ax_bar.set_xticks([i for i in range(len(x))])
+            self._ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
+            self._ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
 
         else:
             for _, plot_trace in self.model.traces_to_plot.items():
                 y_values = plot_trace.finite_y_values
                 if len(y_values) > 0:
-                    self.bar_collection[plot_trace.bar_index].set_height(y_values[-1] - y_min)
-                    self.bar_collection[plot_trace.bar_index].set_y(y_min)
-                    self.bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
-                    self.bar_collection_labels[plot_trace.bar_index].set_y(y_min)
+                    self._bar_collection[plot_trace.bar_index].set_height(y_values[-1] - y_min)
+                    self._bar_collection[plot_trace.bar_index].set_y(y_min)
+                    self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
+                    self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
                 else:
-                    self.bar_collection_labels[plot_trace.bar_index].set_text("N/A")
+                    self._bar_collection_labels[plot_trace.bar_index].set_text("N/A")
