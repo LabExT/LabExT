@@ -63,8 +63,6 @@ class ExperimentWizardTest(TKinterTestCase):
                 # this "patches" out some features of the classes due to patching not working across threads
                 self.mwc.allow_GUI_changes = False
                 self.mwm.allow_GUI_changes = False
-                # live plotting does not work as we don't run a mainloop in tk
-                self.expm.exp.live_plot_collection = []  # un-listenable list -> disables live plotting callbacks
 
     def test_experiment_wizard_repeated(self):
         self.test_experiment_wizard()

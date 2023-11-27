@@ -57,7 +57,6 @@ class MainWindowModel:
         self.experiment = None
         self.chip_parameters = None
         self.save_parameters = None
-        self.live_plot_data = None
         self.selec_plot_data = None
         self.last_opened_new_meas_wizard_controller = None
 
@@ -101,7 +100,6 @@ class MainWindowModel:
             self.experiment = self.experiment_manager.exp
             self.chip_parameters = self.experiment_manager.exp.chip_parameters
             self.save_parameters = self.experiment_manager.exp.save_parameters
-            self.live_plot_data = self.experiment.live_plot_collection
             self.selec_plot_data = self.experiment.selec_plot_collection
 
     def experiment_changed(self, ex):

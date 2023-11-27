@@ -66,7 +66,6 @@ class StandardExperiment:
         self.param_chip_name = ""
 
         # plot collections, main window plot observe these lists
-        self.live_plot_collection = ObservableList()  # right plot, measurements can plot during run
         self.selec_plot_collection = ObservableList()  # left plot, plotting of finished measurement data
 
         # used in "new device sweep" wizard
@@ -224,9 +223,6 @@ class StandardExperiment:
                 save_file_ending = "_abort.json"
 
             finally:
-                # clear live plots after experiment finished
-                while len(self.live_plot_collection) > 0:
-                    self.live_plot_collection.remove(self.live_plot_collection[0])
 
                 # save instrument parameters again
                 data["instruments"] = measurement._get_data_from_all_instruments()
