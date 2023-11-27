@@ -11,9 +11,9 @@ from tkinter import Tk, Frame, TOP, BOTH
 from typing import List, TYPE_CHECKING
 
 import matplotlib.animation as animation
-
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import subplots
+import numpy as np
 
 from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint, PlotTrace, LIVE_VIEWER_PLOT_COLOR_CYCLE
 
@@ -236,9 +236,12 @@ class LiveViewerPlot(Frame):
             for _, plot_trace in self.model.traces_to_plot.items():
                 y_values = plot_trace.finite_y_values
                 if len(y_values) > 0:
-                    self._bar_collection[plot_trace.bar_index].set_height(y_values[-1] - y_min)
-                    self._bar_collection[plot_trace.bar_index].set_y(y_min)
+                    self._bar_collection[plot_trace.bar_index].set_height(
+                        np.mean(y_values[-self.model.averaging_bar_plot :]) - y_min
+                    )
                     self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
-                    self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
                 else:
-                    self._bar_collection_labels[plot_trace.bar_index].set_text("N/A")
+                    self._bar_collection[plot_trace.bar_index].set_height(0)
+                    self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
+                self._bar_collection[plot_trace.bar_index].set_y(y_min)
+                self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)

@@ -80,6 +80,9 @@ class LiveViewerController:
         # enable or disable the bar plots on the right
         self.model.show_bar_plots = parameters["show bar plots"].value
 
+        # averaging for bar plot
+        self.model.averaging_bar_plot = max(1, int(abs(parameters["averaging in bar plot"].value)))
+
     def remove_card(self, card):
         """Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
         top right of a card.

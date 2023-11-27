@@ -13,7 +13,7 @@ from typing import Dict, List, Tuple, TYPE_CHECKING
 import matplotlib.lines
 import numpy as np
 
-from LabExT.Measurements.MeasAPI import MeasParamFloat, MeasParamBool
+from LabExT.Measurements.MeasAPI import MeasParamFloat, MeasParamBool, MeasParamInt
 
 if TYPE_CHECKING:
     from LabExT.View.LiveViewer.Cards import CardFrame
@@ -103,6 +103,7 @@ class LiveViewerModel:
             "time range to display": MeasParamFloat(value=20.0, unit="s"),
             "minimum y-axis span": MeasParamFloat(value=4.0),
             "show bar plots": MeasParamBool(value=True),
+            "averaging in bar plot": MeasParamInt(value=20, unit="samples"),
         }
 
         # the options when selecting a new card
@@ -128,6 +129,9 @@ class LiveViewerModel:
 
         # if bar pot should be shown
         self.show_bar_plots: bool = True
+
+        # averaging for bar plot
+        self.averaging_bar_plot: int = 20
 
     def get_next_plot_color_index(self) -> str:
         """call this to get the next color for another trace to show"""
