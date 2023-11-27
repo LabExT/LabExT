@@ -5,72 +5,22 @@ LabExT  Copyright (C) 2023  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-import time
-from dataclasses import dataclass, field
+
 from queue import Empty
 from tkinter import Tk, Frame, TOP, BOTH
 from typing import List, TYPE_CHECKING
 
 import matplotlib.animation as animation
-import matplotlib.lines
-import numpy as np
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.pyplot import subplots
 
-from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint
+from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint, PlotTrace, LIVE_VIEWER_PLOT_COLOR_CYCLE
 
 if TYPE_CHECKING:
     from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
 else:
     LiveViewerModel = None
-
-
-LIVE_VIEWER_PLOT_COLOR_CYCLE = {
-    0: "#1f77b4",
-    1: "#ff7f0e",
-    2: "#2ca02c",
-    3: "#d62728",
-    4: "#9467bd",
-    5: "#8c564b",
-    6: "#e377c2",
-    7: "#7f7f7f",
-    8: "#bcbd22",
-    9: "#17becf",
-}
-
-
-@dataclass
-class PlotTrace:
-    """stores data and ax/line references for a trace to plot"""
-
-    timestamps: List[float] = field(default_factory=list)
-    y_values: List[float] = field(default_factory=list)
-    line_handle: matplotlib.lines.Line2D = None
-    bar_index: int = None
-
-    @property
-    def delta_time_to_now(self):
-        return np.array(self.timestamps) - time.time()
-
-    @property
-    def finite_y_values(self):
-        return np.array(self.y_values)[np.isfinite(self.y_values)]
-
-    def delete_older_than(self, cutoff_s):
-        deltas = self.delta_time_to_now
-        n_elems_older_than_cutoff = np.count_nonzero(np.abs(deltas) > np.abs(cutoff_s)) - 1
-        if n_elems_older_than_cutoff > 0:
-            self.timestamps[:n_elems_older_than_cutoff] = []
-            self.y_values[:n_elems_older_than_cutoff] = []
-
-    def add_plot_data_point(self, pdp: PlotDataPoint):
-        self.timestamps.append(pdp.timestamp)
-        self.y_values.append(pdp.y_value)
-
-    def update_line_data(self):
-        x = np.hstack((self.delta_time_to_now, 1))
-        y = np.hstack((self.y_values, self.y_values[-1]))
-        self.line_handle.set_data(x, y)
 
 
 class LiveViewerPlot(Frame):
@@ -184,16 +134,16 @@ class LiveViewerPlot(Frame):
 
                     # we got a new trace name, setup internal data structure and put line onto axis
                     if trace_key not in self.model.traces_to_plot:
-                        # figure out which color to use for the line
-                        color = LIVE_VIEWER_PLOT_COLOR_CYCLE[self.model.new_color_idx]
-                        self.model.new_color_idx = (self.model.new_color_idx + 1) % len(LIVE_VIEWER_PLOT_COLOR_CYCLE)
-
+                        color_index = self.model.get_next_plot_color_index()
                         line_label = f"{card.instance_title:s}: {plot_data_point.trace_name:s}"
-                        (line,) = self.ax.plot([], [], color=color, label=line_label)
+                        (line,) = self.ax.plot(
+                            [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label
+                        )
                         self.model.traces_to_plot[trace_key] = PlotTrace(
                             timestamps=[plot_data_point.timestamp],
                             y_values=[plot_data_point.y_value],
                             line_handle=line,
+                            color_index=color_index,
                             bar_index=-1,
                         )
                         redraw_bars = True
