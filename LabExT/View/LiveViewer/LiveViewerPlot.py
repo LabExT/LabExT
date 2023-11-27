@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from queue import Empty
 from tkinter import Tk, Frame, TOP, BOTH
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 import matplotlib.animation as animation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
