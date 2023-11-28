@@ -7,8 +7,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 
 from queue import Empty
-from tkinter import Tk, Frame, TOP, BOTH
-from typing import TYPE_CHECKING
+from tkinter import Frame, TOP, BOTH
+from typing import TYPE_CHECKING, Optional, Tuple, List
 
 import matplotlib.animation as animation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -18,33 +18,47 @@ import numpy as np
 from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint, PlotTrace, LIVE_VIEWER_PLOT_COLOR_CYCLE
 
 if TYPE_CHECKING:
+    from tkinter import Tk
     from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
+    from matplotlib.animation import Animation
+    from matplotlib.figure import Figure
+    from matplotlib.axis import Axis
+    from matplotlib.container import BarContainer
+    from matplotlib.text import Text
+    from matplotlib.legend import Legend
 else:
+    Tk = None
     LiveViewerModel = None
+    Animation = None
+    Figure = None
+    Axis = None
+    BarContainer = None
+    Text = None
+    Legend = None
 
 
 class LiveViewerPlot(Frame):
     def __init__(self, parent: Tk, model: LiveViewerModel):
         super().__init__(parent, highlightbackground="grey", highlightthickness=1)
-        self._root = parent
+        self._root: Tk = parent
 
-        self.model = model
+        self.model: LiveViewerModel = model
 
         # some constants
-        self._figsize = (6, 4)
-        self._title = "Live Plot"
-        self._animate_interval_ms = 100
+        self._figsize: Tuple[int, int] = (6, 4)
+        self._title: str = "Live Plot"
+        self._animate_interval_ms: int = 100
 
         # plot object refs
-        self._ani = None
-        self._toolbar = None
-        self._canvas = None
-        self._fig = None
-        self._ax = None
-        self._ax_bar = None
-        self._bar_collection = []
-        self._bar_collection_labels = []
-        self._legend = None
+        self._ani: Optional[Animation] = None
+        self._toolbar: Optional[NavigationToolbar2Tk] = None
+        self._canvas: Optional[FigureCanvasTkAgg] = None
+        self._fig: Optional[Figure] = None
+        self._ax: Optional[Axis] = None
+        self._ax_bar: Optional[Axis] = None
+        self._bar_collection: BarContainer = []
+        self._bar_collection_labels: List[Text] = []
+        self._legend: Legend = None
 
         self.__setup__()
 
