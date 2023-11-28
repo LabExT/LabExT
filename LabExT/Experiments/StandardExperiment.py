@@ -19,7 +19,7 @@ from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
-from typing import TYPE_CHECKING, Type, List
+from typing import TYPE_CHECKING, Type, List, Tuple
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
@@ -31,8 +31,12 @@ from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 if TYPE_CHECKING:
     from LabExT.Experiments.ToDo import ToDo
+    from LabExT.Wafer.Device import Device
+    from LabExT.Measurements.MeasAPI.Measurement import Measurement
 else:
     ToDo = None
+    Device = None
+    Measurement = None
 
 
 def calc_measurement_key(measurement):
@@ -93,7 +97,7 @@ class StandardExperiment:
         # list to contain all future ToDos, do not redefine!
         self.to_do_list: List[ToDo] = []
         # store last executed to do (Tuple(Device, Measurement))
-        self.last_executed_todo = None
+        self.last_executed_todos: List[Tuple[Device, Measurement]] = [] 
         # get the FQDN of the running computer to save into datasets
         self._fqdn_of_exp_runner = socket.getfqdn()
         # get the LabExT version to save into datasets
@@ -312,8 +316,8 @@ class StandardExperiment:
                     current_todo.dictionary_wrapper.get["sweep_association_list"] = sweep_list
                     current_todo.dictionary_wrapper.get.save()
 
-                # save to do reference in case user hits "Redo last measurement" button
-                self.last_executed_todo = (device, measurement)
+                # save executed device-measurement pair for later recall by "Redo last measurement" button
+                self.last_executed_todos.append((device, self.duplicate_measurement(measurement)))
 
             # shift to do to executed measurements when successful
             if measurement_executed:

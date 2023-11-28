@@ -21,7 +21,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
  - Operating System: [e.g. Windows]
- - Python environment [e.g. CPython, 3.8]
+ - Python environment [e.g. CPython, 3.9]
  - LabExT Version or Git revision [e.g. v2.1.0]
 
 **Additional context**
