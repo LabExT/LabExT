@@ -53,6 +53,7 @@ class SaveButtonsController(WizardEntryController):
                 meas_class_name)
 
             new_meas.instruments = measurement.instruments.copy()
+            new_meas.selected_instruments = measurement.selected_instruments.copy()
 
             new_meas.parameters = measurement.parameters.copy()
             for name, value in zip(row.index, row):

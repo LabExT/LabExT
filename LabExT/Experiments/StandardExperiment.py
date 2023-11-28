@@ -32,11 +32,9 @@ from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 if TYPE_CHECKING:
     from LabExT.Experiments.ToDo import ToDo
     from LabExT.Wafer.Device import Device
-    from LabExT.Measurements.MeasAPI.Measurement import Measurement
 else:
     ToDo = None
     Device = None
-    Measurement = None
 
 
 def calc_measurement_key(measurement):

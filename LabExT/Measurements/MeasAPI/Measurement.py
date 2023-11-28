@@ -83,8 +83,8 @@ class Measurement:
         Measurement class internal use
         """
 
-        self.selected_instruments: List[str] = {}
-        """List of strings of instrument roles as defined in instruments.config"""
+        self.selected_instruments: Dict[str, Dict] = {}
+        """Dict of strings of instrument roles as defined in instruments.config"""
 
         self._parameters: Dict[str, MeasParam] = {}
         """Dict of measurement parameters, values are MeasParam() instances"""
