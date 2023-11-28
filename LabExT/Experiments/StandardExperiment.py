@@ -208,7 +208,7 @@ class StandardExperiment:
                 ].iterrows():
                     # iterate through the rows (i.e. Measurements) belonging to this sweep and store
                     # to metadata
-                    data["sweep_information"]["sweep_association"][row["id"]] = {
+                    data["sweep_information"]["sweep_association"][row["name"]] = {
                         name: value for name, value in zip(row.index, row)
                     }
 
@@ -284,7 +284,7 @@ class StandardExperiment:
                 if current_todo.part_of_sweep:
                     sweep_params = current_todo.sweep_parameters
                     # update sweep information
-                    meas_mask = sweep_params["id"] == measurement.get_name_with_id()
+                    meas_mask = sweep_params["id"] == measurement.id.hex
                     meas_index = sweep_params[meas_mask].index.to_list()[0]
 
                     sweep_params.loc[meas_index, "finished"] = True
@@ -302,11 +302,11 @@ class StandardExperiment:
 
                     # store the names of the parameters used in sweep
                     param_names = list(sweep_params.columns)
-                    param_names.remove("id")
+                    param_names.remove("name")
                     param_names.remove("finished")
                     # go through all measurements and store parameters for each
                     for _, row in sweep_params.iterrows():
-                        sweep_list[row["id"]] = {
+                        sweep_list[row["name"]] = {
                             param_name: param_value for param_name, param_value in zip(param_names, row[param_names])
                         }
 

@@ -61,7 +61,8 @@ class SaveButtonsController(WizardEntryController):
                 new_param.value = value
                 new_meas.parameters[name] = new_param
 
-            parameters.loc[index, 'id'] = new_meas.get_name_with_id()
+            parameters.loc[index, 'id'] = new_meas.id.hex
+            parameters.loc[index, 'name'] = new_meas.get_name_with_id()
 
             self._main_controller._experiment.to_do_list.append(ToDo(device=device,
                                                                      measurement=new_meas,
