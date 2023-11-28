@@ -17,8 +17,12 @@ from LabExT.Measurements.MeasAPI import MeasParamFloat, MeasParamBool, MeasParam
 
 if TYPE_CHECKING:
     from LabExT.View.LiveViewer.Cards import CardFrame
+    from tkinter import Tk
+    from LabExT.Measurements.MeasAPI.Measurement import MEAS_PARAMS_TYPE
 else:
     CardFrame = None
+    Tk = None
+    MEAS_PARAMS_TYPE = None
 
 
 LIVE_VIEWER_PLOT_COLOR_CYCLE = OrderedDict(
@@ -62,10 +66,10 @@ class PlotTrace:
         return np.array(self.timestamps) - time.time()
 
     @property
-    def finite_y_values(self):
+    def finite_y_values(self) -> np.ndarray:
         return np.array(self.y_values)[np.isfinite(self.y_values)]
 
-    def delete_older_than(self, cutoff_s):
+    def delete_older_than(self, cutoff_s: float):
         deltas = self.delta_time_to_now
         n_elems_older_than_cutoff = np.count_nonzero(np.abs(deltas) > np.abs(cutoff_s)) - 1
         if n_elems_older_than_cutoff > 0:
@@ -87,7 +91,7 @@ class LiveViewerModel:
     Model class for the live viewer. Contains all data needed for the operation of the liveviewer.
     """
 
-    def __init__(self, root):
+    def __init__(self, root: Tk):
         """Constructor.
 
         Parameters
@@ -96,10 +100,10 @@ class LiveViewerModel:
             Tkinter root window.
         """
 
-        self.settings_file_name = "LiveViewerConfig.json"
+        self.settings_file_name: str = "LiveViewerConfig.json"
 
         # these are the general settings
-        self.general_settings = {
+        self.general_settings: MEAS_PARAMS_TYPE = {
             "time range to display": MeasParamFloat(value=20.0, unit="s"),
             "minimum y-axis span": MeasParamFloat(value=4.0),
             "show bar plots": MeasParamBool(value=True),
@@ -108,7 +112,7 @@ class LiveViewerModel:
 
         # the options when selecting a new card
         # this is dynamically filled in during start of the live viewer
-        self.lvcards_classes = {}
+        self.lvcards_classes: Dict[str, type] = {}
 
         # the cards list
         self.cards: List[Tuple[str, CardFrame]] = []
@@ -133,7 +137,7 @@ class LiveViewerModel:
         # averaging for bar plot
         self.averaging_bar_plot: int = 20
 
-    def get_next_plot_color_index(self) -> str:
+    def get_next_plot_color_index(self) -> int:
         """call this to get the next color for another trace to show"""
         occupied_color_indices = [t.color_index for t in self.traces_to_plot.values()]
         indices_in_ccycle = [k for k in LIVE_VIEWER_PLOT_COLOR_CYCLE.keys() if k not in occupied_color_indices]
