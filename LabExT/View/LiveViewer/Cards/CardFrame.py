@@ -9,11 +9,29 @@ import logging
 import queue
 import tkinter
 from functools import wraps
+from typing import TYPE_CHECKING, Dict, Optional, List
 from tkinter import Frame, Button, Label, messagebox, BooleanVar
 
 from LabExT.Utils import get_visa_address
 from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
+
+if TYPE_CHECKING:
+    from LabExT.Measurements.MeasAPI.Measurement import MEAS_PARAMS_TYPE
+    from tkinter import Tk
+    from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
+    from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
+    from logging import Logger
+    from LabExT.Instruments.InstrumentAPI import Instrument
+    from threading import Thread
+else:
+    MEAS_PARAMS_TYPE = None
+    Tk = None
+    LiveViewerController = None
+    LiveViewerModel = None
+    Logger = None
+    Instrument = None
+    Thread = None
 
 
 def show_errors_as_popup(caught_err_classes=(Exception,)):
@@ -50,36 +68,36 @@ class CardFrame(Frame):
     Parent class for all cards. Contains functions that inherited card types must follow.
     """
 
-    INSTRUMENT_TYPE = 'FILL ME'
-    CARD_TITLE = 'FILL ME'
+    INSTRUMENT_TYPE: str = 'FILL ME'
+    CARD_TITLE: str = 'FILL ME'
 
-    default_parameters = {}
+    default_parameters: MEAS_PARAMS_TYPE = {}
 
-    def __init__(self, parent, controller, model):
+    def __init__(self, parent: Tk, controller: LiveViewerController, model: LiveViewerModel):
 
         # refs to LiveViewer objects
-        self.model = model
-        self.controller = controller
+        self.model: LiveViewerModel = model
+        self.controller: LiveViewerController = controller
 
         # root window where I will be placed
-        self._root = parent
+        self._root: Tk = parent
         # logger, is always handy
-        self.logger = logging.getLogger()
+        self.logger: Logger = logging.getLogger()
 
         # card attributes
-        self.instance_title = f'{self.CARD_TITLE:s} {self.model.next_card_index:d}'
+        self.instance_title: str = f'{self.CARD_TITLE:s} {self.model.next_card_index:d}'
         self.model.next_card_index += 1
-        self.instrument = None  # reference to instantiated instrument driver
-        self.active_thread = None  # reference to sub-thread (used for polling etc.)
+        self.instrument: Optional[Instrument] = None  # reference to instantiated instrument driver
+        self.active_thread: Optional[Thread] = None  # reference to sub-thread (used for polling etc.)
         self.data_to_plot_queue = queue.SimpleQueue()
         self.card_active = BooleanVar(master=parent, value=False)  # indicator if card is active or not
         self.card_active.trace('w', self._card_active_status_changed)
 
-        self.last_instrument_type = ""  # keep instrument info for saving out traces to file
+        self.last_instrument_type: str = ""  # keep instrument info for saving out traces to file
 
         # keep my references which buttons to gray out when
-        self.buttons_active_when_settings_enabled = []
-        self.buttons_inactive_when_settings_enabled = []
+        self.buttons_active_when_settings_enabled: List[Button] = []
+        self.buttons_inactive_when_settings_enabled: List[Button] = []
 
         # setup my main frame, its 3 rows by 3 columns
         Frame.__init__(self, parent, relief="groove", borderwidth=2)
@@ -101,7 +119,7 @@ class CardFrame(Frame):
         self.remove_button.grid(row=0, column=3, sticky='NE')
 
         # row 1: instrument selector
-        self.available_instruments = dict()
+        self.available_instruments: Dict[str, InstrumentRole] = dict()
         io_set = get_visa_address(self.INSTRUMENT_TYPE)
         self.available_instruments.update({self.INSTRUMENT_TYPE: InstrumentRole(self._root, io_set)})
 
