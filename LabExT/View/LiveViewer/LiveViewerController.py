@@ -11,6 +11,7 @@ import json
 from json import JSONDecodeError
 from os import makedirs
 from os.path import dirname, join
+from typing import TYPE_CHECKING, Dict, Tuple
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.PluginLoader import PluginLoader
@@ -19,13 +20,23 @@ from LabExT.View.LiveViewer.Cards import CardFrame
 from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel, PlotDataPoint
 from LabExT.View.LiveViewer.LiveViewerView import LiveViewerView
 
+if TYPE_CHECKING:
+    from tkinter import Tk, Toplevel
+    from LabExT.ExperimentManager import ExperimentManager
+    from LabExT.Measurements.MeasAPI.Measurement import MEAS_PARAMS_TYPE
+else:
+    Tk = None
+    Toplevel = None
+    ExperimentManager = None
+    MEAS_PARAMS_TYPE = None
+
 
 class LiveViewerController:
     """
     Controller class for the live viewer. Contains all functions interacting the view and model classes.
     """
 
-    def __init__(self, root, experiment_manager):
+    def __init__(self, root: Tk, experiment_manager: ExperimentManager):
         """Constructor.
 
         Parameters
@@ -35,19 +46,19 @@ class LiveViewerController:
         experiment_manager : ExperimentManager
             Current instance of ExperimentManager
         """
-        self.root = root
-        self.experiment_manager = experiment_manager
+        self.root: Tk = root
+        self.experiment_manager: ExperimentManager = experiment_manager
 
         # set up the liveviewer model
-        self.model = LiveViewerModel(root)
+        self.model: LiveViewerModel = LiveViewerModel(root)
         self.model.lvcards_classes.update(self.experiment_manager.live_viewer_cards)
         self.experiment_manager.live_viewer_model = self.model
 
         # set up the liveviewer view
-        self.view = LiveViewerView(self.root, self, self.model, experiment_manager)
+        self.view: LiveViewerView = LiveViewerView(self.root, self, self.model, experiment_manager)
 
         # sets the member variable current_window, needed by the LabExT backend
-        self.current_window = self.view.main_window
+        self.current_window: Toplevel = self.view.main_window
 
         # restore previously saved state
         self.restore_lv_from_saved_parameters()
@@ -61,7 +72,7 @@ class LiveViewerController:
         for _, card in self.model.cards:
             card.stop_instr()
 
-    def update_settings(self, parameters):
+    def update_settings(self, parameters: MEAS_PARAMS_TYPE):
         """Updates the main parameters of the plot. These are the ones represented without a card, present
         on any liveviewer.
 
@@ -83,7 +94,7 @@ class LiveViewerController:
         # averaging for bar plot
         self.model.averaging_bar_plot = max(1, int(abs(parameters["averaging in bar plot"].value)))
 
-    def remove_card(self, card):
+    def remove_card(self, card: CardFrame):
         """Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
         top right of a card.
         """
@@ -105,7 +116,7 @@ class LiveViewerController:
             lambda: self._destroy_card(card),
         )
 
-    def _destroy_card(self, card):
+    def _destroy_card(self, card: CardFrame):
         """deferred call to destroy card frame after corresponding traces were removed"""
         self.model.cards.remove((card.CARD_TITLE, card))
         card.destroy()
@@ -193,7 +204,7 @@ class LiveViewerController:
         data.save()
 
     @staticmethod
-    def load_all_cards(experiment_manager):
+    def load_all_cards(experiment_manager: ExperimentManager) -> Tuple[Dict[str, type], Dict[str, int]]:
         """
         This function dynamically loads all card objects, from the static cards directory
         """
