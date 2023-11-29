@@ -228,22 +228,12 @@ class ParameterTable(CustomFrame):
                                       origin_var=meas_param_inst)
                 self._parameter_source[meas_param_key] = par
 
-    def make_json_able(self):
-        """Returns all the parameters of this table as one dict containing all selections. This is in such a format
-        pythons built in json function can work with it."""
-        if self._parameter_source is None:
-            return {}
-        data = {}
-        for parameter_name in self._parameter_source:
-            data[parameter_name] = self._parameter_source[parameter_name].value
-        return data
-
     def serialize(self, file_name):
         """Serializes data in table to json. Takes the filename as parameter and first converts all the data
         of this parameter table to json-able format and then writes this to the provided file, as json"""
-        if self._parameter_source is None:
+        data = {}
+        if not self.serialize_to_dict(data):
             return False
-        data = self.make_json_able()
         file_path = get_configuration_file_path(file_name)
         with open(file_path, 'w') as json_file:
             json_file.write(json.dumps(data))
@@ -254,25 +244,21 @@ class ParameterTable(CustomFrame):
         of this parameter table to json-able format and then writes this to the provided dict with the new key 'data'."""
         if self._parameter_source is None:
             return False
-        settings['data'] = self.make_json_able()
+        data = {}
+        for parameter_name in self._parameter_source:
+            data[parameter_name] = self._parameter_source[parameter_name].value
+        settings['data'] = data
         return True
 
     def deserialize(self, file_name):
         """Deserializes the table data from a given file and loads it
         into the cells."""
         file_path = get_configuration_file_path(file_name)
-        if self._parameter_source is None or not os.path.isfile(file_path):
+        if not os.path.isfile(file_path):
             return False
         with open(file_path, 'r') as json_file:
             data = json.loads(json_file.read())
-        for parameter_name in data:
-            try:
-                self._parameter_source[parameter_name].value = data[parameter_name]
-            except KeyError:
-                self._logger.warning(
-                    "Unknown key in save file: " + str(parameter_name) + ". Ignoring this parameter.")
-        self.__setup__()
-        return True
+        return self.deserialize_from_dict(data)
 
     def deserialize_from_dict(self, settings: dict):
         """Deserializes the table data from a given dict and loads it
