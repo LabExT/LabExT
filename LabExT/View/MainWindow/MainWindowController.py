@@ -69,8 +69,6 @@ class MainWindowController:
         """Called when user closes the application. Save experiment
         settings in .json and call context-callback.
         """
-        self.view.frame.live_plot.stop_polling()
-
         # remove any chip path from parameters if chip is not loaded -> prevent offering reloading-of not loaded chip
         # on next startup
         if self.experiment_manager.chip is None:
