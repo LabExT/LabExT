@@ -69,6 +69,7 @@ class ExperimentManager:
         self.mover = MoverNew(experiment_manager=self, chip=chip)
         self.peak_searcher = PeakSearcher(
             None, self, mover=self.mover, parent=self.root)
+        self.live_viewer_model = None
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
         self.already_shown_docu_path = False

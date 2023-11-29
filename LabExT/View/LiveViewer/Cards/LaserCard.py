@@ -6,16 +6,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from tkinter import Label, Button, StringVar
-from typing import TYPE_CHECKING
 
 from LabExT.Instruments.InstrumentAPI import InstrumentException
 from LabExT.Measurements.MeasAPI import MeasParamFloat
+from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.LiveViewer.Cards.CardFrame import CardFrame, show_errors_as_popup
-
-if TYPE_CHECKING:
-    from LabExT.Measurements.MeasAPI.Measurement import MEAS_PARAMS_TYPE
-else:
-    MEAS_PARAMS_TYPE = None
 
 
 class LaserCard(CardFrame):
@@ -57,13 +52,19 @@ class LaserCard(CardFrame):
 
         # row 0: control buttons
         self.enable_button = Button(content_frame, text="Start Laser",
-                                    command=lambda: self.start_laser(self.ptable.to_meas_param()))
+                                    command=lambda: self.start_laser(self.available_instruments,
+                                                                     self.ptable.to_meas_param(),
+                                                                     self.laser_enabled_warning_text))
         self.enable_button.grid(row=0, column=0, padx=2, pady=2, sticky='NESW')
         self.disable_button = Button(content_frame, text="Stop Laser",
-                                     command=lambda: self.stop_laser())
+                                     command=lambda: self.stop_laser(self.available_instruments,
+                                                                     self.ptable.to_meas_param(),
+                                                                     self.laser_enabled_warning_text))
         self.disable_button.grid(row=0, column=1, padx=2, pady=2, sticky='NESW')
         self.update_button = Button(content_frame, text="Update Settings",
-                                    command=lambda: self.update_laser(self.ptable.to_meas_param()))
+                                    command=lambda: self.update_laser(self.available_instruments,
+                                                                      self.ptable.to_meas_param(),
+                                                                      self.laser_enabled_warning_text))
         self.update_button.grid(row=0, column=2, padx=2, pady=2, sticky='NESW')
 
         # row 0: laser enabled warning text
@@ -80,7 +81,7 @@ class LaserCard(CardFrame):
         self.buttons_inactive_when_settings_enabled.append(self.update_button)
 
     @show_errors_as_popup()
-    def start_laser(self, parameters: MEAS_PARAMS_TYPE):
+    def start_laser(self, instr, parameters, warning_variable):
         """
         Sets up the laser and starts it.
         """
@@ -96,13 +97,13 @@ class LaserCard(CardFrame):
             loaded_instr.power = laser_pwr
             loaded_instr.enable = True
 
-        self.laser_enabled_warning_text.set("LASER ENABLED")
+        warning_variable.set("LASER ENABLED")
 
         self.instrument = loaded_instr
         self.card_active.set(True)
 
     @show_errors_as_popup()
-    def stop_laser(self):
+    def stop_laser(self, instr, parameters, warning_variable):
         """
         Stops the laser.
         """
@@ -111,14 +112,14 @@ class LaserCard(CardFrame):
             return
         with loaded_instr.thread_lock:
             loaded_instr.enable = False
-        self.laser_enabled_warning_text.set("")
+        warning_variable.set("")
         self.card_active.set(False)
 
         self.instrument.close()
         self.instrument = None
 
     @show_errors_as_popup()
-    def update_laser(self, parameters: MEAS_PARAMS_TYPE):
+    def update_laser(self, instr, parameters, warning_variable):
         """
         Updates the lasers parameters.
         """
@@ -137,4 +138,4 @@ class LaserCard(CardFrame):
         """
         This function is needed as a generic stopping function.
         """
-        self.stop_laser()
+        self.stop_laser(None, None, self.laser_enabled_warning_text)
