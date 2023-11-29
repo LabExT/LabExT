@@ -6,8 +6,12 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+from typing import List, Dict
 
-from typing import List
+from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+
+
+MEAS_PARAMS_TYPE = Dict[str, MeasParam]
 
 
 class Measurement:

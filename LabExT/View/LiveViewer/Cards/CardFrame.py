@@ -6,22 +6,32 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+import queue
+import tkinter
 from functools import wraps
-from tkinter import Frame, Button, Label, colorchooser, messagebox
+from typing import TYPE_CHECKING, Dict, Optional, List
+from tkinter import Frame, Button, Label, messagebox, BooleanVar
 
 from LabExT.Utils import get_visa_address
+from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
 
-colors = {
-    0: 'red',
-    1: 'purple',
-    2: 'blue',
-    3: 'green',
-    4: 'skyblue',
-    5: 'black',
-    6: 'orange',
-    7: 'yellow'
-}
+if TYPE_CHECKING:
+    from LabExT.Measurements.MeasAPI.Measurement import MEAS_PARAMS_TYPE
+    from tkinter import Tk
+    from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
+    from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
+    from logging import Logger
+    from LabExT.Instruments.InstrumentAPI import Instrument
+    from threading import Thread
+else:
+    MEAS_PARAMS_TYPE = None
+    Tk = None
+    LiveViewerController = None
+    LiveViewerModel = None
+    Logger = None
+    Instrument = None
+    Thread = None
 
 
 def show_errors_as_popup(caught_err_classes=(Exception,)):
@@ -58,27 +68,36 @@ class CardFrame(Frame):
     Parent class for all cards. Contains functions that inherited card types must follow.
     """
 
-    INSTRUMENT_TYPE = 'FILL ME'
-    PLOTTING_ENABLED = True
+    INSTRUMENT_TYPE: str = 'FILL ME'
+    CARD_TITLE: str = 'FILL ME'
 
-    default_parameters = {}
+    default_parameters: MEAS_PARAMS_TYPE = {}
 
-    def __init__(self, parent, controller, model, index):
+    def __init__(self, parent: Tk, controller: LiveViewerController, model: LiveViewerModel):
 
         # refs to LiveViewer objects
-        self.model = model
-        self.controller = controller
-        # my index
-        self.index = index
+        self.model: LiveViewerModel = model
+        self.controller: LiveViewerController = controller
+
         # root window where I will be placed
-        self._root = parent
+        self._root: Tk = parent
         # logger, is always handy
-        self.logger = logging.getLogger()
-        # plot color
-        self.color = colors.get(index, 'gray')
+        self.logger: Logger = logging.getLogger()
+
+        # card attributes
+        self.instance_title: str = f'{self.CARD_TITLE:s} {self.model.next_card_index:d}'
+        self.model.next_card_index += 1
+        self.instrument: Optional[Instrument] = None  # reference to instantiated instrument driver
+        self.active_thread: Optional[Thread] = None  # reference to sub-thread (used for polling etc.)
+        self.data_to_plot_queue = queue.SimpleQueue()
+        self.card_active = BooleanVar(master=parent, value=False)  # indicator if card is active or not
+        self.card_active.trace('w', self._card_active_status_changed)
+
+        self.last_instrument_type: str = ""  # keep instrument info for saving out traces to file
+
         # keep my references which buttons to gray out when
-        self.buttons_active_when_settings_enabled = []
-        self.buttons_inactive_when_settings_enabled = []
+        self.buttons_active_when_settings_enabled: List[Button] = []
+        self.buttons_inactive_when_settings_enabled: List[Button] = []
 
         # setup my main frame, its 3 rows by 3 columns
         Frame.__init__(self, parent, relief="groove", borderwidth=2)
@@ -92,52 +111,32 @@ class CardFrame(Frame):
         #
 
         # row 0: title
-        self.label = Label(self, text=self.INSTRUMENT_TYPE)
+        self.label = Label(self, text=self.instance_title)
         self.label.grid(row=0, column=0, padx=2, pady=2, sticky='NSW')
 
-        # row 0: color selection button
-        if self.PLOTTING_ENABLED:
-            self.color_button = Button(self, text="", command=self.choose_color, bg=self.color)
-            self.color_button.grid(row=0, column=1, sticky='NESW')
-
         # row 0: remove card button
-        self.remove_button = Button(self, text="X", command=lambda: controller.remove_card(self.index))
+        self.remove_button = Button(self, text="X", command=lambda: controller.remove_card(self))
         self.remove_button.grid(row=0, column=3, sticky='NE')
 
         # row 1: instrument selector
-        self.available_instruments = dict()
+        self.available_instruments: Dict[str, InstrumentRole] = dict()
         io_set = get_visa_address(self.INSTRUMENT_TYPE)
         self.available_instruments.update({self.INSTRUMENT_TYPE: InstrumentRole(self._root, io_set)})
-
-        try:
-            for role_name in self.model.old_instr[index]:
-                if role_name in self.available_instruments:
-                    self.available_instruments[role_name].create_and_set(self.model.old_instr[index][role_name])
-        except IndexError:
-            pass
 
         self.instr_selec = InstrumentSelector(self)
         self.instr_selec.title = 'Instrument'
         self.instr_selec.instrument_source = self.available_instruments
         self.instr_selec.grid(row=1, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
 
-        # row 2: user's content frame, filled by subclasses
+        # row 2: parameter table for this card
+        self.ptable = ParameterTable(self)
+        self.ptable.title = 'Parameters'
+        self.ptable.parameter_source = self.default_parameters.copy()
+        self.ptable.grid(row=2, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
+
+        # row 3: user's content frame, filled by subclasses
         self.content_frame = Frame(self)
-        self.content_frame.grid(row=2, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
-
-        # define the card-related attributes
-        self.instrument = None
-        self.polling_function = None
-        self.active_thread = None
-        self.enabled = None
-        self.paused = False
-        self.thread_finished = True
-        self.plot_data = None
-
-        self.string_var = None
-        self.initialized = False
-
-        self.last_instrument_type = ""
+        self.content_frame.grid(row=3, column=0, columnspan=4, padx=2, pady=2, sticky='NESW')
 
     def load_instrument_instance(self):
         """
@@ -147,29 +146,25 @@ class CardFrame(Frame):
         for role_name, role_instrs in self.available_instruments.items():
             selected_instruments.update({role_name: role_instrs.choice})
 
-            # do not let card load an instrument if any other card already has the same instrument active
-            for i, (_, card) in enumerate(self.model.cards):
-                if card is self:
-                    continue
-                if card.INSTRUMENT_TYPE is not self.INSTRUMENT_TYPE:
-                    continue
-                if not card.enabled:
-                    continue
-                if card.instrument is None:
-                    continue
-                self_desc = role_instrs.choice
-                foreign_desc = card.instrument.instrument_config_descriptor
-                if self_desc['visa'] == foreign_desc['visa'] \
-                        and self_desc['class'] == foreign_desc['class'] \
-                        and self_desc['channel'] == foreign_desc['channel']:
-                    raise RuntimeError('This instrument is already active in another card.')
-
         loaded_instr = self.controller.experiment_manager.instrument_api.create_instrument_obj(self.INSTRUMENT_TYPE,
                                                                                                selected_instruments,
                                                                                                {})
 
         self.last_instrument_type = loaded_instr.instrument_parameters['class']
         return loaded_instr
+
+    def _card_active_status_changed(self, *args):
+        # callback on the card_active variable
+        # automatically set GUI elements depending on if card is active or not
+        try:
+            if self.card_active.get():
+                self.disable_settings_interaction()
+            else:
+                self.enable_settings_interaction()
+        except tkinter.TclError:
+            # sometimes the card is already destroyed
+            # so changes in GUI raise TclError but can safely be ignored
+            pass
 
     def enable_settings_interaction(self):
         # call this function when you want to enable GUI elements for changing settings
@@ -189,21 +184,5 @@ class CardFrame(Frame):
             b["state"] = "active"
         self.instr_selec.enabled = False
 
-    def choose_color(self):
-        """
-        Displays the color selection tool.
-        """
-        if not self.PLOTTING_ENABLED:
-            raise NotImplementedError('Plotting is not implemented for this card. Cannot choose color.')
-        # variable to store hexadecimal code of color
-        color_code = colorchooser.askcolor(title="Choose color")
-        self.color = color_code[1]
-        self.controller.show_main_window()
-        self.color_button.configure(bg=color_code[1])
-        self.controller.update_color(self.index, self.color)
-
     def stop_instr(self):
-        raise NotImplementedError
-
-    def tear_down(self):
         raise NotImplementedError
