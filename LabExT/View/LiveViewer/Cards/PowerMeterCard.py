@@ -11,6 +11,7 @@ from time import sleep
 from tkinter import Button
 
 from LabExT.Measurements.MeasAPI import MeasParamInt, MeasParamFloat, MeasParamString
+from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.LiveViewer.Cards.CardFrame import CardFrame, show_errors_as_popup
 from LabExT.View.LiveViewer.LiveViewerModel import PlotDataPoint
 

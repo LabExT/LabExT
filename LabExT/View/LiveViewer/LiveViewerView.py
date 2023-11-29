@@ -5,22 +5,10 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import TYPE_CHECKING
 from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
 
 from LabExT.View.LiveViewer.LiveViewerPlot import LiveViewerPlot
 from LabExT.View.Controls.ParameterTable import ParameterTable
-
-if TYPE_CHECKING:
-    from tkinter import Tk
-    from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
-    from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
-    from LabExT.ExperimentManager import ExperimentManager
-else:
-    Tk = None
-    LiveViewerController = None
-    LiveViewerModel = None
-    ExperimentManager = None
 
 
 class LiveViewerView:
@@ -28,7 +16,7 @@ class LiveViewerView:
     Viewer class for the live viewer. Contains all functionality related to widgets.
     """
 
-    def __init__(self, root: Tk, controller: LiveViewerController, model: LiveViewerModel, experiment_manager: ExperimentManager):
+    def __init__(self, root, controller, model, experiment_manager):
         """Constructor.
 
         Parameters
@@ -42,10 +30,10 @@ class LiveViewerView:
         experiment_manager : ExperimentManager
             Current instance of ExperimentManager
         """
-        self.root: Tk = root
-        self.controller: LiveViewerController = controller
-        self.model: LiveViewerModel = model
-        self.experiment_manager: ExperimentManager = experiment_manager
+        self.root = root
+        self.controller = controller
+        self.model = model
+        self.experiment_manager = experiment_manager
 
         self.main_window = LiveViewerMainWindow(self.root, controller, model)
 
@@ -55,7 +43,7 @@ class LiveViewerMainWindow(Toplevel):
     The main window itself. Inherits from TopLevel and acts as a standalone window.
     """
 
-    def __init__(self, root: Tk, controller: LiveViewerController, model: LiveViewerModel):
+    def __init__(self, root, controller, model):
         """Constructor.
 
         Parameters
@@ -68,7 +56,7 @@ class LiveViewerMainWindow(Toplevel):
             The Live viewer model
         """
         Toplevel.__init__(self, root)
-        self.controller: LiveViewerController = controller
+        self.controller = controller
         ws, hs = root.winfo_screenwidth(), root.winfo_screenheight()
         # limit window size - otherwise performance suffers heavily on large-screen systems
         w = ws if ws < 2000 else 2000
@@ -101,7 +89,7 @@ class MainFrame(Frame):
     The main Frame. Contains all other smaller frames.
     """
 
-    def __init__(self, parent: Tk, controller: LiveViewerController, model: LiveViewerModel):
+    def __init__(self, parent, controller, model):
         """Constructor.
 
         Parameters
@@ -134,7 +122,7 @@ class ControlFrame(Frame):
     see https://gist.github.com/JackTheEngineer/81df334f3dcff09fd19e4169dd560c59
     """
 
-    def __init__(self, parent: Tk, controller: LiveViewerController, model: LiveViewerModel):
+    def __init__(self, parent, controller, model):
         """Constructor.
 
         Parameters
@@ -146,8 +134,8 @@ class ControlFrame(Frame):
         model :
             The Live viewer model
         """
-        self.model: LiveViewerModel = model
-        self.controller: LiveViewerController = controller
+        self.model = model
+        self.controller = controller
         Frame.__init__(self, parent)
 
         # add the CardManager
@@ -211,7 +199,7 @@ class CardManager(Frame):
     Card manager frame, containing buttons and menus to add more cards.
     """
 
-    def __init__(self, parent: Tk, controller: LiveViewerController, model: LiveViewerModel):
+    def __init__(self, parent, controller, model):
         """Constructor.
 
         Parameters
@@ -223,10 +211,10 @@ class CardManager(Frame):
         model :
             The Live viewer model
         """
-        self._root: Tk = parent
-        self.model: LiveViewerModel = model
-        self.parent: Tk = parent
-        self.controller: LiveViewerController = controller
+        self._root = parent
+        self.model = model
+        self.parent = parent
+        self.controller = controller
         Frame.__init__(self, parent, relief="groove", borderwidth=2)
 
         self.add_card_button = Button(self, text="Add Instrument", command=self.add_card)
