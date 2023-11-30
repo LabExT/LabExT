@@ -155,6 +155,7 @@ class RangeEntry(Frame):
         # labels are changed based on category
         self._from_label = Label(self, text="From:")
         self._to_label = Label(self, text="To (included if step size allows it):")
+        self._value_label = Label(self, text=f"Value: {self._meas_param.value}")
 
         # allows the user to choose category
         self._category_menu = OptionMenu(self,
@@ -189,16 +190,26 @@ class RangeEntry(Frame):
 
     def __setup__(self) -> None:
         """Redraws this widget."""
-        self._from_label.grid(row=0, column=0, sticky="e")
-        self._from_entry.grid(row=0, column=1, sticky="w")
-        self._from_entry.config(state=(DISABLED
-                                       if self._step_category.get() == self._selection["step_count_repetition"]
-                                       else self._state))
-        self._to_label.grid(row=0, column=2, sticky="e")
-        self._to_entry.grid(row=0, column=3, sticky="w")
-        self._to_entry.config(state=(DISABLED
-                                     if self._step_category.get() == self._selection["step_count_repetition"]
-                                     else self._state))
+        self._from_label.grid_forget()
+        self._from_entry.grid_forget()
+        self._to_label.grid_forget()
+        self._to_entry.grid_forget()
+        self._value_label.grid_forget()
+        if self._step_category.get() != self._selection["step_count_repetition"]:
+            self._from_label.grid(row=0, column=0, sticky="e")
+            self._from_entry.grid(row=0, column=1, sticky="w")
+            self._from_entry.config(state=(DISABLED
+                                           if self._step_category.get() == self._selection["step_count_repetition"]
+                                           else self._state))
+            self._to_label.grid(row=0, column=2, sticky="e")
+            self._to_entry.grid(row=0, column=3, sticky="w")
+            self._to_entry.config(state=(DISABLED
+                                         if self._step_category.get() == self._selection["step_count_repetition"]
+                                         else self._state))
+        else:
+            self._value_label.config(text=f"Value: {self._meas_param.value}")
+            self._value_label.grid(row=0, column=3, sticky="e")
+
         self._category_menu.grid(row=0, column=4, sticky="e")
         self._step_entry.grid(row=0, column=5, sticky="w")
 
@@ -283,6 +294,16 @@ class RangeEntry(Frame):
         self._step_entry.config(state=self._state)
         self._category_menu.config(state=self._state)
 
+    @property
+    def meas_param(self) -> MeasParam:
+        """Returns a copy of the measurement parameter controlled by this range."""
+        return self._meas_param.copy()
+
+    @meas_param.setter
+    def meas_param(self, new: MeasParam) -> None:
+        """Sets the measurement parameter of controlled by this range."""
+        self._meas_param = new
+        self.__setup__()
 
 class SweepParameterFrame(CustomFrame):
     """A table allowing the user to choose parameters to sweep and set their ranges.
@@ -411,6 +432,10 @@ class SweepParameterFrame(CustomFrame):
             # tuples don't allow item assignments
             self._ranges[index] = (
                 self._ranges[index][0], new_entry, self._ranges[index][2])
+
+        _, entry, text = self._ranges[-1]
+        if type(entry) == RangeEntry:
+            entry.meas_param = self._parameters[text.get()]
 
         # redraw
         self.__setup__()
