@@ -157,17 +157,28 @@ class ControlFrame(Frame):
 
         # add the CardManager
         self.cardM = CardManager(self, controller, model)
-        self.cardM.grid(row=0, column=0, sticky="NEW", pady=(12, 20))
+        self.cardM.grid(row=0, column=0, columnspan=3, sticky="NESW", pady=(12, 20))
+
+        self.ref_set_button = Button(self, text="Set Reference", command=self.controller.reference_set)
+        self.ref_set_button.grid(row=3, column=0, sticky="NESW", pady=(12, 1))
+
+        self.ref_clear_button = Button(self, text="Clear Reference", command=self.controller.reference_clear)
+        self.ref_clear_button.grid(row=3, column=1, sticky="NESW", pady=(12, 1))
+
+        self.ref_recall_button = Button(self, text="Recall Reference")
+        self.ref_recall_button.grid(row=3, column=2, sticky="NESW", pady=(12, 1))
 
         self.pause_button = Button(self, text="Pause Plotting", command=self.controller.toggle_plotting_active)
-        self.pause_button.grid(row=2, column=0, sticky="SEW", pady=(12, 1))
+        self.pause_button.grid(row=4, column=0, columnspan=3, sticky="NESW", pady=(1, 1))
 
         self.save_button = Button(self, text="Save current Data", command=self.controller.create_snapshot)
-        self.save_button.grid(row=3, column=0, sticky="SEW", pady=(1, 20))
+        self.save_button.grid(row=5, column=0, columnspan=3, sticky="NESW", pady=(1, 20))
 
         self.card_full_container = Frame(self)
-        self.card_full_container.grid(row=1, column=0, sticky="NESW")
+        self.card_full_container.grid(row=1, column=0, columnspan=3, sticky="NESW")
         self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
         self.rowconfigure(1, weight=1)
 
         vscrollbar = Scrollbar(self.card_full_container, orient="vertical")

@@ -142,6 +142,14 @@ class LiveViewerController:
             self.view.main_window.main_frame.control_wrapper.pause_button.config(text="Pause Plotting")
             self.model.plotting_active = True
 
+    def reference_set(self):
+        for plot_trace in self.model.traces_to_plot.values():
+            plot_trace.reference_set()
+    
+    def reference_clear(self):
+        for plot_trace in self.model.traces_to_plot.values():
+            plot_trace.reference_clear()
+
     def create_snapshot(self):
 
         if not self.model.traces_to_plot:

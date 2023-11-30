@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from collections import OrderedDict
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, TYPE_CHECKING
+from typing import Dict, List, Tuple, TYPE_CHECKING, Optional
 
 import matplotlib.lines
 import numpy as np
@@ -53,11 +53,12 @@ class PlotDataPoint:
 
 @dataclass
 class PlotTrace:
-    """stores data and ax/line references for a trace to plot"""
+    """stores data and ax/line pointers for a trace to plot"""
 
     timestamps: List[float] = field(default_factory=list)
     y_values: List[float] = field(default_factory=list)
     line_handle: matplotlib.lines.Line2D = None
+    reference_value: float = None
     color_index: int = None
     bar_index: int = None
 
@@ -67,7 +68,7 @@ class PlotTrace:
 
     @property
     def finite_y_values(self) -> np.ndarray:
-        return np.array(self.y_values)[np.isfinite(self.y_values)]
+        return np.array(self.y_values)[np.isfinite(self.y_values)] - (self.reference_value or 0.0)
 
     def delete_older_than(self, cutoff_s: float):
         deltas = self.delta_time_to_now
@@ -82,8 +83,21 @@ class PlotTrace:
 
     def update_line_data(self):
         x = np.hstack((self.delta_time_to_now, 1))
-        y = np.hstack((self.y_values, self.y_values[-1]))
+        y = np.hstack((self.y_values, self.y_values[-1])) - (self.reference_value or 0.0)
         self.line_handle.set_data(x, y)
+
+    def reference_set(self, reference_value: Optional[float] = None):
+        if reference_value is not None:
+            self.reference_value = reference_value
+        else:
+            finite_vals = np.array(self.y_values)[np.isfinite(self.y_values)]
+            if len(finite_vals) > 0:
+                self.reference_value = finite_vals[-1]
+            else:
+                raise ValueError("No valid data in trace to set reference from")
+    
+    def reference_clear(self):
+        self.reference_value = None
 
 
 class LiveViewerModel:
