@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from typing import TYPE_CHECKING
 from tkinter import Frame, Toplevel, OptionMenu, Button, StringVar, Scrollbar, Canvas
+from tkinter.messagebox import askyesno
 
 from LabExT.View.LiveViewer.LiveViewerPlot import LiveViewerPlot
 from LabExT.View.Controls.ParameterTable import ParameterTable
@@ -159,7 +160,7 @@ class ControlFrame(Frame):
         self.cardM = CardManager(self, controller, model)
         self.cardM.grid(row=0, column=0, columnspan=3, sticky="NESW", pady=(12, 20))
 
-        self.ref_set_button = Button(self, text="Set Reference", command=self.controller.reference_set)
+        self.ref_set_button = Button(self, text="Set Reference", command=self.confirm_set_new_references)
         self.ref_set_button.grid(row=3, column=0, sticky="NESW", pady=(12, 1))
 
         self.ref_clear_button = Button(self, text="Clear Reference", command=self.controller.reference_clear)
@@ -200,6 +201,12 @@ class ControlFrame(Frame):
         self.canvas.create_window(0, 0, window=self.content_carrier, anchor="nw")
 
         self.set_cards()
+
+    def confirm_set_new_references(self):
+        if askyesno(title='Set References of all Live Viewer Traces',
+                    message='This references all plotted traces to the last measured value. ' + \
+                    'This overrides previously set references. Proceed?'):
+            self.controller.reference_set()
 
     def set_cards(self):
         """
