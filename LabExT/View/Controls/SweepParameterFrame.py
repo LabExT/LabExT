@@ -101,7 +101,7 @@ class RangeEntry(Frame):
         """Called when the user changes the category of the step"""
         if self._step_category.get() == self._selection["step_size"]:
             # step size selected
-            self._to_label.config(text="To:")
+            self._to_label.config(text="To (included if step size allows it):")
         else:
             self._to_label.config(text="To (included):")
         self.__setup__()
@@ -154,7 +154,7 @@ class RangeEntry(Frame):
 
         # labels are changed based on category
         self._from_label = Label(self, text="From:")
-        self._to_label = Label(self, text="To:")
+        self._to_label = Label(self, text="To (included if step size allows it):")
 
         # allows the user to choose category
         self._category_menu = OptionMenu(self,
