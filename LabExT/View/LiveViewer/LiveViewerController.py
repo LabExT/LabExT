@@ -143,13 +143,24 @@ class LiveViewerController:
             self.model.plotting_active = True
 
     def reference_set(self):
+        # this sets the references of the plot traces to the last measured value
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.reference_set()
-        # dump reference values to file for later recall
+        # store reference data to file for later recall
         reference_data = {plot_trace.line_handle.get_label(): plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
         fname = get_configuration_file_path(self.model.references_file_name)
+        # make sure to keep existing data in the file
+        try:
+            with open(fname, "r") as json_file:
+                existing_reference_data = json.loads(json_file.read())
+            existing_reference_data.update(reference_data)
+        except (FileNotFoundError, JSONDecodeError, AttributeError):
+            self.experiment_manager.logger.warning(
+                "Could not load live viewer reference values from file. Overwriting existing data."
+            )
+            existing_reference_data = reference_data.copy()
         with open(fname, "w") as json_file:
-            json_file.write(json.dumps(reference_data))
+            json_file.write(json.dumps(existing_reference_data))
     
     def reference_clear(self):
         for plot_trace in self.model.traces_to_plot.values():
