@@ -19,8 +19,9 @@ from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.Measurements.MeasAPI.Measparam import MeasParam, MeasParamInt, MeasParamFloat
 
 if TYPE_CHECKING:
-    CategoryType = Literal["step_size", "step_count_linear",
-                           "step_count_logarithmic", "step_count_repetition", "binary"]
+    CategoryType = Literal[
+        "step_size", "step_count_linear", "step_count_logarithmic", "step_count_repetition", "binary"
+    ]
 
     RangeRepresentation = Tuple[pd.Series, CategoryType]
     JSONRepresentation = Dict[str, RangeRepresentation]
@@ -45,10 +46,9 @@ class RangeEntry(Frame):
         """
         if int(mode) == 1:
             # mode == 1 means insertion
-            optional_fraction = r'[0-9]+(?:[.][0-9]*)?'
-            optional_whole = r'[.][0-9]+'
-            pattern = r"[+-]?(" + optional_fraction + \
-                "|" + optional_whole + r")"
+            optional_fraction = r"[0-9]+(?:[.][0-9]*)?"
+            optional_whole = r"[.][0-9]+"
+            pattern = r"[+-]?(" + optional_fraction + "|" + optional_whole + r")"
             ret = re.fullmatch(pattern, text)
             return ret is not None
         else:
@@ -94,8 +94,7 @@ class RangeEntry(Frame):
         elif type(self._meas_param) == MeasParamFloat:
             return self._validate_float
         else:
-            raise TypeError(
-                f"Invalid sweep parameter {self._meas_param} with type {type(self._meas_param)}")
+            raise TypeError(f"Invalid sweep parameter {self._meas_param} with type {type(self._meas_param)}")
 
     def _on_category_change(self, *_) -> None:
         """Called when the user changes the category of the step"""
@@ -106,15 +105,19 @@ class RangeEntry(Frame):
             self._to_label.config(text="To (included):")
         self.__setup__()
 
-    def __init__(self, parent: Frame,
-                 var_master: Tk,
-                 meas_param: MeasParam,
-                 default_from: Union[int, float] = 0,
-                 default_to: Union[int, float] = 1,
-                 default_step: Union[int, float] = 0.1,
-                 default_category: CategoryType = "step_size",
-                 start_enabled: bool = True,
-                 *args, **kwargs) -> None:
+    def __init__(
+        self,
+        parent: Frame,
+        var_master: Tk,
+        meas_param: MeasParam,
+        default_from: Union[int, float] = 0,
+        default_to: Union[int, float] = 1,
+        default_step: Union[int, float] = 0.1,
+        default_category: CategoryType = "step_size",
+        start_enabled: bool = True,
+        *args,
+        **kwargs,
+    ) -> None:
         """Initializes a new RangeEntry.
 
         Args:
@@ -133,24 +136,23 @@ class RangeEntry(Frame):
         """The measurement parameter this range is associated with"""
 
         # set validate function
-        self._validate_function = (self.register(self._get_validation_function()),
-                                   '%d',
-                                   '%P')
+        self._validate_function = (self.register(self._get_validation_function()), "%d", "%P")
         """A tuple representing the function used for input validation used by tk `Entry`s"""
 
         # possible categories
-        self._selection: Dict[CategoryType, str] = {"step_size": "Step size:",
-                                                    "step_count_linear": "No. of Points (linear):",
-                                                    "step_count_logarithmic": "No. of Points (logarithmic):",
-                                                    "step_count_repetition": "Repetitions:"}
+        self._selection: Dict[CategoryType, str] = {
+            "step_size": "Step size:",
+            "step_count_linear": "No. of Points (linear):",
+            "step_count_logarithmic": "No. of Points (logarithmic):",
+            "step_count_repetition": "Repetitions:",
+        }
         """A mapping of the possible categories to the displayed name."""
 
         # these store the entered content
         self._from = StringVar(master=var_master, value=default_from)
         self._to = StringVar(master=var_master, value=default_to)
         self._step_value = StringVar(master=var_master, value=default_step)
-        self._step_category = StringVar(master=var_master,
-                                        value=self._selection[default_category])
+        self._step_category = StringVar(master=var_master, value=self._selection[default_category])
 
         # labels are changed based on category
         self._from_label = Label(self, text="From:")
@@ -158,33 +160,38 @@ class RangeEntry(Frame):
         self._value_label = Label(self, text=f"Value: {self._meas_param.value}")
 
         # allows the user to choose category
-        self._category_menu = OptionMenu(self,
-                                         self._step_category,
-                                         *self._selection.values(),
-                                         command=self._on_category_change)
+        self._category_menu = OptionMenu(
+            self, self._step_category, *self._selection.values(), command=self._on_category_change
+        )
 
         self._state = NORMAL if start_enabled else DISABLED
 
         default_entry_width = 10
         # the entry fields
-        self._from_entry = Entry(self,
-                                 textvariable=self._from,
-                                 width=default_entry_width,
-                                 state=self._state,
-                                 validate='key',
-                                 validatecommand=self._validate_function)
-        self._to_entry = Entry(self,
-                               textvariable=self._to,
-                               width=default_entry_width,
-                               state=self._state,
-                               validate='key',
-                               validatecommand=self._validate_function)
-        self._step_entry = Entry(self,
-                                 textvariable=self._step_value,
-                                 width=default_entry_width,
-                                 state=self._state,
-                                 validate='key',
-                                 validatecommand=(self.register(self._validate_step), '%d', '%P'))
+        self._from_entry = Entry(
+            self,
+            textvariable=self._from,
+            width=default_entry_width,
+            state=self._state,
+            validate="key",
+            validatecommand=self._validate_function,
+        )
+        self._to_entry = Entry(
+            self,
+            textvariable=self._to,
+            width=default_entry_width,
+            state=self._state,
+            validate="key",
+            validatecommand=self._validate_function,
+        )
+        self._step_entry = Entry(
+            self,
+            textvariable=self._step_value,
+            width=default_entry_width,
+            state=self._state,
+            validate="key",
+            validatecommand=(self.register(self._validate_step), "%d", "%P"),
+        )
 
         self.__setup__()
 
@@ -198,14 +205,18 @@ class RangeEntry(Frame):
         if self._step_category.get() != self._selection["step_count_repetition"]:
             self._from_label.grid(row=0, column=0, sticky="e")
             self._from_entry.grid(row=0, column=1, sticky="w")
-            self._from_entry.config(state=(DISABLED
-                                           if self._step_category.get() == self._selection["step_count_repetition"]
-                                           else self._state))
+            self._from_entry.config(
+                state=(
+                    DISABLED if self._step_category.get() == self._selection["step_count_repetition"] else self._state
+                )
+            )
             self._to_label.grid(row=0, column=2, sticky="e")
             self._to_entry.grid(row=0, column=3, sticky="w")
-            self._to_entry.config(state=(DISABLED
-                                         if self._step_category.get() == self._selection["step_count_repetition"]
-                                         else self._state))
+            self._to_entry.config(
+                state=(
+                    DISABLED if self._step_category.get() == self._selection["step_count_repetition"] else self._state
+                )
+            )
         else:
             self._value_label.config(text=f"Value: {self._meas_param.value}")
             self._value_label.grid(row=0, column=3, sticky="e")
@@ -235,18 +246,20 @@ class RangeEntry(Frame):
 
         from_ = self.parse_string(self._from.get())
         to = self.parse_string(self._to.get())
-        step = self.parse_string(self._step_value.get(),
-                                 category != self._selection["step_size"])
+        step = self.parse_string(self._step_value.get(), category != self._selection["step_size"])
 
         if category == self._selection["step_size"]:
             if from_ >= to or step > to - from_:
-                raise ValueError(f"Please make sure that 'From'(={from_}) is less than 'To'(={to}) " +
-                                 f"and 'Step'(={step}) is less than or equal to 'To - From'(={to - from_}).")
+                raise ValueError(
+                    f"Please make sure that 'From'(={from_}) is less than 'To'(={to}) "
+                    + f"and 'Step'(={step}) is less than or equal to 'To - From'(={to - from_})."
+                )
 
             if int((to - from_) / step * 10) % 10 != 0:
                 logging.info(
-                    f"'To-From(={to-from_})' is not a multiple of 'Step(={step})'. " +
-                    f"'To(={to})' will not be included.")
+                    f"'To-From(={to-from_})' is not a multiple of 'Step(={step})'. "
+                    + f"'To(={to})' will not be included."
+                )
 
             step_count = int(np.floor((to - from_) / step))
             return (pd.Series([from_ + i * step for i in range(step_count)]), "step_size")
@@ -277,8 +290,9 @@ class RangeEntry(Frame):
     @property
     def category(self) -> CategoryType:
         """The user-specified category-type"""
-        return next(cat_type for cat_type, cat_name in self._selection.items()
-                    if cat_name == self._step_category.get())
+        return next(
+            cat_type for cat_type, cat_name in self._selection.items() if cat_name == self._step_category.get()
+        )
 
     @property
     def enabled(self) -> bool:
@@ -305,45 +319,42 @@ class RangeEntry(Frame):
         self._meas_param = new
         self.__setup__()
 
-class SweepParameterFrame(CustomFrame):
-    """A table allowing the user to choose parameters to sweep and set their ranges.
-    """
 
-    def __init__(self,
-                 parent: Frame,
-                 string_var_master: Tk,
-                 parameters: Dict[str, MeasParam],
-                 entry_width: int = 10,
-                 *args,
-                 **kwargs):
+class SweepParameterFrame(CustomFrame):
+    """A table allowing the user to choose parameters to sweep and set their ranges."""
+
+    def __init__(
+        self,
+        parent: Frame,
+        string_var_master: Tk,
+        parameters: Dict[str, MeasParam],
+        entry_width: int = 10,
+        *args,
+        **kwargs,
+    ):
         """Creates a new `SweepParameterFrame`.
 
         Args:
             parent: The Frame this object should be drawn into
-            string_var_master: The Tk window this object is inside of (Used for StringVars which need a 
+            string_var_master: The Tk window this object is inside of (Used for StringVars which need a
                 Tk as master)
             parameter: The parameters that are available to sweep or `None`
             entry_width: The width of the input fields for the ranges
             *args: Will be passed to TK initializer
-            **kwargs: Will be passed to TK initializer 
+            **kwargs: Will be passed to TK initializer
         """
         super().__init__(parent, *args, **kwargs)
 
-        self._parameters: Dict[str, MeasParam] = (parameters.copy()
-                                                  if parameters is not None
-                                                  else dict())
+        self._parameters: Dict[str, MeasParam] = parameters.copy() if parameters is not None else dict()
 
         self._remaining_parameters: List[str] = list(self._parameters.keys())
 
-        self._logger.debug(
-            f"Setting up SweepParameterFrame with parameters: {self._remaining_parameters}")
+        self._logger.debug(f"Setting up SweepParameterFrame with parameters: {self._remaining_parameters}")
 
-        self._ranges: List[Tuple[OptionMenu,
-                                 Union[RangeEntry, Label],
-                                 StringVar]] = list()
+        self._ranges: List[Tuple[OptionMenu, Union[RangeEntry, Label], StringVar]] = list()
 
-        self._minus_button = Button(self, text='-', command=self.on_minus)
-        self._plus_button = Button(self, text='+', command=self.on_plus)
+        self._minus_button = Button(self, text="-", command=self.on_minus)
+        self._plus_button = Button(self, text="+", command=self.on_plus)
 
         self._entry_width = entry_width
 
@@ -372,8 +383,10 @@ class SweepParameterFrame(CustomFrame):
         # make sure the newly unlocked menu option is added to remaining params
         if len(self._ranges) > 0:
             newly_ramining = self._ranges[-1][2].get()
-            self._logger.debug(f"Adding '{newly_ramining}' to remaining parameters" +
-                               f"(before update = {self._remaining_parameters})")
+            self._logger.debug(
+                f"Adding '{newly_ramining}' to remaining parameters"
+                + f"(before update = {self._remaining_parameters})"
+            )
             self._remaining_parameters.append(newly_ramining)
 
         # redraw
@@ -399,10 +412,7 @@ class SweepParameterFrame(CustomFrame):
 
         # populating gui elements
         text = StringVar(self._var_master, default_text)
-        menu = OptionMenu(self,
-                          text,
-                          *self._remaining_parameters,
-                          command=self._check_entry_type)
+        menu = OptionMenu(self, text, *self._remaining_parameters, command=self._check_entry_type)
 
         entry = self._get_param_entry(default_text)
 
@@ -413,8 +423,8 @@ class SweepParameterFrame(CustomFrame):
 
     def _check_entry_type(self, *_) -> object:
         """Checks if entry types match the new parameter's `sweep_type`.
-        
-        Called when an option menu changes. 
+
+        Called when an option menu changes.
 
         Args:
             _: positional arguments needed for tk.
@@ -430,8 +440,7 @@ class SweepParameterFrame(CustomFrame):
             entry.destroy()
             self._children.remove(entry)
             # tuples don't allow item assignments
-            self._ranges[index] = (
-                self._ranges[index][0], new_entry, self._ranges[index][2])
+            self._ranges[index] = (self._ranges[index][0], new_entry, self._ranges[index][2])
 
         _, entry, text = self._ranges[-1]
         if type(entry) == RangeEntry:
@@ -446,22 +455,26 @@ class SweepParameterFrame(CustomFrame):
         Args:
             param_name: the name of the parameter.
         """
-        if self._parameters[param_name].sweep_type == 'binary':
+        if self._parameters[param_name].sweep_type == "binary":
             return Label(self, text="Will be True and False")
-        elif self._parameters[param_name].sweep_type == 'range':
+        elif self._parameters[param_name].sweep_type == "range":
             param_value_low = self._parameters[param_name].value
             param_value_high = 2 * (abs(param_value_low) + 1)
             param_value_step = (param_value_high - param_value_low) / 10
-            return RangeEntry(parent=self,
-                              var_master=self._var_master,
-                              meas_param=self._parameters[param_name],
-                              default_from=param_value_low,
-                              default_to=param_value_high,
-                              default_step=param_value_step,
-                              start_enabled=True)
+            return RangeEntry(
+                parent=self,
+                var_master=self._var_master,
+                meas_param=self._parameters[param_name],
+                default_from=param_value_low,
+                default_to=param_value_high,
+                default_step=param_value_step,
+                start_enabled=True,
+            )
         else:
-            raise AssertionError("SweepParameterFrame should not receive parameters" +
-                                 "whose sweep type differ from 'binary' and 'range'.")
+            raise AssertionError(
+                "SweepParameterFrame should not receive parameters"
+                + "whose sweep type differ from 'binary' and 'range'."
+            )
 
     def __setup__(self):
         self.clear()  # remove all existing ui controls from the table
@@ -470,12 +483,12 @@ class SweepParameterFrame(CustomFrame):
         for i, (menu, range_entry, _) in enumerate(self._ranges):
             # lock option menus
             menu.config(state=DISABLED)
-            self.add_widget(menu, row=i, column=0, sticky='w')
+            self.add_widget(menu, row=i, column=0, sticky="w")
 
             if type(range_entry) == RangeEntry:
                 range_entry.enabled = True
                 range_entry.__setup__()
-            self.add_widget(range_entry, row=i, column=1, sticky='e')
+            self.add_widget(range_entry, row=i, column=1, sticky="e")
 
         # unlock last option menu
         if len(self._ranges) > 0:
@@ -485,26 +498,18 @@ class SweepParameterFrame(CustomFrame):
         button_frame = Frame(self)
         if len(self._ranges) > 0:
             # minus button only drawn if at least one entry exists
-            self._minus_button = Button(button_frame,
-                                        text='-',
-                                        command=self.on_minus)
-            self._minus_button.grid(row=0, column=0, sticky='e')
+            self._minus_button = Button(button_frame, text="-", command=self.on_minus)
+            self._minus_button.grid(row=0, column=0, sticky="e")
         if len(self._remaining_parameters) > 1:
             # plus button only drawn if at least two parameters remain (current selection + 1)
-            self._plus_button = Button(button_frame,
-                                       text='+',
-                                       command=self.on_plus)
-            self._plus_button.grid(row=0, column=1, sticky='w')
+            self._plus_button = Button(button_frame, text="+", command=self.on_plus)
+            self._plus_button.grid(row=0, column=1, sticky="w")
 
         if len(self._ranges) == 0 and len(self._remaining_parameters) == 0:
-            label = Label(button_frame,
-                          text="No sweepable parameters for this measurement.")
-            label.grid(row=0, column=0, sticky='e')
+            label = Label(button_frame, text="No sweepable parameters for this measurement.")
+            label.grid(row=0, column=0, sticky="e")
 
-        self.add_widget(button_frame,
-                        row=len(self._ranges),
-                        column=0,
-                        sticky='w')
+        self.add_widget(button_frame, row=len(self._ranges), column=0, sticky="w")
 
         # fix width of components
         for i in range(len(self._ranges) + 1):
@@ -512,7 +517,7 @@ class SweepParameterFrame(CustomFrame):
             self.columnconfigure(i, pad=0)
 
     def results(self, out_dict: JSONRepresentation = None) -> JSONRepresentation:
-        """Returns the result of this frame """
+        """Returns the result of this frame"""
         if out_dict is None:
             out_dict = dict()
 
@@ -523,32 +528,22 @@ class SweepParameterFrame(CustomFrame):
                 out_dict[text.get()] = (pd.Series([True, False]), "binary")
         return out_dict
 
-    def serialize(self,
-                  settings: Dict[str, Tuple[Union[int, float],
-                                            Union[int, float],
-                                            Union[int, float],
-                                            CategoryType]
-                                 ]) -> None:
-        """Writes the json representation of the sweepable parameters to `settings`.
-        """
+    def serialize(
+        self, settings: Dict[str, Tuple[Union[int, float], Union[int, float], Union[int, float], CategoryType]]
+    ) -> None:
+        """Writes the json representation of the sweepable parameters to `settings`."""
         for key in settings.copy().keys():
             del settings[key]
 
         for _, range_entry, text in self._ranges:
             if type(range_entry) == RangeEntry:
-                settings[text.get()] = (range_entry.from_,
-                                        range_entry.to,
-                                        range_entry.step,
-                                        range_entry.category)
+                settings[text.get()] = (range_entry.from_, range_entry.to, range_entry.step, range_entry.category)
             else:
                 settings[text.get()] = (0, 0, 0, "binary")
 
-    def deserialize(self,
-                    settings: Dict[str, Tuple[Union[int, float],
-                                              Union[int, float],
-                                              Union[int, float],
-                                              CategoryType]
-                                   ]) -> None:
+    def deserialize(
+        self, settings: Dict[str, Tuple[Union[int, float], Union[int, float], Union[int, float], CategoryType]]
+    ) -> None:
         """Reads the json representation of the sweepable parameters from `settings`.
 
         Args:
@@ -559,8 +554,7 @@ class SweepParameterFrame(CustomFrame):
         for text, data in settings.copy().items():
             # check for duplicate entries
             if text == prev_text:
-                self._logger.warning(
-                    f"Inconsistent cache file: {text} occurs multiple times")
+                self._logger.warning(f"Inconsistent cache file: {text} occurs multiple times")
                 continue
 
             # make sure settings from previous runs don't exist
@@ -575,21 +569,20 @@ class SweepParameterFrame(CustomFrame):
 
             # populate entries
             var = StringVar(self._var_master, text)
-            menu = OptionMenu(self,
-                              var,
-                              *self._remaining_parameters,
-                              command=self._check_entry_type)
+            menu = OptionMenu(self, var, *self._remaining_parameters, command=self._check_entry_type)
             if data[3] == "binary":
                 # get the label from function to not retype the code
                 entry = self._get_param_entry(text)
             else:
-                entry = RangeEntry(parent=self,
-                                   var_master=self._var_master,
-                                   meas_param=self._parameters[text],
-                                   default_from=data[0],
-                                   default_to=data[1],
-                                   default_step=data[2],
-                                   default_category=data[3])
+                entry = RangeEntry(
+                    parent=self,
+                    var_master=self._var_master,
+                    meas_param=self._parameters[text],
+                    default_from=data[0],
+                    default_to=data[1],
+                    default_step=data[2],
+                    default_category=data[3],
+                )
 
             self._ranges.append((menu, entry, var))
 
