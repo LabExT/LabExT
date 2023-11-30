@@ -143,6 +143,10 @@ class LiveViewerController:
             self.model.plotting_active = True
 
     def create_snapshot(self):
+
+        if not self.model.traces_to_plot:
+            return
+
         param_output_path = str(self.experiment_manager.exp.save_parameters["Raw output path"].value)
         makedirs(param_output_path, exist_ok=True)
 
