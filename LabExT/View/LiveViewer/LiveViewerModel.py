@@ -115,6 +115,7 @@ class LiveViewerModel:
         """
 
         self.settings_file_name: str = "LiveViewerConfig.json"
+        self.references_file_name: str = "LiveViewerReferences.json"
 
         # these are the general settings
         self.general_settings: MEAS_PARAMS_TYPE = {

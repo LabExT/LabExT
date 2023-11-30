@@ -165,7 +165,7 @@ class ControlFrame(Frame):
         self.ref_clear_button = Button(self, text="Clear Reference", command=self.controller.reference_clear)
         self.ref_clear_button.grid(row=3, column=1, sticky="NESW", pady=(12, 1))
 
-        self.ref_recall_button = Button(self, text="Recall Reference")
+        self.ref_recall_button = Button(self, text="Recall Reference", command=self.controller.reference_recall)
         self.ref_recall_button.grid(row=3, column=2, sticky="NESW", pady=(12, 1))
 
         self.pause_button = Button(self, text="Pause Plotting", command=self.controller.toggle_plotting_active)

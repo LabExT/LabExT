@@ -145,10 +145,34 @@ class LiveViewerController:
     def reference_set(self):
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.reference_set()
+        # dump reference values to file for later recall
+        reference_data = {plot_trace.line_handle.get_label(): plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
+        fname = get_configuration_file_path(self.model.references_file_name)
+        with open(fname, "w") as json_file:
+            json_file.write(json.dumps(reference_data))
     
     def reference_clear(self):
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.reference_clear()
+
+    def reference_recall(self):
+        try:
+            fname = get_configuration_file_path(self.model.references_file_name)
+            with open(fname, "r") as json_file:
+                reference_data = json.loads(json_file.read())
+            for trace_label, reference_value in reference_data.items():
+                for plot_trace in self.model.traces_to_plot.values():
+                    if trace_label == plot_trace.line_handle.get_label():
+                        plot_trace.reference_set(reference_value)
+                        break
+        except FileNotFoundError:
+            # save file does not exist, don't care
+            return
+        except (KeyError, AttributeError, JSONDecodeError) as _:
+            # loading errors can be safely ignored as the reference values will be saved upon next set
+            self.experiment_manager.logger.warning(
+                "Could not load live viewer reference values from file. References cannot be recalled."
+            )
 
     def create_snapshot(self):
 
