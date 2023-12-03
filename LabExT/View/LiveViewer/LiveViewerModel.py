@@ -58,6 +58,7 @@ class PlotTrace:
     timestamps: List[float] = field(default_factory=list)
     y_values: List[float] = field(default_factory=list)
     line_handle: matplotlib.lines.Line2D = None
+    line_label: str = None
     reference_value: float = None
     color_index: int = None
     bar_index: int = None
@@ -85,6 +86,16 @@ class PlotTrace:
         x = np.hstack((self.delta_time_to_now, 1))
         y = np.hstack((self.y_values, self.y_values[-1])) - (self.reference_value or 0.0)
         self.line_handle.set_data(x, y)
+
+    def update_line_label(self):
+        """ returns True if label changed and legend needs to be redrawn, otherwise false """
+        old_label = self.line_handle.get_label()
+        if self.reference_value is not None:
+            new_label = self.line_label + f" - ref. to {self.reference_value:.3f}"
+        else:
+            new_label = self.line_label
+        self.line_handle.set_label(new_label)
+        return old_label != new_label
 
     def reference_set(self, reference_value: Optional[float] = None):
         if reference_value is not None:

@@ -158,6 +158,7 @@ class LiveViewerPlot(Frame):
                             timestamps=[plot_data_point.timestamp],
                             y_values=[plot_data_point.y_value],
                             line_handle=line,
+                            line_label=line_label,
                             color_index=color_index,
                             bar_index=-1,
                         )
@@ -172,9 +173,11 @@ class LiveViewerPlot(Frame):
                 continue
 
         # update the line data for all traces
+        redraw_legend = False
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
             plot_trace.update_line_data()
+            redraw_legend = redraw_legend or plot_trace.update_line_label()
 
         # do y-axis re-scaling of plot
         # get current max/min of all traces
@@ -204,7 +207,7 @@ class LiveViewerPlot(Frame):
 
         # handle legend: show legend only if there are traces to plot
         # only do changes to the legend if there are any changes to the shown traces
-        if redraw_bars:
+        if redraw_bars or redraw_legend:
             if self.model.traces_to_plot:
                 self._legend = self._ax.legend(loc="upper left", frameon=False)
             else:
