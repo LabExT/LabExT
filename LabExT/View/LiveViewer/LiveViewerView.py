@@ -77,8 +77,8 @@ class LiveViewerMainWindow(Toplevel):
         self.controller: LiveViewerController = controller
         ws, hs = root.winfo_screenwidth(), root.winfo_screenheight()
         # limit window size - otherwise performance suffers heavily on large-screen systems
-        w = ws if ws < 2000 else 2000
-        h = hs if hs < 1200 else 1200
+        w = min(ws, 1600)
+        h = min(hs, 1000)
         self.geometry(f"{w:d}x{h:d}+{int((ws-w)/2)}+{int((hs-h)/2)}")
         self.lift()
         # self.attributes('-topmost', 'true')
@@ -275,7 +275,7 @@ class CardManager(Frame):
         self.ptable.grid(row=0, column=1, sticky="NESW", padx=(12, 0))
 
         _update_settings_button = Button(
-            self, text="Update Settings", command=lambda: self.controller.update_settings(self.ptable.to_meas_param())
+            self, text="Update General Parameters", command=lambda: self.controller.update_settings(self.ptable.to_meas_param())
         )
         _update_settings_button.grid(row=1, column=1, sticky="EW", padx=(12, 0))
 
