@@ -48,6 +48,8 @@ class LiveViewerPlot(Frame):
         self._figsize: Tuple[int, int] = (6, 4)
         self._title: str = "Live Plot"
         self._animate_interval_ms: int = 100
+        self._full_redraw_every_N_ticks: int = 10
+        self._update_counter = 0
 
         # plot object refs
         self._ani: Optional[Animation] = None
@@ -130,6 +132,13 @@ class LiveViewerPlot(Frame):
             self.__setup__()
             # setup started a new animation loop, return here
             return
+        
+        self._update_counter += 1
+        if self._update_counter >= self._full_redraw_every_N_ticks:
+            do_full_redraw = True
+            self._update_counter = 0
+        else:
+            do_full_redraw = False
 
         redraw_bars = False
 
@@ -172,12 +181,16 @@ class LiveViewerPlot(Frame):
                 # jumps to next card if no more plot values left to process
                 continue
 
-        # update the line data for all traces
-        redraw_legend = False
+        # update line data
         for plot_trace in self.model.traces_to_plot.values():
-            plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
             plot_trace.update_line_data()
-            redraw_legend = redraw_legend or plot_trace.update_line_label()
+
+        # delete old line data & update label only on full-redraw
+        redraw_legend = False
+        if do_full_redraw:
+            for plot_trace in self.model.traces_to_plot.values():
+                plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
+                redraw_legend = redraw_legend or plot_trace.update_line_label()
 
         # do y-axis re-scaling of plot
         # get current max/min of all traces
