@@ -94,7 +94,7 @@ class PlotTrace:
             if len(finite_vals) > 0:
                 self.reference_value = finite_vals[-1]
             else:
-                raise ValueError("No valid data in trace to set reference from")
+                raise ValueError("No valid data in trace to set reference from.")
     
     def reference_clear(self):
         self.reference_value = None
@@ -146,7 +146,7 @@ class LiveViewerModel:
         # the minimum y span
         self.min_y_span: float = 4.0
 
-        # if bar pot should be shown
+        # if bar plot should be shown
         self.show_bar_plots: bool = True
 
         # averaging for bar plot
