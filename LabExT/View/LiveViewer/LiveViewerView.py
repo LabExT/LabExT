@@ -154,26 +154,27 @@ class ControlFrame(Frame):
         """
         self.model: LiveViewerModel = model
         self.controller: LiveViewerController = controller
+        self.parent: MainFrame = parent
         Frame.__init__(self, parent)
 
         # add the CardManager
         self.cardM = CardManager(self, controller, model)
-        self.cardM.grid(row=0, column=0, columnspan=3, sticky="NESW", pady=(12, 20))
+        self.cardM.grid(row=0, column=0, columnspan=3, sticky="NESW", pady=12)
 
         self.ref_set_button = Button(self, text="Set Reference", command=self.confirm_set_new_references)
-        self.ref_set_button.grid(row=3, column=0, sticky="NESW", pady=(12, 1))
+        self.ref_set_button.grid(row=3, column=0, sticky="NESW", pady=1)
 
         self.ref_clear_button = Button(self, text="Clear Reference", command=self.controller.reference_clear)
-        self.ref_clear_button.grid(row=3, column=1, sticky="NESW", pady=(12, 1))
+        self.ref_clear_button.grid(row=3, column=1, sticky="NESW", pady=1)
 
         self.ref_recall_button = Button(self, text="Recall Reference", command=self.controller.reference_recall)
-        self.ref_recall_button.grid(row=3, column=2, sticky="NESW", pady=(12, 1))
+        self.ref_recall_button.grid(row=3, column=2, sticky="NESW", pady=1)
 
-        self.pause_button = Button(self, text="Pause Plotting", command=self.controller.toggle_plotting_active)
-        self.pause_button.grid(row=4, column=0, columnspan=3, sticky="NESW", pady=(1, 1))
+        self.pause_button = Button(self, text="⏸️ Pause Plotting", command=self.controller.toggle_plotting_active)
+        self.pause_button.grid(row=4, column=0, columnspan=3, sticky="NESW", pady=1)
 
-        self.save_button = Button(self, text="Save current Data", command=self.controller.create_snapshot)
-        self.save_button.grid(row=5, column=0, columnspan=3, sticky="NESW", pady=(1, 20))
+        self.save_button = Button(self, text="💾 Save current Data", command=self.controller.create_snapshot)
+        self.save_button.grid(row=5, column=0, columnspan=3, sticky="NESW", pady=1)
 
         self.card_full_container = Frame(self)
         self.card_full_container.grid(row=1, column=0, columnspan=3, sticky="NESW")
@@ -205,7 +206,8 @@ class ControlFrame(Frame):
     def confirm_set_new_references(self):
         if askyesno(title='Set References of all Live Viewer Traces',
                     message='This references all plotted traces to the last measured value. ' + \
-                    'This overrides previously set references. Proceed?'):
+                    'This overrides previously set references. Proceed?',
+                    parent=self.parent):
             self.controller.reference_set()
 
     def set_cards(self):
