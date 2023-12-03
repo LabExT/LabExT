@@ -115,7 +115,12 @@ class StandardExperiment:
         makedirs(self.param_output_path, exist_ok=True)
 
     def ask_user_to_continue_even_if_live_viewer_active(self):
-        """ check if any of the instrument addresses in the ToDo queue are currently active in live viewer """
+        """ check if any of the instrument addresses in the ToDo queue are currently active in live viewer 
+
+            Returns:
+                True - it's okay to continue with experiment execution
+                False - cancel experiment execution
+        """
         instr_addrs_in_todo_queue = set()
         for todo in self.to_do_list:
             for v in todo.measurement.selected_instruments.values():
