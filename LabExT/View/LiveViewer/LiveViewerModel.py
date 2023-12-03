@@ -97,13 +97,13 @@ class PlotTrace:
         self.line_handle.set_label(new_label)
         return old_label != new_label
 
-    def reference_set(self, reference_value: Optional[float] = None):
+    def reference_set(self, reference_value: Optional[float] = None, n_avg: Optional[int] = 1):
         if reference_value is not None:
             self.reference_value = reference_value
         else:
             finite_vals = np.array(self.y_values)[np.isfinite(self.y_values)]
             if len(finite_vals) > 0:
-                self.reference_value = finite_vals[-1]
+                self.reference_value = np.mean(finite_vals[-n_avg:])
             else:
                 raise ValueError("No valid data in trace to set reference from.")
     
