@@ -7,6 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 
 from queue import Empty
+import time
 from tkinter import Frame, TOP, BOTH
 from typing import TYPE_CHECKING, Optional, Tuple, List
 
@@ -62,6 +63,9 @@ class LiveViewerPlot(Frame):
         self._bar_collection_labels: List[Text] = []
         self._legend: Legend = None
 
+        self._fps_counter: Optional[Text] = None
+        self._last_draw_time: float = None
+
         self.__setup__()
 
     def __setup__(self):
@@ -112,6 +116,16 @@ class LiveViewerPlot(Frame):
 
         self._canvas.draw()
 
+        # show fps counter
+        self._fps_counter = self._ax.annotate("0",
+                                            (1, 1),
+                                            xycoords="axes fraction",
+                                            xytext=(-10, -10),
+                                            textcoords="offset points",
+                                            ha="right",
+                                            va="top"
+                                            )
+
         # configure timed updating, starts automatically
         self._ani = animation.FuncAnimation(
             self._fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False
@@ -124,6 +138,8 @@ class LiveViewerPlot(Frame):
         self._ani.pause()
 
     def animation_tick(self, _):
+        start_time = time.time()
+
         if (self._ax_bar is not None) != self.model.show_bar_plots:
             # show/hiding bar plot changed, we need to start anew with the plot setup
             for trace in self.model.traces_to_plot.values():
@@ -191,6 +207,8 @@ class LiveViewerPlot(Frame):
             for plot_trace in self.model.traces_to_plot.values():
                 plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
                 redraw_legend = redraw_legend or plot_trace.update_line_label()
+        # update FPS counter
+        self._fps_counter.set_text(f"FPS: {1/(self._last_draw_time or float('nan')):.2f}Hz")
 
         # do y-axis re-scaling of plot
         # get current max/min of all traces
@@ -276,3 +294,5 @@ class LiveViewerPlot(Frame):
                         self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
                     self._bar_collection[plot_trace.bar_index].set_y(y_min)
                     self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
+
+        self._last_draw_time = time.time() - start_time
