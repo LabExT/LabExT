@@ -134,6 +134,7 @@ class LiveViewerModel:
             "minimum y-axis span": MeasParamFloat(value=4.0),
             "show bar plots": MeasParamBool(value=True),
             "averaging in bar plot": MeasParamInt(value=20, unit="samples"),
+            "show FPS counter": MeasParamBool(value=False),
         }
 
         # the options when selecting a new card
@@ -162,6 +163,9 @@ class LiveViewerModel:
 
         # averaging for bar plot
         self.averaging_bar_plot: int = 20
+
+        # show FPS counter
+        self.show_fps_counter: bool = False
 
     def get_next_plot_color_index(self) -> int:
         """call this to get the next color for another trace to show"""

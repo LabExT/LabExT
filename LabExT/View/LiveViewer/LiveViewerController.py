@@ -97,6 +97,9 @@ class LiveViewerController:
         # averaging for bar plot
         self.model.averaging_bar_plot = max(1, int(abs(parameters["averaging in bar plot"].value)))
 
+        # show FPS counter
+        self.model.show_fps_counter = parameters["show FPS counter"].value
+
     def remove_card(self, card: CardFrame):
         """Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
         top right of a card.

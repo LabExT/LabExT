@@ -304,8 +304,9 @@ class LiveViewerPlot(Frame):
             # changed_artists.extend(self._ax_bar.get_xticklabels())
         
         # update FPS counter
-        self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('inf'))):.2f}Hz")
-        changed_artists.append(self._fps_counter)
+        if self.model.show_fps_counter:
+            self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('inf'))):.2f}Hz")
+            changed_artists.append(self._fps_counter)
         self._last_draw_time = time.time()
 
         return changed_artists
