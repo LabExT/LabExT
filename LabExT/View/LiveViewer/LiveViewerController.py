@@ -257,6 +257,9 @@ class LiveViewerController:
 
         data.save()
 
+        self.experiment_manager.exp.load_measurement_dataset(meas_dict=data, file_path=save_file_path, force_gui_update=True)
+        self.experiment_manager.logger.info(f"Saved visible live viewer traces to file at {save_file_path:s}.")
+
     @staticmethod
     def load_all_cards(experiment_manager: ExperimentManager) -> Tuple[Dict[str, type], Dict[str, int]]:
         """
