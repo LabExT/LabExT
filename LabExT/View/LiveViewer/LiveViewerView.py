@@ -275,7 +275,7 @@ class CardManager(Frame):
         self.ptable.grid(row=0, column=1, sticky="NESW", padx=(12, 0))
 
         _update_settings_button = Button(
-            self, text="Update General Parameters", command=lambda: self.controller.update_settings(self.ptable.to_meas_param())
+            self, text="Apply General Parameters", command=lambda: self.controller.update_settings(self.ptable.to_meas_param())
         )
         _update_settings_button.grid(row=1, column=1, sticky="EW", padx=(12, 0))
 
