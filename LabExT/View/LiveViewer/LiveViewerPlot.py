@@ -49,7 +49,7 @@ class LiveViewerPlot(Frame):
         self._figsize: Tuple[int, int] = (6, 4)
         self._title: str = "Live Plot"
         self._animate_interval_ms: int = 33
-        self._full_redraw_every_N_ticks: int = 10
+        self._full_redraw_every_N_ticks: int = 15
         self._update_counter = 0
 
         # plot object refs
@@ -210,9 +210,6 @@ class LiveViewerPlot(Frame):
                 plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
                 redraw_legend = redraw_legend or plot_trace.update_line_label()
 
-        # update FPS counter
-        self._fps_counter.set_text(f"FPS: {1/(self._last_draw_time or float('nan')):.2f}Hz")
-
         # do y-axis re-scaling of plot
         # get current max/min of all traces
         y_min = []
@@ -307,7 +304,7 @@ class LiveViewerPlot(Frame):
             # changed_artists.extend(self._ax_bar.get_xticklabels())
         
         # update FPS counter
-        self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('nan'))):.2f}Hz")
+        self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('inf'))):.2f}Hz")
         changed_artists.append(self._fps_counter)
         self._last_draw_time = time.time()
 
