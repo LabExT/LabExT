@@ -9,7 +9,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from queue import Empty
 import time
 from tkinter import Frame, TOP, BOTH
-from typing import TYPE_CHECKING, Optional, Tuple, List
+from typing import TYPE_CHECKING, Tuple, List
 
 import matplotlib.animation as animation
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -48,22 +48,22 @@ class LiveViewerPlot(Frame):
         # some constants
         self._figsize: Tuple[int, int] = (6, 4)
         self._title: str = "Live Plot"
-        self._animate_interval_ms: int = 100
+        self._animate_interval_ms: int = 33
         self._full_redraw_every_N_ticks: int = 10
         self._update_counter = 0
 
         # plot object refs
-        self._ani: Optional[Animation] = None
-        self._toolbar: Optional[NavigationToolbar2Tk] = None
-        self._canvas: Optional[FigureCanvasTkAgg] = None
-        self._fig: Optional[Figure] = None
-        self._ax: Optional[Axis] = None
-        self._ax_bar: Optional[Axis] = None
+        self._ani: Animation = None
+        self._toolbar: NavigationToolbar2Tk = None
+        self._canvas: FigureCanvasTkAgg = None
+        self._fig: Figure = None
+        self._ax: Axis = None
+        self._ax_bar: Axis = None
         self._bar_collection: BarContainer = []
         self._bar_collection_labels: List[Text] = []
         self._legend: Legend = None
 
-        self._fps_counter: Optional[Text] = None
+        self._fps_counter: Text = None
         self._last_draw_time: float = None
 
         self.__setup__()
@@ -123,12 +123,13 @@ class LiveViewerPlot(Frame):
                                             xytext=(-10, -10),
                                             textcoords="offset points",
                                             ha="right",
-                                            va="top"
+                                            va="top",
+                                            animated=True
                                             )
 
         # configure timed updating, starts automatically
         self._ani = animation.FuncAnimation(
-            self._fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False
+            self._fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False, blit=True
         )
 
     def start_animation(self):
@@ -138,7 +139,7 @@ class LiveViewerPlot(Frame):
         self._ani.pause()
 
     def animation_tick(self, _):
-        start_time = time.time()
+        changed_artists = []
 
         if (self._ax_bar is not None) != self.model.show_bar_plots:
             # show/hiding bar plot changed, we need to start anew with the plot setup
@@ -147,7 +148,7 @@ class LiveViewerPlot(Frame):
             self.model.traces_to_plot.clear()
             self.__setup__()
             # setup started a new animation loop, return here
-            return
+            return changed_artists
         
         self._update_counter += 1
         if self._update_counter >= self._full_redraw_every_N_ticks:
@@ -177,7 +178,7 @@ class LiveViewerPlot(Frame):
                         color_index = self.model.get_next_plot_color_index()
                         line_label = f"{card.instance_title:s}: {plot_data_point.trace_name:s}"
                         (line,) = self._ax.plot(
-                            [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label
+                            [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label, animated=True
                         )
                         self.model.traces_to_plot[trace_key] = PlotTrace(
                             timestamps=[plot_data_point.timestamp],
@@ -200,6 +201,7 @@ class LiveViewerPlot(Frame):
         # update line data
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.update_line_data()
+            changed_artists.append(plot_trace.line_handle)
 
         # delete old line data & update label only on full-redraw
         redraw_legend = False
@@ -207,6 +209,7 @@ class LiveViewerPlot(Frame):
             for plot_trace in self.model.traces_to_plot.values():
                 plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
                 redraw_legend = redraw_legend or plot_trace.update_line_label()
+
         # update FPS counter
         self._fps_counter.set_text(f"FPS: {1/(self._last_draw_time or float('nan')):.2f}Hz")
 
@@ -232,6 +235,8 @@ class LiveViewerPlot(Frame):
             y_min -= incr_by / 2
             y_max += incr_by / 2
         self._ax.set_ylim([y_min, y_max])
+        # self._ax.yaxis.set_animated(True)
+        # changed_artists.append(self._ax.yaxis)
 
         # do x-axis re-scaling of plot
         self._ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
@@ -241,6 +246,7 @@ class LiveViewerPlot(Frame):
         if redraw_bars or redraw_legend:
             if self.model.traces_to_plot:
                 self._legend = self._ax.legend(loc="upper left", frameon=False)
+                changed_artists.extend(self._legend.legend_handles)
             else:
                 if self._legend is not None:
                     self._legend.remove()
@@ -271,10 +277,10 @@ class LiveViewerPlot(Frame):
                     colors.append(plot_trace.line_handle.get_color())
                     labels.append(plot_trace.line_handle.get_label())
                     self._bar_collection_labels.append(
-                        self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center")
+                        self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center", animated=True)
                     )
 
-                self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors)
+                self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors, animated=True)
 
                 self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
                 self._ax_bar.set_xticks([i for i in range(len(x))])
@@ -295,4 +301,14 @@ class LiveViewerPlot(Frame):
                     self._bar_collection[plot_trace.bar_index].set_y(y_min)
                     self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
 
-        self._last_draw_time = time.time() - start_time
+        changed_artists.extend(self._bar_collection)
+        changed_artists.extend(self._bar_collection_labels)
+        # if self._ax_bar is not None:
+            # changed_artists.extend(self._ax_bar.get_xticklabels())
+        
+        # update FPS counter
+        self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('nan'))):.2f}Hz")
+        changed_artists.append(self._fps_counter)
+        self._last_draw_time = time.time()
+
+        return changed_artists
