@@ -232,8 +232,6 @@ class LiveViewerPlot(Frame):
             y_min -= incr_by / 2
             y_max += incr_by / 2
         self._ax.set_ylim([y_min, y_max])
-        # self._ax.yaxis.set_animated(True)
-        # changed_artists.append(self._ax.yaxis)
 
         # do x-axis re-scaling of plot
         self._ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
