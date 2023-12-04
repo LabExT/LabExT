@@ -114,6 +114,34 @@ class StandardExperiment:
         self.param_output_path = str(self.save_parameters["Raw output path"].value)
         makedirs(self.param_output_path, exist_ok=True)
 
+    def ask_user_to_continue_even_if_live_viewer_active(self):
+        """ check if any of the instrument addresses in the ToDo queue are currently active in live viewer 
+
+            Returns:
+                True - it's okay to continue with experiment execution
+                False - cancel experiment execution
+        """
+        instr_addrs_in_todo_queue = set()
+        for todo in self.to_do_list:
+            for v in todo.measurement.selected_instruments.values():
+                instr_addrs_in_todo_queue.add(v['visa'])
+        instr_active_in_lv = set()
+        if self._experiment_manager.live_viewer_model is not None:
+            for _, card in self._experiment_manager.live_viewer_model.cards:
+                if card.instrument is not None and card.card_active.get():
+                    visa = card.instrument.instrument_parameters['visa']
+                    if visa in instr_addrs_in_todo_queue:
+                        instr_active_in_lv.add(visa)
+        if instr_active_in_lv:
+            if 'no' == messagebox.askquestion('Active LiveViewer Instruments Found!', 'Some ToDos will interact ' +  
+                                          'with instruments that are currently active in the live viewer. Concurrent instrument ' + 
+                                          'access might not be supported for these instrument classes. It is recommended to ' +
+                                          'stop all live-viewer cards before proceeding. Are you sure you want to proceed?',
+                                          default='no',
+                                          icon='warning'):
+                return False
+        return True
+
     def show_meas_finished_infobox(self):
         messagebox.showinfo("Measurements finished!", "Measurements finished!")
 
@@ -124,6 +152,10 @@ class StandardExperiment:
         self._experiment_manager.main_window.model.exctrl_vars_changed()
 
         self.read_parameters_to_variables()
+
+        if not self.ask_user_to_continue_even_if_live_viewer_active():
+            self.logger.info('The LiveViewer currently occupies some instruments needed for executing measurements. Please stop live viewer cards before running measurements.')
+            return
 
         # we iterate over every measurement of every device in the To Do Queue
         while 0 < len(self.to_do_list):
