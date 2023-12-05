@@ -48,8 +48,6 @@ class DummyMeas(Measurement):
         self.name = 'DummyMeas'
         self.settings_path = 'DummyMeas_settings.json'
 
-        self.plot = None
-
         self.parameters = DummyMeas.get_default_parameter()
         self.wanted_instruments = DummyMeas.get_wanted_instrument()
 
@@ -80,7 +78,6 @@ class DummyMeas(Measurement):
         # get the parameters
         n_points = parameters.get('number of points').value
         tot_time = parameters.get('total measurement time').value
-        ptime = tot_time / n_points
         y_mean = parameters.get('mean').value
         y_stddev = parameters.get('std. deviation').value
         raise_error = parameters['simulate measurement error'].value
@@ -88,11 +85,6 @@ class DummyMeas(Measurement):
         # write the measurement parameters into the measurement settings
         for pname, pparam in parameters.items():
             data['measurement settings'][pname] = pparam.as_dict()
-
-        # start live plottings
-        if self._experiment is not None:
-            self.plot = PlotData(ObservableList(), ObservableList())
-            self._experiment.live_plot_collection.append(self.plot)
 
         # provoke error if set in parameters
         if raise_error:
@@ -102,14 +94,7 @@ class DummyMeas(Measurement):
         xvec = np.arange(0, n_points)
         yvec = y_stddev * np.random.randn(n_points) + y_mean
 
-        if self._experiment is not None:
-            # play to live plot
-            for x, y in zip(xvec, yvec):
-                self.plot.x.append(x)
-                self.plot.y.append(y)
-                sleep(ptime)
-        else:
-            sleep(tot_time)
+        sleep(tot_time)
 
         # convert numpy float32/float64 to python float
         data['values']['point indices'] = [x.item() for x in xvec]
@@ -117,9 +102,5 @@ class DummyMeas(Measurement):
 
         # sanity check if data contains all necessary keys
         self._check_data(data)
-
-        # remove live plot again from experiment
-        if self._experiment is not None:
-            self._experiment.live_plot_collection.remove(self.plot)
 
         return data

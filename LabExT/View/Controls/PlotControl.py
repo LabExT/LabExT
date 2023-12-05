@@ -104,7 +104,7 @@ def execute_in_plotting_thread(func):
             # also we are using a threading.Lock such that only one foreign thread can execute something in the
             # plotting thread at the same time
             with plot_control.foreign_exec_lock:
-                plot_control.send_queue.put(partial(func, plot_control, *args, **kwargs))
+                plot_control.send_queue.put(partial(func, plot_control, *args, **kwargs), block=False)
                 return_values = plot_control.return_queue.get(True)  # blocking call
                 return return_values
     return decorator
@@ -316,13 +316,18 @@ class PlotControl(Frame):
             self._polling_time_ms = None
         self._polling_running = False  # flag to not start polling thread multiple times
         self._polling_kill_flag = False  # Gets set to true when the class is destroyed in order to stop polling
+        self._polling_exec_ref = None
 
         # executing functions for foreign threads to make sure matplotlib is always accessed by the same thread
         self.plotting_thread = threading.current_thread()  # save reference to thread which owns the plots
-        self.send_queue = queue.Queue()
-        self.return_queue = queue.Queue()
+        self.send_queue = queue.Queue(maxsize=1 if self._polling else 0)  # size 0 means no maximum queue size
+        self.return_queue = queue.Queue(maxsize=1 if self._polling else 0)
         self.foreign_exec_lock = threading.Lock()
-        self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
+        self.foreign_exec_ref = None
+        if not self._polling:
+            # if we are polling, all plot updates happen in the GUI thread anyhow, so no need to call the foreign
+            # functions updater
+            self.foreign_exec_ref = self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
 
         self._x_label = "x"
         self._y_label = "y"
@@ -354,7 +359,14 @@ class PlotControl(Frame):
         if self._polling and not self._polling_running:
             self._polling_kill_flag = False
             self._polling_running = True
-            self._root.after(self._polling_time_ms, self.__polling__)
+            self._polling_exec_ref = self._root.after(self._polling_time_ms, self.__polling__)
+
+    def destroy(self):
+        self._root.after_cancel(self.foreign_exec_ref)
+        self._polling_kill_flag = True
+        if self._polling_exec_ref is not None:
+            self._root.after_cancel(self._polling_exec_ref)
+        Frame.destroy(self)
 
     @execute_in_plotting_thread
     def set_axes(self, x_ax_label, y_ax_label):
@@ -366,7 +378,7 @@ class PlotControl(Frame):
     # timed redrawing functions, either because of data polling or function exeuctions by foreign threads
     #
 
-    _foreign_function_execution_period_ms = 10
+    _foreign_function_execution_period_ms = 50
 
     def __execute_foreign_functions__(self):
         """
@@ -377,20 +389,21 @@ class PlotControl(Frame):
         try:
             foreign_function = self.send_queue.get(False)  # get function from queue, false=doesn't block
             return_parameters = foreign_function()  # run function from queue
-            self.return_queue.put(return_parameters)
+            self.return_queue.put(return_parameters, block=False)
         except queue.Empty:
             pass
         # this reschedules this function to run again after 10ms
-        self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
+        self.foreign_exec_ref = self._root.after(self._foreign_function_execution_period_ms, self.__execute_foreign_functions__)
 
     def __polling__(self):
         """ Polls and updates data """
         if self._data_source is not None:
             for item in self._data_source:
-                self.__plotdata_changed__(item)
+                self.__plotdata_changed__(item, update_canvas=False)
+            self.__update_canvas__()
         if not self._polling_kill_flag:
             # reschedule if not killed
-            self._root.after(self._polling_time_ms, self.__polling__)
+            self._polling_exec_ref = self._root.after(self._polling_time_ms, self.__polling__)
         else:
             # otherwise set running flag to false to signal completion
             self._polling_running = False
@@ -456,7 +469,7 @@ class PlotControl(Frame):
         return x_data, y_data
 
     @execute_in_plotting_thread
-    def __plotdata_changed__(self, plot_data: PlotData):
+    def __plotdata_changed__(self, plot_data: PlotData, update_canvas=True):
         """Gets called if a plot data item gets changed. (e.g. the y collection is overwritten with new data)"""
         x_data, y_data = self.sanitize_plot_data(plot_data=plot_data)
         if x_data is None or y_data is None:
@@ -473,7 +486,8 @@ class PlotControl(Frame):
             if plot_data.color is not None:
                 plot_data.line_handle.set_color(plot_data.color)
 
-        self.__update_canvas__()
+        if update_canvas:
+            self.__update_canvas__()
 
     @execute_in_plotting_thread
     def __add_plot__(self, plot_data: PlotData):

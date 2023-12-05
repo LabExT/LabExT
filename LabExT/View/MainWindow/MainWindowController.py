@@ -8,6 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 import logging
 import os
+import sys
 from tkinter import Tk, Toplevel, messagebox
 from tkinter.simpledialog import askinteger
 
@@ -69,8 +70,6 @@ class MainWindowController:
         """Called when user closes the application. Save experiment
         settings in .json and call context-callback.
         """
-        self.view.frame.live_plot.stop_polling()
-
         # remove any chip path from parameters if chip is not loaded -> prevent offering reloading-of not loaded chip
         # on next startup
         if self.experiment_manager.chip is None:
@@ -587,12 +586,15 @@ class MainWindowController:
         """Gets called once the application is trying to close.
         Terminates the currently running experiment.
         """
-        self.logger.debug("ViewModel trying to close")
+        # stop experiment
         self.model.experiment_handler.stop_experiment()
+
         # call the cleanup function of the documentation engine
         self.experiment_manager.docu.cleanup()
 
+        # close mainwindow and quit Python interpreter
         self.root.destroy()
+        sys.exit(0)
 
     def _register_keyboard_shortcuts(self):
         self.root.bind("<F1>", self.experiment_manager.show_documentation)

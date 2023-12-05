@@ -6,21 +6,25 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+from typing import List, Dict
 
 from typing import TYPE_CHECKING, List, Dict, Tuple, Optional
 
 import uuid
 
+from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+
 if TYPE_CHECKING:
-    from LabExT.Measurements.MeasAPI.Measparam import MeasParam
     from LabExT.Experiments.StandardExperiment import StandardExperiment
     from LabExT.ExperimentManager import ExperimentManager
     from LabExT.Instruments.InstrumentAPI.InstrumentAPI import Instrument
 else:
-    MeasParam = None
     StandardExperiment = None
     ExperimentManager = None
     Instrument = None
+
+
+MEAS_PARAMS_TYPE = Dict[str, MeasParam]
 
 
 class Measurement:

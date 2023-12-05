@@ -12,6 +12,8 @@ import webbrowser
 from os.path import isfile, dirname, join
 from threading import Thread
 
+from typing import TYPE_CHECKING
+
 import matplotlib
 
 from LabExT.DocumentationEngine.Engine import DocumentationEngine
@@ -25,6 +27,11 @@ from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.Wafer.Chip import Chip
+
+if TYPE_CHECKING:
+    from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
+else:
+    LiveViewerModel = None
 
 matplotlib.use('TkAgg')
 RESOURCE_MANAGER = None
@@ -69,6 +76,7 @@ class ExperimentManager:
         self.mover = MoverNew(experiment_manager=self, chip=chip)
         self.peak_searcher = PeakSearcher(
             None, self, mover=self.mover, parent=self.root)
+        self.live_viewer_model: LiveViewerModel = None
         self.instrument_api = InstrumentAPI(self)
         self.docu = None
         self.already_shown_docu_path = False
