@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 
 from tkinter import Frame, Button
 
-from typing import TYPE_CHECKING, Union, Tuple
+from typing import TYPE_CHECKING, Union, Tuple, Any
 
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.KeyboardShortcutButtonPress import callback_if_btn_enabled
@@ -44,7 +44,7 @@ class WizardEntryController(ABC):
     """
 
     @abstractmethod
-    def results(self):
+    def results(self) -> Any:
         """Returns the result of this WizardEntry.
 
         The type of the result is defined by the subclass that
@@ -157,7 +157,7 @@ class WizardEntryView(ABC):
     """
 
     @abstractmethod
-    def results(self):
+    def results(self) -> Any:
         """Returns the result of the user interaction with this entry if there is one.
         """
         self._logger.warning(

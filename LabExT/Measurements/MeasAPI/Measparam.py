@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from typing import Literal, Union, Optional
 
 class MeasParam:
     """Implementation of a single measurement parameter.
@@ -17,7 +18,7 @@ class MeasParam:
         extra_type: Extra type, should be removed in future versions.
     """
 
-    def __init__(self, value=None, unit=None, extra_type=None):
+    def __init__(self, value: Optional[Union[str, float, int, bool, list]] = None, unit=None, extra_type=None):
         """Constructor.
 
         Arguments:
@@ -25,10 +26,16 @@ class MeasParam:
             unit (str): What unit the parameter has. Purely visual as a help for the user, does not influence calculations.
             extra_type: Extra type, should be removed in future versions.
         """
-        self.value = value
+        self.value: Union[str, float, int, bool, list] = value
         self.unit = unit
         # TODO: consider removing this
         self.extra_type = extra_type
+
+    def copy(self) -> "MeasParam":
+        """Creates and returns a shallow copy of this `MeasParam`.
+        """
+        new = type(self)(self.value, self.unit, self.extra_type)
+        return new
 
     def as_dict(self):
         """Returns the stored value as part of a dict.
@@ -37,6 +44,12 @@ class MeasParam:
         if self.unit is not None:
             d.update({'unit': self.unit})
         return d
+
+    @property
+    def sweep_type(self) -> Union[None, Literal["binary", "range"]]:
+        """Returns the type of sweep this parameter supports.
+        """
+        return None
 
     def __str__(self):
         """Converts this parameter to a string.
@@ -55,6 +68,10 @@ class MeasParamInt(MeasParam):
     @property
     def value(self):
         return self._value
+
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+        return "range"
 
     @value.setter
     def value(self, new_val):
@@ -76,6 +93,10 @@ class MeasParamFloat(MeasParam):
     @property
     def value(self):
         return self._value
+
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+        return "range"
 
     @value.setter
     def value(self, new_val):
@@ -101,6 +122,10 @@ class MeasParamBool(MeasParam):
     Gets rendered as a check-box.
     """
 
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+        return "binary"
+
     def __init__(self, value=None, unit=None, extra_type=None):
         super().__init__(value, unit, extra_type)
 
@@ -120,6 +145,9 @@ class MeasParamList(MeasParam):
         """
         super().__init__(value, unit, extra_type)
         self.options = options
+
+    def copy(self) -> MeasParam:
+        return MeasParamList(self.options, self.value, self.unit, self.extra_type)
 
     def __str__(self):
         return str(type(self)) + ": " + str(self.options) + " selected: " + str(self.value)

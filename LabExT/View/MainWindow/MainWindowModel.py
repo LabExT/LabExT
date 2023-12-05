@@ -6,12 +6,18 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+from typing import TYPE_CHECKING
+
 from tkinter import BooleanVar, StringVar
 
 from LabExT.Model.ExperimentHandler import ExperimentHandler
 from LabExT.Utils import DeprecatedException
 from LabExT.View.Controls.ControlPanel import ControlCommand
 
+if TYPE_CHECKING:
+    from LabExT.View.EditMeasurementWizard.EditMeasurementWizardController import EditMeasurementWizardController
+else:
+    EditMeasurementWizardController = None
 
 class MainWindowModel:
     """
@@ -58,7 +64,7 @@ class MainWindowModel:
         self.chip_parameters = None
         self.save_parameters = None
         self.selec_plot_data = None
-        self.last_opened_new_meas_wizard_controller = None
+        self.last_opened_new_meas_wizard_controller: EditMeasurementWizardController = None
 
         self.load_exp_parameters()
 

@@ -14,6 +14,7 @@ from LabExT.View.EditMeasurementWizard.WizardEntry.DeviceSelect import AdhocDevi
 from LabExT.View.EditMeasurementWizard.WizardEntry.MeasurementSelect import MeasurementSelectController
 from LabExT.View.EditMeasurementWizard.WizardEntry.InstrumentSelect import InstrumentSelectController
 from LabExT.View.EditMeasurementWizard.WizardEntry.ParamSelect import ParameterSelectController
+from LabExT.View.EditMeasurementWizard.WizardEntry.SweepParameterSelect import SweepParameterSelectController
 from LabExT.View.EditMeasurementWizard.WizardEntry.SaveButtons import SaveButtonsController
 
 if TYPE_CHECKING:
@@ -35,8 +36,10 @@ def wizard_entry_controller_factory(stage_number: int, device_avail: bool, paren
     elif stage_number == 3:
         return ParameterSelectController(stage_number, controller, parent)
     elif stage_number == 4:
+        return SweepParameterSelectController(stage_number, controller, parent)
+    elif stage_number == 5:
         return SaveButtonsController(stage_number, controller, parent)
-    elif stage_number >= 5:
+    elif stage_number >= 6:
         raise ValueError("Stages complete.")
     else:
         logging.debug(

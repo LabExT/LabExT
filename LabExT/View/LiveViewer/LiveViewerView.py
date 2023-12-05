@@ -22,6 +22,11 @@ else:
     LiveViewerModel = None
     ExperimentManager = None
 
+if TYPE_CHECKING:
+    from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
+else:
+    LiveViewerController = None
+
 
 class LiveViewerView:
     """

@@ -5,6 +5,9 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from typing import TYPE_CHECKING
+
+import uuid
 import datetime
 from collections import OrderedDict
 import json

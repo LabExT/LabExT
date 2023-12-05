@@ -57,7 +57,7 @@ class EditMeasurementWizardController:
 
     def escape_event(self, stage_nr: int):
         """This method is called by the WizardEntryViews if the user hits escape.
-        
+
         Ideally this would be done with an event system, where this
         controller inherits from the (theoretical) EscapeEventListener
         interface and adds itself to the event-creating WizardEntries.
@@ -73,7 +73,7 @@ class EditMeasurementWizardController:
         """
         start stage with given number, takes care of GUI changes
         """
-        # make sure to remove trailing stages if escape 
+        # make sure to remove trailing stages if escape
         # or back-button was pressed
         for controller in self.entry_controllers[stage_number:]:
             self.logger.debug(
@@ -163,7 +163,10 @@ class EditMeasurementWizardController:
         if os.path.isfile(settings_path):
             with open(settings_path, 'r') as json_file:
                 settings = json.loads(json_file.read())
-                settings = {int(k): v for k, v in settings.items()}
+                try:
+                    settings = {int(k): v for k, v in settings.items()}
+                except ValueError:
+                    self._update_cache_files()
         else:
             settings = {}
 
@@ -184,10 +187,26 @@ class EditMeasurementWizardController:
             with open(settings_path, 'r') as json_file:
                 # read from file and convert keys to int
                 data = json.loads(json_file.read())
-                data = {int(k): v for k, v in data.items()}
+                try:
+                    data = {int(k): v for k, v in data.items()}
+                except ValueError:
+                    self._update_cache_files()
+                    data = dict()
 
             # read current parameters to save dict
             self.model.settings.update(data)
+
+    def _update_cache_files(self) -> None:
+        """This function is needed to update the cache into the new format.
+
+        It deletes all cache files starting with `EditMeasurementWizard`.
+        """
+        cache_dir = os.path.dirname(
+            get_configuration_file_path(self.model.settings_file_name))
+        cache_files = [f for f in os.listdir(
+            cache_dir) if f.startswith("EditMeasurementWizard")]
+        for file in cache_files:
+            os.remove(os.path.join(cache_dir, file))
 
     def register_keyboard_shortcut(self, keys: str, action) -> None:
         if keys != "<F1>":
