@@ -7,8 +7,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from tkinter import StringVar, OptionMenu, Label, Frame
 
-from LabExT.View.Controls.PlotControl import PlotControl
-from LabExT.View.Controls.PlotControl import PlotData
+from LabExT.View.Controls.Plotting.PlotControl import PlotControl
+from LabExT.View.Controls.Plotting.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 

@@ -27,7 +27,8 @@ from LabExT.Utils import get_labext_version
 from LabExT.View.Controls.ControlPanel import ControlPanel
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.ParameterTable import ParameterTable
-from LabExT.View.Controls.PlotControl import PlotControl
+from LabExT.View.Controls.Plotting.PlotControl import PlotControl
+from LabExT.View.Controls.Plotting.PlotController import PlotController
 from LabExT.View.MeasurementTable import MeasurementTable
 from LabExT.View.MenuListener import MListener
 from LabExT.View.ToDoTable import ToDoTable
@@ -586,6 +587,7 @@ class MainWindowFrame(Frame):
         self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
         self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
+        self._plotting_controller = PlotController(master=self)
         self.selec_plot = PlotControl(
             self,
             add_toolbar=True,
@@ -596,7 +598,7 @@ class MainWindowFrame(Frame):
         self.selec_plot.title = "Measurement Selection Plot"
         self.selec_plot.show_grid = True
         self.selec_plot.data_source = self.model.selec_plot_data
-        self.selec_plot.grid(row=0, column=1, rowspan=2, columnspan=2, padx=10, pady=10, sticky='nswe')
+        #self.selec_plot.grid(row=0, column=1, rowspan=2, columnspan=2, padx=10, pady=10, sticky='nswe')
         self.selec_plot.rowconfigure(0, weight=1)
         self.selec_plot.columnconfigure(0, weight=1)
 

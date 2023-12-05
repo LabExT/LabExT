@@ -20,7 +20,7 @@ from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.config import CoordinateSystem
 from LabExT.Movement.Transformations import StageCoordinate
 from LabExT.Utils import get_configuration_file_path
-from LabExT.View.Controls.PlotControl import PlotData
+from LabExT.View.Controls.Plotting.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 
