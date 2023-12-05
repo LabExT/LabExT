@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Dict
 import numpy as np
 
 from LabExT.Measurements.MeasAPI import *
-from LabExT.View.Controls.PlotControl import PlotData
-from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 if TYPE_CHECKING:
     from LabExT.Measurements.MeasAPI.Measparam import MeasParam
