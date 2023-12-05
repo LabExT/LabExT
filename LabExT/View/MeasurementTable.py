@@ -12,7 +12,7 @@ from LabExT.Experiments.StandardExperiment import calc_measurement_key
 from LabExT.View.CommentsEditor import CommentsEditor
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTtkWidgets import CustomScrollbar, CustomCheckboxTreeview
-from LabExT.View.Controls.PlotControl import PlotData
+from LabExT.View.Controls.Plotting.PlotControl import PlotData
 
 
 class MeasurementTable(CustomFrame):
