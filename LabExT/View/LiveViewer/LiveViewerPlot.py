@@ -8,7 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from queue import Empty
 import time
-from tkinter import Frame, TOP, BOTH
+from tkinter import Event, Frame, TOP, BOTH
 from typing import TYPE_CHECKING, Tuple, List
 
 import matplotlib.animation as animation
@@ -49,8 +49,12 @@ class LiveViewerPlot(Frame):
         self._figsize: Tuple[int, int] = (6, 4)
         self._title: str = "Live Plot"
         self._animate_interval_ms: int = 33
-        self._full_redraw_every_N_ticks: int = 15
-        self._update_counter = 0
+        # self._full_redraw_every_N_ticks: int = 15
+
+        # internal bookkeeping
+        # self._update_counter = 0
+        self._saved_xlim = 0.0
+        self._saved_ylim = (np.inf, -np.inf)
 
         # plot object refs
         self._ani: Animation = None
@@ -67,6 +71,11 @@ class LiveViewerPlot(Frame):
         self._last_draw_time: float = None
 
         self.__setup__()
+
+        # configure timed updating, starts automatically
+        self._ani = animation.FuncAnimation(
+            self._fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False, blit=True
+        )
 
     def __setup__(self):
         if self._ani is not None:
@@ -104,7 +113,6 @@ class LiveViewerPlot(Frame):
 
         self._fig.suptitle(self._title)
 
-        # self.ax = self.fig.add_subplot(1, 2, 1)
         self._ax.grid(color="gray", linestyle="-", linewidth=0.5)
         self._ax.set_xlabel("elapsed time [s]")
         self._ax.set_ylabel("Power [dBm]")
@@ -127,11 +135,6 @@ class LiveViewerPlot(Frame):
                                             animated=True
                                             )
 
-        # configure timed updating, starts automatically
-        self._ani = animation.FuncAnimation(
-            self._fig, self.animation_tick, interval=self._animate_interval_ms, cache_frame_data=False, blit=True
-        )
-
     def start_animation(self):
         self._ani.resume()
 
@@ -139,26 +142,23 @@ class LiveViewerPlot(Frame):
         self._ani.pause()
 
     def animation_tick(self, _):
-        changed_artists = []
 
-        if (self._ax_bar is not None) != self.model.show_bar_plots:
-            # show/hiding bar plot changed, we need to start anew with the plot setup
-            for trace in self.model.traces_to_plot.values():
-                trace.line_handle.remove()
-            self.model.traces_to_plot.clear()
-            self.__setup__()
-            # setup started a new animation loop, return here
-            return changed_artists
-        
-        self._update_counter += 1
-        if self._update_counter >= self._full_redraw_every_N_ticks:
-            do_full_redraw = True
-            self._update_counter = 0
-        else:
-            do_full_redraw = False
+        # todo:
+        # * show/hide bar plot axis
+        # * update bar height/label each plot round
+
+        # # If showing/hiding bar plot has changed, we need to call __setup__ again to setup subplots correctly.
+        # if (self._ax_bar is not None) != self.model.show_bar_plots:
+        #     # show/hiding bar plot changed, we need to start anew with the plot setup
+        #     for trace in self.model.traces_to_plot.values():
+        #         trace.line_handle.remove()
+        #     self.model.traces_to_plot.clear()
+        #     self.__setup__()
+        #     return []
+
+        do_full_redraw = False
 
         redraw_bars = False
-
         for _, card in self.model.cards:
             try:
                 while True:
@@ -198,17 +198,22 @@ class LiveViewerPlot(Frame):
                 # jumps to next card if no more plot values left to process
                 continue
 
-        # update line data
+        changed_artists = []
+
+        # update underlying line data, even if no new data is present, the delta-time changes
         for plot_trace in self.model.traces_to_plot.values():
+            plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
+            plot_trace.update_line_label()
             plot_trace.update_line_data()
             changed_artists.append(plot_trace.line_handle)
 
-        # delete old line data & update label only on full-redraw
-        redraw_legend = False
-        if do_full_redraw:
-            for plot_trace in self.model.traces_to_plot.values():
-                plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
-                redraw_legend = redraw_legend or plot_trace.update_line_label()
+        # update FPS counter
+        if self.model.show_fps_counter:
+            self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('inf'))):.2f}Hz")
+        else:
+            self._fps_counter.set_text(f"")
+        changed_artists.append(self._fps_counter)
+        self._last_draw_time = time.time()
 
         # do y-axis re-scaling of plot
         # get current max/min of all traces
@@ -221,90 +226,100 @@ class LiveViewerPlot(Frame):
                 y_max.append(max(y_values))
         y_min = min(y_min) if y_min else 0.0
         y_max = max(y_max) if y_max else 0.0
-        # make sure that we have a small margin
-        dy = y_max - y_min
-        y_min -= dy * 0.1
-        y_max += dy * 0.1
+        # make sure that we have a small margin            
+        margin_data = (y_max - y_min) * 0.1
+        y_min -= margin_data
+        y_max += margin_data
         # make sure to adhere to the user-defined minimum y-range
-        dy_scaled = y_max - y_min
-        if dy_scaled < self.model.min_y_span:
-            incr_by = self.model.min_y_span - dy_scaled
+        dy_with_margin = y_max - y_min
+        if dy_with_margin < self.model.min_y_span:
+            incr_by = self.model.min_y_span - dy_with_margin
             y_min -= incr_by / 2
             y_max += incr_by / 2
-        self._ax.set_ylim([y_min, y_max])
+        dy_final = y_max - y_min
 
-        # do x-axis re-scaling of plot
-        self._ax.set_xlim([-self.model.plot_cutoff_seconds, 0.0])
+        # only update y-axis if we are actually out of range
+        if (y_min < self._saved_ylim[0]) or (y_min > self._saved_ylim[0] + 0.2 * dy_final) or (y_max > self._saved_ylim[1]) or (y_max < self._saved_ylim[1] - 0.2 * dy_final):            
+            self._ax.set_ylim((y_min, y_max))
+            self._saved_ylim = (y_min, y_max)
+            do_full_redraw = True
 
-        # handle legend: show legend only if there are traces to plot
-        # only do changes to the legend if there are any changes to the shown traces
-        if redraw_bars or redraw_legend:
-            if self.model.traces_to_plot:
-                self._legend = self._ax.legend(loc="upper left", frameon=False)
-                changed_artists.extend(self._legend.legend_handles)
-            else:
-                if self._legend is not None:
-                    self._legend.remove()
-                    self._legend = None
+        # do x-axis re-scaling of plot only if changed
+        requested_x_min = -self.model.plot_cutoff_seconds
+        if requested_x_min != self._saved_xlim:
+            self._ax.set_xlim([requested_x_min, 0.0])
+            self._saved_xlim = requested_x_min
+            do_full_redraw = True
 
-        # update bar data
-        if self._ax_bar is not None:
-            if redraw_bars:
-                for b in self._bar_collection:
-                    b.remove()
-                for l in self._bar_collection_labels:
-                    l.remove()
-                self._bar_collection_labels.clear()
+        # # handle legend: show legend only if there are traces to plot
+        # # only do changes to the legend if there are any changes to the shown traces
+        # if redraw_bars and self.model.traces_to_plot:
+        #     self._legend = self._ax.legend(loc="upper left", frameon=False)
+        # else:
+        #     if self._legend is not None:
+        #         self._legend.remove()
+        #         self._legend = None
 
-                x = []
-                height = []
-                colors = []
-                labels = []
-                for tidx, (_, plot_trace) in enumerate(self.model.traces_to_plot.items()):
-                    plot_trace.bar_index = tidx
-                    y_values = plot_trace.finite_y_values
-                    if len(y_values) > 0:
-                        y_val = y_values[-1]
-                    else:
-                        y_val = float("nan")
-                    height.append(y_val - y_min)
-                    x.append(tidx)
-                    colors.append(plot_trace.line_handle.get_color())
-                    labels.append(plot_trace.line_handle.get_label())
-                    self._bar_collection_labels.append(
-                        self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center", animated=True)
-                    )
-
-                self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors, animated=True)
-
-                self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
-                self._ax_bar.set_xticks([i for i in range(len(x))])
-                self._ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
-                self._ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
-
-            else:
-                for _, plot_trace in self.model.traces_to_plot.items():
-                    y_values = plot_trace.finite_y_values
-                    if len(y_values) > 0:
-                        self._bar_collection[plot_trace.bar_index].set_height(
-                            np.mean(y_values[-self.model.averaging_bar_plot :]) - y_min
-                        )
-                        self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
-                    else:
-                        self._bar_collection[plot_trace.bar_index].set_height(0)
-                        self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
-                    self._bar_collection[plot_trace.bar_index].set_y(y_min)
-                    self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
-
-        changed_artists.extend(self._bar_collection)
-        changed_artists.extend(self._bar_collection_labels)
+        # # update bar data
         # if self._ax_bar is not None:
-            # changed_artists.extend(self._ax_bar.get_xticklabels())
-        
-        # update FPS counter
-        if self.model.show_fps_counter:
-            self._fps_counter.set_text(f"FPS: {1/(time.time()-(self._last_draw_time or float('inf'))):.2f}Hz")
-            changed_artists.append(self._fps_counter)
-        self._last_draw_time = time.time()
+        #     if redraw_bars:
+        #         for b in self._bar_collection:
+        #             b.remove()
+        #         for l in self._bar_collection_labels:
+        #             l.remove()
+        #         self._bar_collection_labels.clear()
+
+        #         x = []
+        #         height = []
+        #         colors = []
+        #         labels = []
+        #         for tidx, (_, plot_trace) in enumerate(self.model.traces_to_plot.items()):
+        #             plot_trace.bar_index = tidx
+        #             y_values = plot_trace.finite_y_values
+        #             if len(y_values) > 0:
+        #                 y_val = y_values[-1]
+        #             else:
+        #                 y_val = float("nan")
+        #             height.append(y_val - y_min)
+        #             x.append(tidx)
+        #             colors.append(plot_trace.line_handle.get_color())
+        #             labels.append(plot_trace.line_handle.get_label())
+        #             self._bar_collection_labels.append(
+        #                 self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center", animated=True)
+        #             )
+
+        #         self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors, animated=True)
+
+        #         self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
+        #         self._ax_bar.set_xticks([i for i in range(len(x))])
+        #         self._ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
+        #         self._ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
+
+        #     else:
+        #         for _, plot_trace in self.model.traces_to_plot.items():
+        #             y_values = plot_trace.finite_y_values
+        #             if len(y_values) > 0:
+        #                 self._bar_collection[plot_trace.bar_index].set_height(
+        #                     np.mean(y_values[-self.model.averaging_bar_plot :]) - y_min
+        #                 )
+        #                 self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
+        #             else:
+        #                 self._bar_collection[plot_trace.bar_index].set_height(0)
+        #                 self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
+        #             self._bar_collection[plot_trace.bar_index].set_y(y_min)
+        #             self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
+
+        # changed_artists.extend(self._bar_collection)
+        # changed_artists.extend(self._bar_collection_labels)
+        # # if self._ax_bar is not None:
+        #     # changed_artists.extend(self._ax_bar.get_xticklabels())
+
+        if do_full_redraw:
+            # call a full redraw, s.t. axes limits update - this excludes all artists that have animate=True
+            self._fig.canvas.draw()
+
+        # Weird observation: if we use blitting and we don't have return animated artists to show, 
+        # matplotlib gets extremely slow. Make sure that changed_artists is not empty!
+        assert len(changed_artists) > 0
 
         return changed_artists
