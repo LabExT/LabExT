@@ -24,19 +24,26 @@ class PlotController:
     visualization. It also contains a reference to the view needed to display the data.
     """
 
-    def __init__(self, master: Widget, row: int = 0, column: int = 1, pad: int = 10) -> None:
+    def __init__(
+        self, master: Widget, row: int = 0, column: int = 1, width: int = 2, height: int = 2, pad: int = 10
+    ) -> None:
         """Creates a new `PlotController` and initializes the corresponding model and view.
 
         Args:
             master: The master widget of the view (e.g. main window `Tk`)
             row: row coordinate of view in master
             column: column coordinate of view in master
+            width: columnspan of view in master
+            height: rowspan of view in master
             pad: padding in x and y direction
         """
 
         self._model = PlotModel()
-        self._view = PlotView(master=master, figure=self._model._figure, row=row, column=column, pad=pad)
+        self._view = PlotView(
+            master=master, figure=self._model._figure, row=row, column=column, width=width, height=height, pad=pad
+        )
 
         import numpy as np
+
         data = np.linspace(0, 10, 50)
         self._model._axes.plot(data, data**2)
