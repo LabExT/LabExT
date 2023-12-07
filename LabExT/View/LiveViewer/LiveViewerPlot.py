@@ -60,6 +60,7 @@ class LiveViewerPlot(Frame):
         self._canvas: FigureCanvasTkAgg = None
         self._fig: Figure = None
         self._ax: Axis = None
+        self._ax_bar: Axis = None
         self._legend: Legend = None
 
         self._fps_counter: Text = None
@@ -78,13 +79,29 @@ class LiveViewerPlot(Frame):
         if self._toolbar is not None:
             self._toolbar.pack_forget()
 
-        self._fig, self._ax = subplots(nrows=1, ncols=1, figsize=self._figsize)
+        self._fig, (self._ax, self._ax_bar) = subplots(
+                nrows=1,
+                ncols=2,
+                sharey="all",
+                gridspec_kw={
+                    "width_ratios": (6, 1),
+                    "left": 0.12,
+                    "bottom": 0.088,
+                    "right": 0.93,
+                    "top": 0.93,
+                    "wspace": 0.0,
+                    "hspace": 0.0,
+                },
+                figsize=self._figsize,
+            )
 
         self._fig.suptitle(self._title)
 
         self._ax.grid(color="gray", linestyle="-", linewidth=0.5)
         self._ax.set_xlabel("elapsed time [s]")
         self._ax.set_ylabel("Power [dBm]")
+
+        self._ax_bar.axis('off')
 
         self._canvas = FigureCanvasTkAgg(self._fig, self)
         self._toolbar = NavigationToolbar2Tk(self._canvas, self)
@@ -135,7 +152,9 @@ class LiveViewerPlot(Frame):
                         (line,) = self._ax.plot(
                             [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label, animated=True
                         )
-                        annotation = self._ax.annotate(text="bla", xy=(0, 0), xytext=(-10,0), xycoords='data', textcoords='offset points', annotation_clip=False, ha="right", va="center", arrowprops=dict(arrowstyle="->", connectionstyle="arc3"), animated=True)
+                        annotation = self._ax_bar.annotate(
+                            text="n/a", xy=(0, 0), xytext=(10,0), xycoords='data', textcoords='offset points', annotation_clip=False, ha="left", va="center", arrowprops=dict(arrowstyle="->", connectionstyle="arc3", color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index]), animated=True
+                        )
                         self.model.traces_to_plot[trace_key] = PlotTrace(
                             timestamps=[plot_data_point.timestamp],
                             y_values=[plot_data_point.y_value],
