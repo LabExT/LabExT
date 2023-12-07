@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from matplotlib.animation import Animation
     from matplotlib.figure import Figure
     from matplotlib.axis import Axis
-    from matplotlib.container import BarContainer
     from matplotlib.text import Text
     from matplotlib.legend import Legend
 else:
@@ -33,7 +32,6 @@ else:
     Animation = None
     Figure = None
     Axis = None
-    BarContainer = None
     Text = None
     Legend = None
 
@@ -62,9 +60,6 @@ class LiveViewerPlot(Frame):
         self._canvas: FigureCanvasTkAgg = None
         self._fig: Figure = None
         self._ax: Axis = None
-        self._ax_bar: Axis = None
-        self._bar_collection: BarContainer = []
-        self._bar_collection_labels: List[Text] = []
         self._legend: Legend = None
 
         self._fps_counter: Text = None
@@ -78,38 +73,12 @@ class LiveViewerPlot(Frame):
         )
 
     def __setup__(self):
-        if self._ani is not None:
-            self.stop_animation()
         if self._canvas is not None:
             self._canvas.get_tk_widget().pack_forget()
         if self._toolbar is not None:
             self._toolbar.pack_forget()
 
-        if self.model.show_bar_plots:
-            self._fig, (self._ax, self._ax_bar) = subplots(
-                nrows=1,
-                ncols=2,
-                sharey="all",
-                gridspec_kw={
-                    "width_ratios": (4, 1),
-                    "left": 0.12,
-                    "bottom": 0.088,
-                    "right": 0.93,
-                    "top": 0.93,
-                    "wspace": 0.0,
-                    "hspace": 0.0,
-                },
-                figsize=self._figsize,
-            )
-        else:
-            self._fig, self._ax = subplots(
-                nrows=1,
-                ncols=1,
-                sharey="all",
-                gridspec_kw={"left": 0.12, "bottom": 0.088, "right": 0.93, "top": 0.93, "wspace": 0.0, "hspace": 0.0},
-                figsize=self._figsize,
-            )
-            self._ax_bar = None
+        self._fig, self._ax = subplots(nrows=1, ncols=1, figsize=self._figsize)
 
         self._fig.suptitle(self._title)
 
@@ -143,22 +112,8 @@ class LiveViewerPlot(Frame):
 
     def animation_tick(self, _):
 
-        # todo:
-        # * show/hide bar plot axis
-        # * update bar height/label each plot round
-
-        # # If showing/hiding bar plot has changed, we need to call __setup__ again to setup subplots correctly.
-        # if (self._ax_bar is not None) != self.model.show_bar_plots:
-        #     # show/hiding bar plot changed, we need to start anew with the plot setup
-        #     for trace in self.model.traces_to_plot.values():
-        #         trace.line_handle.remove()
-        #     self.model.traces_to_plot.clear()
-        #     self.__setup__()
-        #     return []
-
         do_full_redraw = False
 
-        redraw_bars = False
         for _, card in self.model.cards:
             try:
                 while True:
@@ -169,8 +124,8 @@ class LiveViewerPlot(Frame):
                     # line delete flag is set, remove line from axis and delete internal data structure
                     if plot_data_point.delete_trace and (trace_key in self.model.traces_to_plot):
                         self.model.traces_to_plot[trace_key].line_handle.remove()  # removes this line from axis
+                        self.model.traces_to_plot[trace_key].annotation_handle.remove()
                         self.model.traces_to_plot.pop(trace_key, None)
-                        redraw_bars = True
                         continue
 
                     # we got a new trace name, setup internal data structure and put line onto axis
@@ -180,15 +135,15 @@ class LiveViewerPlot(Frame):
                         (line,) = self._ax.plot(
                             [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label, animated=True
                         )
+                        annotation = self._ax.annotate(text="bla", xy=(0, 0), xytext=(-10,0), xycoords='data', textcoords='offset points', annotation_clip=False, ha="right", va="center", arrowprops=dict(arrowstyle="->", connectionstyle="arc3"), animated=True)
                         self.model.traces_to_plot[trace_key] = PlotTrace(
                             timestamps=[plot_data_point.timestamp],
                             y_values=[plot_data_point.y_value],
                             line_handle=line,
+                            annotation_handle=annotation,
                             line_label=line_label,
-                            color_index=color_index,
-                            bar_index=-1,
+                            color_index=color_index
                         )
-                        redraw_bars = True
                         continue
 
                     # append new data point to internal datastructure
@@ -206,6 +161,8 @@ class LiveViewerPlot(Frame):
             plot_trace.update_line_label()
             plot_trace.update_line_data()
             changed_artists.append(plot_trace.line_handle)
+            plot_trace.update_annotation(n_avg=self.model.averaging_arrow_height)
+            changed_artists.append(plot_trace.annotation_handle)
 
         # update FPS counter
         if self.model.show_fps_counter:
@@ -259,60 +216,6 @@ class LiveViewerPlot(Frame):
         #     if self._legend is not None:
         #         self._legend.remove()
         #         self._legend = None
-
-        # # update bar data
-        # if self._ax_bar is not None:
-        #     if redraw_bars:
-        #         for b in self._bar_collection:
-        #             b.remove()
-        #         for l in self._bar_collection_labels:
-        #             l.remove()
-        #         self._bar_collection_labels.clear()
-
-        #         x = []
-        #         height = []
-        #         colors = []
-        #         labels = []
-        #         for tidx, (_, plot_trace) in enumerate(self.model.traces_to_plot.items()):
-        #             plot_trace.bar_index = tidx
-        #             y_values = plot_trace.finite_y_values
-        #             if len(y_values) > 0:
-        #                 y_val = y_values[-1]
-        #             else:
-        #                 y_val = float("nan")
-        #             height.append(y_val - y_min)
-        #             x.append(tidx)
-        #             colors.append(plot_trace.line_handle.get_color())
-        #             labels.append(plot_trace.line_handle.get_label())
-        #             self._bar_collection_labels.append(
-        #                 self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center", animated=True)
-        #             )
-
-        #         self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors, animated=True)
-
-        #         self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
-        #         self._ax_bar.set_xticks([i for i in range(len(x))])
-        #         self._ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
-        #         self._ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
-
-        #     else:
-        #         for _, plot_trace in self.model.traces_to_plot.items():
-        #             y_values = plot_trace.finite_y_values
-        #             if len(y_values) > 0:
-        #                 self._bar_collection[plot_trace.bar_index].set_height(
-        #                     np.mean(y_values[-self.model.averaging_bar_plot :]) - y_min
-        #                 )
-        #                 self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
-        #             else:
-        #                 self._bar_collection[plot_trace.bar_index].set_height(0)
-        #                 self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
-        #             self._bar_collection[plot_trace.bar_index].set_y(y_min)
-        #             self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
-
-        # changed_artists.extend(self._bar_collection)
-        # changed_artists.extend(self._bar_collection_labels)
-        # # if self._ax_bar is not None:
-        #     # changed_artists.extend(self._ax_bar.get_xticklabels())
 
         if do_full_redraw:
             # call a full redraw, s.t. axes limits update - this excludes all artists that have animate=True

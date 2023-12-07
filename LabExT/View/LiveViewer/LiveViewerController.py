@@ -91,11 +91,8 @@ class LiveViewerController:
         # the minimum y span
         self.model.min_y_span = abs(parameters["minimum y-axis span"].value)
 
-        # enable or disable the bar plots on the right
-        self.model.show_bar_plots = parameters["show bar plots"].value
-
         # averaging for bar plot
-        self.model.averaging_bar_plot = max(1, int(abs(parameters["averaging in bar plot"].value)))
+        self.model.averaging_arrow_height = max(1, int(abs(parameters["averaging arrow height"].value)))
 
         # show FPS counter
         self.model.show_fps_counter = parameters["show FPS counter"].value

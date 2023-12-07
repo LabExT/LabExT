@@ -10,18 +10,21 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, TYPE_CHECKING, Optional
 
-import matplotlib.lines
 import numpy as np
 
 from LabExT.Measurements.MeasAPI import MeasParamFloat, MeasParamBool, MeasParamInt
 
 if TYPE_CHECKING:
-    from LabExT.View.LiveViewer.Cards import CardFrame
     from tkinter import Tk
+    from matplotlib.lines import Line2D
+    from matplotlib.text import Annotation
+    from LabExT.View.LiveViewer.Cards import CardFrame
     from LabExT.Measurements.MeasAPI.Measurement import MEAS_PARAMS_TYPE
 else:
-    CardFrame = None
     Tk = None
+    Line2D = None
+    Annotation = None
+    CardFrame = None
     MEAS_PARAMS_TYPE = None
 
 
@@ -57,11 +60,11 @@ class PlotTrace:
 
     timestamps: List[float] = field(default_factory=list)
     y_values: List[float] = field(default_factory=list)
-    line_handle: matplotlib.lines.Line2D = None
+    line_handle: Line2D = None
+    annotation_handle: Annotation = None
     line_label: str = None
     reference_value: float = None
     color_index: int = None
-    bar_index: int = None
 
     @property
     def delta_time_to_now(self):
@@ -83,9 +86,16 @@ class PlotTrace:
         self.y_values.append(pdp.y_value)
 
     def update_line_data(self):
-        x = np.hstack((self.delta_time_to_now, 1))
-        y = np.hstack((self.y_values, self.y_values[-1])) - (self.reference_value or 0.0)
-        self.line_handle.set_data(x, y)
+        if len(self.y_values) > 0:
+            x = np.hstack((self.delta_time_to_now, 1))
+            y = np.hstack((self.y_values, self.y_values[-1])) - (self.reference_value or 0.0)
+            self.line_handle.set_data(x, y)
+
+    def update_annotation(self, n_avg: Optional[int] = 1):
+        finite_vals = np.array(self.y_values)[np.isfinite(self.y_values)]
+        if len(finite_vals) > 0:
+            self.annotation_handle.xy = (0, np.mean(finite_vals[-n_avg:]))
+            self.annotation_handle.set_text(f'{self.y_values[-1]:.3f}')
 
     def update_line_label(self):
         """ returns True if label changed and legend needs to be redrawn, otherwise false """
@@ -132,8 +142,7 @@ class LiveViewerModel:
         self.general_settings: MEAS_PARAMS_TYPE = {
             "time range to display": MeasParamFloat(value=20.0, unit="s"),
             "minimum y-axis span": MeasParamFloat(value=4.0),
-            "show bar plots": MeasParamBool(value=True),
-            "averaging in bar plot": MeasParamInt(value=20, unit="samples"),
+            "averaging arrow height": MeasParamInt(value=20, unit="samples"),
             "show FPS counter": MeasParamBool(value=False),
         }
 
@@ -158,11 +167,8 @@ class LiveViewerModel:
         # the minimum y span
         self.min_y_span: float = 4.0
 
-        # if bar plot should be shown
-        self.show_bar_plots: bool = True
-
-        # averaging for bar plot
-        self.averaging_bar_plot: int = 20
+        # averaging for annotations
+        self.averaging_arrow_height: int = 20
 
         # show FPS counter
         self.show_fps_counter: bool = False
