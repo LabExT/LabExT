@@ -49,13 +49,13 @@ class PlotView:
         """Holds the subwindows."""
 
         self._plotting_frame = PlottingFrame(master=self._paned_frame, figure=figure)
-        self._paned_frame.add(self._plotting_frame)
+        self._paned_frame.add(self._plotting_frame, padx=pad, pady=pad, minsize=400, width=700)
 
         self._settings_frame = PlottingSettingsFrame(
             master=self._paned_frame, axes=figure.axes[0], on_data_change=self._plotting_frame.data_changed_callback
         )
         self._settings_frame.title = "Plot Settings"
-        self._paned_frame.add(self._settings_frame)
+        self._paned_frame.add(self._settings_frame, padx=pad, pady=pad, minsize=200)
         self._paned_frame.grid(
             row=row, column=column, columnspan=width, rowspan=height, padx=pad, pady=pad, sticky="nsew"
         )
