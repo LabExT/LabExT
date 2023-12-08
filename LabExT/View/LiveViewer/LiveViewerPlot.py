@@ -152,11 +152,15 @@ class LiveViewerPlot(Frame):
                         annotation = self._ax_bar.annotate(
                             text="n/a", xy=(0, 0), xytext=(10,0), xycoords='data', textcoords='offset points', annotation_clip=False, ha="left", va="center", arrowprops=dict(arrowstyle="->", connectionstyle="arc3", color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index]), animated=True
                         )
+                        legend = self._ax.annotate(
+                            text="n/a", xy=(15, 15+15*color_index), xytext=(40,0), xycoords='axes points', textcoords='offset points', annotation_clip=False, ha="left", va="center", arrowprops=dict(arrowstyle="-", connectionstyle="arc3", color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index]), animated=True
+                        )
                         self.model.traces_to_plot[trace_key] = PlotTrace(
                             timestamps=[plot_data_point.timestamp],
                             y_values=[plot_data_point.y_value],
                             line_handle=line,
                             annotation_handle=annotation,
+                            legend_handle=legend,
                             line_label=line_label,
                             color_index=color_index
                         )
@@ -175,6 +179,7 @@ class LiveViewerPlot(Frame):
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
             plot_trace.update_line_label()
+            changed_artists.append(plot_trace.legend_handle)
             plot_trace.update_line_data()
             changed_artists.append(plot_trace.line_handle)
             plot_trace.update_annotation(n_avg=self.model.averaging_arrow_height)

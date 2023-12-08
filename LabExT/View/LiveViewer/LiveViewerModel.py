@@ -62,6 +62,7 @@ class PlotTrace:
     y_values: List[float] = field(default_factory=list)
     line_handle: Line2D = None
     annotation_handle: Annotation = None
+    legend_handle: Annotation = None
     line_label: str = None
     reference_value: float = None
     color_index: int = None
@@ -92,19 +93,17 @@ class PlotTrace:
             self.line_handle.set_data(x, y)
 
     def update_annotation(self, n_avg: Optional[int] = 1):
-        finite_vals = np.array(self.y_values)[np.isfinite(self.y_values)]
+        finite_vals = self.finite_y_values
         if len(finite_vals) > 0:
             self.annotation_handle.xy = (0, np.mean(finite_vals[-n_avg:]))
-        label = self.line_handle.get_label()
-        label += f'\n{self.y_values[-1]:.3f}'
-        self.annotation_handle.set_text(label)
+        self.annotation_handle.set_text(f'{finite_vals[-1]:.3f}')
 
     def update_line_label(self):
         if self.reference_value is not None:
-            new_label = self.line_label + f"\nref. to {self.reference_value:.3f}"
+            new_label = self.line_label + f" - ref. to {self.reference_value:.3f}"
         else:
             new_label = self.line_label
-        self.line_handle.set_label(new_label)
+        self.legend_handle.set_text(new_label)
 
     def reference_set(self, reference_value: Optional[float] = None, n_avg: Optional[int] = 1):
         if reference_value is not None:
