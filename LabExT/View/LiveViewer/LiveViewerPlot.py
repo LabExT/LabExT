@@ -130,6 +130,7 @@ class LiveViewerPlot(Frame):
     def animation_tick(self, _):
 
         do_full_redraw = False
+        update_legend = False
 
         for _, card in self.model.cards:
             try:
@@ -143,6 +144,7 @@ class LiveViewerPlot(Frame):
                         self.model.traces_to_plot[trace_key].line_handle.remove()  # removes this line from axis
                         self.model.traces_to_plot[trace_key].annotation_handle.remove()
                         self.model.traces_to_plot.pop(trace_key, None)
+                        update_legend = True
                         continue
 
                     # we got a new trace name, setup internal data structure and put line onto axis
@@ -150,7 +152,7 @@ class LiveViewerPlot(Frame):
                         color_index = self.model.get_next_plot_color_index()
                         line_label = f"{card.instance_title:s}: {plot_data_point.trace_name:s}"
                         (line,) = self._ax.plot(
-                            [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], label=line_label, animated=True
+                            [], [], color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index], animated=True
                         )
                         annotation = self._ax_bar.annotate(
                             text="n/a", xy=(0, 0), xytext=(10,0), xycoords='data', textcoords='offset points', annotation_clip=False, ha="left", va="center", arrowprops=dict(arrowstyle="->", connectionstyle="arc3", color=LIVE_VIEWER_PLOT_COLOR_CYCLE[color_index]), animated=True
@@ -163,6 +165,7 @@ class LiveViewerPlot(Frame):
                             line_label=line_label,
                             color_index=color_index
                         )
+                        update_legend = True
                         continue
 
                     # append new data point to internal datastructure
@@ -177,7 +180,7 @@ class LiveViewerPlot(Frame):
         # update underlying line data, even if no new data is present, the delta-time changes
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
-            plot_trace.update_line_label()
+            update_legend = update_legend or plot_trace.update_line_label()
             plot_trace.update_line_data()
             changed_artists.append(plot_trace.line_handle)
             plot_trace.update_annotation(n_avg=self.model.averaging_arrow_height)
@@ -229,8 +232,18 @@ class LiveViewerPlot(Frame):
 
         # # handle legend: show legend only if there are traces to plot
         # # only do changes to the legend if there are any changes to the shown traces
-        # if redraw_bars and self.model.traces_to_plot:
-        #     self._legend = self._ax.legend(loc="upper left", frameon=False)
+        # if self.model.traces_to_plot:
+
+        #     if update_legend and (self._legend is not None):
+        #         self._legend.remove()
+
+        #     if update_legend or (self._legend is None):
+        #         self._legend = self._ax_bar.legend(handles=[pt.line_handle for pt in self.model.traces_to_plot.values()],loc="upper left", frameon=False)
+        #         [h.set_animated(True) for h in self._legend.legend_handles]
+        #         do_full_redraw = True
+        #     changed_artists.extend(self._legend.legend_handles)
+
+
         # else:
         #     if self._legend is not None:
         #         self._legend.remove()
