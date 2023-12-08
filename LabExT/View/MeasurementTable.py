@@ -190,6 +190,7 @@ class MeasurementTable(CustomFrame):
 
     def select_item(self, item_iid, new_state):
         """Called when the user selects a measurement in the table.
+
         Selects or deselects (if previously selected) the measurement
         and call the MainWindow to set the axis.
 
@@ -201,13 +202,21 @@ class MeasurementTable(CustomFrame):
             True if new state is checked, False if new state is UNchecked
         """
 
-        # How plottings works:
+        # How plotting used to work: (Currently being reworked)
         # 1. click on item calls select_item
         # 2. update axis_set with the new available data vector names
         # 3. calls main_window._axis_options_changed to update the options for the dropdowns
         # 4. this calls main_window._axis_changed which 1. sets the axis labels and 2. calls MeasurementTable.repaint
         # 5. here we finally assemble the PlotData and append it to exp.selec_plot_collection to display the curves
         # The extra plots window is also based on the _selection list and needs to be notified if updates happen
+        # How it will work:
+        # 1. click on item calls select_item
+        # 2. all item selection callbacks will be performed
+        # 3. plottable data handler will 
+        #   a) recalculate data
+        #   b) perform its plottable data changed callbacks
+        # 4. PlottingSettingsFrame will update
+        # 5. PlottingFrame will update
 
         current_selection = self.selected_measurements
 
@@ -252,9 +261,6 @@ class MeasurementTable(CustomFrame):
         )
 
         if self._do_changed_callbacks:
-            # update possible selections in main_window
-            self._experiment_manager.main_window._axis_options_changed(axis_set, self._selected_meas_name)
-
             # Check if we have the extra plot window open. if yes, notify it.
             extra_plots = self._experiment_manager.main_window.extra_plots
             if extra_plots is not None and extra_plots.is_opened():
