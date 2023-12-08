@@ -25,7 +25,6 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
     from matplotlib.axis import Axis
     from matplotlib.text import Text
-    from matplotlib.legend import Legend
 else:
     Tk = None
     LiveViewerModel = None
@@ -33,7 +32,6 @@ else:
     Figure = None
     Axis = None
     Text = None
-    Legend = None
 
 
 class LiveViewerPlot(Frame):
