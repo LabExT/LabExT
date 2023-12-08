@@ -95,17 +95,16 @@ class PlotTrace:
         finite_vals = np.array(self.y_values)[np.isfinite(self.y_values)]
         if len(finite_vals) > 0:
             self.annotation_handle.xy = (0, np.mean(finite_vals[-n_avg:]))
-            self.annotation_handle.set_text(f'{self.y_values[-1]:.3f}')
+        label = self.line_handle.get_label()
+        label += f'\n{self.y_values[-1]:.3f}'
+        self.annotation_handle.set_text(label)
 
     def update_line_label(self):
-        """ returns True if label changed and legend needs to be redrawn, otherwise false """
-        old_label = self.line_handle.get_label()
         if self.reference_value is not None:
-            new_label = self.line_label + f" - ref. to {self.reference_value:.3f}"
+            new_label = self.line_label + f"\nref. to {self.reference_value:.3f}"
         else:
             new_label = self.line_label
         self.line_handle.set_label(new_label)
-        return old_label != new_label
 
     def reference_set(self, reference_value: Optional[float] = None, n_avg: Optional[int] = 1):
         if reference_value is not None:

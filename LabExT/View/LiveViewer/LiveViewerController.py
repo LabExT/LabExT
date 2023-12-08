@@ -145,7 +145,7 @@ class LiveViewerController:
     def reference_set(self):
         # this sets the references of the plot traces to the last measured value
         for plot_trace in self.model.traces_to_plot.values():
-            plot_trace.reference_set(n_avg=self.model.averaging_bar_plot)
+            plot_trace.reference_set(n_avg=self.model.averaging_arrow_height)
         # store reference data to file for later recall
         reference_data = {plot_trace.line_label: plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
         fname = get_configuration_file_path(self.model.references_file_name)
