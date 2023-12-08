@@ -560,7 +560,6 @@ class MainWindowFrame(Frame):
         self.control_panel = None
 
         self.selec_plot = None
-        self.axes_frame = None
 
         self.logging_frame = None
 
@@ -585,7 +584,6 @@ class MainWindowFrame(Frame):
         self.buttons_frame = MainWindowButtonsFrame(self.control_frame, self, self.controller)
         self.control_panel = MainWindowControlPanel(self.control_frame, self.model)
         self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
-        self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
         self._plotting_controller = PlotController(master=self)
         self.selec_plot = PlotControl(
