@@ -19,7 +19,7 @@ from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
-from typing import TYPE_CHECKING, Literal, Type, List, Tuple, Union
+from typing import TYPE_CHECKING, Type, List, Tuple, TypedDict, Optional, Literal
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
@@ -36,27 +36,45 @@ else:
     ToDo = None
     Device = None
 
-MeasurementDictKeys = Literal[
-    "software",
-    "experiment settings",
-    "chip",
-    "timestamp start",
-    "timestamp iso start",
-    "timestamp",
-    "measurement name",
-    "measurement name and id",
-    "measurement id long",
-    "instruments",
-    "measurement settings",
-    "values",
-    "sweep_information",
-    "error",
-]
-MeasurementDictValues = Union[str, dict, set, int, float]
-MeasurementDict = dict[MeasurementDictKeys, MeasurementDictValues]
+
+class MeasurementDict(
+    TypedDict(
+        "SpacesInKeys",
+        {
+            "experiment settings": dict,
+            "measurement id long": str,
+            "measurement name": str,
+            "measurement name and id": str,
+            "measurement settings": dict,
+            "search for peak": Optional[dict],
+            "timestamp end": str,
+            "timestamp start": str,
+        },
+        total=False,
+    ),
+    total=False,
+):
+    """This class is only used for typechecking.
+
+    If instantiated at runtime the objects are regular `dict`s.
+    """
+
+    chip: TypedDict("chip", {"name": str, "description file path": str})
+    device: dict
+    error: TypedDict("error", {"type": str, "desc": str, "traceback": str}, total=False)
+    file_path_known: str
+    finished: bool
+    instruments: dict[str, dict]
+    name_known: str
+    software: TypedDict("software", {"name": Literal["LabExT"], "version": str, "git rev": str, "computer": str})
+    sweep_information: TypedDict("sweep_information", {"part_of_sweep": bool, "sweep_association": Optional[dict]})
+    timestamp: str
+    timestamp_iso_known: str
+    timestamp_known: str
+    values: dict
 
 
-def calc_measurement_key(measurement):
+def calc_measurement_key(measurement: MeasurementDict):
     """calculate the unique but hardly one-way functional 'hash' of a measurement"""
     hash_str = str(measurement["timestamp_iso_known"])
     hash_str += str(measurement["device"]["id"])
@@ -124,7 +142,7 @@ class StandardExperiment:
         self.exctrl_inter_measurement_wait_time = 0.0
 
         # data structures for FINISHED measurements
-        self.measurements = ObservableList()
+        self.measurements: ObservableList[MeasurementDict] = ObservableList()
         self.measurements_hashes = []
 
         self.__setup__()
