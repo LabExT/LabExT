@@ -19,7 +19,7 @@ from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
-from typing import TYPE_CHECKING, Type, List, Tuple
+from typing import TYPE_CHECKING, Literal, Type, List, Tuple, Union
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
@@ -35,6 +35,25 @@ if TYPE_CHECKING:
 else:
     ToDo = None
     Device = None
+
+MeasurementDictKeys = Literal[
+    "software",
+    "experiment settings",
+    "chip",
+    "timestamp start",
+    "timestamp iso start",
+    "timestamp",
+    "measurement name",
+    "measurement name and id",
+    "measurement id long",
+    "instruments",
+    "measurement settings",
+    "values",
+    "sweep_information",
+    "error",
+]
+MeasurementDictValues = Union[str, dict, set, int, float]
+MeasurementDict = dict[MeasurementDictKeys, MeasurementDictValues]
 
 
 def calc_measurement_key(measurement):
@@ -92,7 +111,7 @@ class StandardExperiment:
         # list to contain all future ToDos, do not redefine!
         self.to_do_list: List[ToDo] = []
         # store last executed to do (Tuple(Device, Measurement))
-        self.last_executed_todos: List[Tuple[Device, Measurement]] = [] 
+        self.last_executed_todos: List[Tuple[Device, Measurement]] = []
         # get the FQDN of the running computer to save into datasets
         self._fqdn_of_exp_runner = socket.getfqdn()
         # get the LabExT version to save into datasets
@@ -135,30 +154,33 @@ class StandardExperiment:
         makedirs(self.param_output_path, exist_ok=True)
 
     def ask_user_to_continue_even_if_live_viewer_active(self):
-        """ check if any of the instrument addresses in the ToDo queue are currently active in live viewer 
+        """check if any of the instrument addresses in the ToDo queue are currently active in live viewer
 
-            Returns:
-                True - it's okay to continue with experiment execution
-                False - cancel experiment execution
+        Returns:
+            True - it's okay to continue with experiment execution
+            False - cancel experiment execution
         """
         instr_addrs_in_todo_queue = set()
         for todo in self.to_do_list:
             for v in todo.measurement.selected_instruments.values():
-                instr_addrs_in_todo_queue.add(v['visa'])
+                instr_addrs_in_todo_queue.add(v["visa"])
         instr_active_in_lv = set()
         if self._experiment_manager.live_viewer_model is not None:
             for _, card in self._experiment_manager.live_viewer_model.cards:
                 if card.instrument is not None and card.card_active.get():
-                    visa = card.instrument.instrument_parameters['visa']
+                    visa = card.instrument.instrument_parameters["visa"]
                     if visa in instr_addrs_in_todo_queue:
                         instr_active_in_lv.add(visa)
         if instr_active_in_lv:
-            if 'no' == messagebox.askquestion('Active LiveViewer Instruments Found!', 'Some ToDos will interact ' +  
-                                          'with instruments that are currently active in the live viewer. Concurrent instrument ' + 
-                                          'access might not be supported for these instrument classes. It is recommended to ' +
-                                          'stop all live-viewer cards before proceeding. Are you sure you want to proceed?',
-                                          default='no',
-                                          icon='warning'):
+            if "no" == messagebox.askquestion(
+                "Active LiveViewer Instruments Found!",
+                "Some ToDos will interact "
+                + "with instruments that are currently active in the live viewer. Concurrent instrument "
+                + "access might not be supported for these instrument classes. It is recommended to "
+                + "stop all live-viewer cards before proceeding. Are you sure you want to proceed?",
+                default="no",
+                icon="warning",
+            ):
                 return False
         return True
 
@@ -174,7 +196,9 @@ class StandardExperiment:
         self.read_parameters_to_variables()
 
         if not self.ask_user_to_continue_even_if_live_viewer_active():
-            self.logger.info('The LiveViewer currently occupies some instruments needed for executing measurements. Please stop live viewer cards before running measurements.')
+            self.logger.info(
+                "The LiveViewer currently occupies some instruments needed for executing measurements. Please stop live viewer cards before running measurements."
+            )
             return
 
         # we iterate over every measurement of every device in the To Do Queue
@@ -287,7 +311,6 @@ class StandardExperiment:
                 save_file_ending = "_abort.json"
 
             finally:
-
                 # save instrument parameters again
                 data["instruments"] = measurement._get_data_from_all_instruments()
 
