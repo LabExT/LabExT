@@ -6,6 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+
+from typing import TYPE_CHECKING, Callable, Union
+
 from tkinter import Tk, messagebox, Toplevel, Label
 
 from LabExT.Experiments.StandardExperiment import calc_measurement_key
@@ -13,6 +16,20 @@ from LabExT.View.CommentsEditor import CommentsEditor
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTtkWidgets import CustomScrollbar, CustomCheckboxTreeview
 from LabExT.View.Controls.Plotting.PlotControl import PlotData
+
+if TYPE_CHECKING:
+    from LabExT.Experiments.StandardExperiment import MeasurementDict
+else:
+    MeasurementDict = None
+
+SelectionChangedEvent = tuple[str, bool, list[tuple[str, bool]], Union[MeasurementDict, None]]
+"""The event raised and given to the callbacks, when the user-selection changes.
+
+It consists of the hash of the newly selected or deselected entry (this might be a heading, i.e. 
+chip or sweep), a bool which is true if and only if the elements are now selected, a list of tuples
+mapping all entries to their selection state and finally the `MeasurementDict` of the newly selected
+entry or None if a header was selected.
+"""
 
 
 class MeasurementTable(CustomFrame):
@@ -56,6 +73,9 @@ class MeasurementTable(CustomFrame):
         self._measurements = self._experiment_manager.exp.measurements
         self._do_changed_callbacks = do_changed_callbacks
         self._allow_only_one_meas_name = allow_only_single_meas_name
+
+        self._selection_changed_callbacks: list[Callable[[SelectionChangedEvent], None]] = list()
+        """This is the list of callbacks, that will be performed when the user selection changes."""
 
         # keep track of displayed measurements
         self._hashes_of_meas = {}
@@ -113,6 +133,20 @@ class MeasurementTable(CustomFrame):
         # run tooltip callback on mouse motion
         self._tree.bind("<Motion>", self.handle_tooltip)
         self._tree.bind("<Leave>", self.hidetip)
+
+    def add_selection_changed_callback(self, callback : Callable[[SelectionChangedEvent], None]):
+        """Adds a selection changed listener to the list of listeners.
+        
+        We model the listeners with a simple callback function which accepts a `SelectionChangedEvent`.
+        
+        Args:
+            callback: The callable accepting a `SelectionChangedEvent` to add to the list of listeners
+        """
+        self._selection_changed_callbacks.append(callback)
+
+    def remove_selection_changed_callback(self, callback : Callable[[SelectionChangedEvent], None]):
+        """Removes one selection-changed-listener."""
+        self._selection_changed_callbacks.remove(callback)
 
     @staticmethod
     def get_meas_values(meas_dict):
