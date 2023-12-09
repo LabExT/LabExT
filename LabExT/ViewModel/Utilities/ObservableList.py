@@ -5,8 +5,13 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+from collections.abc import Iterator
+from typing import MutableSequence, Generic, TypeVar
 
-class ObservableList(list):
+_T = TypeVar("_T")
+
+
+class ObservableList(list, MutableSequence[_T], Generic[_T]):
     """This list can send notifications about changes.
 
     Attributes
@@ -63,10 +68,12 @@ class ObservableList(list):
             callback(item)
 
     def clear(self):
-        """Remove all items from the list and trigger notification.
-        """
+        """Remove all items from the list and trigger notification."""
         super(ObservableList, self).clear()
 
         # execute all subscribed callback methods
         for callback in self.on_clear:
             callback()
+
+    def __iter__(self) -> Iterator[_T]:
+        return super().__iter__()
