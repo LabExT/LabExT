@@ -19,7 +19,7 @@ from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
-from typing import TYPE_CHECKING, Type, List, Tuple, TypedDict, Optional, Literal
+from typing import TYPE_CHECKING, Type, List, Tuple
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
@@ -29,49 +29,14 @@ from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.Controls.ParameterTable import ConfigParameter
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
+from LabExT.Experiments.TypeHints import MeasurementDict
+
 if TYPE_CHECKING:
     from LabExT.Experiments.ToDo import ToDo
     from LabExT.Wafer.Device import Device
 else:
     ToDo = None
     Device = None
-
-
-class MeasurementDict(
-    TypedDict(
-        "SpacesInKeys",
-        {
-            "experiment settings": dict,
-            "measurement id long": str,
-            "measurement name": str,
-            "measurement name and id": str,
-            "measurement settings": dict,
-            "search for peak": Optional[dict],
-            "timestamp end": str,
-            "timestamp start": str,
-        },
-        total=False,
-    ),
-    total=False,
-):
-    """This class is only used for typechecking.
-
-    If instantiated at runtime the objects are regular `dict`s.
-    """
-
-    chip: TypedDict("chip", {"name": str, "description file path": str})
-    device: dict
-    error: TypedDict("error", {"type": str, "desc": str, "traceback": str}, total=False)
-    file_path_known: str
-    finished: bool
-    instruments: dict[str, dict]
-    name_known: str
-    software: TypedDict("software", {"name": Literal["LabExT"], "version": str, "git rev": str, "computer": str})
-    sweep_information: TypedDict("sweep_information", {"part_of_sweep": bool, "sweep_association": Optional[dict]})
-    timestamp: str
-    timestamp_iso_known: str
-    timestamp_known: str
-    values: dict
 
 
 def calc_measurement_key(measurement: MeasurementDict):
