@@ -6,8 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+import functools
 
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Union, Optional
 
 from tkinter import Tk, messagebox, Toplevel, Label
 
@@ -19,8 +20,12 @@ from LabExT.View.Controls.Plotting.PlotControl import PlotData
 
 if TYPE_CHECKING:
     from LabExT.Experiments.StandardExperiment import MeasurementDict
+    from LabExT.ExperimentManager import ExperimentManager
+    from tkinter import Widget
 else:
     MeasurementDict = None
+    ExperimentManager = None
+    Widget = None
 
 SelectionChangedEvent = tuple[str, bool, list[tuple[str, bool]], Union[MeasurementDict, None]]
 """The event raised and given to the callbacks, when the user-selection changes.
@@ -31,6 +36,18 @@ mapping all entries to their selection state and finally the `MeasurementDict` o
 entry or None if a header was selected.
 """
 
+def calculate_sweep_hash(measurement: MeasurementDict) -> str:
+    """Calculates the hash of a sweep by xor-ing together the ids of the contained measurements."""
+    sweep_hash = [
+        int(sweep_association["id"], 16)
+        for sweep_association in measurement["sweep_information"]["sweep_association"].values()
+    ]
+    return hex(functools.reduce(lambda accumulator, new: accumulator ^ new, sweep_hash))[2:]
+
+def get_device_name(measurement: MeasurementDict):
+    return str(measurement["device"]["type"]) + " - ID " + str(measurement["device"]["id"]) + " - chip " + str(measurement["chip"]["name"])
+
+
 
 class MeasurementTable(CustomFrame):
     """Table in MainWindow containing finished and imported
@@ -38,9 +55,9 @@ class MeasurementTable(CustomFrame):
     """
 
     def __init__(self,
-                 parent,
-                 experiment_manager,
-                 total_col_width,
+                 parent: Widget,
+                 experiment_manager: ExperimentManager,
+                 total_col_width: int,
                  do_changed_callbacks=True,
                  allow_only_single_meas_name=True):
         """Constructor
@@ -78,7 +95,12 @@ class MeasurementTable(CustomFrame):
         """This is the list of callbacks, that will be performed when the user selection changes."""
 
         # keep track of displayed measurements
-        self._hashes_of_meas = {}
+        self._hashes_of_meas: dict[str, MeasurementDict] = {}
+        """Maps the hash of a `MeasurementDict` to that dict."""
+        self._hashes_of_sweeps: list[str] = list()
+        """A list of the hashes of sweeps contained in the tree."""
+        self._meas_to_sweep: dict[str, str] = dict()
+        """Maps the hash of a measurement to the hash of the sweep it belongs to."""
         self._selected_meas_name = None
 
         # caching for plotting
@@ -179,18 +201,21 @@ class MeasurementTable(CustomFrame):
                 self._hashes_of_meas[meas_hash] = meas
 
             # add device node to tree if necessary
-            dev_rec = str(meas["device"]["type"]) + \
-                      " - ID " + str(meas["device"]["id"]) + \
-                      " - chip " + str(meas["chip"]["name"])
+            dev_rec = get_device_name(measurement=meas)
             if dev_rec not in self._tree.get_children():
                 dev_rec = self._tree.insert(parent="", index="end", iid=dev_rec, text=dev_rec, values=())
                 # expand device node to see newly added measurement lines
                 self._tree.item(dev_rec, open=True)
 
+            # check sweep
+            parent_id = self._check_sweep(meas, meas_hash)
+            if parent_id is None:
+                parent_id = dev_rec
+
             # add measurement record to device node, note we use the measurement hash as iid!
             meas_txt = meas['name_known']
             meas_vals = self.get_meas_values(meas)
-            self._tree.insert(parent=dev_rec, index="end", iid=meas_hash, text=meas_txt, values=meas_vals)
+            self._tree.insert(parent=parent_id, index="end", iid=meas_hash, text=meas_txt, values=meas_vals)
             new_hashes.append(meas_hash)
             # compare this meas name to currently selected meas name (if there is any)
             # and disable entry (gray background) if measurements names do not match
@@ -204,8 +229,16 @@ class MeasurementTable(CustomFrame):
         self._tree.delete(*leftover_hashes)
         for h in leftover_hashes:
             self._hashes_of_meas.pop(h)
+            if h in self._meas_to_sweep.keys():
+                del self._meas_to_sweep[h]
 
-        # clean up "abandonned" device entries
+        # clean up "abandoned" sweep entries
+        for sweep_hash in self._hashes_of_sweeps.copy():
+            if len(self._tree.get_children(sweep_hash)) == 0:
+                self._tree.delete(sweep_hash)
+                self._hashes_of_sweeps.remove(sweep_hash)
+
+        # clean up "abandoned" device entries
         for dev_rec in self._tree.get_children():
             if len(self._tree.get_children(dev_rec)) == 0:
                 self._tree.delete(dev_rec)
@@ -216,10 +249,57 @@ class MeasurementTable(CustomFrame):
             for mh in new_hashes:
                 self.click_on_meas_by_hash(meas_hash=mh)
 
+    def _check_sweep(self, measurement: MeasurementDict, measurement_hash: str) -> Optional[str]:
+        """Checks if a measurement is part of a sweep and creates sweep entry if necessary.
+        
+        Returns
+            `str` - The id of the sweep-item this measurement should be added to or 
+            `None` - If this item does not belong to a sweep
+        """
+        # check if part of sweep
+        if not measurement["sweep_information"]["part_of_sweep"] or measurement_hash in self._meas_to_sweep.keys():
+            return None
+
+        # check if sweep exists in tree
+        sweep_hash = calculate_sweep_hash(measurement)
+        if sweep_hash not in self._hashes_of_sweeps:
+            # first entry of this sweep added to tree
+            self._hashes_of_sweeps.append(sweep_hash)
+
+            # sweeps can only be performed on one device, so we make the sweep entry child of the device
+
+            # search existing children of device belonging to sweep (shouldn't exist, because than this sweep would already 
+            # exist, but you never know)
+            other_meas = []
+            swept_device = get_device_name(measurement)
+            for device in self._tree.get_children():
+                if device != swept_device:
+                    continue
+                
+                other_meas += [
+                    self._tree.get_children(hash)
+                    for hash in self._tree.get_children(device)
+                    if hash == sweep_hash
+                ]
+
+            # insert sweep under device
+            self._tree.insert(swept_device, index='end', iid=sweep_hash, text='Sweep ' + sweep_hash[-6:])
+            
+            # re-insert existing measurements (again, this list will most likely be empty, but doesn't hurt to make sure)
+            for meas in other_meas:
+                text = self._tree.item(meas)["text"]
+                values = self._tree.item(meas)["values"]
+                self._tree.delete(meas)
+                self._tree.insert(hex(sweep_hash), index='end', text=text, values=values)
+
+        self._meas_to_sweep[measurement_hash] = sweep_hash
+        return sweep_hash
+
+
     @property
     def selected_measurements(self):
         """Returns a dictionary with all measurements in it which are selected with the checkboxes"""
-        checked_iids = self._tree.get_checked()
+        checked_iids: list[str] = self._tree.get_checked()
         return {k: self._hashes_of_meas[k] for k in checked_iids}
 
     def select_item(self, item_iid, new_state):
@@ -265,6 +345,8 @@ class MeasurementTable(CustomFrame):
                 # device level was selected, pick first measurement in tree's children
                 children = self._tree.get_children(item_iid)
                 sel_child = children[0]
+                while sel_child not in self._hashes_of_meas:
+                    sel_child = self._tree.get_children(sel_child)[0]
                 self._selected_meas_name = self._hashes_of_meas[sel_child]['name_known']
 
             # disable all rows which do NOT carry the selected name
