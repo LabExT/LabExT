@@ -320,6 +320,9 @@ class MeasurementTable(CustomFrame):
                 text="Sweep " + sweep_hash[-6:],
             )
 
+            # expand sweep
+            self._tree.item(sweep_hash, open=True)
+
             # re-insert existing measurements (again, this list will most likely be empty, but doesn't hurt to make sure)
             for meas in other_meas:
                 text = self._tree.item(meas)["text"]
