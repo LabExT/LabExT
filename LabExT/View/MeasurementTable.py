@@ -15,7 +15,10 @@ from tkinter import Tk, messagebox, Toplevel, Label
 from LabExT.Experiments.StandardExperiment import calc_measurement_key
 from LabExT.View.CommentsEditor import CommentsEditor
 from LabExT.View.Controls.CustomFrame import CustomFrame
-from LabExT.View.Controls.CustomTtkWidgets import CustomScrollbar, CustomCheckboxTreeview
+from LabExT.View.Controls.CustomTtkWidgets import (
+    CustomScrollbar,
+    CustomCheckboxTreeview,
+)
 from LabExT.View.Controls.Plotting.PlotControl import PlotData
 
 if TYPE_CHECKING:
@@ -31,10 +34,11 @@ SelectionChangedEvent = tuple[str, bool, list[tuple[str, bool]], Union[Measureme
 """The event raised and given to the callbacks, when the user-selection changes.
 
 It consists of the hash of the newly selected or deselected entry (this might be a heading, i.e. 
-chip or sweep), a bool which is true if and only if the elements are now selected, a list of tuples
+chip or sweep), a bool which is true if and only if the element is now selected, a list of tuples
 mapping all entries to their selection state and finally the `MeasurementDict` of the newly selected
 entry or None if a header was selected.
 """
+
 
 def calculate_sweep_hash(measurement: MeasurementDict) -> str:
     """Calculates the hash of a sweep by xor-ing together the ids of the contained measurements."""
@@ -44,9 +48,15 @@ def calculate_sweep_hash(measurement: MeasurementDict) -> str:
     ]
     return hex(functools.reduce(lambda accumulator, new: accumulator ^ new, sweep_hash))[2:]
 
-def get_device_name(measurement: MeasurementDict):
-    return str(measurement["device"]["type"]) + " - ID " + str(measurement["device"]["id"]) + " - chip " + str(measurement["chip"]["name"])
 
+def get_device_name(measurement: MeasurementDict):
+    return (
+        str(measurement["device"]["type"])
+        + " - ID "
+        + str(measurement["device"]["id"])
+        + " - chip "
+        + str(measurement["chip"]["name"])
+    )
 
 
 class MeasurementTable(CustomFrame):
@@ -54,12 +64,14 @@ class MeasurementTable(CustomFrame):
     measurements.
     """
 
-    def __init__(self,
-                 parent: Widget,
-                 experiment_manager: ExperimentManager,
-                 total_col_width: int,
-                 do_changed_callbacks=True,
-                 allow_only_single_meas_name=True):
+    def __init__(
+        self,
+        parent: Widget,
+        experiment_manager: ExperimentManager,
+        total_col_width: int,
+        do_changed_callbacks=True,
+        allow_only_single_meas_name=True,
+    ):
         """Constructor
 
         Parameters
@@ -79,8 +91,7 @@ class MeasurementTable(CustomFrame):
             measurement name as the currently selected one. Within the Exporter class, this behavior is NOT needed,
             whereas in the main GUI, this behavior is needed.
         """
-        super(MeasurementTable,
-              self).__init__(parent)  # call parent constructor
+        super(MeasurementTable, self).__init__(parent)  # call parent constructor
 
         self.logger = logging.getLogger()
 
@@ -115,30 +126,29 @@ class MeasurementTable(CustomFrame):
         self.__setup__()  # setup the main window content
 
     def __setup__(self):
-        """Add the measurement table to the frame.
-        """
+        """Add the measurement table to the frame."""
 
         # set column names and percentage of total widths
-        def_columns = ['Timestamp', 'Flags', 'Plot Label', 'Comment']
+        def_columns = ["Timestamp", "Flags", "Plot Label", "Comment"]
         pct_columns_width = [0.15, 0.05, 0.2, 0.6]
 
         # create widgets
         self._tree = CustomCheckboxTreeview(
             self,
             columns=def_columns,
-            show='tree headings',
-            selectmode='browse',
+            show="tree headings",
+            selectmode="browse",
             checkbox_callback=self.select_item,
-            double_click_callback=self.open_comment_editor
+            double_click_callback=self.open_comment_editor,
         )
         vsb = CustomScrollbar(self, orient="vertical", command=self._tree.yview)
         hsb = CustomScrollbar(self, orient="horizontal", command=self._tree.xview)
 
         # configure widgets and place in grid
         self._tree.configure(xscrollcommand=hsb.set, yscrollcommand=vsb.set)
-        self._tree.grid(column=0, row=0, sticky='nsew', in_=self)
-        vsb.grid(column=1, row=0, sticky='wns', in_=self)
-        hsb.grid(column=0, row=1, sticky='ew', in_=self)
+        self._tree.grid(column=0, row=0, sticky="nsew", in_=self)
+        vsb.grid(column=1, row=0, sticky="wns", in_=self)
+        hsb.grid(column=0, row=1, sticky="ew", in_=self)
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -156,23 +166,40 @@ class MeasurementTable(CustomFrame):
         self._tree.bind("<Motion>", self.handle_tooltip)
         self._tree.bind("<Leave>", self.hidetip)
 
-    def add_selection_changed_callback(self, callback : Callable[[SelectionChangedEvent], None]):
+    def add_selection_changed_callback(self, callback: Callable[[SelectionChangedEvent], None]):
         """Adds a selection changed listener to the list of listeners.
-        
+
         We model the listeners with a simple callback function which accepts a `SelectionChangedEvent`.
-        
+
         Args:
             callback: The callable accepting a `SelectionChangedEvent` to add to the list of listeners
         """
         self._selection_changed_callbacks.append(callback)
 
-    def remove_selection_changed_callback(self, callback : Callable[[SelectionChangedEvent], None]):
+    def remove_selection_changed_callback(self, callback: Callable[[SelectionChangedEvent], None]):
         """Removes one selection-changed-listener."""
         self._selection_changed_callbacks.remove(callback)
 
+    def _notify_selection_changed_listeners(self, item_id: str, is_checked: bool) -> None:
+        """Notifies all listeners about the newly selected item.
+
+        Args:
+            item_id: The id of the newly selected item in the `TreeView`
+            is_checked: True if and only if the item is now selected
+        """
+        for callback in self._selection_changed_callbacks:
+            callback(
+                (
+                    item_id,
+                    is_checked,
+                    list(self.selected_measurements.values()),
+                    self._hashes_of_meas.get(item_id, None),
+                )
+            )
+
     @staticmethod
     def get_meas_values(meas_dict):
-        ts = meas_dict['timestamp_known']
+        ts = meas_dict["timestamp_known"]
         flag_symbols = [v[-1] for v in meas_dict.get(CommentsEditor.meas_flags_key, [])]
         flag_text = ", ".join(flag_symbols)
         legend_text = meas_dict.get(CommentsEditor.meas_plot_legend_key, "")
@@ -188,7 +215,6 @@ class MeasurementTable(CustomFrame):
         new_hashes = []
 
         for meas in self._measurements:
-
             meas_hash = calc_measurement_key(meas)
 
             if meas_hash in self._hashes_of_meas.keys():
@@ -213,15 +239,21 @@ class MeasurementTable(CustomFrame):
                 parent_id = dev_rec
 
             # add measurement record to device node, note we use the measurement hash as iid!
-            meas_txt = meas['name_known']
+            meas_txt = meas["name_known"]
             meas_vals = self.get_meas_values(meas)
-            self._tree.insert(parent=parent_id, index="end", iid=meas_hash, text=meas_txt, values=meas_vals)
+            self._tree.insert(
+                parent=parent_id,
+                index="end",
+                iid=meas_hash,
+                text=meas_txt,
+                values=meas_vals,
+            )
             new_hashes.append(meas_hash)
             # compare this meas name to currently selected meas name (if there is any)
             # and disable entry (gray background) if measurements names do not match
             # -> new item cannot be selected by plot_new_meas later
             if self._selected_meas_name is not None:
-                if meas['name_known'] != self._selected_meas_name:
+                if meas["name_known"] != self._selected_meas_name:
                     self._tree.disable_item(meas_hash)
 
         # these measurements are not in the measurements list anymore
@@ -251,9 +283,9 @@ class MeasurementTable(CustomFrame):
 
     def _check_sweep(self, measurement: MeasurementDict, measurement_hash: str) -> Optional[str]:
         """Checks if a measurement is part of a sweep and creates sweep entry if necessary.
-        
+
         Returns
-            `str` - The id of the sweep-item this measurement should be added to or 
+            `str` - The id of the sweep-item this measurement should be added to or
             `None` - If this item does not belong to a sweep
         """
         # check if part of sweep
@@ -268,33 +300,35 @@ class MeasurementTable(CustomFrame):
 
             # sweeps can only be performed on one device, so we make the sweep entry child of the device
 
-            # search existing children of device belonging to sweep (shouldn't exist, because than this sweep would already 
+            # search existing children of device belonging to sweep (shouldn't exist, because than this sweep would already
             # exist, but you never know)
             other_meas = []
             swept_device = get_device_name(measurement)
             for device in self._tree.get_children():
                 if device != swept_device:
                     continue
-                
+
                 other_meas += [
-                    self._tree.get_children(hash)
-                    for hash in self._tree.get_children(device)
-                    if hash == sweep_hash
+                    self._tree.get_children(hash) for hash in self._tree.get_children(device) if hash == sweep_hash
                 ]
 
             # insert sweep under device
-            self._tree.insert(swept_device, index='end', iid=sweep_hash, text='Sweep ' + sweep_hash[-6:])
-            
+            self._tree.insert(
+                swept_device,
+                index="end",
+                iid=sweep_hash,
+                text="Sweep " + sweep_hash[-6:],
+            )
+
             # re-insert existing measurements (again, this list will most likely be empty, but doesn't hurt to make sure)
             for meas in other_meas:
                 text = self._tree.item(meas)["text"]
                 values = self._tree.item(meas)["values"]
                 self._tree.delete(meas)
-                self._tree.insert(hex(sweep_hash), index='end', text=text, values=values)
+                self._tree.insert(hex(sweep_hash), index="end", text=text, values=values)
 
         self._meas_to_sweep[measurement_hash] = sweep_hash
         return sweep_hash
-
 
     @property
     def selected_measurements(self):
@@ -326,7 +360,7 @@ class MeasurementTable(CustomFrame):
         # How it will work:
         # 1. click on item calls select_item
         # 2. all item selection callbacks will be performed
-        # 3. plottable data handler will 
+        # 3. plottable data handler will
         #   a) recalculate data
         #   b) perform its plottable data changed callbacks
         # 4. PlottingSettingsFrame will update
@@ -334,24 +368,25 @@ class MeasurementTable(CustomFrame):
 
         current_selection = self.selected_measurements
 
+        self._notify_selection_changed_listeners(item_iid, new_state)
+
         # As soon as first measurement is selected, we have to disable all rows which contain measurements
         # which do NOT have the same measurement name
         if self._selected_meas_name is None and len(item_iid) > 0 and self._allow_only_one_meas_name:
-
             # save the name of the first selected measurement
             if item_iid in self._hashes_of_meas:
-                self._selected_meas_name = self._hashes_of_meas[item_iid]['name_known']
+                self._selected_meas_name = self._hashes_of_meas[item_iid]["name_known"]
             else:
                 # device level was selected, pick first measurement in tree's children
                 children = self._tree.get_children(item_iid)
                 sel_child = children[0]
                 while sel_child not in self._hashes_of_meas:
                     sel_child = self._tree.get_children(sel_child)[0]
-                self._selected_meas_name = self._hashes_of_meas[sel_child]['name_known']
+                self._selected_meas_name = self._hashes_of_meas[sel_child]["name_known"]
 
             # disable all rows which do NOT carry the selected name
             for iid, meas in self._hashes_of_meas.items():
-                if meas['name_known'] != self._selected_meas_name:
+                if meas["name_known"] != self._selected_meas_name:
                     self._tree.disable_item(iid)
 
             if self._do_changed_callbacks:
@@ -372,9 +407,7 @@ class MeasurementTable(CustomFrame):
 
         # get set of all axis labels available in the selected measurements
         axis_set = set()
-        axis_set.update(
-            [key for meas in current_selection.values() for key in meas['values'].keys()]
-        )
+        axis_set.update([key for meas in current_selection.values() for key in meas["values"].keys()])
 
         if self._do_changed_callbacks:
             # Check if we have the extra plot window open. if yes, notify it.
@@ -388,14 +421,14 @@ class MeasurementTable(CustomFrame):
                 self._tree._exec_click_on_item(chld_meas)
 
     def click_on_meas_by_hash(self, meas_hash):
-        """ simulate a click on a checkbox given a hash of a measurement """
+        """simulate a click on a checkbox given a hash of a measurement"""
         for chld_dev in self._tree.get_children():
             for chld_meas in self._tree.get_children(item=chld_dev):
                 if chld_meas == meas_hash:
                     self._tree._exec_click_on_item(chld_meas)
 
     def show_all_plots(self):
-        """ check all possible items """
+        """check all possible items"""
         # disable callbacks during unchecking to avoid continuous replotting
         self._do_changed_callbacks = False
         # go through all children and uncheck them
@@ -407,7 +440,7 @@ class MeasurementTable(CustomFrame):
         self.select_item("", False)
 
     def hide_all_plots(self, only_these_hashes=None):
-        """ uncheck all items and hide all plots """
+        """uncheck all items and hide all plots"""
         # disable callbacks during unchecking to avoid continuous replotting
         self._do_changed_callbacks = False
         # go through all children and uncheck them
@@ -438,7 +471,11 @@ class MeasurementTable(CustomFrame):
 
         if (x_axis != self._plotted_x_axis) or (y_axis != self._plotted_y_axis):
             # axis selection changed, we need to replot everything
-            self.logger.debug('Axis selection changed to x:%s y:%s. Clearing all plots.', x_axis, y_axis)
+            self.logger.debug(
+                "Axis selection changed to x:%s y:%s. Clearing all plots.",
+                x_axis,
+                y_axis,
+            )
             self._experiment_manager.exp.selec_plot_collection.clear()
             self._plotted_data.clear()
 
@@ -450,22 +487,25 @@ class MeasurementTable(CustomFrame):
 
         # plot all which are not yet plotted
         for meas_iid, meas in target_plotted_meas.items():
-
             # check if already plotted
             if meas_iid in current_plotted_data:
                 continue
 
             # plot the data
             try:
-                x_data = meas['values'][x_axis]
-                y_data = meas['values'][y_axis]
+                x_data = meas["values"][x_axis]
+                y_data = meas["values"][y_axis]
             except KeyError:
-                self.logger.error('In record %s could not find these axes: x:%s y:%s',
-                                  meas['name_known'], x_axis, y_axis)
+                self.logger.error(
+                    "In record %s could not find these axes: x:%s y:%s",
+                    meas["name_known"],
+                    x_axis,
+                    y_axis,
+                )
                 messagebox.showerror(
-                    'Error',
-                    'Please set the correct data for both axes. '
-                    'Please check that you have not selected two different types of measurements.'
+                    "Error",
+                    "Please set the correct data for both axes. "
+                    "Please check that you have not selected two different types of measurements.",
                 )
                 continue
 
@@ -474,8 +514,8 @@ class MeasurementTable(CustomFrame):
             if user_given_plot_legend:
                 plot_label = user_given_plot_legend
             else:
-                ts_time_only = meas['timestamp_known'].split("_")[-1]
-                plot_label = str(meas['device']['type']) + " - id" + str(meas['device']['id']) + " - " + ts_time_only
+                ts_time_only = meas["timestamp_known"].split("_")[-1]
+                plot_label = str(meas["device"]["type"]) + " - id" + str(meas["device"]["id"]) + " - " + ts_time_only
 
             plot_data = PlotData(x_data, y_data, label=plot_label)
 
@@ -487,7 +527,6 @@ class MeasurementTable(CustomFrame):
 
         # remove all which are not selected anymore
         for meas_iid, plot_data in current_plotted_data.items():
-
             # check if still selected, if yes we do not remove the plot
             if meas_iid in target_plotted_meas:
                 continue
@@ -497,23 +536,25 @@ class MeasurementTable(CustomFrame):
             self._plotted_data.pop(meas_iid)
 
     def open_comment_editor(self, item_iid):
-        """ opens the comment editor """
+        """opens the comment editor"""
         if item_iid in self._hashes_of_meas:
 
             def redraw_table_and_plot():
-                """ on closing of the CommentsEditor, this gets executed as cb """
+                """on closing of the CommentsEditor, this gets executed as cb"""
                 self.regenerate()
                 if self._tree.is_item_checked(item=item_iid):
                     # if the the edited measurement is currently plotted, toggle plot to update legend text
                     self.click_on_meas_by_hash(item_iid)  # toggle plot off
                     self.click_on_meas_by_hash(item_iid)  # toggle plot on
 
-            CommentsEditor(parent=self._root,
-                           measurement_dict=self._hashes_of_meas[item_iid],
-                           callback_on_save=redraw_table_and_plot)
+            CommentsEditor(
+                parent=self._root,
+                measurement_dict=self._hashes_of_meas[item_iid],
+                callback_on_save=redraw_table_and_plot,
+            )
 
     def handle_tooltip(self, event):
-        """ Callback for any mouse-movement. Decide to show or hide tooltip. """
+        """Callback for any mouse-movement. Decide to show or hide tooltip."""
         _iid = self._tree.identify_row(event.y)
         # dont do anything when iid did not change (reduces flickering)
         if self._tooltipped_iid == _iid:
@@ -526,11 +567,10 @@ class MeasurementTable(CustomFrame):
             self.hidetip(None)
 
     def showtip(self, meas_dict):
-        """ Given a meas_dict, shows the tooltip for it. """
+        """Given a meas_dict, shows the tooltip for it."""
 
         # format text to show
-        show_dict = {k: v for k, v in meas_dict.items() if k in [
-            "measurement settings", "device"]}
+        show_dict = {k: v for k, v in meas_dict.items() if k in ["measurement settings", "device"]}
         show_text = CommentsEditor.pprint_meas_dict(show_dict)
         if show_text.endswith("\n"):
             show_text = show_text[:-1]
@@ -549,8 +589,14 @@ class MeasurementTable(CustomFrame):
         # Leaves only the label and removes the app window
         self._tooltip_toplevel.wm_overrideredirect(True)
         self._tooltip_toplevel.wm_geometry("+%d+%d" % (x, y))
-        label = Label(self._tooltip_toplevel, text=show_text, justify='left',
-                      background="#ffffff", relief='solid', borderwidth=1)
+        label = Label(
+            self._tooltip_toplevel,
+            text=show_text,
+            justify="left",
+            background="#ffffff",
+            relief="solid",
+            borderwidth=1,
+        )
         label.pack(ipadx=1)
 
     def hidetip(self, event):
