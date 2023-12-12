@@ -187,12 +187,13 @@ class MeasurementTable(CustomFrame):
             item_id: The id of the newly selected item in the `TreeView`
             is_checked: True if and only if the item is now selected
         """
+        checked_items = self._tree.get_checked()
         for callback in self._selection_changed_callbacks:
             callback(
                 (
                     item_id,
                     is_checked,
-                    list(self.selected_measurements.values()),
+                    [(hash, hash in checked_items) for hash in self._hashes_of_meas.values()],
                     self._hashes_of_meas.get(item_id, None),
                 )
             )
