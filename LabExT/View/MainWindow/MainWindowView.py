@@ -586,6 +586,7 @@ class MainWindowFrame(Frame):
         self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
 
         self._plotting_controller = PlotController(master=self)
+        self._plotting_controller.show()
         self.selec_plot = PlotControl(
             self,
             add_toolbar=True,
@@ -615,6 +616,8 @@ class MainWindowFrame(Frame):
         self.to_do_table = MainWindowToDoTable(self, self.controller, self.experiment_manager)
         self.to_do_frame = MainWindowToDoFrame(self, self.controller)
         self.finished_meas_frame = MainWindowFinishedMeasFrame(self, self.controller)
+
+        self.measurement_table.add_selection_changed_callback(self._plotting_controller.selection_changed_listener)
 
 
 class MainWindowView:
