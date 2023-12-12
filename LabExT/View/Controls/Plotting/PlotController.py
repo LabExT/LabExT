@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from LabExT.View.Controls.Plotting.PlotModel import PlotModel
 from LabExT.View.Controls.Plotting.PlotView import PlotView
+from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableDataHandler
 
 if TYPE_CHECKING:
     from tkinter import Tk, Widget
@@ -24,9 +25,7 @@ class PlotController:
     visualization. It also contains a reference to the view needed to display the data.
     """
 
-    def __init__(
-        self, master: Widget, row: int = 0, column: int = 1, width: int = 2, height: int = 2, pad: int = 10
-    ) -> None:
+    def __init__(self, master: Widget) -> None:
         """Creates a new `PlotController` and initializes the corresponding model and view.
 
         Args:
@@ -39,11 +38,22 @@ class PlotController:
         """
 
         self._model = PlotModel()
-        self._view = PlotView(
-            master=master, figure=self._model._figure, row=row, column=column, width=width, height=height, pad=pad
-        )
+        self._view = PlotView(master=master, figure=self._model._figure)
 
-        import numpy as np
+        self._data_handler = PlottableDataHandler()
 
-        data = np.linspace(0, 10, 50)
-        self._model._axes.plot(data, data**2)
+    def show(self, row: int = 0, column: int = 1, width: int = 2, height: int = 2, pad: int = 10) -> None:
+        """Places the corresponding gui elements in a grid in the parent widget according to the arguments.
+
+        Args:
+            row: row coordinate in the parent
+            width: columnspan in master
+            height: rowspan in master
+            column: column coordinate in the parent
+            pad: padding in x and y direction
+        """
+        self._view.show(row, column, width, height, pad)
+
+    def hide(self) -> None:
+        """Removes the corresponding gui elements from the parent."""
+        self._view.hide()

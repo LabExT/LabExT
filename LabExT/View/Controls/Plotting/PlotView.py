@@ -27,9 +27,7 @@ class PlotView:
     Manages the widgets and so on.
     """
 
-    def __init__(
-        self, master: tk.Widget, figure: Figure, row: int = 0, column: int = 1, width: int = 2, height=2, pad: int = 10
-    ) -> None:
+    def __init__(self, master: tk.Widget, figure: Figure) -> None:
         """Initializes a new `PlotView` object
 
         The plotting frame will be placed at the specified coordinates and the settings window will be placed
@@ -38,27 +36,40 @@ class PlotView:
         Args:
             master: The parent of the plotting frame (e.g. the main window Tk instance)
             figure: A matplotlib figure used to visualize the data. Provided by `PlotModel`.
-            row: row coordinate in the parent
-            width: columnspan in master
-            height: rowspan in master
-            column: column coordinate in the parent
-            pad: padding in x and y direction
         """
 
         self._paned_frame = tk.PanedWindow(master=master, orient=tk.HORIZONTAL)
         """Holds the subwindows."""
 
         self._plotting_frame = PlottingFrame(master=self._paned_frame, figure=figure)
-        self._paned_frame.add(self._plotting_frame, padx=pad, pady=pad, minsize=400, width=700)
 
         self._settings_frame = PlottingSettingsFrame(
             master=self._paned_frame, axes=figure.axes[0], on_data_change=self._plotting_frame.data_changed_callback
         )
         self._settings_frame.title = "Plot Settings"
+
+    def show(self, row: int = 0, column: int = 1, width: int = 2, height=2, pad: int = 10) -> None:
+        """Places this element in a grid in the parent widget according to the arguments.
+        
+        Args:
+            row: row coordinate in the parent
+            width: columnspan in master
+            height: rowspan in master
+            column: column coordinate in the parent
+            pad: padding in x and y direction
+        """
+        self._paned_frame.add(self._plotting_frame, padx=pad, pady=pad, minsize=400, width=700)
         self._paned_frame.add(self._settings_frame, padx=pad, pady=pad, minsize=200)
+
         self._paned_frame.grid(
             row=row, column=column, columnspan=width, rowspan=height, padx=pad, pady=pad, sticky="nsew"
         )
+
+    def hide(self) -> None:
+        """Removes this element from the parent grid."""
+        self._paned_frame.remove(self._plotting_frame)
+        self._paned_frame.remove(self._settings_frame)
+        self._paned_frame.grid_forget()
 
 
 class PlottingFrame(tk.Frame):
