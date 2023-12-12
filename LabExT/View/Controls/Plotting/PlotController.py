@@ -5,11 +5,12 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from LabExT.View.Controls.Plotting.PlotModel import PlotModel
 from LabExT.View.Controls.Plotting.PlotView import PlotView
 from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableDataHandler
+from LabExT.View.MeasurementTable import SelectionChangedEvent
 
 if TYPE_CHECKING:
     from tkinter import Tk, Widget
@@ -30,11 +31,6 @@ class PlotController:
 
         Args:
             master: The master widget of the view (e.g. main window `Tk`)
-            row: row coordinate of view in master
-            column: column coordinate of view in master
-            width: columnspan of view in master
-            height: rowspan of view in master
-            pad: padding in x and y direction
         """
 
         self._model = PlotModel()
@@ -46,10 +42,10 @@ class PlotController:
         """Places the corresponding gui elements in a grid in the parent widget according to the arguments.
 
         Args:
-            row: row coordinate in the parent
-            width: columnspan in master
-            height: rowspan in master
-            column: column coordinate in the parent
+            row: row coordinate of view in master
+            column: column coordinate of view in master
+            width: columnspan of view in master
+            height: rowspan of view in master
             pad: padding in x and y direction
         """
         self._view.show(row, column, width, height, pad)
@@ -57,3 +53,8 @@ class PlotController:
     def hide(self) -> None:
         """Removes the corresponding gui elements from the parent."""
         self._view.hide()
+
+    @property
+    def selection_changed_listener(self) -> Callable[[SelectionChangedEvent], None]:
+        """The event listener that needs to be passed to `MeasurementTable`."""
+        return self._data_handler.measurement_selection_changed_callback
