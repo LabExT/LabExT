@@ -91,11 +91,11 @@ class LiveViewerController:
         # the minimum y span
         self.model.min_y_span = abs(parameters["minimum y-axis span"].value)
 
-        # enable or disable the bar plots on the right
-        self.model.show_bar_plots = parameters["show bar plots"].value
-
         # averaging for bar plot
-        self.model.averaging_bar_plot = max(1, int(abs(parameters["averaging in bar plot"].value)))
+        self.model.averaging_arrow_height = max(1, int(abs(parameters["averaging arrow height"].value)))
+
+        # show FPS counter
+        self.model.show_fps_counter = parameters["show FPS counter"].value
 
     def remove_card(self, card: CardFrame):
         """Removes a card from the liveviewer. This should be called when the user presses the 'x' symbol in the
@@ -145,7 +145,7 @@ class LiveViewerController:
     def reference_set(self):
         # this sets the references of the plot traces to the last measured value
         for plot_trace in self.model.traces_to_plot.values():
-            plot_trace.reference_set(n_avg=self.model.averaging_bar_plot)
+            plot_trace.reference_set(n_avg=self.model.averaging_arrow_height)
         # store reference data to file for later recall
         reference_data = {plot_trace.line_label: plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
         fname = get_configuration_file_path(self.model.references_file_name)
@@ -256,6 +256,9 @@ class LiveViewerController:
         data["finished"] = True
 
         data.save()
+
+        self.experiment_manager.exp.load_measurement_dataset(meas_dict=data, file_path=save_file_path, force_gui_update=True)
+        self.experiment_manager.logger.info(f"Saved visible live viewer traces to file at {save_file_path:s}.")
 
     @staticmethod
     def load_all_cards(experiment_manager: ExperimentManager) -> Tuple[Dict[str, type], Dict[str, int]]:
