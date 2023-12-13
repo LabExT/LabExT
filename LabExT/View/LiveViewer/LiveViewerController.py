@@ -142,17 +142,68 @@ class LiveViewerController:
             self.view.main_window.main_frame.control_wrapper.pause_button.config(text="Pause Plotting")
             self.model.plotting_active = True
 
+    def reference_set(self):
+        # this sets the references of the plot traces to the last measured value
+        for plot_trace in self.model.traces_to_plot.values():
+            plot_trace.reference_set(n_avg=self.model.averaging_bar_plot)
+        # store reference data to file for later recall
+        reference_data = {plot_trace.line_label: plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
+        fname = get_configuration_file_path(self.model.references_file_name)
+        # make sure to keep existing data in the file
+        try:
+            with open(fname, "r") as json_file:
+                existing_reference_data = json.loads(json_file.read())
+            existing_reference_data.update(reference_data)
+        except (FileNotFoundError, JSONDecodeError, AttributeError):
+            self.experiment_manager.logger.warning(
+                "Could not load live viewer reference values from file. Overwriting existing data."
+            )
+            existing_reference_data = reference_data.copy()
+        with open(fname, "w") as json_file:
+            json_file.write(json.dumps(existing_reference_data))
+    
+    def reference_clear(self):
+        for plot_trace in self.model.traces_to_plot.values():
+            plot_trace.reference_clear()
+
+    def reference_recall(self):
+        try:
+            fname = get_configuration_file_path(self.model.references_file_name)
+            with open(fname, "r") as json_file:
+                reference_data = json.loads(json_file.read())
+            for trace_label, reference_value in reference_data.items():
+                for plot_trace in self.model.traces_to_plot.values():
+                    if trace_label == plot_trace.line_label:
+                        plot_trace.reference_set(reference_value)
+                        break
+        except FileNotFoundError:
+            # save file does not exist, don't care
+            return
+        except (KeyError, AttributeError, JSONDecodeError) as _:
+            # loading errors can be safely ignored as the reference values will be saved upon next set
+            self.experiment_manager.logger.warning(
+                "Could not load live viewer reference values from file. References cannot be recalled."
+            )
+
     def create_snapshot(self):
+
+        if not self.model.traces_to_plot:
+            return
+
         param_output_path = str(self.experiment_manager.exp.save_parameters["Raw output path"].value)
         makedirs(param_output_path, exist_ok=True)
 
-        inst_data = {}
-
+        cards_props = {}
+        inst_props = {}
         for _, card in self.model.cards:
-            try:
-                inst_data[card.instance_title] = card.instrument.get_instrument_parameter()
-            except AttributeError as e:
-                pass
+            param_data = {}
+            card.ptable.serialize_to_dict(param_data)
+            cards_props[card.instance_title] = param_data['data']
+
+            instr_data = {}
+            for irolename, irole in card.available_instruments.items():
+                instr_data[irolename] = irole.choice
+            inst_props[card.instance_title] = instr_data
 
         now = datetime.datetime.now()
         ts = str("{date:%Y-%m-%d_%H%M%S}".format(date=now))
@@ -190,8 +241,8 @@ class LiveViewerController:
 
         data["measurement name"] = "Liveviewer Snapshot"
         data["measurement name and id"] = "Liveviewer Snapshot"
-        data["instruments"] = inst_data
-        data["measurement settings"] = {}
+        data["instruments"] = inst_props
+        data["measurement settings"] = cards_props
         data["values"] = OrderedDict()
         data["error"] = {}
 

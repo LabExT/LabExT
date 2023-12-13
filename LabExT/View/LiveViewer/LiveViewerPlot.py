@@ -48,6 +48,8 @@ class LiveViewerPlot(Frame):
         self._figsize: Tuple[int, int] = (6, 4)
         self._title: str = "Live Plot"
         self._animate_interval_ms: int = 100
+        self._full_redraw_every_N_ticks: int = 10
+        self._update_counter = 0
 
         # plot object refs
         self._ani: Optional[Animation] = None
@@ -130,6 +132,13 @@ class LiveViewerPlot(Frame):
             self.__setup__()
             # setup started a new animation loop, return here
             return
+        
+        self._update_counter += 1
+        if self._update_counter >= self._full_redraw_every_N_ticks:
+            do_full_redraw = True
+            self._update_counter = 0
+        else:
+            do_full_redraw = False
 
         redraw_bars = False
 
@@ -158,6 +167,7 @@ class LiveViewerPlot(Frame):
                             timestamps=[plot_data_point.timestamp],
                             y_values=[plot_data_point.y_value],
                             line_handle=line,
+                            line_label=line_label,
                             color_index=color_index,
                             bar_index=-1,
                         )
@@ -171,10 +181,16 @@ class LiveViewerPlot(Frame):
                 # jumps to next card if no more plot values left to process
                 continue
 
-        # update the line data for all traces
+        # update line data
         for plot_trace in self.model.traces_to_plot.values():
-            plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
             plot_trace.update_line_data()
+
+        # delete old line data & update label only on full-redraw
+        redraw_legend = False
+        if do_full_redraw:
+            for plot_trace in self.model.traces_to_plot.values():
+                plot_trace.delete_older_than(self.model.plot_cutoff_seconds)
+                redraw_legend = redraw_legend or plot_trace.update_line_label()
 
         # do y-axis re-scaling of plot
         # get current max/min of all traces
@@ -204,7 +220,7 @@ class LiveViewerPlot(Frame):
 
         # handle legend: show legend only if there are traces to plot
         # only do changes to the legend if there are any changes to the shown traces
-        if redraw_bars:
+        if redraw_bars or redraw_legend:
             if self.model.traces_to_plot:
                 self._legend = self._ax.legend(loc="upper left", frameon=False)
             else:
@@ -213,49 +229,50 @@ class LiveViewerPlot(Frame):
                     self._legend = None
 
         # update bar data
-        if redraw_bars and (self._ax_bar is not None):
-            for b in self._bar_collection:
-                b.remove()
-            for l in self._bar_collection_labels:
-                l.remove()
-            self._bar_collection_labels.clear()
+        if self._ax_bar is not None:
+            if redraw_bars:
+                for b in self._bar_collection:
+                    b.remove()
+                for l in self._bar_collection_labels:
+                    l.remove()
+                self._bar_collection_labels.clear()
 
-            x = []
-            height = []
-            colors = []
-            labels = []
-            for tidx, (_, plot_trace) in enumerate(self.model.traces_to_plot.items()):
-                plot_trace.bar_index = tidx
-                y_values = plot_trace.finite_y_values
-                if len(y_values) > 0:
-                    y_val = y_values[-1]
-                else:
-                    y_val = float("nan")
-                height.append(y_val - y_min)
-                x.append(tidx)
-                colors.append(plot_trace.line_handle.get_color())
-                labels.append(plot_trace.line_handle.get_label())
-                self._bar_collection_labels.append(
-                    self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center")
-                )
-
-            self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors)
-
-            self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
-            self._ax_bar.set_xticks([i for i in range(len(x))])
-            self._ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
-            self._ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
-
-        else:
-            for _, plot_trace in self.model.traces_to_plot.items():
-                y_values = plot_trace.finite_y_values
-                if len(y_values) > 0:
-                    self._bar_collection[plot_trace.bar_index].set_height(
-                        np.mean(y_values[-self.model.averaging_bar_plot :]) - y_min
+                x = []
+                height = []
+                colors = []
+                labels = []
+                for tidx, (_, plot_trace) in enumerate(self.model.traces_to_plot.items()):
+                    plot_trace.bar_index = tidx
+                    y_values = plot_trace.finite_y_values
+                    if len(y_values) > 0:
+                        y_val = y_values[-1]
+                    else:
+                        y_val = float("nan")
+                    height.append(y_val - y_min)
+                    x.append(tidx)
+                    colors.append(plot_trace.line_handle.get_color())
+                    labels.append(plot_trace.line_handle.get_label())
+                    self._bar_collection_labels.append(
+                        self._ax_bar.text(x=tidx, y=y_min, s=f"{y_val:.3f}\n", va="bottom", ha="center")
                     )
-                    self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
-                else:
-                    self._bar_collection[plot_trace.bar_index].set_height(0)
-                    self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
-                self._bar_collection[plot_trace.bar_index].set_y(y_min)
-                self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
+
+                self._bar_collection = self._ax_bar.bar(x, height, bottom=y_min, color=colors)
+
+                self._ax_bar.set_xlim([-0.6, len(x) - 0.4])
+                self._ax_bar.set_xticks([i for i in range(len(x))])
+                self._ax_bar.set_xticklabels(labels, rotation=90, va="bottom")
+                self._ax_bar.tick_params(axis="x", length=0.0, pad=-35.0, direction="in")
+
+            else:
+                for _, plot_trace in self.model.traces_to_plot.items():
+                    y_values = plot_trace.finite_y_values
+                    if len(y_values) > 0:
+                        self._bar_collection[plot_trace.bar_index].set_height(
+                            np.mean(y_values[-self.model.averaging_bar_plot :]) - y_min
+                        )
+                        self._bar_collection_labels[plot_trace.bar_index].set_text(f"{y_values[-1]:.3f}\n")
+                    else:
+                        self._bar_collection[plot_trace.bar_index].set_height(0)
+                        self._bar_collection_labels[plot_trace.bar_index].set_text("N/A\n")
+                    self._bar_collection[plot_trace.bar_index].set_y(y_min)
+                    self._bar_collection_labels[plot_trace.bar_index].set_y(y_min)
