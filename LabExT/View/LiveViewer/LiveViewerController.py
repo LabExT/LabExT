@@ -193,13 +193,17 @@ class LiveViewerController:
         param_output_path = str(self.experiment_manager.exp.save_parameters["Raw output path"].value)
         makedirs(param_output_path, exist_ok=True)
 
-        inst_data = {}
-
+        cards_props = {}
+        inst_props = {}
         for _, card in self.model.cards:
-            try:
-                inst_data[card.instance_title] = card.instrument.get_instrument_parameter()
-            except AttributeError as e:
-                pass
+            param_data = {}
+            card.ptable.serialize_to_dict(param_data)
+            cards_props[card.instance_title] = param_data['data']
+
+            instr_data = {}
+            for irolename, irole in card.available_instruments.items():
+                instr_data[irolename] = irole.choice
+            inst_props[card.instance_title] = instr_data
 
         now = datetime.datetime.now()
         ts = str("{date:%Y-%m-%d_%H%M%S}".format(date=now))
@@ -237,8 +241,8 @@ class LiveViewerController:
 
         data["measurement name"] = "Liveviewer Snapshot"
         data["measurement name and id"] = "Liveviewer Snapshot"
-        data["instruments"] = inst_data
-        data["measurement settings"] = {}
+        data["instruments"] = inst_props
+        data["measurement settings"] = cards_props
         data["values"] = OrderedDict()
         data["error"] = {}
 
