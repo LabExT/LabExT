@@ -45,10 +45,8 @@ class LiveViewerPlot(Frame):
         self._figsize: Tuple[int, int] = (6, 4)
         self._title: str = "Live Plot"
         self._animate_interval_ms: int = 33
-        # self._full_redraw_every_N_ticks: int = 15
 
         # internal bookkeeping
-        # self._update_counter = 0
         self._saved_xlim = 0.0
         self._saved_ylim = (np.inf, -np.inf)
 
