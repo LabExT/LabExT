@@ -147,7 +147,7 @@ class LiveViewerController:
         for plot_trace in self.model.traces_to_plot.values():
             plot_trace.reference_set(n_avg=self.model.averaging_bar_plot)
         # store reference data to file for later recall
-        reference_data = {plot_trace.line_handle.get_label(): plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
+        reference_data = {plot_trace.line_label: plot_trace.reference_value for plot_trace in self.model.traces_to_plot.values()}
         fname = get_configuration_file_path(self.model.references_file_name)
         # make sure to keep existing data in the file
         try:
@@ -173,7 +173,7 @@ class LiveViewerController:
                 reference_data = json.loads(json_file.read())
             for trace_label, reference_value in reference_data.items():
                 for plot_trace in self.model.traces_to_plot.values():
-                    if trace_label == plot_trace.line_handle.get_label():
+                    if trace_label == plot_trace.line_label:
                         plot_trace.reference_set(reference_value)
                         break
         except FileNotFoundError:
