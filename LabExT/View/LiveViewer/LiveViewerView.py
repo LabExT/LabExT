@@ -170,10 +170,10 @@ class ControlFrame(Frame):
         self.ref_recall_button = Button(self, text="Recall Reference", command=self.controller.reference_recall)
         self.ref_recall_button.grid(row=3, column=2, sticky="NESW", pady=1)
 
-        self.pause_button = Button(self, text="⏸️ Pause Plotting", command=self.controller.toggle_plotting_active)
+        self.pause_button = Button(self, text="Pause Plotting", command=self.controller.toggle_plotting_active)
         self.pause_button.grid(row=4, column=0, columnspan=3, sticky="NESW", pady=1)
 
-        self.save_button = Button(self, text="💾 Save current Data", command=self.controller.create_snapshot)
+        self.save_button = Button(self, text="Save current Data", command=self.controller.create_snapshot)
         self.save_button.grid(row=5, column=0, columnspan=3, sticky="NESW", pady=1)
 
         self.card_full_container = Frame(self)

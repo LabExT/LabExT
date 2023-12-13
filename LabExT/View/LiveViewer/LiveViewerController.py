@@ -135,11 +135,11 @@ class LiveViewerController:
     def toggle_plotting_active(self):
         if self.model.plotting_active:
             self.view.main_window.main_frame.plot_wrapper.stop_animation()
-            self.view.main_window.main_frame.control_wrapper.pause_button.config(text="▶️ Continue Plotting")
+            self.view.main_window.main_frame.control_wrapper.pause_button.config(text="Continue Plotting")
             self.model.plotting_active = False
         else:
             self.view.main_window.main_frame.plot_wrapper.start_animation()
-            self.view.main_window.main_frame.control_wrapper.pause_button.config(text="⏸️ Pause Plotting")
+            self.view.main_window.main_frame.control_wrapper.pause_button.config(text="Pause Plotting")
             self.model.plotting_active = True
 
     def reference_set(self):
