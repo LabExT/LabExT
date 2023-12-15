@@ -32,6 +32,7 @@ from LabExT.View.Movement import (
     MoveStagesDeviceWindow,
     LoadStoredCalibrationWindow
 )
+from LabExT.Wafer.ImportChipWizard import ImportChipWizard
 
 class MListener:
     """Listens to the events triggered by clicks on the menu bar.
@@ -71,6 +72,7 @@ class MListener:
         self.mover_setup_toplevel = None
         self.calibration_setup_toplevel = None
         self.calibration_restore_toplevel = None
+        self.import_chip_wizard_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
@@ -177,6 +179,16 @@ class MListener:
                 self.logger.info('Chip import aborted by user (cancelled name setting).')
         else:
             self.logger.info('Chip import aborted by user (no file selected).')
+
+    def client_import_chip_wizard(self):
+
+        if try_to_lift_window(self.import_chip_wizard_toplevel):
+            return
+        
+        self.import_chip_wizard_toplevel = ImportChipWizard(
+            master=self._root,
+            experiment_manager=self._experiment_manager
+        )
 
     def client_export_data(self):
         """Called when user wants to export data. Starts the Exporter.
