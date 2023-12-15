@@ -17,7 +17,7 @@ from LabExT.Wafer.Device import Device
 class Chip:
     """Chip is the implementation of a chip with devices."""
 
-    def __init__(self, name: str = None, devices: List[Device] = None):
+    def __init__(self, name: str = None, path: str = None, devices: List[Device] = None):
         """Constructor.
 
         Parameters
@@ -29,7 +29,7 @@ class Chip:
         """
         self._logger = logging.getLogger()
         self._logger.debug('Initialised Chip with name: %s', name)
-        self._path = None
+        self._path = path
         self._name = name
         self._devices = devices
         if not devices:
