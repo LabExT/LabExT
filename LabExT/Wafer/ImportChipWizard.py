@@ -63,7 +63,7 @@ class ImportChipWizard(Wizard):
     def _on_finish(self):
         # todo: do some checks on the submitted Chip
         # then load new chip into experiment manager which should update everything else (mover, mainwindow etc)
-        pass
+        return True
 
 
 class ChipSourceSelection(Step):
@@ -97,10 +97,16 @@ class ChipSourceSelection(Step):
     
 class ShowChipImportResult(Step):
     def __init__(self, wizard) -> None:
-        super().__init__(wizard, builder=self.build, title="Overview over Imported Devices")
+        super().__init__(wizard, builder=self.build, title="Overview over Imported Devices", on_previous=self._on_previous)
         self.finish_step_enabled = True
 
+    def _on_previous(self):
+        self.wizard.submitted_chip = None
+        self.previous_step.next_step_enabled = False
+        return True
+
     def build(self, frame: CustomFrame): 
+        frame.title = "Overview over Imported Devices"
         Label(frame, text=f"Chip name: {self.wizard.submitted_chip.name:s}").pack(side=TOP, fill=BOTH)
         dev_table = DeviceTable(frame, self.wizard.submitted_chip)
         # todo - find way to make device table nice and big

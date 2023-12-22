@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2023  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from tkinter import TOP, X, Button, messagebox
+from tkinter import TOP, X, Button, StringVar, messagebox
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -26,19 +26,28 @@ class PhoenixPhotonics(ChipSourceStep):
 
     CHIP_SOURCE_TITLE = "PhoeniX Photonics csv format"
 
-    def build(self, frame: CustomFrame):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-        params = {
-            "file path": MeasParamString(value="", extra_type='openfile'),
-            "chip name": MeasParamString(value="Chip1")
-        }
+        self.option_table = None
+
+    def build(self, frame: CustomFrame):
+        frame.title = self.CHIP_SOURCE_TITLE
+
+        if self.option_table is not None:
+            params = self.option_table.to_meas_param()
+        else:
+            params = {
+                "file path": MeasParamString(value="", extra_type='openfile'),
+                "chip name": MeasParamString(value="Chip1")
+            }
 
         self.option_table = ParameterTable(frame)
-        self.option_table.pack(side=TOP, fill=X)
+        self.option_table.pack(side=TOP, fill=X, padx=10, pady=(10,5))
         self.option_table.title = 'PhoeniX manifest file'
         self.option_table.parameter_source = params
 
-        Button(frame, text="Load File", command=self._load_csv_device_info).pack(side=TOP)
+        Button(frame, text="Load File", command=self._load_csv_device_info).pack(side=TOP, padx=10, pady=5)
 
     def _load_csv_device_info(self):
         """
@@ -71,7 +80,7 @@ class PhoenixPhotonics(ChipSourceStep):
             title = "CSV Reading Error"
             msg = f"None of the tried encoding worked to read the manifest file. Last error: {last_exc:s}"
             messagebox.showwarning(title=title, message=msg)
-            self.wizard.logger.warning(title + " " + msg)
+            self.wizard.logger.error(title + " " + msg)
             return  
 
         devices = []
