@@ -24,10 +24,11 @@ class ChipSourceStep(Step):
 
     def __init__(self, wizard: ImportChipWizard) -> None:
         super().__init__(wizard=wizard, builder=self.build, title=self.CHIP_SOURCE_TITLE)
-        self._submitted_chip: Chip = None
+        self.submitted_chip: Chip = None
 
     def build(self):
         raise NotImplementedError("Function must be overridden by subclass!")
     
     def submit_chip_info(self, name: str, path: str, devices = List[Device]):
-        self._submitted_chip = Chip(name=name, path=path, devices=devices)
+        self.submitted_chip = Chip(name=name, path=path, devices=devices)
+        # todo: go to next step
