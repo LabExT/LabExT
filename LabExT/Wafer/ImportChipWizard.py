@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from typing import TYPE_CHECKING
-from tkinter import Label, TOP, X
+from tkinter import LEFT, RIGHT, Button, Label, TOP, X, OptionMenu, StringVar
 
 from LabExT.View.Controls.Wizard import Wizard, Step
 
@@ -41,6 +41,13 @@ class ImportChipWizard(Wizard):
 
         self.step_chip_source_selection = ChipSourceSelection(self)
 
+        # load all available source steps
+        self.source_config_steps_insts = {
+            name: _class(wizard=self) for name, _class in self.experiment_manager.chip_source_api.chip_sources.items()
+        }
+        for step in self.source_config_steps_insts.values():
+            step.previous_step = self.step_chip_source_selection
+
         self.current_step = self.step_chip_source_selection
 
 
@@ -48,7 +55,26 @@ class ChipSourceSelection(Step):
     def __init__(self, wizard) -> None:
         super().__init__(wizard=wizard, builder=self.build, title="Select Data Source")
 
+        self.source_options_sel_var = None
+
+        self.next_step = "I'm an ugly hack."
+        self.next_step_enabled = True
+        self.on_next = self._on_next
+
     def build(self, frame: CustomFrame):
         frame.title = "Select Data Source"
 
-        Label(frame, text="Hello World!").pack(side=TOP, fill=X)
+        source_options = list(self.wizard.experiment_manager.chip_source_api.chip_sources.keys())
+        if not source_options:
+            Label(frame, text="No chip sources available. Cannot continue.").pack(side=TOP, fill=X)
+            self.wizard.set_error("No chip sources available.")
+            return
+        
+        self.source_options_sel_var = StringVar(self.wizard, source_options[0])
+        Label(frame, text="Choose which manifest importer / chip source to use:").pack(side=TOP)
+        OptionMenu(frame, self.source_options_sel_var, *source_options).pack(side=TOP, fill=X)
+
+    def _on_next(self):
+        next_step_name = self.source_options_sel_var.get()
+        self.next_step = self.wizard.source_config_steps_insts[next_step_name]
+        return True
