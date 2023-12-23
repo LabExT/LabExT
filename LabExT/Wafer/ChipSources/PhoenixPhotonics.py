@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2023  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from tkinter import TOP, X, Button, StringVar, messagebox
+from tkinter import TOP, X, Button, messagebox
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -24,7 +24,7 @@ else:
 
 class PhoenixPhotonics(ChipSourceStep):
 
-    CHIP_SOURCE_TITLE = "PhoeniX Photonics csv format"
+    CHIP_SOURCE_TITLE = "PhoeniX Photonics csv file"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -47,7 +47,7 @@ class PhoenixPhotonics(ChipSourceStep):
         self.option_table.title = 'PhoeniX manifest file'
         self.option_table.parameter_source = params
 
-        Button(frame, text="Load File", command=self._load_csv_device_info).pack(side=TOP, padx=10, pady=5)
+        Button(frame, text="Load File", command=self._load_csv_device_info).pack(side=TOP, padx=10, pady=5, anchor='e')
 
     def _load_csv_device_info(self):
         """
