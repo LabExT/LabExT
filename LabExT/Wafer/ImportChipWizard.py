@@ -86,8 +86,8 @@ class ChipSourceSelection(Step):
             return
         
         self.source_options_sel_var = StringVar(self.wizard, source_options[0])
-        Label(frame, text="Choose which manifest importer / chip source to use:").pack(side=TOP)
-        OptionMenu(frame, self.source_options_sel_var, *source_options).pack(side=TOP, fill=X)
+        Label(frame, text="Choose which manifest importer / chip source to use:").pack(side=TOP, anchor='w', padx=2, pady=2)
+        OptionMenu(frame, self.source_options_sel_var, *source_options).pack(side=TOP, anchor='w', padx=10, pady=2, fill=X)
 
     def _on_next(self):
         next_step_name = self.source_options_sel_var.get()
@@ -107,7 +107,6 @@ class ShowChipImportResult(Step):
 
     def build(self, frame: CustomFrame): 
         frame.title = "Overview over Imported Devices"
-        Label(frame, text=f"Chip name: {self.wizard.submitted_chip.name:s}").pack(side=TOP, fill=BOTH)
+        Label(frame, text=f"Chip name: {self.wizard.submitted_chip.name:s}").pack(side=TOP, anchor='w', padx=2, pady=2)
         dev_table = DeviceTable(frame, self.wizard.submitted_chip)
-        # todo - find way to make device table nice and big
-        dev_table.pack(side=TOP, fill=BOTH)
+        dev_table.pack(side=TOP, fill=BOTH, anchor='c', padx=2, pady=2, expand=True)
