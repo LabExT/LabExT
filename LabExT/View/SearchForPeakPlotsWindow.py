@@ -127,30 +127,30 @@ class PlottingFrame(CustomFrame):
 
         self.grid(row=0, column=0)
         self.plot_left = PlotsWidget(self, 'Left Stage', self.model.plots_left)
-        self.plot_left.grid(row=0, column=0, rowspan=3, columnspan=3, padx=5, pady=5)
+        self.plot_left.grid(row=0, column=0, rowspan=2, columnspan=2, padx=5, pady=5)
 
         self.plot_right = PlotsWidget(self, 'Right Stage', self.model.plots_right)
-        self.plot_right.grid(row=0, column=3, rowspan=3, columnspan=3, padx=5, pady=5)
+        self.plot_right.grid(row=0, column=2, rowspan=2, columnspan=2, padx=5, pady=5)
 
         self.instruments_chooser_widget = InstrumentsChooserWidget(self, self.model)
-        self.instruments_chooser_widget.grid(row=4, column=0, rowspan=1, columnspan=4)
+        self.instruments_chooser_widget.grid(row=4, column=0, rowspan=1, columnspan=3)
 
-        self.set_instruments_button = AcceptButton(self, controller.set_instruments, "Allocate Instruments")
-        self.set_instruments_button.grid(row=4, column=5)
+        self.set_instruments_button = AcceptButton(self, controller.set_instruments, "1. Allocate Instruments")
+        self.set_instruments_button.grid(row=4, column=3)
 
         self.parameter_chooser_widget = ParameterChooserWidget(self, self.model)
-        self.parameter_chooser_widget.grid(row=5, column=0, rowspan=1, columnspan=4)
+        self.parameter_chooser_widget.grid(row=5, column=0, rowspan=2, columnspan=3)
 
         self.save_parameters_button = AcceptButton(self, controller.save_parameters, "Save Parameters")
-        self.save_parameters_button.grid(row=5, column=4)
+        self.save_parameters_button.grid(row=5, column=3)
 
-        self.execute_sfp_button = AcceptButton(self, controller.execute_sfp_manually, "Execute Search for Peak")
-        self.execute_sfp_button.grid(row=5, column=5)
+        self.execute_sfp_button = AcceptButton(self, controller.execute_sfp_manually, "2. Execute Search for Peak")
+        self.execute_sfp_button.grid(row=6, column=3)
 
 
 class PlotsWidget(PlotControl):
     """
-    The PlotsWidget subclass wraps the plots itself. It is uised two times, for both plots.
+    The PlotsWidget subclass wraps the plots itself. It is used two times, for both plots.
     """
     def __init__(self, parent, title, data):
         PlotControl.__init__(self, parent, add_toolbar=True, figsize=(5, 5), autoscale_axis=True)
@@ -262,7 +262,7 @@ class SearchForPeakPlotsWindowController:
         self.logger.debug('Search for Peak Plots initialised with parent:%s experiment_manager:%s',
                           parent, experiment_manager)
 
-        # load the observed lists datastrucutre from the peak searcher
+        # load the observed lists data structures from the peak searcher
         self.model.load_observed_list()
 
         self.view = SearchForPeakPlotsWindowView(parent, self.model, self)
