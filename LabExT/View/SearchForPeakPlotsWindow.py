@@ -135,23 +135,22 @@ class PlottingFrame(CustomFrame):
         self.instruments_chooser_widget = InstrumentsChooserWidget(self, self.model)
         self.instruments_chooser_widget.grid(row=4, column=0, rowspan=1, columnspan=3)
 
-        self.set_instruments_button = AcceptButton(self,
-                                                   controller.set_instruments,
-                                                   "1. Define Instruments for Search for Peak")
+        self.set_instruments_button = AcceptButton(self, controller.set_instruments, "1. Allocate Instruments")
         self.set_instruments_button.grid(row=4, column=3)
 
         self.parameter_chooser_widget = ParameterChooserWidget(self, self.model)
-        self.parameter_chooser_widget.grid(row=5, column=0, rowspan=1, columnspan=3)
+        self.parameter_chooser_widget.grid(row=5, column=0, rowspan=2, columnspan=3)
 
-        self.set_parameters_button = AcceptButton(self,
-                                                  controller.execute_sfp_manually,
-                                                  "2. Save Parameters and Execute Search for Peak")
-        self.set_parameters_button.grid(row=5, column=3)
+        self.save_parameters_button = AcceptButton(self, controller.save_parameters, "Save Parameters")
+        self.save_parameters_button.grid(row=5, column=3)
+
+        self.execute_sfp_button = AcceptButton(self, controller.execute_sfp_manually, "2. Execute Search for Peak")
+        self.execute_sfp_button.grid(row=6, column=3)
 
 
 class PlotsWidget(PlotControl):
     """
-    The PlotsWidget subclass wraps the plots itself. It is uised two times, for both plots.
+    The PlotsWidget subclass wraps the plots itself. It is used two times, for both plots.
     """
     def __init__(self, parent, title, data):
         PlotControl.__init__(self, parent, add_toolbar=True, figsize=(5, 5), autoscale_axis=True)
@@ -263,7 +262,7 @@ class SearchForPeakPlotsWindowController:
         self.logger.debug('Search for Peak Plots initialised with parent:%s experiment_manager:%s',
                           parent, experiment_manager)
 
-        # load the observed lists datastrucutre from the peak searcher
+        # load the observed lists data structures from the peak searcher
         self.model.load_observed_list()
 
         self.view = SearchForPeakPlotsWindowView(parent, self.model, self)
@@ -292,14 +291,16 @@ class SearchForPeakPlotsWindowController:
         A function that disables all buttons.
         """
         self.view.main_window.plotting_frame.set_instruments_button.config(state="disabled")
-        self.view.main_window.plotting_frame.set_parameters_button.config(state="disabled")
+        self.view.main_window.plotting_frame.save_parameters_button.config(state="disabled")
+        self.view.main_window.plotting_frame.execute_sfp_button.config(state="disabled")
 
     def enable_buttons(self):
         """
         A function that enables all buttons.
         """
         self.view.main_window.plotting_frame.set_instruments_button.config(state="normal")
-        self.view.main_window.plotting_frame.set_parameters_button.config(state="normal")
+        self.view.main_window.plotting_frame.save_parameters_button.config(state="normal")
+        self.view.main_window.plotting_frame.execute_sfp_button.config(state="normal")
 
     def set_instruments(self):
         """If user selected instruments, initialise them and continue.
@@ -331,18 +332,20 @@ class SearchForPeakPlotsWindowController:
 
         self.enable_buttons()
 
+    def save_parameters(self) -> None:
+        """ Save current parameters to measurement and savefile. """
+        self.model.peak_searcher.parameters = \
+            self.view.main_window.plotting_frame.parameter_chooser_widget.to_meas_param()
+        # save sfp parameters to file
+        if self.view.main_window.plotting_frame.parameter_chooser_widget.serialize(self.model.settings_path):
+            self.logger.debug("Saving SearchForPeak parameters to file.")
+
     def execute_sfp_manually(self):
         """Function to manually start the search for peak algorithm.
         """
 
         self.disable_buttons()
-        # save SFP parameters to measurement
-        self.model.peak_searcher.parameters = \
-            self.view.main_window.plotting_frame.parameter_chooser_widget.to_meas_param()
-
-        # save SFP parameters to file
-        if self.view.main_window.plotting_frame.parameter_chooser_widget.serialize(self.model.settings_path):
-            self.logger.debug("Saving SearchForPeak parameters to file.")
+        self.save_parameters()
         if self.view.main_window.plotting_frame.instruments_chooser_widget.serialize(self.model.instr_settings_path):
             self.logger.debug("Saving SearchForPeak instruments definitions to file.")
 
