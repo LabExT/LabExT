@@ -50,6 +50,7 @@ class MeasurementDict(
     If instantiated at runtime the objects are regular `dict`s.
     """
 
+    measurement_params: list[str]
     chip: ChipDict
     device: dict
     error: ErrorDict
