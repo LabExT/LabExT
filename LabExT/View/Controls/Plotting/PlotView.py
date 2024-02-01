@@ -62,7 +62,7 @@ class PlotView:
 
 
 class PlottingFrame(tk.Frame):
-    """This frame contains the widgets created created by the matplotlib tk backend"""
+    """This frame contains the widgets created by the matplotlib tk backend"""
 
     def __init__(self, master: tk.Widget, figure: Figure, *args, **kwargs) -> None:
         """Initializes a new `PlottingWidget`
