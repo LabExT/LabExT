@@ -57,7 +57,7 @@ class ChipDeviceSelectController(WizardEntryController):
 
     def serialize(self, settings: dict) -> None:
         content: DeviceTable = self._view.content[0]
-        settings['dev_id'] = int(content.get_selected_device().id)
+        settings['dev_id'] = content.get_selected_device().id
 
     def deserialize(self, settings: dict) -> None:
         try:
