@@ -8,10 +8,20 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 
+import tkinter as tk
+
+
 class PlotModel:
     """The model part of the model-view-controller architecture for plotting"""
 
     def __init__(self) -> None:
-        self._figure: Figure = Figure(figsize=(6, 5), dpi=100)
-        self._axes: Axes = self._figure.add_subplot()
+        self.figure: Figure = Figure(figsize=(6, 5), dpi=100)
+        self.axes: Axes = self.figure.add_subplot()
 
+        self.plot_type = tk.StringVar()
+        """Stores the type of plot currently being shown. See `PlotConstants.PLOT_TYPES`."""
+
+        self.axis_x_key_name = tk.StringVar()
+        """Stores the name of the key that populates the x-values of the plot."""
+        self.axis_y_key_name = tk.StringVar()
+        """Stores the name of the key that populates the y-values of the plot."""
