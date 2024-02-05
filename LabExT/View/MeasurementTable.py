@@ -30,13 +30,15 @@ else:
     ExperimentManager = None
     Widget = None
 
-SelectionChangedEvent = tuple[str, bool, list[tuple[str, bool]], Union[MeasurementDict, None]]
+SelectionChangedEvent = tuple[
+    Union[str, list[str]], bool, list[tuple[str, bool]], Union[MeasurementDict, list[MeasurementDict]]
+]
 """The event raised and given to the callbacks, when the user-selection changes.
 
-It consists of the hash of the newly selected or deselected entry (this might be a heading, i.e. 
+It consists of the hash of the newly selected or deselected entry/entries (this might be a heading, i.e. 
 chip or sweep), a bool which is true if and only if the element is now selected, a list of tuples
 mapping all entries to their selection state and finally the `MeasurementDict` of the newly selected
-entry or None if a header was selected.
+entry or a list of dicts if a header was selected.
 """
 
 
@@ -180,7 +182,7 @@ class MeasurementTable(CustomFrame):
         """Removes one selection-changed-listener."""
         self._selection_changed_callbacks.remove(callback)
 
-    def _notify_selection_changed_listeners(self, item_id: str, is_checked: bool) -> None:
+    def _notify_selection_changed_listeners(self, item_id_or_ids: Union[str, list[str]], is_checked: bool) -> None:
         """Notifies all listeners about the newly selected item.
 
         Args:
@@ -189,12 +191,16 @@ class MeasurementTable(CustomFrame):
         """
         checked_items = self._tree.get_checked()
         for callback in self._selection_changed_callbacks:
+            if type(item_id_or_ids) == str:
+                measurements = self._hashes_of_meas[item_id_or_ids]
+            else:
+                measurements = [self._hashes_of_meas[item] for item in item_id_or_ids]
             callback(
                 (
-                    item_id,
+                    item_id_or_ids,
                     is_checked,
-                    [(hash, hash in checked_items) for hash in self._hashes_of_meas.values()],
-                    self._hashes_of_meas.get(item_id, None),
+                    [(hash, any([hash in child for child in checked_items])) for hash in self._hashes_of_meas.keys()],
+                    measurements,
                 )
             )
 
@@ -372,7 +378,11 @@ class MeasurementTable(CustomFrame):
 
         current_selection = self.selected_measurements
 
-        self._notify_selection_changed_listeners(item_iid, new_state)
+        if item_iid in self._hashes_of_sweeps:
+            childrenHashes = self._tree.get_children(item_iid)
+            self._notify_selection_changed_listeners(list(childrenHashes), new_state)
+        else:
+            self._notify_selection_changed_listeners(item_iid, new_state)
 
         # As soon as first measurement is selected, we have to disable all rows which contain measurements
         # which do NOT have the same measurement name
