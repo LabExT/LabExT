@@ -55,4 +55,4 @@ class AutosaveDict(OrderedDict):
         Saves itself to a file.
         """
         with open(self.file_path, "w+") as f:
-            json.dump(self, f, indent=4)
+            json.dump(self, f, indent="\t")
