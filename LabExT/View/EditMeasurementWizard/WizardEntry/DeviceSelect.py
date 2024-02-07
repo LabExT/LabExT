@@ -61,7 +61,7 @@ class ChipDeviceSelectController(WizardEntryController):
 
     def deserialize(self, settings: dict) -> None:
         try:
-            dev_id = int(settings['dev_id'])
+            dev_id = settings['dev_id']
         except KeyError:
             return
 
