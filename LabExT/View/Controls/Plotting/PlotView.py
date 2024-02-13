@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 import tkinter as tk
 
@@ -143,7 +143,10 @@ class PlottingSettingsFrame(CustomFrame):
             var.trace_add("write", self.__notify_settings_changed_callbacks)
 
     def __setup__(
-        self, current_plot_type: str = None, shared_params: list[str] = None, shared_values: list[str] = None
+        self,
+        current_plot_type: Optional[str] = None,
+        shared_params: Optional[list[str]] = None,
+        shared_values: Optional[list[str]] = None,
     ):
         """Redraw the needed widgets for the currently selected plot type.
 
