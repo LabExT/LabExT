@@ -19,11 +19,9 @@ from LabExT.View.Controls.Plotting.PlotConstants import *
 if TYPE_CHECKING:
     from LabExT.View.Controls.Plotting.PlotModel import PlotModel
     from matplotlib.figure import Figure
-    from matplotlib.axes import Axes
 else:
     PlotModel = None
     Figure = None
-    Axes = None
 
 
 class PlotView:
@@ -122,7 +120,7 @@ class PlottingSettingsFrame(CustomFrame):
     ) -> None:
         super().__init__(master, *args, **kwargs)
 
-        self._settings_changed_callbacks: list[callable] = []
+        self._settings_changed_callbacks: list[Callable[[], None]] = []
         """These callbacks are performed when the user makes a change to the settings."""
 
         # plot type selection
@@ -203,8 +201,10 @@ class PlottingSettingsFrame(CustomFrame):
 
         Args:
             shared_values: A list of the names of the values shared by all selected measurements.
+            base_row: In which row of the parent grid the setting widgets are drawn.
         """
         if len(shared_values) == 0:
+            # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
             error_message = tk.Label(
                 self,
                 anchor="s",
@@ -223,6 +223,8 @@ class PlottingSettingsFrame(CustomFrame):
         if self._axis_x_var.get() == "":
             self._axis_x_var.set(shared_values[0])
         if self._axis_y_var.get() == "":
+            # because it's quite rare for someone to want to plot the same values on the x- and y-axis,
+            # the y-axis selector is set to the second entry of the shared_values if it exists
             self._axis_y_var.set(shared_values[0 if len(shared_values) == 1 else 1])
 
         self._axis_x_selector = tk.OptionMenu(self, self._axis_x_var, *shared_values)
