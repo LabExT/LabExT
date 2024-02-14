@@ -25,3 +25,5 @@ class PlotModel:
         """Stores the name of the key that populates the x-values of the plot."""
         self.axis_y_key_name = tk.StringVar()
         """Stores the name of the key that populates the y-values of the plot."""
+        self.axis_z_key_name = tk.StringVar()
+        """Stores the name of the key that populates the z-values of the plot (if this exists, e.g. contour)."""
