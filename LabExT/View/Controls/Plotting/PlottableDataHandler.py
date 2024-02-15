@@ -129,6 +129,10 @@ class PlottableData:
         """
         return self.__measurement_map[key].copy()
 
+    def __len__(self) -> int:
+        """Returns the number of measurements stored by this object."""
+        return len(self.__measurement_map)
+
     @property
     def common_params(self) -> list[str]:
         """The names of the parameters shared by all selected measurements."""
