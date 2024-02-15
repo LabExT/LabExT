@@ -4,5 +4,3 @@
 LabExT  Copyright (C) 2023  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
-
-from .PhoenixPhotonics import PhoenixPhotonics

@@ -30,9 +30,9 @@ class Device:
         any additional parameters as written in the chip file
     """
     id: str
+    type: str
     in_position: List[float] = field(default_factory=list)
     out_position: List[float] = field(default_factory=list)
-    type: str = ''
     parameters: dict = field(default_factory=dict)
 
     @property
