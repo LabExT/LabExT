@@ -234,7 +234,7 @@ class StandardExperiment:
             data["measurement id long"] = measurement.id.hex
             data["instruments"] = measurement._get_data_from_all_instruments()
             data["measurement settings"] = {}
-            data["measurement_params"] = list(measurement.parameters.keys())
+            data["measurement_params"] = {name: param.value for name, param in measurement.parameters.items()}
             data["values"] = OrderedDict()
             data["error"] = {}
 

@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import TypedDict, Literal, Optional
+from typing import TypedDict, Literal, Optional, Union
 
 
 class ChipDict(TypedDict("SpacesInKeys", {"description file path": str}), total=False):
@@ -50,7 +50,7 @@ class MeasurementDict(
     If instantiated at runtime the objects are regular `dict`s.
     """
 
-    measurement_params: list[str]
+    measurement_params: dict[str, Union[str, float, int, bool]]
     chip: ChipDict
     device: dict
     error: ErrorDict
