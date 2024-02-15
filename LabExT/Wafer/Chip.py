@@ -6,8 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+import json
 from typing import List
-from os.path import exists as os_path_exists
+from LabExT.Utils import get_configuration_file_path
 
 from LabExT.Wafer.Device import Device
 
@@ -15,7 +16,9 @@ from LabExT.Wafer.Device import Device
 class Chip:
     """Chip is the implementation of a chip with devices."""
 
-    def __init__(self, name: str = None, path: str = None, devices: List[Device] = None):
+    CHIP_SAVE_FILE_NAME = "last_imported_chip.json"
+
+    def __init__(self, name: str, devices: List[Device], path: str, _serialize_to_disk: bool = True):
         """Constructor.
 
         Parameters
@@ -28,21 +31,22 @@ class Chip:
         self._logger = logging.getLogger()
         self._logger.debug('Initialised Chip with name: %s', name)
 
-        self._path = path
-        if self._path is not None:
-            if not os_path_exists(self._path):
-                raise ValueError("File indicated in argument 'path' does not exist.")
-
         self._name = name
+        assert isinstance(self._name, str), "Argument 'name' is not a string."
+        assert len(self._name) > 0, "Argument 'name' cannot be empty."
 
-        if devices is not None:
-            self._devices = devices
-            assert isinstance(self._devices, list), "Argument 'devices' is not a list."
-            for dev in self._devices:
-                assert isinstance(dev, Device), "An element in devices is not of type Device."
-        else:
-            self._devices = list()
-        self._logger.debug('Number of devices in chip: %s', len(self._devices))
+        self._devices = devices
+        assert isinstance(self._devices, list), "Argument 'devices' is not a list."
+        for dev in self._devices:
+            assert isinstance(dev, Device), "An element in devices is not of type Device."
+
+        self._path = path
+        assert isinstance(self._path, str), "Argument 'path' is not a string."
+        assert len(self._path) > 0, "Argument 'path' cannot be empty."
+
+        # save loaded chip to disk for later easy reload
+        if _serialize_to_disk:
+            self._serialize()
 
     @property
     def path(self) -> str:
@@ -58,3 +62,25 @@ class Chip:
     def devices(self) -> dict:
         """ Return a dictionary of all devices with device ID as keys. """
         return {device.id: device for device in self._devices}
+    
+    def _serialize(self):
+        """ Saves chip information to disk for later re-use. """
+        last_chip_fpath = get_configuration_file_path(self.CHIP_SAVE_FILE_NAME)
+        with open(last_chip_fpath, 'w') as fp:
+            json.dump({
+                'name': self._name,
+                'path': self._path,
+                'devices': [dev.as_dict() for dev in self._devices]
+            }, fp)
+    
+    @staticmethod
+    def load_last_instantiated_chip():
+        last_chip_fpath = get_configuration_file_path(Chip.CHIP_SAVE_FILE_NAME)
+        with open(last_chip_fpath, 'r') as fp:
+            loaded_data = json.load(fp)
+        return Chip(
+            name=loaded_data['name'],
+            devices=[Device(**dev_desc) for dev_desc in loaded_data['devices']],
+            path=loaded_data['path'],
+            _serialize_to_disk=False
+        )

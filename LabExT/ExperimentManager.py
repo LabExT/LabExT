@@ -182,41 +182,21 @@ class ExperimentManager:
     def set_experiment(self, experiment):
         raise DeprecatedException("Experiment object must not be recreated!")
 
-    def import_chip(self, path, name=None):
-        """Import a new chip from file.
-
-        Parameters
-        ----------
-        path : string
-            Location of the chip file.
-        name : string, optional
-            Name of the string, displayed in MainWindow.
-
-        Raises
-        ------
-        ValueError
-            If path is empty.
-        """
-        self.logger.debug('Import chip requested.')
-
-        if not path:
-            self.logger.error('Wants to import chip without path. Throwing..')
-            raise ValueError("Empty path, could not import chip!")
-        else:
-            # create chip based on description file on path
-            self.chip = Chip.from_file(path, name)
-            # ban user to make any more changes to exp parameters
-            self.main_window.model.allow_change_chip_params.set(False)
-            # update chip reference in subclasses
-            if self.exp is not None:
-                self.exp.update_chip(self.chip)
-
-            if self._skip_setup:
-                return
-
-            self.main_window.offer_calibration_reload_possibility(
-                chip=self.chip)
-            self.mover.set_chip(self.chip)
+    def register_chip(self, chip: Chip):
+        """ A new chip manifest has been loaded - register it for usage throughout LabExT. """
+        self.chip = chip
+        # update chip reference in experiment and therefore in main window
+        if self.exp is not None:
+            self.exp.update_chip(self.chip)
+        # ban user to make any more changes to exp parameters in main window
+        self.main_window.model.allow_change_chip_params.set(False)
+        # this is true during unittests and removes the necessity to mock out other things
+        if self._skip_setup:
+            return
+        # it might be that we already have a calibration loaded for this chip, offer reload possibility
+        self.main_window.offer_calibration_reload_possibility(chip=self.chip)
+        # mover also needs to know about chip for calibration 
+        self.mover.set_chip(self.chip)
 
     def show_documentation(self, event):
         if self.docu.docu_available:

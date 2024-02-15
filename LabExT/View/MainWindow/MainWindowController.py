@@ -19,6 +19,7 @@ from LabExT.View.MainWindow.MainWindowModel import MainWindowModel
 from LabExT.View.MainWindow.MainWindowView import MainWindowView
 from LabExT.View.SettingsWindow import SettingsWindow
 from LabExT.View.Controls.KeyboardShortcutButtonPress import callback_if_btn_enabled
+from LabExT.Wafer.Chip import Chip
 
 
 class MainWindowController:
@@ -517,21 +518,27 @@ class MainWindowController:
             self.logger.info("Deleted All ToDos.")
 
     def offer_chip_reload_possibility(self):
-        chip_name = self.model.chip_parameters["Chip name"].value
         chip_path = self.model.chip_parameters["Chip path"].value
         # chip_path is only set if the user did the "load chip" functionality
         # so to offer to re-load the same chip, its sufficient to check if chip_path was set to anything
         if not chip_path:
             # there was no chip loaded on last use of LabExT, do not offer reloading
             return
+        try:
+            reloaded_chip = Chip.load_last_instantiated_chip()
+        except FileNotFoundError:
+            return
+        if chip_path != reloaded_chip.path:
+            # paths don't match, don't offer reload possibility
+            return
         user_wants_chip_reload = messagebox.askyesno(
-            title="Previously used chip path found!",
-            message=f"A previously used chip named\n {chip_name} \nwith description file\n {chip_path}\nwas found."
+            title="Previously used chip found!",
+            message=f"A previously used chip named\n {reloaded_chip.name} \nwith description file\n {reloaded_chip.path}\nwas found."
             f" Do you want to continue using this chip?",
         )
         if not user_wants_chip_reload:
             return
-        self.experiment_manager.import_chip(chip_path, chip_name)
+        self.experiment_manager.register_chip(reloaded_chip)
 
     def offer_calibration_reload_possibility(self, chip):
         """

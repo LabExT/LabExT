@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from typing import TYPE_CHECKING
-from tkinter import BOTH, LEFT, RIGHT, Y, Button, Label, TOP, X, OptionMenu, StringVar
+from tkinter import BOTH, Label, TOP, X, OptionMenu, StringVar
 from LabExT.View.Controls.DeviceTable import DeviceTable
 
 from LabExT.View.Controls.Wizard import Wizard, Step
@@ -61,8 +61,9 @@ class ImportChipWizard(Wizard):
         self.current_step = self.step_chip_source_selection
 
     def _on_finish(self):
-        # todo: do some checks on the submitted Chip
-        # then load new chip into experiment manager which should update everything else (mover, mainwindow etc)
+        if self.submitted_chip is None:
+            raise RuntimeError("Please call submit_chip_info to create Chip object and do error checking before allowing to finish the wizard.")
+        self.experiment_manager.register_chip(self.submitted_chip)
         return True
 
 
