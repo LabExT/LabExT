@@ -13,6 +13,10 @@ from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableDataHand
 from LabExT.View.Controls.Plotting.PlotConstants import *
 from LabExT.View.MeasurementTable import SelectionChangedEvent
 
+from functools import reduce
+
+import numpy as np
+
 if TYPE_CHECKING:
     from tkinter import Widget
     from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableData
@@ -90,7 +94,7 @@ class PlotController:
         if self._model.plot_type.get() == LINE_PLOT:
             self.__draw_axes_line_plot(self._model.axis_x_key_name.get(), self._model.axis_y_key_name.get())
         elif self._model.plot_type.get() in [CONTOUR, CONTOUR_F]:
-            pass
+            self.__draw_axes_contour_plot()
 
         # redraw canvas
         self._view._plotting_frame.data_changed_callback()
@@ -103,6 +107,44 @@ class PlotController:
 
         plot.set_xlabel(axis_x_key)
         plot.set_ylabel(axis_y_key)
+
+    def __draw_axes_contour_plot(self) -> None:
+        """Creates a contour or contourf plot on the plotting frame."""
+        if len(self._plottable_data) < 2:
+            # for a contour plot we need at least 2 selected measurements
+            return
+
+        plot = self._model.figure.add_subplot(1, 1, 1)
+
+        # shorthand so we don't have to type so much
+        x_key = self._model.axis_x_key_name.get()
+        y_key = self._model.axis_y_key_name.get()
+        z_key = self._model.axis_z_key_name.get()
+
+        # x data can be easily extracted from the first item, because all selected measurements should
+        # be from the same sweep, i.e. have the same x-values
+        x_data = np.array(self._plottable_data[self._plottable_data.keys()[0]]["values"][x_key])
+
+        # we want the y-values to be sorted by the swept parameter. In order to match the sorting of the z-values
+        # this crazy thing is necessary
+        y_z_data = [
+            (meas["measurement_params"][y_key], meas["values"][z_key]) for meas in self._plottable_data.values()
+        ]
+        y_z_data.sort(key=lambda pair: pair[0])
+        y_data, z_data = (np.array(t) for t in zip(*y_z_data))  # seperate the list of pairs
+
+        x_data, y_data = np.meshgrid(x_data, y_data)
+
+        if self._model.plot_type.get() == CONTOUR:
+            plot_method = plot.contour
+        else:
+            plot_method = plot.contourf
+        contour = plot_method(x_data, y_data, z_data)
+
+        self._model.figure.colorbar(contour)
+
+        plot.set_xlabel(x_key)
+        plot.set_ylabel(y_key)
 
     def __redraw_settings_frame(self) -> None:
         if self._plottable_data is None:
