@@ -118,6 +118,10 @@ class PlottableData:
         """
         return list(self.__measurement_map.keys())
 
+    def values(self) -> list[MeasurementDict]:
+        """Returns the measurements that are stored."""
+        return list(self.__measurement_map.values())
+
     def __getitem__(self, key) -> MeasurementDict:
         """Returns a view of the measurement belonging to the hash `key`.
 
