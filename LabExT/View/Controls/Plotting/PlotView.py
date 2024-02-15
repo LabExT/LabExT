@@ -51,6 +51,7 @@ class PlotView:
             plot_type_var=plot_model.plot_type,
             axis_x_var=plot_model.axis_x_key_name,
             axis_y_var=plot_model.axis_y_key_name,
+            axis_z_var=plot_model.axis_z_key_name,
         )
         self._settings_frame.title = "Plot Settings"
 
@@ -115,6 +116,7 @@ class PlottingSettingsFrame(CustomFrame):
         plot_type_var: tk.StringVar,
         axis_x_var: tk.StringVar,
         axis_y_var: tk.StringVar,
+        axis_z_var: tk.StringVar,
         *args,
         **kwargs,
     ) -> None:
@@ -131,10 +133,19 @@ class PlottingSettingsFrame(CustomFrame):
         # axis selection
         self._axis_x_selector = tk.OptionMenu(self, axis_x_var, "")
         self._axis_y_selector = tk.OptionMenu(self, axis_y_var, "")
+        self._axis_z_selector = tk.OptionMenu(self, axis_z_var, "")
         self._axis_x_var = axis_x_var
         self._axis_y_var = axis_y_var
+        self._axis_z_var = axis_z_var
 
-        self.__set_vars_trace_method([self._plot_type_var, self._axis_x_var, self._axis_y_var])
+        self.__set_vars_trace_method(
+            [
+                self._plot_type_var,
+                self._axis_x_var,
+                self._axis_y_var,
+                self._axis_z_var,
+            ]
+        )
 
     def __set_vars_trace_method(self, variables: list[tk.Variable]):
         for var in variables:
@@ -191,10 +202,103 @@ class PlottingSettingsFrame(CustomFrame):
 
         if current_plot_type == LINE_PLOT:
             self.__setup_line_plot(shared_values=shared_values)
-        elif current_plot_type == CONTOUR:
-            pass
+        elif current_plot_type == CONTOUR or current_plot_type == CONTOUR_F:
+            self.__setup_contour_plot(shared_values=shared_values, shared_params=shared_params)
         else:
             pass
+
+    def __show_value_error(self, base_row: int, parameter: bool = False):
+        """Shows an error message about non-matching values or parameters in the selected measurements."""
+        error_message = tk.Label(
+            self,
+            anchor="s",
+            text="Please select measurements whose \n"
+            + ("parameters " if parameter else "measured values ")
+            + "share at least 1 key"
+            + ("(e.g. a sweep)." if parameter else "."),
+        )
+        self.add_widget(
+            error_message, column=0, row=base_row, columnspan=2, rowspan=2, ipadx=10, ipady=0, sticky="snwe"
+        )
+        self._axis_x_var.set("")
+        self._axis_y_var.set("")
+
+    def __setup_axes_settings(self, values: list[list[str]], base_row: int, with_z: bool = False):
+        """Adds the x- and y-axis selection widgets to the parent component.
+
+        If the variables storing the axis selections are set to the empty string they will be set to
+        the first and if available second element of the `shared_values` parameter.
+
+        Args:
+            values: A list of lists of possible values the axis selectors can take. The first list is used for
+                the x-axis, the second list is used for the y-axis and if `with_z` is `True` the third list is
+                used for the z-axis.
+            base_row: In which row the elements should start to be placed in the parent grid.
+            with_z: If `True` then the selector for the z-axis will be added as well.
+
+        Raises:
+            AssertionError if `values` has less than the required number of entries.
+        """
+        if with_z:
+            assert len(values) >= 3
+            assert len(values[2]) > 0
+        else:
+            assert len(values) >= 2
+        assert len(values[0]) > 0 and len(values[1]) > 0
+
+        axis_x_label = tk.Label(self, anchor="w", text="X-Axis:")
+        axis_y_label = tk.Label(self, anchor="w", text="Y-Axis:")
+        axis_z_label = tk.Label(self, anchor="w", text="Z-Axis:")
+
+        if self._axis_x_var.get() == "" or self._axis_x_var.get() not in values[0]:
+            self._axis_x_var.set(values[0][0])
+        if self._axis_y_var.get() == "" or self._axis_y_var.get() not in values[1]:
+            # because it's quite rare for someone to want to plot the same values on the x- and y-axis,
+            # the y-axis selector is set to the second entry of the values if it exists
+            self._axis_y_var.set(values[1][0 if values[0] != values[1] else 1])
+        if with_z and (self._axis_z_var.get() == "" or self._axis_z_var.get() not in values[2]):
+            self._axis_z_var.set(values[2][0 if values[0] != values[2] else 1])
+
+        self._axis_x_selector = tk.OptionMenu(self, self._axis_x_var, *values[0])
+        self._axis_y_selector = tk.OptionMenu(self, self._axis_y_var, *values[1])
+        if with_z:
+            self._axis_z_selector = tk.OptionMenu(self, self._axis_z_var, *values[2])
+
+        self.add_widget(axis_x_label, column=0, row=base_row, sticky="we")
+        self.add_widget(self._axis_x_selector, column=1, row=base_row, sticky="ew")
+        self.rowconfigure(base_row, weight=0)
+
+        self.add_widget(axis_y_label, column=0, row=base_row + 1, sticky="we")
+        self.add_widget(self._axis_y_selector, column=1, row=base_row + 1, sticky="ew")
+        self.rowconfigure(base_row + 1, weight=0)
+
+        if with_z:
+            self.add_widget(axis_z_label, column=0, row=base_row + 2, sticky="we")
+            self.add_widget(self._axis_z_selector, column=1, row=base_row + 2, sticky="ew")
+            self.rowconfigure(base_row + 1, weight=0)
+
+    def __setup_contour_plot(self, shared_values: list[str], shared_params: list[str], base_row: int = 2):
+        """Sets up the components needed for a contour-plot.
+
+        Args:
+            shared_values: A list of the names of the values shared by all selected measurements.
+            shared_params: A list of the names of the parameters shared by all selected measurements.
+            base_row: In which row of the parent grid the setting widgets are drawn.
+        """
+        if len(shared_values) == 0:
+            # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
+            self.__show_value_error(base_row=base_row)
+            return
+
+        if len(shared_params) == 0:
+            # If there are no shared parameters, we can't use a contour plot (maybe we somehow change this in the future,
+            # to allow values instead of parameters to be the y-axis)
+            self.__show_value_error(base_row=base_row, parameter=True)
+            return
+
+        self.__setup_axes_settings(
+            values=[shared_values, shared_params, shared_values], base_row=base_row, with_z=True
+        )
 
     def __setup_line_plot(self, shared_values: list[str], base_row: int = 2):
         """Sets up the components needed for a line-plot.
@@ -205,38 +309,10 @@ class PlottingSettingsFrame(CustomFrame):
         """
         if len(shared_values) == 0:
             # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
-            error_message = tk.Label(
-                self,
-                anchor="s",
-                text="Please select measurements whose \n" + "measured values share at least 1 key.",
-            )
-            self.add_widget(
-                error_message, column=0, row=base_row, columnspan=2, rowspan=2, ipadx=10, ipady=0, sticky="snwe"
-            )
-            self._axis_x_var.set("")
-            self._axis_y_var.set("")
+            self.__show_value_error(base_row=base_row)
             return
 
-        axis_x_label = tk.Label(self, anchor="w", text="X-Axis:")
-        axis_y_label = tk.Label(self, anchor="w", text="Y-Axis:")
-
-        if self._axis_x_var.get() == "":
-            self._axis_x_var.set(shared_values[0])
-        if self._axis_y_var.get() == "":
-            # because it's quite rare for someone to want to plot the same values on the x- and y-axis,
-            # the y-axis selector is set to the second entry of the shared_values if it exists
-            self._axis_y_var.set(shared_values[0 if len(shared_values) == 1 else 1])
-
-        self._axis_x_selector = tk.OptionMenu(self, self._axis_x_var, *shared_values)
-        self._axis_y_selector = tk.OptionMenu(self, self._axis_y_var, *shared_values)
-
-        self.add_widget(axis_x_label, column=0, row=base_row, sticky="we")
-        self.add_widget(axis_y_label, column=0, row=base_row + 1, sticky="we")
-        self.add_widget(self._axis_x_selector, column=1, row=base_row, sticky="ew")
-        self.add_widget(self._axis_y_selector, column=1, row=base_row + 1, sticky="ew")
-
-        self.rowconfigure(base_row, weight=0)
-        self.rowconfigure(base_row + 1, weight=0)
+        self.__setup_axes_settings(values=[shared_values, shared_values], base_row=base_row)
 
     def add_settings_changed_callback(self, callback: Callable[[], None]):
         """Adds a callback being notified when a setting is changed by the user.
