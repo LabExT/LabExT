@@ -192,14 +192,14 @@ class MeasurementTable(CustomFrame):
         checked_items = self._tree.get_checked()
         for callback in self._selection_changed_callbacks:
             if type(item_id_or_ids) == str:
-                measurements = self._hashes_of_meas[item_id_or_ids]
+                measurements = self._hashes_of_meas[item_id_or_ids] if item_id_or_ids in self._hashes_of_meas else ""
             else:
-                measurements = [self._hashes_of_meas[item] for item in item_id_or_ids]
+                measurements = [self._hashes_of_meas[item] for item in item_id_or_ids if item in self._hashes_of_meas]
             callback(
                 (
                     item_id_or_ids,
                     is_checked,
-                    [(hash, any([hash in child for child in checked_items])) for hash in self._hashes_of_meas.keys()],
+                    [(hash, any([(hash in child) for child in checked_items])) for hash in self._hashes_of_meas.keys()],
                     measurements,
                 )
             )
@@ -455,18 +455,27 @@ class MeasurementTable(CustomFrame):
 
     def hide_all_plots(self, only_these_hashes=None):
         """uncheck all items and hide all plots"""
+
+        def uncheck_child(child):
+            if only_these_hashes is not None:
+                # if only_these_hashes is given, filter hash with given list
+                if child in only_these_hashes:
+                    self._tree.uncheck_item(child)
+            else:
+                # if list is not given, unconditionally uncheck chld_meas)
+                self._tree.uncheck_item(child)
+
         # disable callbacks during unchecking to avoid continuous replotting
         self._do_changed_callbacks = False
         # go through all children and uncheck them
         for chld_dev in self._tree.get_children():
             for chld_meas in self._tree.get_children(item=chld_dev):
-                if only_these_hashes is not None:
-                    # if only_these_hashes is given, filter hash with given list
-                    if chld_meas in only_these_hashes:
-                        self._tree.uncheck_item(chld_meas)
-                else:
-                    # if list is not given, unconditionally uncheck chld_meas)
-                    self._tree.uncheck_item(chld_meas)
+                if chld_meas not in self._hashes_of_sweeps:
+                    uncheck_child(chld_meas)
+                    continue
+                for chld in self._tree.get_children(item=chld_meas):
+                    uncheck_child(chld)
+
         # enable callbacks again and redraw once
         self._do_changed_callbacks = True
         self.select_item("", False)
