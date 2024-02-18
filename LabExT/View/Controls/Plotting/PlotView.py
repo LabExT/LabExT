@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Callable
 import tkinter as tk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
 from LabExT.View.Controls.CustomFrame import CustomFrame
 
@@ -86,6 +87,8 @@ class PlottingFrame(tk.Frame):
 
         self._canvas = FigureCanvasTkAgg(figure=figure, master=self)
         self._canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        toolbar = NavigationToolbar2Tk(self._canvas, self)
+        toolbar.pack()
 
     def data_changed_callback(self) -> None:
         """This method should be called if the axes object was changed, such that the necessary updates can be performed."""
