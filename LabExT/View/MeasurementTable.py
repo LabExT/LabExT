@@ -192,7 +192,8 @@ class MeasurementTable(CustomFrame):
         checked_items = self._tree.get_checked()
         for callback in self._selection_changed_callbacks:
             if type(item_id_or_ids) == str:
-                measurements = self._hashes_of_meas[item_id_or_ids] if item_id_or_ids in self._hashes_of_meas else ""
+                assert item_id_or_ids in self._hashes_of_meas
+                measurements = self._hashes_of_meas[item_id_or_ids]
             else:
                 measurements = [self._hashes_of_meas[item] for item in item_id_or_ids if item in self._hashes_of_meas]
 
@@ -209,7 +210,10 @@ class MeasurementTable(CustomFrame):
                 (
                     item_id_or_ids,
                     is_checked,
-                    [(hash, any([(hash in child) for child in checked_items])) for hash in self._hashes_of_meas.keys()],
+                    [
+                        (hash, any([(hash in child) for child in checked_items]))
+                        for hash in self._hashes_of_meas.keys()
+                    ],
                     measurements,
                 )
             )
@@ -389,10 +393,21 @@ class MeasurementTable(CustomFrame):
         current_selection = self.selected_measurements
 
         if item_iid in self._hashes_of_sweeps:
+            # sweep
             childrenHashes = self._tree.get_children(item_iid)
             self._notify_selection_changed_listeners(list(childrenHashes), new_state)
-        else:
+        elif item_iid in self._hashes_of_meas:
+            # measurement
             self._notify_selection_changed_listeners(item_iid, new_state)
+        else:
+            # device
+            childrenHashes = []
+            for child in self._tree.get_children(item_iid):
+                if child in self._hashes_of_meas:
+                    childrenHashes.append(child)
+                else:
+                    childrenHashes.extend(self._tree.get_children(child))
+            self._notify_selection_changed_listeners(childrenHashes, new_state)
 
         # As soon as first measurement is selected, we have to disable all rows which contain measurements
         # which do NOT have the same measurement name

@@ -53,7 +53,11 @@ class PlottableData:
         self.__measurement_map[name] = data
         if len(self.__measurement_map) == 1:
             # this is the first data being added
-            self.__common_params = list(data["measurement_params"].keys())
+            self.__common_params = data["measurement_params"].keys()
+            if len(self.__common_params) == 0:
+                self.__common_params = list()
+            else:
+                self.__common_params = list(self.__common_params)
             self.__common_values = list(data["values"].keys())
             return
 
