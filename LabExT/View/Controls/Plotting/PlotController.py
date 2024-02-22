@@ -5,15 +5,13 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Iterable, TypeVar
 
 from LabExT.View.Controls.Plotting.PlotModel import PlotModel
 from LabExT.View.Controls.Plotting.PlotView import PlotView
 from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableDataHandler
 from LabExT.View.Controls.Plotting.PlotConstants import *
 from LabExT.View.MeasurementTable import SelectionChangedEvent
-
-from functools import reduce
 
 import numpy as np
 
@@ -23,6 +21,8 @@ if TYPE_CHECKING:
 else:
     Widget = None
     PlottableData = None
+
+T = TypeVar("T")
 
 
 class PlotController:
@@ -116,22 +116,43 @@ class PlotController:
 
         plot = self._model.figure.add_subplot(1, 1, 1)
 
-        # shorthand so we don't have to type so much
+        def _print_sorted_error(key: str):
+            plot.text(
+                0.5, 0.5, f"The values given by '{key}' are not sorted!", color="red", horizontalalignment="center"
+            )
+
+        # shorthand so I don't have to type so much
         x_key = self._model.axis_x_key_name.get()
         y_key = self._model.axis_y_key_name.get()
         z_key = self._model.axis_z_key_name.get()
 
-        # x data can be easily extracted from the first item, because all selected measurements should
-        # be from the same sweep, i.e. have the same x-values
-        x_data = np.array(self._plottable_data[self._plottable_data.keys()[0]]["values"][x_key])
+        # get all x-values that are contained in the measurements
+        x_data = self._plottable_data.values()[0]["values"][x_key]
+        if not PlotController.__is_sorted(x_data):
+            _print_sorted_error(x_key)
+            return
 
-        # we want the y-values to be sorted by the swept parameter. In order to match the sorting of the z-values
-        # this crazy thing is necessary
-        y_z_data = [
-            (meas["measurement_params"][y_key], meas["values"][z_key]) for meas in self._plottable_data.values()
-        ]
+        for meas in self._plottable_data.values()[1:]:
+            if not PlotController.__is_sorted(meas["values"][x_key]):
+                _print_sorted_error(x_key)
+                return
+            x_data = PlotController.__merge_union_sorted(x_data, meas["values"][x_key])
+
+        # Here we get the y and z-values corresponding to the x-values (we pad with NaN)
+        y_z_data = list()
+        for meas in self._plottable_data.values():
+            y_values = meas["measurement_params"][y_key]
+            z_values = list()
+            z_iterator = iter(meas["values"][z_key])
+            for x in x_data:
+                z_values.append(next(z_iterator) if x in meas["values"][x_key] else np.nan)
+            y_z_data.append((y_values, z_values))
+
+        # We sort the list of pairs by the swept param (i.e. the y-value)
         y_z_data.sort(key=lambda pair: pair[0])
-        y_data, z_data = (np.array(t) for t in zip(*y_z_data))  # seperate the list of pairs
+
+        # seperate the list of pairs
+        y_data, z_data = (np.array(list(t)) for t in zip(*y_z_data))
 
         x_data, y_data = np.meshgrid(x_data, y_data)
 
@@ -154,3 +175,62 @@ class PlotController:
                 shared_params=self._plottable_data.common_params,
                 shared_values=self._plottable_data.common_values,
             )
+
+    def __is_sorted(a: Iterable) -> bool:
+        """Checks if an iterable is sorted and returns True or False accordingly.
+
+        The elements of a need to support the < operation.
+        """
+        a = iter(a)
+        end_iteration = object()
+        e = next(a, end_iteration)
+        while e != end_iteration:
+            _e = next(a, end_iteration)
+            if _e == end_iteration:
+                break
+            if e > _e:
+                return False
+            e = _e
+        return True
+
+    def __merge_union_sorted(a: Iterable[T], b: Iterable[T]) -> list[T]:
+        """Calculates the merge of the two sorted iterables a and b without keeping duplicates.
+
+        Args:
+            a: A sorted iterable. The entries need to support the <= operation with the elements of b.
+            b: A sorted iterable. The entries need to support the > operation with the elements of a.
+
+        Returns:
+            A sorted list of unique values contained in the first and second argument.
+        """
+        res = list()
+
+        a = iter(a)
+        b = iter(b)
+
+        end_iteration = object()
+
+        # go through both arrays as long as they have values left
+        a_elem = next(a, end_iteration)
+        b_elem = next(b, end_iteration)
+        while a_elem != end_iteration and b_elem != end_iteration:
+            if a_elem <= b_elem:
+                if a_elem not in res:
+                    res.append(a_elem)
+                a_elem = next(a, end_iteration)
+            else:
+                if b_elem not in res:
+                    res.append(b_elem)
+                b_elem = next(b, end_iteration)
+
+        # clean up the argument with elements left
+        while a_elem != end_iteration:
+            if a_elem not in res:
+                res.append(a_elem)
+            a_elem = next(a, end_iteration)
+        while b_elem != end_iteration:
+            if b_elem not in res:
+                res.append(b_elem)
+            b_elem = next(b, end_iteration)
+
+        return res
