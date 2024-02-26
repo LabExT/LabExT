@@ -50,9 +50,13 @@ class AutosaveDict(OrderedDict):
                 self.modify_count = 0
                 self.save()
 
-    def save(self):
+    def save(self, indented: bool = True) -> None:
         """
         Saves itself to a file.
         """
-        with open(self.file_path, "w+") as f:
-            json.dump(self, f, indent="\t")
+        if indented:
+            with open(self.file_path, "w+") as f:
+                json.dump(self, f, indent="\t")
+        else:
+            with open(self.file_path, "w+") as f:
+                json.dump(self, f)
