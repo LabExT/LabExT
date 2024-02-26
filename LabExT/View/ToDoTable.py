@@ -10,6 +10,7 @@ from tkinter import Tk
 from tkinter.ttk import Treeview, Scrollbar
 
 from LabExT.View.Controls.CustomFrame import CustomFrame
+from LabExT.View.MeasurementControlSettings import MeasurementControlSettings
 
 
 class ToDoTable(CustomFrame):
@@ -45,6 +46,7 @@ class ToDoTable(CustomFrame):
         self._root = parent
         self._experiment_manager = experiment_manager
         self._double_click_callback = double_click_callback
+        self._meas_control_settings = MeasurementControlSettings()
 
         # list of to do
         self._original_todo_list = experiment_manager.exp.to_do_list
@@ -115,12 +117,19 @@ class ToDoTable(CustomFrame):
 
         Final step is to sort all displayed items in the treeview and adapt their displayed index.
         """
+        self._meas_control_settings.update()
 
         # get list of hashes from currently displayed items
         leftover_hashes = list(self._tree.get_children(item=""))
 
+        n = len(self._original_todo_list)
+        max_displayed_half = self._meas_control_settings.max_displayed_todo // 2
         # compare SOLL vs IST list of what we need to display
         for tidx, todo in enumerate(self._original_todo_list):
+
+            if self._meas_control_settings.displayed_todo_limited:
+                if max_displayed_half - 1 < tidx < n - max_displayed_half:
+                    continue
 
             todo_hash = todo.get_hash()
 
