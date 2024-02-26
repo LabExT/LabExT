@@ -30,6 +30,7 @@ collision
 # extra GUI widgets
 ttkwidgets
 pillow
+tkinter-tooltip
 
 # documentation generation
 mkdocs

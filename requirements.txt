@@ -153,6 +153,8 @@ scipy==1.11.4
     # via -r ./requirements.in
 six==1.16.0
     # via python-dateutil
+tkinter-tooltip==3.0.0
+    # via -r requirements.in
 ttkwidgets==0.13.0
     # via -r ./requirements.in
 typing-extensions==4.8.0
