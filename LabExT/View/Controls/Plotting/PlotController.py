@@ -168,7 +168,7 @@ class PlotController:
             plot_method = plot.contour
         else:
             plot_method = plot.contourf
-        contour = plot_method(x_data, y_data, z_data)
+        contour = plot_method(x_data, y_data, z_data, self._model.contour_bucket_count.get())
 
         self._model.figure.colorbar(contour, label=z_key)
 
