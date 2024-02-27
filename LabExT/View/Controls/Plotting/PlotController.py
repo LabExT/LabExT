@@ -152,8 +152,19 @@ class PlotController:
             y_values = meas["measurement_params"][y_key]
             z_values = list()
             z_iterator = iter(meas["values"][z_key])
-            for x in x_data:
-                z_values.append(next(z_iterator) if x in meas["values"][x_key] else np.nan)
+            try:
+                for x in x_data:
+                    z_values.append(next(z_iterator) if x in meas["values"][x_key] else np.nan)
+            except StopIteration as s:
+                plot.text(
+                    0.5,
+                    0.5,
+                    f"The values corresponding to '{z_key}' don't\n"
+                    + f"match the number of values corresponding to '{x_key}'.",
+                    color="red",
+                    horizontalalignment="center",
+                )
+                return
             y_z_data.append((y_values, z_values))
 
         # We sort the list of pairs by the swept param (i.e. the y-value)
