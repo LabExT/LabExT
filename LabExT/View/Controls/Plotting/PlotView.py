@@ -156,6 +156,7 @@ class PlottingSettingsFrame(CustomFrame):
         current_plot_type: Optional[str] = None,
         shared_params: Optional[list[str]] = None,
         shared_values: Optional[list[str]] = None,
+        unequal_params: Optional[list[str]] = None,
     ):
         """Redraw the needed widgets for the currently selected plot type.
 
@@ -164,6 +165,7 @@ class PlottingSettingsFrame(CustomFrame):
                 the value currently stored in the corresponding `PlotModel.plot_type: tk.StringVar` is used.
             shared_params: A list of the names of the parameters shared by all currently selected measurements.
             shared_values: A list of the names of the measured values shared by all currently selected measurements.
+            unequal_params: A list of the names of the parameters unequal across the currently selected measurements.
         """
         # remove all widgets
         self.clear()
@@ -180,6 +182,11 @@ class PlottingSettingsFrame(CustomFrame):
             shared_values = []
 
         self._logger.debug(f"Shared values: {shared_values}")
+
+        if unequal_params is None:
+            unequal_params = []
+
+        self._logger.debug(f"Unequal parameters: {unequal_params}")
 
         if current_plot_type is not None:
             self._plot_type_var.set(current_plot_type)
@@ -203,7 +210,7 @@ class PlottingSettingsFrame(CustomFrame):
         if current_plot_type == LINE_PLOT:
             self.__setup_line_plot(shared_values=shared_values)
         elif current_plot_type == CONTOUR or current_plot_type == CONTOUR_F:
-            self.__setup_contour_plot(shared_values=shared_values, shared_params=shared_params)
+            self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
         else:
             pass
 
@@ -215,13 +222,19 @@ class PlottingSettingsFrame(CustomFrame):
             text="Please select measurements whose \n"
             + ("parameters " if parameter else "measured values ")
             + "share at least 1 key"
-            + ("(e.g. a sweep)." if parameter else "."),
+            + (" (e.g. a sweep)." if parameter else ".")
+            + (
+                "\nMake sure there is at least one parameter\nwhose values differ in at least one measurement."
+                if parameter
+                else ""
+            ),
         )
         self.add_widget(
             error_message, column=0, row=base_row, columnspan=2, rowspan=2, ipadx=10, ipady=0, sticky="snwe"
         )
         self._axis_x_var.set("")
         self._axis_y_var.set("")
+        self._axis_z_var.set("")
 
     def __setup_axes_settings(self, values: list[list[str]], base_row: int, with_z: bool = False):
         """Adds the x- and y-axis selection widgets to the parent component.
@@ -275,14 +288,14 @@ class PlottingSettingsFrame(CustomFrame):
         if with_z:
             self.add_widget(axis_z_label, column=0, row=base_row + 2, sticky="we")
             self.add_widget(self._axis_z_selector, column=1, row=base_row + 2, sticky="ew")
-            self.rowconfigure(base_row + 1, weight=0)
+            self.rowconfigure(base_row + 2, weight=0)
 
-    def __setup_contour_plot(self, shared_values: list[str], shared_params: list[str], base_row: int = 2):
+    def __setup_contour_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2):
         """Sets up the components needed for a contour-plot.
 
         Args:
             shared_values: A list of the names of the values shared by all selected measurements.
-            shared_params: A list of the names of the parameters shared by all selected measurements.
+            unequal_params: A list of the names of the parameters unequal across all selected measurements.
             base_row: In which row of the parent grid the setting widgets are drawn.
         """
         if len(shared_values) == 0:
@@ -290,14 +303,14 @@ class PlottingSettingsFrame(CustomFrame):
             self.__show_value_error(base_row=base_row)
             return
 
-        if len(shared_params) == 0:
+        if len(unequal_params) == 0:
             # If there are no shared parameters, we can't use a contour plot (maybe we somehow change this in the future,
             # to allow values instead of parameters to be the y-axis)
             self.__show_value_error(base_row=base_row, parameter=True)
             return
 
         self.__setup_axes_settings(
-            values=[shared_values, shared_params, shared_values], base_row=base_row, with_z=True
+            values=[shared_values, unequal_params, shared_values], base_row=base_row, with_z=True
         )
 
     def __setup_line_plot(self, shared_values: list[str], base_row: int = 2):

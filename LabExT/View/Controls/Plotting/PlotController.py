@@ -114,6 +114,14 @@ class PlotController:
             # for a contour plot we need at least 2 selected measurements
             return
 
+        if "" in [
+            self._model.axis_x_key_name.get(),
+            self._model.axis_y_key_name.get(),
+            self._model.axis_z_key_name.get(),
+        ]:
+            # the variables are set to "" by the settings frame if something doesn't work
+            return
+
         plot = self._model.figure.add_subplot(1, 1, 1)
 
         def _print_sorted_error(key: str):
@@ -174,6 +182,7 @@ class PlotController:
             self._settings_frame.__setup__(
                 shared_params=self._plottable_data.common_params,
                 shared_values=self._plottable_data.common_values,
+                unequal_params=self._plottable_data.unequal_params,
             )
 
     def __is_sorted(a: Iterable) -> bool:
