@@ -162,7 +162,7 @@ class PlotController:
             plot_method = plot.contourf
         contour = plot_method(x_data, y_data, z_data)
 
-        self._model.figure.colorbar(contour)
+        self._model.figure.colorbar(contour, label=z_key)
 
         plot.set_xlabel(x_key)
         plot.set_ylabel(y_key)
@@ -179,7 +179,7 @@ class PlotController:
     def __is_sorted(a: Iterable) -> bool:
         """Checks if an iterable is sorted and returns True or False accordingly.
 
-        The elements of a need to support the < operation.
+        The elements of `a` need to support the < operation.
         """
         a = iter(a)
         end_iteration = object()
