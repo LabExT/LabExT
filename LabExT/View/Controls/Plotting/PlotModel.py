@@ -27,3 +27,8 @@ class PlotModel:
         """Stores the name of the key that populates the y-values of the plot."""
         self.axis_z_key_name = tk.StringVar()
         """Stores the name of the key that populates the z-values of the plot (if this exists, e.g. contour)."""
+        self.contour_bucket_count = tk.IntVar()
+        """Stores the number of buckets used for the contour plot."""
+
+        # default values
+        self.contour_bucket_count.set(10)

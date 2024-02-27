@@ -15,6 +15,8 @@ from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.Plotting.PlotConstants import *
 
+import re
+
 
 if TYPE_CHECKING:
     from LabExT.View.Controls.Plotting.PlotModel import PlotModel
@@ -52,6 +54,7 @@ class PlotView:
             axis_x_var=plot_model.axis_x_key_name,
             axis_y_var=plot_model.axis_y_key_name,
             axis_z_var=plot_model.axis_z_key_name,
+            buckets_count_var=plot_model.contour_bucket_count,
         )
         self._settings_frame.title = "Plot Settings"
 
@@ -117,6 +120,7 @@ class PlottingSettingsFrame(CustomFrame):
         axis_x_var: tk.StringVar,
         axis_y_var: tk.StringVar,
         axis_z_var: tk.StringVar,
+        buckets_count_var: tk.IntVar,
         *args,
         **kwargs,
     ) -> None:
@@ -137,6 +141,10 @@ class PlottingSettingsFrame(CustomFrame):
         self._axis_x_var = axis_x_var
         self._axis_y_var = axis_y_var
         self._axis_z_var = axis_z_var
+
+        # plot options
+        self._bucket_count_entry = tk.Entry(self)
+        self._bucket_count_var = buckets_count_var
 
         self.__set_vars_trace_method(
             [
@@ -313,6 +321,22 @@ class PlottingSettingsFrame(CustomFrame):
             values=[shared_values, unequal_params, shared_values], base_row=base_row, with_z=True
         )
 
+        buckets_label = tk.Label(self, anchor="w", text="No of Buckets:")
+        self._bucket_count_entry = tk.Entry(
+            self,
+            textvariable=self._bucket_count_var,
+            validate="key",
+            validatecommand=(self.register(self._validate_positive_non_empty_int), "%d", "%P"),
+            invalidcommand=(self.register(self._on_invalid), "%P"),
+            justify="right",
+        )
+
+        self._bucket_count_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+        self._bucket_count_entry.bind("<Return>", lambda *_: self.focus())
+        self.add_widget(buckets_label, column=0, row=base_row + 4, sticky="we")
+        self.add_widget(self._bucket_count_entry, column=1, row=base_row + 4, sticky="ew")
+        self.rowconfigure(base_row + 4, weight=0)
+
     def __setup_line_plot(self, shared_values: list[str], base_row: int = 2):
         """Sets up the components needed for a line-plot.
 
@@ -347,3 +371,39 @@ class PlottingSettingsFrame(CustomFrame):
         self._logger.debug("Plot-settings changed: Notifying callbacks.")
         for callback in self._settings_changed_callbacks:
             callback()
+
+    def _validate_positive_non_empty_int(self, mode: str, text: str) -> bool:
+        """Allows only ints in the text field.
+
+        Args:
+            mode: an integer specifying the type of change ('%d' in tk)
+            text: the new value of the entry after the change ('%P' in tk)
+
+        Returns:
+            false if there was an invalid insertion, true otherwise
+        """
+        if int(mode) == 0:
+            # mode == 0 means deletion
+            return text != ""  # uncomment this line if the entry shouldn't be emptyable
+            # return True # uncomment this line if the entry should be emptyable
+        elif int(mode) == 1:
+            # mode == 1 means insertion
+            pattern = r"[0-9]*"
+            return re.fullmatch(pattern, text) is not None
+        else:
+            return True
+
+    def _on_invalid(self, text: str) -> None:
+        """Is executed if an illegal string would be placed inside the entry
+
+        Args:
+            text: the new value of the entry if the change had happened ('%P' in tk)
+        """
+        if text == "":
+            # we first insert and then delete because otherwise the validation function would return 
+            # False again which would result in an endless recursion
+            self._bucket_count_entry.insert(0, "0")
+            self._bucket_count_entry.delete(1, "end")
+            # because we changed the value of entry inside the validation or invalid function, validate
+            # is set to 'none', so we reset it here.
+            self._bucket_count_entry.config(validate="key")
