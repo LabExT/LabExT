@@ -143,6 +143,28 @@ class PlottableData:
         return self.__common_params.copy()
 
     @property
+    def equal_params(self) -> list[str]:
+        """A list of the names of parameters which are equal across all handled measurements."""
+        equals = list()
+        measurements = list(self.__measurement_map.values())
+        for param_name in self.__common_params:
+            current_param = measurements[0]["measurement_params"][param_name]
+            if all(map(lambda meas: meas["measurement_params"][param_name] == current_param, measurements[1:])):
+                equals.append(param_name)
+        return equals
+
+    @property
+    def unequal_params(self) -> list[str]:
+        """A list of the names of parameters which are not equal across all handled measurements."""
+        unequals = list()
+        measurements = list(self.__measurement_map.values())
+        for param_name in self.__common_params:
+            current_param = measurements[0]["measurement_params"][param_name]
+            if any(map(lambda meas: meas["measurement_params"][param_name] != current_param, measurements[1:])):
+                unequals.append(param_name)
+        return unequals
+
+    @property
     def common_values(self) -> list[str]:
         """The names of the values shared by all selected measurements."""
         return self.__common_values.copy()
