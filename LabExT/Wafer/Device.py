@@ -20,13 +20,13 @@ class Device:
     ----------
     id: str
         identifier
-    in_position: List[float]
-        input position as list of coordinates
-    out_position: List[float]
-        output position as list of coordinates
     type: str
-        device type or general device description
-    parameters: dict
+        device type or general device description    
+    in_position: List[float], optional
+        input position as list of coordinates
+    out_position: List[float], optional
+        output position as list of coordinates
+    parameters: dict, optional
         any additional parameters as written in the chip file
     """
     id: str

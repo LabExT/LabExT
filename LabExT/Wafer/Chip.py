@@ -23,10 +23,12 @@ class Chip:
 
         Parameters
         ----------
-        name : string, optional
+        name : string
             Name of the Chip.
-        devices : List[Device], optional
-            Holds all devices objects
+        path : string
+            Path to chip description. Can be file location, URL or something else.
+        devices : List[Device]
+            Holds all devices objects.
         """
         self._logger = logging.getLogger()
         self._logger.debug('Initialised Chip with name: %s', name)
