@@ -23,8 +23,8 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
     def setUp(self) -> None:
         super().setUp()
 
-        self.device = Device("101", [0,0], [1,1], "My Device 1")
-        self.chip = Chip("My Chip", [self.device])
+        self.device = Device(id="101", type="My Device 1", in_position=[0,0], out_position=[1,1])
+        self.chip = Chip(name="My Chip", devices=[self.device], path="/example/path")
         self.mover = MoverNew(None)
 
         self.stage_1 = Mock(spec=Stage)

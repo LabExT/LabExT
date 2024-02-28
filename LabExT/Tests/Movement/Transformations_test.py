@@ -477,8 +477,8 @@ class SinglePointOffsetTest(unittest.TestCase):
 
     def test_load(self):
         chip = Chip("Test Chip", devices=[
-            Device(1, in_position=[19,293.03,1029.02], out_position=[1,1])
-        ])
+            Device(1, "test device", in_position=[19,293.03,1029.02], out_position=[1,1])
+        ], path="/example/path")
         stored_format = {
             "stage_coordinate": [19,293.03,1029.02],
             "chip_coordinate": [110203,29342,0],
@@ -493,8 +493,8 @@ class SinglePointOffsetTest(unittest.TestCase):
 
     def test_dump_and_load(self):
         chip = Chip("Test Chip", devices=[
-            Device(1, in_position=[0,0], out_position=[1,1])
-        ])
+            Device(1, "test device", in_position=[0,0], out_position=[1,1])
+        ], path="/example/path")
 
         chip_coordinate = ChipCoordinate.from_list([-1550, 1120, 0])
         stage_coordinate = StageCoordinate.from_list(
@@ -645,19 +645,19 @@ class KabschRotationTest(unittest.TestCase):
         self.transformation.update(CoordinatePairing(
             calibration=Mock(),
             stage_coordinate=StageCoordinate.from_list([23236.35, -7888.67, 18956.06]),
-            device=Device(1, in_position=[0,0], out_position=[1,1]),
+            device=Device(1, "example type", in_position=[0,0], out_position=[1,1]),
             chip_coordinate=ChipCoordinate.from_list([-1550.0, 1120.0, 0.0])))
 
         self.transformation.update(CoordinatePairing(
             calibration=Mock(),
             stage_coordinate=StageCoordinate.from_list([23744.6, -9172.55, 18956.1]),
-            device=Device(2, in_position=[0,0], out_position=[1,1]),
+            device=Device(2, "example type", in_position=[0,0], out_position=[1,1]),
             chip_coordinate=ChipCoordinate.from_list([-1050.0, -160.0, 0.0])))
 
         self.transformation.update(CoordinatePairing(
             calibration=Mock(),
             stage_coordinate=StageCoordinate.from_list([25846.07, -10348.82, 18955.11]),
-            device=Device(3, in_position=[0,0], out_position=[1,1]),
+            device=Device(3, "example type", in_position=[0,0], out_position=[1,1]),
             chip_coordinate=ChipCoordinate.from_list([1046.25, -1337.5, 0.0])))
 
         self.assertListEqual(self.transformation.dump(), [
@@ -680,10 +680,10 @@ class KabschRotationTest(unittest.TestCase):
 
     def test_load_and_dump(self):
         chip = Chip("Test Chip", devices=[
-            Device(1, in_position=[0,0], out_position=[1,1]),
-            Device(2, in_position=[0,0], out_position=[1,1]),
-            Device(3, in_position=[0,0], out_position=[1,1]),
-        ])
+            Device(1, "example device", in_position=[0,0], out_position=[1,1]),
+            Device(2, "example device", in_position=[0,0], out_position=[1,1]),
+            Device(3, "example device", in_position=[0,0], out_position=[1,1]),
+        ], path="/example/path")
         self.transformation.update(CoordinatePairing(
             calibration=Mock(),
             stage_coordinate=StageCoordinate.from_list([23236.35, -7888.67, 18956.06]),

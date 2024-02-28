@@ -73,7 +73,7 @@ class CalibrationTestCase(unittest.TestCase):
         self.calibration.update_single_point_offset(CoordinatePairing(
             self.calibration,
             StageCoordinate.from_numpy(VACHERIN_STAGE_COORDS[0]),
-            Device(id=1, in_position=[0,0], out_position=[1,1]),
+            Device(id=1, type='test', in_position=[0,0], out_position=[1,1]),
             ChipCoordinate.from_numpy(VACHERIN_CHIP_COORDS[0])
         ))
 
@@ -721,6 +721,7 @@ class CalibrationTest(CalibrationTestCase):
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
+            path="/example/path",
             devices=[
                 Device(0, [23236.35, -7888.67, 18956.06], [0,0])
             ])
@@ -747,6 +748,7 @@ class CalibrationTest(CalibrationTestCase):
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
+            path="/example/path",
             devices=[
                 Device(0, [0,0], [1,1]),
                 Device(1, [2,2], [3,3]),
@@ -798,6 +800,7 @@ class CalibrationTest(CalibrationTestCase):
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
+            path="/example/path",
             devices=[
                 Device(0, [0,0], [1,1]),
                 Device(1, [2,2], [3,3]),
