@@ -24,7 +24,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         super().setUp()
 
         self.device = Device(id="101", type="My Device 1", in_position=[0,0], out_position=[1,1])
-        self.chip = Chip(name="My Chip", devices=[self.device], path="/example/path")
+        self.chip = Chip(name="My Chip", devices=[self.device], path="/example/path", _serialize_to_disk=False)
         self.mover = MoverNew(None)
 
         self.stage_1 = Mock(spec=Stage)

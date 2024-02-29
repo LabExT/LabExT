@@ -724,7 +724,7 @@ class CalibrationTest(CalibrationTestCase):
             path="/example/path",
             devices=[
                 Device(0, [23236.35, -7888.67, 18956.06], [0,0])
-            ])
+            ], _serialize_to_disk=False)
 
         calibration_data = {
             "orientation": "LEFT",
@@ -754,7 +754,7 @@ class CalibrationTest(CalibrationTestCase):
                 Device(1, [2,2], [3,3]),
                 Device(2, [4,4], [5,5]),
                 Device(3, [6,6], [7,7])
-            ])
+            ], _serialize_to_disk=False)
 
         calibration_data = {
             "orientation": "LEFT",
@@ -806,7 +806,7 @@ class CalibrationTest(CalibrationTestCase):
                 Device(1, [2,2], [3,3]),
                 Device(2, [4,4], [5,5]),
                 Device(3, [6,6], [7,7])
-            ])
+            ], _serialize_to_disk=False)
 
         calibration_data = {
             "orientation": "LEFT",
