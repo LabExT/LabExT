@@ -10,6 +10,7 @@ from unittest.mock import Mock
 from flaky import flaky
 
 from LabExT.Tests.Utils import TKinterTestCase
+from LabExT.Utils import setup_user_settings_directory
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.ChipSources.IBMMaskDescription import IBMMaskDescription
 from LabExT.Wafer.ChipSources.PhoenixPhotonics import PhoenixPhotonics
@@ -21,6 +22,8 @@ class ChipImportTest(TKinterTestCase):
     
     def setUp(self) -> None:
         super().setUp()
+
+        setup_user_settings_directory(makedir_if_needed=True)
 
         self.expm = Mock()
         self.expm.chip_source_api.chip_sources = {
