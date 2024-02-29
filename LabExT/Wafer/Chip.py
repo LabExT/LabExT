@@ -42,6 +42,9 @@ class Chip:
         for dev in self._devices:
             assert isinstance(dev, Device), "An element in devices is not of type Device."
 
+        all_dev_ids = [dev.id for dev in self._devices]
+        assert len(all_dev_ids) == len(set(all_dev_ids)), "Loaded device IDs must be unique!"
+
         self._path = path
         assert isinstance(self._path, str), "Argument 'path' is not a string."
         assert len(self._path) > 0, "Argument 'path' cannot be empty."
