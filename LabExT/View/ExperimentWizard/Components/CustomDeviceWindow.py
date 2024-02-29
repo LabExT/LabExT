@@ -124,7 +124,7 @@ class CustomDeviceWindow(Frame):
             custom_params.update({tup[0].get(): tup[1].get()})
 
         # create new device
-        custom_device = Device(_id, _in, _out, _type, custom_params)
+        custom_device = Device(id=_id, in_position=_in, out_position=_out, type=_type, parameters=custom_params)
 
         self.logger.debug('Created device:%s', custom_device)
         self._experiment_manager.exp.device_list.append(custom_device)
