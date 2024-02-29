@@ -62,7 +62,9 @@ class ImportChipWizard(Wizard):
 
     def _on_finish(self):
         if self.submitted_chip is None:
-            raise RuntimeError("Please call submit_chip_info to create Chip object and do error checking before allowing to finish the wizard.")
+            raise RuntimeError(
+                "Please call submit_chip_info to create Chip object and do error checking before allowing to finish the wizard."
+            )
         self.experiment_manager.register_chip(self.submitted_chip)
         return True
 
@@ -85,20 +87,27 @@ class ChipSourceSelection(Step):
             Label(frame, text="No chip sources available. Cannot continue.").pack(side=TOP, fill=X)
             self.wizard.set_error("No chip sources available.")
             return
-        
+
         self.source_options_sel_var = StringVar(self.wizard, source_options[0])
-        Label(frame, text="Choose which manifest importer / chip source to use:").pack(side=TOP, anchor='w', padx=2, pady=2)
-        OptionMenu(frame, self.source_options_sel_var, *source_options).pack(side=TOP, anchor='w', padx=10, pady=2, fill=X)
+        Label(frame, text="Choose which manifest importer / chip source to use:").pack(
+            side=TOP, anchor="w", padx=2, pady=2
+        )
+        OptionMenu(frame, self.source_options_sel_var, *source_options).pack(
+            side=TOP, anchor="w", padx=10, pady=2, fill=X
+        )
 
     def _on_next(self):
         next_step_name = self.source_options_sel_var.get()
         self.next_step = self.wizard.source_config_steps_insts[next_step_name]
         self.wizard.step_final_overview.previous_step = self.next_step
         return True
-    
+
+
 class ShowChipImportResult(Step):
     def __init__(self, wizard) -> None:
-        super().__init__(wizard, builder=self.build, title="Overview over Imported Devices", on_previous=self._on_previous)
+        super().__init__(
+            wizard, builder=self.build, title="Overview over Imported Devices", on_previous=self._on_previous
+        )
         self.finish_step_enabled = True
 
     def _on_previous(self):
@@ -106,8 +115,8 @@ class ShowChipImportResult(Step):
         self.previous_step.next_step_enabled = False
         return True
 
-    def build(self, frame: CustomFrame): 
+    def build(self, frame: CustomFrame):
         frame.title = "Overview over Imported Devices"
-        Label(frame, text=f"Chip name: {self.wizard.submitted_chip.name:s}").pack(side=TOP, anchor='w', padx=2, pady=2)
+        Label(frame, text=f"Chip name: {self.wizard.submitted_chip.name:s}").pack(side=TOP, anchor="w", padx=2, pady=2)
         dev_table = DeviceTable(frame, self.wizard.submitted_chip)
-        dev_table.pack(side=TOP, fill=BOTH, anchor='c', padx=2, pady=2, expand=True)
+        dev_table.pack(side=TOP, fill=BOTH, anchor="c", padx=2, pady=2, expand=True)

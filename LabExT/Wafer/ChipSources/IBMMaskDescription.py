@@ -22,7 +22,6 @@ else:
     CustomFrame = None
 
 
-
 class IBMMaskDescription(ChipSourceStep):
 
     CHIP_SOURCE_TITLE = "IBM mask description json file"
@@ -40,17 +39,17 @@ class IBMMaskDescription(ChipSourceStep):
             params = self.option_table.to_meas_param()
         else:
             params = {
-                "file path": MeasParamString(value="", extra_type='openfile'),
-                "chip name": MeasParamString(value="Chip1")
+                "file path": MeasParamString(value="", extra_type="openfile"),
+                "chip name": MeasParamString(value="Chip1"),
             }
 
         self.option_table = ParameterTable(frame)
-        self.option_table.pack(side=TOP, fill=X, padx=10, pady=(10,5))
-        self.option_table.title = 'IBM manifest file'
+        self.option_table.pack(side=TOP, fill=X, padx=10, pady=(10, 5))
+        self.option_table.title = "IBM manifest file"
         self.option_table.parameter_source = params
 
         self.load_button = Button(frame, text="Load File", command=self._load_json_device_info)
-        self.load_button.pack(side=TOP, padx=10, pady=5, anchor='e')
+        self.load_button.pack(side=TOP, padx=10, pady=5, anchor="e")
 
     def _load_json_device_info(self):
         """
@@ -69,10 +68,10 @@ class IBMMaskDescription(ChipSourceStep):
 
         # try decoding JSON
         try:
-            with open(file_path, 'r') as fp:
+            with open(file_path, "r") as fp:
                 raw_data = json.load(fp)
         except json.JSONDecodeError as e:
-            title = 'JSON Decode Error'
+            title = "JSON Decode Error"
             msg = f"JSON format could not be decoded, error: {str(e):s}"
             self.wizard.logger.error(msg)
             messagebox.showerror(title=title, message=msg)
@@ -83,40 +82,39 @@ class IBMMaskDescription(ChipSourceStep):
         for device in raw_data:
             # pop parameters from device's dictionary
             try:
-                identifier = str(device.pop('ID'))
+                identifier = str(device.pop("ID"))
             except KeyError:
-                self.wizard.logger.debug('Could not find ID in current device, skipping...')
+                self.wizard.logger.debug("Could not find ID in current device, skipping...")
                 continue
             try:
                 inputs = device.pop("Inputs")
                 if len(inputs) > 1:
-                    self.wizard.logger.warning("Found multiple input coordinates on device with ID: " +
-                                         "{:s}, ignoring all but the first one.".format(str(identifier)))
+                    self.wizard.logger.warning(
+                        "Found multiple input coordinates on device with ID: "
+                        + "{:s}, ignoring all but the first one.".format(str(identifier))
+                    )
                 inputs = inputs[0]
             except KeyError:
-                self.wizard.logger.debug('Could not find any inputs, set to [0,0]')
+                self.wizard.logger.debug("Could not find any inputs, set to [0,0]")
                 inputs = [0.0, 0.0]
             try:
                 outputs = device.pop("Outputs")
                 if len(outputs) > 1:
-                    self.wizard.logger.warning("Found multiple output coordinates on device with ID: " +
-                                         "{:s}, ignoring all but the first one.".format(str(identifier)))
+                    self.wizard.logger.warning(
+                        "Found multiple output coordinates on device with ID: "
+                        + "{:s}, ignoring all but the first one.".format(str(identifier))
+                    )
                 outputs = outputs[0]
             except KeyError:
-                self.wizard.logger.debug('Could not find any outputs, set to [0,0]')
+                self.wizard.logger.debug("Could not find any outputs, set to [0,0]")
                 outputs = [0.0, 0.0]
             try:
                 _type = str(device.pop("Type"))
             except KeyError:
-                self.wizard.logger.debug('Could not find type, set to default')
-                _type = 'No type'
+                self.wizard.logger.debug("Could not find type, set to default")
+                _type = "No type"
 
-            dev = Device(
-                id=identifier,
-                in_position=inputs,
-                out_position=outputs,
-                type=_type,
-                parameters=device)
+            dev = Device(id=identifier, in_position=inputs, out_position=outputs, type=_type, parameters=device)
             devices.append(dev)
 
         self.submit_chip_info(name=chip_name, path=file_path, devices=devices)

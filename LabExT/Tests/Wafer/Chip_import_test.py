@@ -19,7 +19,7 @@ from LabExT.Wafer.ImportChipWizard import ImportChipWizard
 
 @flaky(max_runs=3)
 class ChipImportTest(TKinterTestCase):
-    
+
     def setUp(self) -> None:
         super().setUp()
 
@@ -27,20 +27,17 @@ class ChipImportTest(TKinterTestCase):
 
         self.expm = Mock()
         self.expm.chip_source_api.chip_sources = {
-            'IBMMaskDescription': IBMMaskDescription,
-            'PhoenixPhotonics': PhoenixPhotonics
+            "IBMMaskDescription": IBMMaskDescription,
+            "PhoenixPhotonics": PhoenixPhotonics,
         }
 
     def setup_window(self):
-        return ImportChipWizard(
-            master=self.root,
-            experiment_manager=self.expm
-        )
+        return ImportChipWizard(master=self.root, experiment_manager=self.expm)
 
     def test_create_window_instantiate_steps(self):
         window = self.setup_window()
-        self.assertIsInstance(window.source_config_steps_insts['IBMMaskDescription'], IBMMaskDescription)
-        self.assertIsInstance(window.source_config_steps_insts['PhoenixPhotonics'], PhoenixPhotonics)
+        self.assertIsInstance(window.source_config_steps_insts["IBMMaskDescription"], IBMMaskDescription)
+        self.assertIsInstance(window.source_config_steps_insts["PhoenixPhotonics"], PhoenixPhotonics)
 
     def test_IBM_format(self):
 
@@ -51,9 +48,9 @@ class ChipImportTest(TKinterTestCase):
         self.pump_events()
 
         ps = window.current_step.option_table._parameter_source
-        chip_desc_file_path = join(dirname(dirname(__file__)), 'example_chip_description_IBM_style.json')
-        ps['file path'].value = chip_desc_file_path
-        ps['chip name'].value = 'chip_test_IBM_format'
+        chip_desc_file_path = join(dirname(dirname(__file__)), "example_chip_description_IBM_style.json")
+        ps["file path"].value = chip_desc_file_path
+        ps["chip name"].value = "chip_test_IBM_format"
         window.current_step.load_button.invoke()
         self.pump_events()
 
@@ -67,13 +64,13 @@ class ChipImportTest(TKinterTestCase):
         for _id in range(30):
             self.assertIn(str(_id), window.submitted_chip.devices)
         self.assertEqual(len(window.submitted_chip.devices), 30)
-        
-        self.assertEqual(window.submitted_chip.devices['3'].type, 'cutback')
-        self.assertAlmostEqual(window.submitted_chip.devices['3'].parameters['length'], 10857.3)
-        self.assertAlmostEqual(window.submitted_chip.devices['3'].parameters['dlength'], 2500)
 
-        self.assertEqual(window.submitted_chip.devices['29'].type, 'cutback')
-        self.assertAlmostEqual(window.submitted_chip.devices['29'].parameters['length'], 30000)
+        self.assertEqual(window.submitted_chip.devices["3"].type, "cutback")
+        self.assertAlmostEqual(window.submitted_chip.devices["3"].parameters["length"], 10857.3)
+        self.assertAlmostEqual(window.submitted_chip.devices["3"].parameters["dlength"], 2500)
+
+        self.assertEqual(window.submitted_chip.devices["29"].type, "cutback")
+        self.assertAlmostEqual(window.submitted_chip.devices["29"].parameters["length"], 30000)
 
         window._finish_button.invoke()
         self.pump_events()
@@ -89,9 +86,9 @@ class ChipImportTest(TKinterTestCase):
         self.pump_events()
 
         ps = window.current_step.option_table._parameter_source
-        chip_desc_file_path = join(dirname(dirname(__file__)), 'example_chip_description_PhoeniX_style.csv')
-        ps['file path'].value = chip_desc_file_path
-        ps['chip name'].value = 'chip_test_Phoenix_format'
+        chip_desc_file_path = join(dirname(dirname(__file__)), "example_chip_description_PhoeniX_style.csv")
+        ps["file path"].value = chip_desc_file_path
+        ps["chip name"].value = "chip_test_Phoenix_format"
         window.current_step.load_button.invoke()
         self.pump_events()
 
@@ -107,14 +104,14 @@ class ChipImportTest(TKinterTestCase):
 
         self.assertEqual(len(window.submitted_chip.devices), 49)
 
-        self.assertEqual(window.submitted_chip.devices['100'].type, 'cutback#0.5')
-        self.assertEqual(window.submitted_chip.devices['100'].parameters, {})
+        self.assertEqual(window.submitted_chip.devices["100"].type, "cutback#0.5")
+        self.assertEqual(window.submitted_chip.devices["100"].parameters, {})
 
-        self.assertEqual(window.submitted_chip.devices['137'].type, 'passive#2##3')
-        self.assertEqual(window.submitted_chip.devices['137'].parameters, {})
+        self.assertEqual(window.submitted_chip.devices["137"].type, "passive#2##3")
+        self.assertEqual(window.submitted_chip.devices["137"].parameters, {})
 
-        self.assertAlmostEqual(window.submitted_chip.devices['125'].in_position[0], -1451.25)
-        self.assertAlmostEqual(window.submitted_chip.devices['143'].out_position[1], -1287.5)
+        self.assertAlmostEqual(window.submitted_chip.devices["125"].in_position[0], -1451.25)
+        self.assertAlmostEqual(window.submitted_chip.devices["143"].out_position[1], -1287.5)
 
         window._finish_button.invoke()
         self.pump_events()

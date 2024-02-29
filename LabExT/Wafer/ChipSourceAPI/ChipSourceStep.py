@@ -23,16 +23,12 @@ class ChipSourceStep(Step):
     CHIP_SOURCE_TITLE = "Example Chip Source Step (change me)"
 
     def __init__(self, wizard: ImportChipWizard) -> None:
-        super().__init__(wizard=wizard,
-                         builder=self.build,
-                         title=self.CHIP_SOURCE_TITLE,
-                         next_step_enabled=False
-                         )
+        super().__init__(wizard=wizard, builder=self.build, title=self.CHIP_SOURCE_TITLE, next_step_enabled=False)
 
     def build(self):
         raise NotImplementedError("Must be overridden by subclass.")
-        
-    def submit_chip_info(self, name: str, path: str, devices = List[Device]):
+
+    def submit_chip_info(self, name: str, path: str, devices=List[Device]):
         self.wizard.submitted_chip = Chip(name=name, path=path, devices=devices)
         self.next_step_enabled = True
         self.wizard.__reload__()

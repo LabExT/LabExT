@@ -31,7 +31,7 @@ class Chip:
             Holds all devices objects.
         """
         self._logger = logging.getLogger()
-        self._logger.debug('Initialised Chip with name: %s', name)
+        self._logger.debug("Initialised Chip with name: %s", name)
 
         self._name = name
         assert isinstance(self._name, str), "Argument 'name' is not a string."
@@ -55,37 +55,35 @@ class Chip:
 
     @property
     def path(self) -> str:
-        """ Return the filepath of the chip file. """
+        """Return the filepath of the chip file."""
         return self._path
 
     @property
     def name(self) -> str:
-        """ Return the name of the chip. """
+        """Return the name of the chip."""
         return self._name
 
     @property
     def devices(self) -> dict:
-        """ Return a dictionary of all devices with device ID as keys. """
+        """Return a dictionary of all devices with device ID as keys."""
         return {device.id: device for device in self._devices}
-    
+
     def _serialize(self):
-        """ Saves chip information to disk for later re-use. """
+        """Saves chip information to disk for later re-use."""
         last_chip_fpath = get_configuration_file_path(self.CHIP_SAVE_FILE_NAME)
-        with open(last_chip_fpath, 'w') as fp:
-            json.dump({
-                'name': self._name,
-                'path': self._path,
-                'devices': [dev.as_dict() for dev in self._devices]
-            }, fp)
-    
+        with open(last_chip_fpath, "w") as fp:
+            json.dump(
+                {"name": self._name, "path": self._path, "devices": [dev.as_dict() for dev in self._devices]}, fp
+            )
+
     @staticmethod
     def load_last_instantiated_chip():
         last_chip_fpath = get_configuration_file_path(Chip.CHIP_SAVE_FILE_NAME)
-        with open(last_chip_fpath, 'r') as fp:
+        with open(last_chip_fpath, "r") as fp:
             loaded_data = json.load(fp)
         return Chip(
-            name=loaded_data['name'],
-            devices=[Device(**dev_desc) for dev_desc in loaded_data['devices']],
-            path=loaded_data['path'],
-            _serialize_to_disk=False
+            name=loaded_data["name"],
+            devices=[Device(**dev_desc) for dev_desc in loaded_data["devices"]],
+            path=loaded_data["path"],
+            _serialize_to_disk=False,
         )

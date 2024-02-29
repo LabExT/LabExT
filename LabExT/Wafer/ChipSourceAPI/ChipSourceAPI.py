@@ -34,9 +34,7 @@ class ChipSourceAPI:
         self.plugin_loader_stats.clear()
 
         # include chip sources from LabExT core first
-        chip_source_search_path = [
-            join(dirname(dirname(__file__)), "ChipSources")
-        ]
+        chip_source_search_path = [join(dirname(dirname(__file__)), "ChipSources")]
         chip_source_search_path += self._experiment_manager.addon_settings["addon_search_directories"]
 
         for cssp in chip_source_search_path:
