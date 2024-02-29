@@ -11,7 +11,7 @@ from typing import List, Type
 from LabExT.Movement.Transformations import ChipCoordinate
 
 
-@dataclass(frozen=True, order=True, kw_only=True)
+@dataclass(frozen=True, order=True)
 class Device:
     """
     Implementation of a single device on a chip.
