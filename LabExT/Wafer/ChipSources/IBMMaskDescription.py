@@ -31,6 +31,7 @@ class IBMMaskDescription(ChipSourceStep):
         super().__init__(*args, **kwargs)
 
         self.option_table = None
+        self.load_button = None
 
     def build(self, frame: CustomFrame):
         frame.title = self.CHIP_SOURCE_TITLE
@@ -48,7 +49,8 @@ class IBMMaskDescription(ChipSourceStep):
         self.option_table.title = 'IBM manifest file'
         self.option_table.parameter_source = params
 
-        Button(frame, text="Load File", command=self._load_json_device_info).pack(side=TOP, padx=10, pady=5, anchor='e')
+        self.load_button = Button(frame, text="Load File", command=self._load_json_device_info)
+        self.load_button.pack(side=TOP, padx=10, pady=5, anchor='e')
 
     def _load_json_device_info(self):
         """
@@ -104,12 +106,17 @@ class IBMMaskDescription(ChipSourceStep):
                 self.wizard.logger.debug('Could not find any outputs, set to [0,0]')
                 outputs = [0.0, 0.0]
             try:
-                _type = device.pop("Type")
+                _type = str(device.pop("Type"))
             except KeyError:
                 self.wizard.logger.debug('Could not find type, set to default')
                 _type = 'No type'
 
-            dev = Device(identifier, inputs, outputs, _type, device)
+            dev = Device(
+                id=identifier,
+                in_position=inputs,
+                out_position=outputs,
+                type=_type,
+                parameters=device)
             devices.append(dev)
 
         self.submit_chip_info(name=chip_name, path=file_path, devices=devices)

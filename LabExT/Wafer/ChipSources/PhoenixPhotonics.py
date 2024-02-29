@@ -30,6 +30,7 @@ class PhoenixPhotonics(ChipSourceStep):
         super().__init__(*args, **kwargs)
 
         self.option_table = None
+        self.load_button = None
 
     def build(self, frame: CustomFrame):
         frame.title = self.CHIP_SOURCE_TITLE
@@ -47,7 +48,8 @@ class PhoenixPhotonics(ChipSourceStep):
         self.option_table.title = 'PhoeniX manifest file'
         self.option_table.parameter_source = params
 
-        Button(frame, text="Load File", command=self._load_csv_device_info).pack(side=TOP, padx=10, pady=5, anchor='e')
+        self.load_button = Button(frame, text="Load File", command=self._load_csv_device_info)
+        self.load_button.pack(side=TOP, padx=10, pady=5, anchor='e')
 
     def _load_csv_device_info(self):
         """
@@ -96,7 +98,11 @@ class PhoenixPhotonics(ChipSourceStep):
             dev_outputs = [row_tuple[3], row_tuple[4]]
 
             # create device object and store into dict
-            dev = Device(dev_id, dev_inputs, dev_outputs, dev_type)
+            dev = Device(
+                id=dev_id, 
+                in_position=dev_inputs, 
+                out_position=dev_outputs, 
+                type=dev_type)
             devices.append(dev)
 
         self.submit_chip_info(name=chip_name, path=file_path, devices=devices)
