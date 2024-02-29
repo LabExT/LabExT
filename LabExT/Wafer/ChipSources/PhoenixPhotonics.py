@@ -64,10 +64,24 @@ class PhoenixPhotonics(ChipSourceStep):
         file_path = user_given_params["file path"].value
         chip_name = user_given_params["chip name"].value
 
-        # reads each line into a tuple and throws error if there are inconsistencies between lines
+        try:
+            devices = self._decode_phoenics_photonics_csv_file(file_path=file_path)
+        except Exception as e:
+            title = "CSV Reading Error"
+            msg = f"Error reading CSV file. Error message:\n{repr(e)}"
+            messagebox.showwarning(title=title, message=msg)
+            self.wizard.logger.error(title + " " + msg)
+            return
 
-        last_exc = None
-        for txt_encoding in ['utf-8', 'cp1252']:
+        self.submit_chip_info(name=chip_name, path=file_path, devices=devices)
+
+    @staticmethod
+    def _decode_phoenics_photonics_csv_file(file_path: str):
+
+        txt_encodings = ['utf-8', 'cp1252']
+        txt_encodings_errors = {k: None for k in txt_encodings}
+        
+        for txt_encoding in txt_encodings:
             try:
                 dev_raw_data = np.genfromtxt(file_path,
                                              comments='%',
@@ -76,14 +90,9 @@ class PhoenixPhotonics(ChipSourceStep):
                                              converters={0: lambda s: s.decode(txt_encoding)})
                 break
             except Exception as exc:
-                last_exc = repr(exc)
-                self.wizard.logger.warning(f"CSV reading error when using encoding {txt_encoding:s}. Error: {last_exc:s}")
+                txt_encodings_errors[txt_encoding] = repr(exc)
         else:
-            title = "CSV Reading Error"
-            msg = f"None of the tried encoding worked to read the manifest file. Last error: {last_exc:s}"
-            messagebox.showwarning(title=title, message=msg)
-            self.wizard.logger.error(title + " " + msg)
-            return  
+            raise ValueError(f"File {file_path:s} was unable to be decoded with any of these encodings {txt_encodings}. Errors: {txt_encodings_errors}.")
 
         devices = []
         for row_tuple in dev_raw_data:
@@ -104,5 +113,5 @@ class PhoenixPhotonics(ChipSourceStep):
                 out_position=dev_outputs, 
                 type=dev_type)
             devices.append(dev)
-
-        self.submit_chip_info(name=chip_name, path=file_path, devices=devices)
+        
+        return devices

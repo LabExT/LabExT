@@ -11,6 +11,8 @@ from os import remove
 from os.path import join, dirname
 import pytest
 from unittest.mock import patch, mock_open
+from LabExT.Wafer.Chip import Chip
+from LabExT.Wafer.ChipSources.PhoenixPhotonics import PhoenixPhotonics
 
 import LabExT.Wafer.Device
 import LabExT.Measurements.MeasAPI
@@ -82,8 +84,14 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(self.expm.exp.measurements), 0)
 
         # as we want to setup a multi-measurement multi-device run, we need a chip description file
-        self.expm.import_chip(join(dirname(dirname(__file__)), 'example_chip_description_PhoeniX_style.csv'),
-                              'chip_ExperimentWizardTest')
+        chip_desc_file_path = join(dirname(dirname(__file__)), 'example_chip_description_PhoeniX_style.csv')
+        devices = PhoenixPhotonics._decode_phoenics_photonics_csv_file(file_path=chip_desc_file_path)
+        self.expm.register_chip(chip=Chip(
+            name='chip_ExperimentWizardTest',
+            devices=devices,
+            path=chip_desc_file_path,
+            _serialize_to_disk=False
+        ))
         self.assertIsNotNone(self.expm.chip)
         self.assertEqual(len(self.expm.chip._devices), 49)
 
