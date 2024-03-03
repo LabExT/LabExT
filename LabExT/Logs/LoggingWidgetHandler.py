@@ -56,7 +56,6 @@ class LoggingWidgetHandler(logging.Handler):
             self.text_frame.configure(state="disabled")
             # Autoscroll to the bottom
             self.text_frame.yview(tk.END)
-            self.text_frame.update()
         except tk.TclError:
             # the text_frame does not exist anymore, do not emit log
             pass
