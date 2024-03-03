@@ -137,6 +137,9 @@ class PowerMeterSimulator(DummyInstrument):
     def fetch_power(self):
         if self._trigger == 'on':
             self._last_val = self._simulate_opt_power_value()
+            if self.range < -30:
+                # just for GUI test purposes here
+                self.logger.warning('OPM: Sensitivity is too low.')
             return self._last_val
         elif self._trigger == 'off':
             return self._last_val
