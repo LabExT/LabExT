@@ -39,6 +39,10 @@ class LoggingWidgetHandler(logging.Handler):
         self.counter = 0
 
     def emit(self, record):
+        if "nogui" in record.name.lower():
+            # do not emit this record onto the GUI window if the nogui logger was used
+            return
+
         msg = self.format(record)
         msg = msg.replace("\n", "\n  ")
 
