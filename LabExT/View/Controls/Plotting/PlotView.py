@@ -216,11 +216,11 @@ class PlottingSettingsFrame(CustomFrame):
             self.rowconfigure(i, pad=0)
 
         if current_plot_type == LINE_PLOT:
-            self.__setup_line_plot(shared_values=shared_values)
+            max_used_row = self.__setup_line_plot(shared_values=shared_values)
         elif current_plot_type == CONTOUR or current_plot_type == CONTOUR_F:
-            self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
+            max_used_row = self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
         else:
-            pass
+            max_used_row = 1
 
     def __show_value_error(self, base_row: int, parameter: bool = False):
         """Shows an error message about non-matching values or parameters in the selected measurements."""
@@ -298,13 +298,15 @@ class PlottingSettingsFrame(CustomFrame):
             self.add_widget(self._axis_z_selector, column=1, row=base_row + 2, sticky="ew")
             self.rowconfigure(base_row + 2, weight=0)
 
-    def __setup_contour_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2):
+    def __setup_contour_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2) -> int:
         """Sets up the components needed for a contour-plot.
 
         Args:
             shared_values: A list of the names of the values shared by all selected measurements.
             unequal_params: A list of the names of the parameters unequal across all selected measurements.
             base_row: In which row of the parent grid the setting widgets are drawn.
+        Returns:
+            The index of the lowest used row
         """
         if len(shared_values) == 0:
             # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
@@ -337,12 +339,16 @@ class PlottingSettingsFrame(CustomFrame):
         self.add_widget(self._bucket_count_entry, column=1, row=base_row + 4, sticky="ew")
         self.rowconfigure(base_row + 4, weight=0)
 
-    def __setup_line_plot(self, shared_values: list[str], base_row: int = 2):
+        return base_row + 4
+
+    def __setup_line_plot(self, shared_values: list[str], base_row: int = 2) -> int:
         """Sets up the components needed for a line-plot.
 
         Args:
             shared_values: A list of the names of the values shared by all selected measurements.
             base_row: In which row of the parent grid the setting widgets are drawn.
+        Returns:
+            The index of the lowest used row
         """
         if len(shared_values) == 0:
             # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
@@ -350,6 +356,8 @@ class PlottingSettingsFrame(CustomFrame):
             return
 
         self.__setup_axes_settings(values=[shared_values, shared_values], base_row=base_row)
+
+        return base_row + 2
 
     def add_settings_changed_callback(self, callback: Callable[[], None]):
         """Adds a callback being notified when a setting is changed by the user.
