@@ -30,5 +30,8 @@ class PlotModel:
         self.contour_bucket_count = tk.IntVar()
         """Stores the number of buckets used for the contour plot."""
 
+        self.legend_elements: list[str] = []
+        """Stores the names of the elements selected for the legend."""
+
         # default values
         self.contour_bucket_count.set(10)

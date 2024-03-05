@@ -18,9 +18,11 @@ import numpy as np
 if TYPE_CHECKING:
     from tkinter import Widget
     from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableData
+    from LabExT.Experiments.StandardExperiment import MeasurementDict
 else:
     Widget = None
     PlottableData = None
+    MeasurementDict = None
 
 T = TypeVar("T")
 
@@ -51,6 +53,7 @@ class PlotController:
 
         self._settings_frame.add_settings_changed_callback(self._plot_settings_changed_callback)
         self._data_handler.add_plottable_data_changed_listener(self._plottable_data_changed_callback)
+        self._settings_frame.legend_changed_callbacks.append(self._legend_changed_callback)
 
     def show(self, row: int = 0, column: int = 1, width: int = 2, height: int = 2, pad: int = 10) -> None:
         """Places the corresponding gui elements in a grid in the parent widget according to the arguments.
@@ -86,6 +89,10 @@ class PlotController:
         # redraw plot
         self.__redraw_axes()
 
+    def _legend_changed_callback(self) -> None:
+        # only plot needs to be redrawn
+        self.__redraw_axes()
+
     def __redraw_axes(self) -> None:
         # clear
         self._model.figure.clear()
@@ -100,13 +107,31 @@ class PlotController:
         self._view._plotting_frame.data_changed_callback()
 
     def __draw_axes_line_plot(self, axis_x_key: str, axis_y_key: str) -> None:
+        def get_label(meas: MeasurementDict) -> str:
+            res = ""
+            for name in self._model.legend_elements:
+                if res != "":
+                    res += " - "
+                if name == "Measurement name":
+                    res += f"{meas['name_known']}"
+                elif name == "Measurement ID":
+                    res += meas["measurement id long"][-5:]
+                else:
+                    res += f"{name} = {meas['measurement_params'][name]}"
+            return res
+
         plot = self._model.figure.add_subplot(1, 1, 1)
         for meas_hash in self._plottable_data.keys():
             measurement = self._plottable_data[meas_hash]
-            plot.plot(measurement["values"][axis_x_key], measurement["values"][axis_y_key])
+            plot.plot(
+                measurement["values"][axis_x_key], measurement["values"][axis_y_key], label=get_label(measurement)
+            )
 
         plot.set_xlabel(axis_x_key)
         plot.set_ylabel(axis_y_key)
+
+        if len(self._model.legend_elements) > 0:
+            plot.legend()
 
     def __draw_axes_contour_plot(self) -> None:
         """Creates a contour or contourf plot on the plotting frame."""
@@ -175,6 +200,7 @@ class PlotController:
 
         x_data, y_data = np.meshgrid(x_data, y_data)
 
+        # plot
         if self._model.plot_type.get() == CONTOUR:
             plot_method = plot.contour
         else:
