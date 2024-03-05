@@ -55,6 +55,7 @@ class PlotView:
             axis_y_var=plot_model.axis_y_key_name,
             axis_z_var=plot_model.axis_z_key_name,
             buckets_count_var=plot_model.contour_bucket_count,
+            legend_elements=plot_model.legend_elements,
         )
         self._settings_frame.title = "Plot Settings"
 
@@ -121,6 +122,7 @@ class PlottingSettingsFrame(CustomFrame):
         axis_y_var: tk.StringVar,
         axis_z_var: tk.StringVar,
         buckets_count_var: tk.IntVar,
+        legend_elements: list[str],
         *args,
         **kwargs,
     ) -> None:
@@ -145,6 +147,10 @@ class PlottingSettingsFrame(CustomFrame):
         # plot options
         self._bucket_count_entry = tk.Entry(self)
         self._bucket_count_var = buckets_count_var
+
+        # legend options
+        self._legend_options = legend_elements
+        self._legend_changed_callbacks: list[Callable[[None], None]] = []
 
         self.__set_vars_trace_method(
             [
@@ -216,11 +222,11 @@ class PlottingSettingsFrame(CustomFrame):
             self.rowconfigure(i, pad=0)
 
         if current_plot_type == LINE_PLOT:
-            max_used_row = self.__setup_line_plot(shared_values=shared_values)
+            _ = self.__setup_line_plot(shared_values=shared_values, unequal_params=unequal_params)
         elif current_plot_type == CONTOUR or current_plot_type == CONTOUR_F:
-            max_used_row = self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
+            _ = self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
         else:
-            max_used_row = 1
+            pass
 
     def __show_value_error(self, base_row: int, parameter: bool = False):
         """Shows an error message about non-matching values or parameters in the selected measurements."""
@@ -306,18 +312,18 @@ class PlottingSettingsFrame(CustomFrame):
             unequal_params: A list of the names of the parameters unequal across all selected measurements.
             base_row: In which row of the parent grid the setting widgets are drawn.
         Returns:
-            The index of the lowest used row
+            The index of the lowest used row or 0 if nothing was drawn
         """
         if len(shared_values) == 0:
             # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
             self.__show_value_error(base_row=base_row)
-            return
+            return 0
 
         if len(unequal_params) == 0:
             # If there are no shared parameters, we can't use a contour plot (maybe we somehow change this in the future,
             # to allow values instead of parameters to be the y-axis)
             self.__show_value_error(base_row=base_row, parameter=True)
-            return
+            return 0
 
         self.__setup_axes_settings(
             values=[shared_values, unequal_params, shared_values], base_row=base_row, with_z=True
@@ -341,11 +347,12 @@ class PlottingSettingsFrame(CustomFrame):
 
         return base_row + 4
 
-    def __setup_line_plot(self, shared_values: list[str], base_row: int = 2) -> int:
+    def __setup_line_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2) -> int:
         """Sets up the components needed for a line-plot.
 
         Args:
             shared_values: A list of the names of the values shared by all selected measurements.
+            unequal_params: A list of the names of the parameters unequal across all selected measurements.
             base_row: In which row of the parent grid the setting widgets are drawn.
         Returns:
             The index of the lowest used row
@@ -353,11 +360,37 @@ class PlottingSettingsFrame(CustomFrame):
         if len(shared_values) == 0:
             # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
             self.__show_value_error(base_row=base_row)
-            return
+            return 0
 
         self.__setup_axes_settings(values=[shared_values, shared_values], base_row=base_row)
 
+        legend_label = tk.Label(self, anchor="w", text="Legend elements:")
+        self.add_widget(legend_label, row=base_row + 3, column=0, ipadx=10, ipady=0, sticky="we")
+
+        legend_options = ["Measurement name", "Measurement ID"] + unequal_params
+        checkbox_variables = [tk.IntVar() for i in range(len(legend_options))]
+
+        def _on_legend_change():
+            self._legend_options.clear()
+            self._legend_options += [
+                option for option, var in zip(legend_options, checkbox_variables) if var.get() == 1
+            ]
+            for callback in self._legend_changed_callbacks:
+                callback()
+
+        for i, (option, var) in enumerate(zip(legend_options, checkbox_variables)):
+            checkbox = tk.Checkbutton(
+                self, text=option, variable=var, onvalue=1, offvalue=0, command=_on_legend_change
+            )
+            self.add_widget(checkbox, row=base_row + 3 + i, column=1, sticky="w", ipadx=10, ipady=0)
+            self.rowconfigure(base_row + i + 3, pad=0)
+            self.rowconfigure(base_row + i + 3, weight=0)
+
         return base_row + 2
+
+    @property
+    def legend_changed_callbacks(self):
+        return self._legend_changed_callbacks
 
     def add_settings_changed_callback(self, callback: Callable[[], None]):
         """Adds a callback being notified when a setting is changed by the user.
@@ -408,7 +441,7 @@ class PlottingSettingsFrame(CustomFrame):
             text: the new value of the entry if the change had happened ('%P' in tk)
         """
         if text == "":
-            # we first insert and then delete because otherwise the validation function would return 
+            # we first insert and then delete because otherwise the validation function would return
             # False again which would result in an endless recursion
             self._bucket_count_entry.insert(0, "0")
             self._bucket_count_entry.delete(1, "end")
