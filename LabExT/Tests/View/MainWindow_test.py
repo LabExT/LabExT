@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 import random
 from os import remove
-from flaky import flaky
+import pytest
 from unittest.mock import patch
 
 from typing import TYPE_CHECKING
@@ -66,7 +66,6 @@ def check_InsertionLossSweep_meas_dict_meta_data(testinst, meas_record, dev_prop
 
 
 @mark_as_gui_integration_test
-@flaky(max_runs=3)
 class MainWindowTest(TKinterTestCase):
 
     def main_window_setup(self):
@@ -83,11 +82,13 @@ class MainWindowTest(TKinterTestCase):
                 self.mwc.allow_GUI_changes = False
                 self.mwm.allow_GUI_changes = False
 
+    @pytest.mark.flaky(reruns=3)
     def test_mainwindow_repeated_IL_sweep(self):
         self.test_mainwindow_single_IL_sweep()
         self.test_mainwindow_single_IL_sweep()
         self.test_mainwindow_single_IL_sweep()
 
+    @pytest.mark.flaky(reruns=3)
     def test_mainwindow_single_IL_sweep(self):
         with patch('LabExT.View.EditMeasurementWizard.WizardEntry.MeasurementSelect.get_visa_address',
                    simulator_only_instruments_descriptions):

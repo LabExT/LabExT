@@ -6,7 +6,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from unittest.mock import Mock
-from flaky import flaky
+import pytest
 
 from LabExT.Movement.config import DevicePort, Orientation
 
@@ -19,7 +19,6 @@ from LabExT.Wafer.Device import Device
 from LabExT.Wafer.Chip import Chip
 
 
-@flaky(max_runs=3)
 class CoordinatePairingsWindowTest(TKinterTestCase):
     def setUp(self) -> None:
         super().setUp()
@@ -55,11 +54,13 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             with_input_stage=with_input_stage,
             with_output_stage=with_output_stage)
 
+    @pytest.mark.flaky(reruns=3)
     def test_raises_error_if_no_chip_is_imported(self):
         with self.assertRaises(ValueError):
             CoordinatePairingsWindow(
                 self.root, self.mover, None, self.on_finish)
 
+    @pytest.mark.flaky(reruns=3)
     def test_raises_error_if_input_is_requested_but_not_defined(self):
         with self.assertRaises(ValueError):
             CoordinatePairingsWindow(
@@ -69,6 +70,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
                 self.on_finish,
                 with_input_stage=True)
 
+    @pytest.mark.flaky(reruns=3)
     def test_raises_error_if_output_is_requested_but_not_defined(self):
         with self.assertRaises(ValueError):
             CoordinatePairingsWindow(
@@ -78,6 +80,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
                 self.on_finish,
                 with_output_stage=True)
 
+    @pytest.mark.flaky(reruns=3)
     def test_no_callback_for_no_device_selection(self):
         self.setup_calibrations()
         window = self.setup_window()
@@ -86,6 +89,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
 
         self.on_finish.assert_not_called()
 
+    @pytest.mark.flaky(reruns=3)
     def test_device_selection(self):
         self.setup_calibrations()
         window = self.setup_window()
@@ -95,6 +99,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
 
         self.assertEqual(window._device, self.device)
 
+    @pytest.mark.flaky(reruns=3)
     def test_device_reset(self):
         self.setup_calibrations()
         window = self.setup_window()
@@ -106,6 +111,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
         window._clear_device_button.invoke()
         self.assertIsNone(window._device)
 
+    @pytest.mark.flaky(reruns=3)
     def test_pairings_for_input_stage(self):
         self.setup_calibrations()
         window = self.setup_window(
@@ -129,6 +135,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             pairings[0].stage_coordinate.to_list())
         self.assertEqual([0, 0, 0], pairings[0].chip_coordinate.to_list())
 
+    @pytest.mark.flaky(reruns=3)
     def test_pairings_for_output_stage(self):
         self.setup_calibrations()
         window = self.setup_window(
@@ -152,6 +159,7 @@ class CoordinatePairingsWindowTest(TKinterTestCase):
             pairings[0].stage_coordinate.to_list())
         self.assertEqual([1, 1, 0], pairings[0].chip_coordinate.to_list())
 
+    @pytest.mark.flaky(reruns=3)
     def test_pairings_for_input_and_output_stage(self):
         self.setup_calibrations()
         window = self.setup_window(

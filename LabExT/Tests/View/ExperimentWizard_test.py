@@ -9,7 +9,7 @@ import random
 from itertools import product
 from os import remove
 from os.path import join, dirname
-from flaky import flaky
+import pytest
 from unittest.mock import patch, mock_open
 
 import LabExT.Wafer.Device
@@ -46,7 +46,6 @@ def check_DummyMeas_meas_dict_meta_data(testinst, meas_record, dev_props=None, m
 
 
 @mark_as_gui_integration_test
-@flaky(max_runs=3)
 class ExperimentWizardTest(TKinterTestCase):
 
     def main_window_setup(self):
@@ -64,11 +63,13 @@ class ExperimentWizardTest(TKinterTestCase):
                 self.mwc.allow_GUI_changes = False
                 self.mwm.allow_GUI_changes = False
 
+    @pytest.mark.flaky(reruns=3)
     def test_experiment_wizard_repeated(self):
         self.test_experiment_wizard()
         self.test_experiment_wizard()
         self.test_experiment_wizard()
 
+    @pytest.mark.flaky(reruns=3)
     def test_experiment_wizard(self):
         self.main_window_setup()
 
