@@ -462,10 +462,15 @@ class StandardExperiment:
         # add file path to dictionary
         meas_dict["file_path_known"] = file_path
 
+        # remove measurements if necessary
         if self._meas_control_settings.finished_meas_limited:
             while len(self.measurements_hashes) >= self._meas_control_settings.max_finished_meas:
-                self.measurements_hashes.pop(0)
-                self.measurements.pop(0)
+                ts_known_sorted = sorted([m["timestamp_known"] for m in self.measurements])
+                for meas in self.measurements:
+                    if meas["timestamp_known"] == ts_known_sorted[0]:
+                        self.measurements.remove(meas)
+                        self.measurements_hashes.remove(calc_measurement_key(meas))
+                        break
 
         # all good, append to measurements
         self.measurements_hashes.extend([meas_hash])
