@@ -8,18 +8,27 @@ import json
 import logging
 import os.path
 from tkinter import Toplevel, Checkbutton, BooleanVar, Label, StringVar, Entry, Button
+from typing import TYPE_CHECKING
+
 from tktooltip import ToolTip
 
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.CustomFrame import CustomFrame
 
+if TYPE_CHECKING:
+    from tkinter import Tk
+    from LabExT.ExperimentManager import ExperimentManager
+else:
+    Tk = None
+    ExperimentManager = None
+
 
 class MeasurementControlSettings:
 
-    filename = 'meas_control_settings.json'
+    FILENAME = 'meas_control_settings.json'
 
     def __init__(self):
-        self._settings_filepath = get_configuration_file_path(self.filename)
+        self._settings_filepath = get_configuration_file_path(self.FILENAME)
 
         # default values
         self.finished_meas_limited: bool = False
@@ -51,7 +60,7 @@ class MeasurementControlSettings:
             settings = json.load(f)
         return settings
 
-    def update(self):
+    def update(self) -> None:
         settings = self._read_savefile()
         self.finished_meas_limited = settings.get('finished_meas_limited', self.finished_meas_limited)
         self.max_finished_meas = settings.get('max_finished_meas', self.max_finished_meas)
@@ -61,9 +70,9 @@ class MeasurementControlSettings:
 
 
 class MeasurementControlSettingsView:
-    """ Modify how measurement storing and tracking are handled """
+    """ Modify how measurement storing and tracking is handled """
 
-    def __init__(self, parent, experiment_manager):
+    def __init__(self, parent: Tk, experiment_manager: ExperimentManager):
         self._root = parent
         self.exp_manager = experiment_manager
         self.logger = logging.getLogger()
@@ -106,7 +115,7 @@ class MeasurementControlSettingsView:
             self.todo_limit_label.config(state="disabled")
             self.todo_limit_field.config(state="disabled")
 
-    def _validate_entries(self):
+    def _validate_entries(self) -> None:
         max_meas = int(self.measurement_limit.get())
         if max_meas <= 0:
             raise ValueError(f'The maximum number of measurement displayed cannot be lower than 1. Got {max_meas}')
@@ -123,6 +132,7 @@ class MeasurementControlSettingsView:
         self._settings.json_indented = not self.no_json_indentation.get()
 
         self._settings.save_to_file()
+        self.exp_manager.main_window.update_tables()
         self.window.destroy()
 
     def __setup__(self):
