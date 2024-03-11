@@ -96,7 +96,7 @@ class PlotTrace:
         finite_vals = self.finite_y_values
         if len(finite_vals) > 0:
             self.annotation_handle.xy = (0, np.mean(finite_vals[-n_avg:]))
-        self.annotation_handle.set_text(f'{finite_vals[-1]:.3f}')
+            self.annotation_handle.set_text(f'{finite_vals[-1]:.3f}')
 
     def update_line_label(self):
         if self.reference_value is not None:
