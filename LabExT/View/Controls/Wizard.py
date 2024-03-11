@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import logging
 from tkinter import Label, Toplevel, Frame, Button, FLAT, TOP, RIGHT, LEFT, X, Y, BOTH, NORMAL, DISABLED
 from typing import Type
 
@@ -159,6 +160,8 @@ class Wizard(Toplevel):
             relief=FLAT)
 
         self.parent = parent
+
+        self.logger = logging.getLogger()
 
         self._current_step: Type[Step] = None
 
