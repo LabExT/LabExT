@@ -128,6 +128,9 @@ class ToDoTable(CustomFrame):
         for tidx, todo in enumerate(self._original_todo_list):
 
             if self._meas_control_settings.displayed_todo_limited:
+                if tidx == max_displayed_half and n > 2 * max_displayed_half:
+                    self._tree.insert(parent="", index=tidx, values=('', '. . .', '', ''))
+                    continue
                 if max_displayed_half - 1 < tidx < n - max_displayed_half:
                     continue
 
