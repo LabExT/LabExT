@@ -5,6 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import logging
 import threading
 import time
 from time import sleep
@@ -94,6 +95,7 @@ class PowerMeterCard(CardFrame):
             self.data_to_plot_queue.put(PlotDataPoint(trace_name=trace, delete_trace=True))
 
         loaded_instr = self.load_instrument_instance()
+        loaded_instr.logger = logging.getLogger('nogui')
         loaded_instr.open()
         self.instrument = loaded_instr
 

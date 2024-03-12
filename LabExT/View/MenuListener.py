@@ -12,7 +12,7 @@ import sys
 import os
 import webbrowser
 from threading import Thread
-from tkinter import filedialog, simpledialog, messagebox, Toplevel, Label, Frame, font
+from tkinter import filedialog, messagebox, Toplevel, Label, Frame, font
 
 from LabExT.Utils import get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
@@ -33,6 +33,7 @@ from LabExT.View.Movement import (
     MoveStagesDeviceWindow,
     LoadStoredCalibrationWindow
 )
+from LabExT.Wafer.ImportChipWizard import ImportChipWizard
 
 
 class MListener:
@@ -76,6 +77,7 @@ class MListener:
         self.mover_setup_toplevel = None
         self.calibration_setup_toplevel = None
         self.calibration_restore_toplevel = None
+        self.import_chip_wizard_toplevel = None
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the
@@ -141,47 +143,21 @@ class MListener:
         self.import_done = True
 
     def client_import_chip(self):
-        """Called when user wants to import a new chip. Opens a file
-        dialog, asks for a chip name and calls the experiment manager
-        to change chip.
-        """
-        self.logger.debug('Client wants to import chip')
 
-        # open a file dialog and ask for location of chip
         if self._experiment_manager.exp.to_do_list:
+            self.logger.error('Cannot import new chip: there are still ToDos enqueued.')
             messagebox.showinfo(
                 'Error',
-                'Please finish your experiment before you import a chip.')
-            self.logger.warning('Cannot import new chip: there are still measurements to do.')
+                'ToDo queue is not empty. Cannot import new chip.')
             return
-        _chip_path = filedialog.askopenfilename(
-            title="Select chip layout file",
-            filetypes=(("chip layout", "*.txt"),
-                       ("chip layout", "*.json"),
-                       ("chip layout", "*.csv"),
-                       ("all files", "*.*")))
-        if _chip_path:
-            _chip_name = simpledialog.askstring(
-                title="Custom chip name",
-                prompt="Set individual chip name",
-                initialvalue="Chip_01")
-            if _chip_name:
-                try:
-                    self._experiment_manager.import_chip(_chip_path, _chip_name)
-                except Exception as exc:
-                    msg = "Could not import chip due to: " + repr(exc)
-                    self.logger.error(msg)
-                    messagebox.showerror('Chip Import Error', msg)
-                    return
-                msg = "Chip with name {:s} and description " \
-                      "file {:s} successfully imported.".format(_chip_name, _chip_path)
-                self.logger.info(msg)
-                messagebox.showinfo("Chip Import Success", msg)
-            # if user presses cancel when asked for custom name we abort
-            else:
-                self.logger.info('Chip import aborted by user (cancelled name setting).')
-        else:
-            self.logger.info('Chip import aborted by user (no file selected).')
+
+        if try_to_lift_window(self.import_chip_wizard_toplevel):
+            return
+        
+        self.import_chip_wizard_toplevel = ImportChipWizard(
+            master=self._root,
+            experiment_manager=self._experiment_manager
+        )
 
     def client_export_data(self):
         """Called when user wants to export data. Starts the Exporter.

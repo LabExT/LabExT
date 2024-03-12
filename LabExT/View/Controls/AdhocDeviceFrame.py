@@ -129,7 +129,7 @@ class AdhocDeviceFrame(CustomFrame):
 
         params = {kv.get(): vv.get() for kv, vv in self._extra_parameter_vars}
 
-        return Device(_id, [_inp_x, _inp_y], [_oup_x, _oup_y], _type, params)
+        return Device(id=_id, in_position=[_inp_x, _inp_y], out_position=[_oup_x, _oup_y], type=_type, parameters=params)
 
     def load_existing_device(self, device: Device):
         """Loads existing device information from an existing device object."""

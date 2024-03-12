@@ -20,33 +20,33 @@ class Device:
     ----------
     id: str
         identifier
-    in_position: List[float]
-        input position as list of coordinates
-    out_position: List[float]
-        output position as list of coordinates
     type: str
         device type or general device description
-    parameters: dict
+    in_position: List[float], optional
+        input position as list of coordinates
+    out_position: List[float], optional
+        output position as list of coordinates
+    parameters: dict, optional
         any additional parameters as written in the chip file
     """
+
     id: str
+    type: str
     in_position: List[float] = field(default_factory=list)
     out_position: List[float] = field(default_factory=list)
-    type: str = ''
     parameters: dict = field(default_factory=dict)
 
     @property
     def short_str(self) -> str:
-        """ Return string representation for device """
-        return "ID {} - IN: {} OUT: {}".format(
-            self.id, self.input_coordinate, self.output_coordinate)
+        """Return string representation for device"""
+        return "ID {} - IN: {} OUT: {}".format(self.id, self.input_coordinate, self.output_coordinate)
 
     def as_dict(self):
-        """ Return device as a dictionary. """
+        """Return device as a dictionary."""
         return asdict(self)
 
     def as_tuple(self):
-        """ Return device as a tuple. """
+        """Return device as a tuple."""
         return astuple(self)
 
     @property

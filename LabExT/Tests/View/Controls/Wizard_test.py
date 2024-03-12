@@ -6,14 +6,13 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from unittest.mock import Mock
+import pytest
 from LabExT.Tests.Utils import TKinterTestCase
-from flaky import flaky
 
 import tkinter
 from LabExT.View.Controls.Wizard import Step, Wizard
 
 
-@flaky(max_runs=3)
 class WizardUnitTest(TKinterTestCase):
     """
     Unittests for Wizard Widget.
@@ -32,6 +31,7 @@ class WizardUnitTest(TKinterTestCase):
         )
         self.builder = Mock()
 
+    @pytest.mark.flaky(reruns=3)
     def test_wizard_build(self):
         self.assertEqual(self.wizard._next_button['text'], "Custom Next Label")
         self.assertEqual(
@@ -44,6 +44,7 @@ class WizardUnitTest(TKinterTestCase):
             self.wizard._finish_button['text'],
             "Custom Finish Label")
 
+    @pytest.mark.flaky(reruns=3)
     def test_add_step_handle_callbacks(self):
         on_reload = Mock()
         on_next = Mock()
@@ -64,6 +65,7 @@ class WizardUnitTest(TKinterTestCase):
         step.on_reload_callback()
         on_reload.assert_called_once()
 
+    @pytest.mark.flaky(reruns=3)
     def test_add_step_handle_step_linking(self):
         step = self.wizard.add_step(builder=lambda: None)
         previous_step = self.wizard.add_step(builder=lambda: None)
@@ -93,6 +95,7 @@ class WizardUnitTest(TKinterTestCase):
         self.assertFalse(next_step.next_step_available)
         self.assertIsNone(next_step.next_step)
 
+    @pytest.mark.flaky(reruns=3)
     def test_add_step_creates_new_sidebar_label(self):
         step = self.wizard.add_step(
             builder=lambda: None,
@@ -115,7 +118,7 @@ class WizardUnitTest(TKinterTestCase):
             Step.INACTIVE_LABEL_COLOR)
 
     # Testing current step
-
+    @pytest.mark.flaky(reruns=3)
     def test_next_step_if_next_step_is_present(self):
         on_next = Mock(return_value=False)
         current_step = self.wizard.add_step(
@@ -129,6 +132,7 @@ class WizardUnitTest(TKinterTestCase):
         on_next.assert_not_called()
         self.assertEqual(self.wizard.current_step, current_step)
 
+    @pytest.mark.flaky(reruns=3)
     def test_next_step_if_next_step_callback_fails(self):
         on_next = Mock(return_value=False)
         next_builder = Mock()
@@ -146,6 +150,7 @@ class WizardUnitTest(TKinterTestCase):
         self.assertEqual(self.wizard.current_step, current_step)
         next_builder.assert_not_called()
 
+    @pytest.mark.flaky(reruns=3)
     def test_next_step_if_next_step_callback_succeeds(self):
         on_next = Mock(return_value=True)
         next_builder = Mock()
@@ -163,6 +168,7 @@ class WizardUnitTest(TKinterTestCase):
         self.assertEqual(self.wizard.current_step, next_step)
         next_builder.assert_called_once()
 
+    @pytest.mark.flaky(reruns=3)
     def test_previous_step_if_previous_step_is_present(self):
         on_previous = Mock(return_value=False)
         current_step = self.wizard.add_step(
@@ -176,6 +182,7 @@ class WizardUnitTest(TKinterTestCase):
         on_previous.assert_not_called()
         self.assertEqual(self.wizard.current_step, current_step)
 
+    @pytest.mark.flaky(reruns=3)
     def test_previous_step_if_previous_step_callback_fails(self):
         on_previous = Mock(return_value=False)
         previous_builder = Mock()
@@ -193,6 +200,7 @@ class WizardUnitTest(TKinterTestCase):
         self.assertEqual(self.wizard.current_step, current_step)
         previous_builder.assert_not_called()
 
+    @pytest.mark.flaky(reruns=3)
     def test_previous_step_if_previous_step_callback_succeeds(self):
         on_previous = Mock(return_value=True)
         previous_builder = Mock()
@@ -210,6 +218,7 @@ class WizardUnitTest(TKinterTestCase):
         self.assertEqual(self.wizard.current_step, previous_step)
         previous_builder.assert_called_once()
 
+    @pytest.mark.flaky(reruns=3)
     def test_current_step_changes_sidebar_config(self):
         current_step = self.wizard.add_step(
             builder=self.builder, title="Current Step")
@@ -228,6 +237,7 @@ class WizardUnitTest(TKinterTestCase):
             Step.ACTIVE_LABEL_COLOR)
         self.assertEqual(self.wizard.current_step, step)
 
+    @pytest.mark.flaky(reruns=3)
     def test_current_step_renders_new_frame(self):
         current_step = self.wizard.add_step(
             builder=self.builder, title="Current Step")
@@ -235,6 +245,7 @@ class WizardUnitTest(TKinterTestCase):
 
         self.builder.assert_called_once()
 
+    @pytest.mark.flaky(reruns=3)
     def test_current_step_calls_reload_callback(self):
         on_reload = Mock()
 
@@ -245,7 +256,6 @@ class WizardUnitTest(TKinterTestCase):
         on_reload.assert_called_once()
 
 
-@flaky(max_runs=3)
 class WizardIntegrationTest(TKinterTestCase):
     """
     Integration test for a Wizard with 2 steps.
@@ -307,6 +317,7 @@ class WizardIntegrationTest(TKinterTestCase):
         self.assertEqual(self.wizard._cancel_button['state'], cancel)
         self.assertEqual(self.wizard._finish_button['state'], finish)
 
+    @pytest.mark.flaky(reruns=3)
     def test_next_from_first_step(self):
         self.wizard.current_step = self.first_step
 
@@ -340,6 +351,7 @@ class WizardIntegrationTest(TKinterTestCase):
             finish=tkinter.DISABLED
         )
 
+    @pytest.mark.flaky(reruns=3)
     def test_previous_from_first_step(self):
         self.wizard.current_step = self.first_step
 
@@ -359,6 +371,7 @@ class WizardIntegrationTest(TKinterTestCase):
             finish=tkinter.DISABLED
         )
 
+    @pytest.mark.flaky(reruns=3)
     def test_next_from_second_step(self):
         self.wizard.current_step = self.second_step
 
@@ -378,6 +391,7 @@ class WizardIntegrationTest(TKinterTestCase):
             finish=tkinter.DISABLED
         )
 
+    @pytest.mark.flaky(reruns=3)
     def test_previous_from_second_step(self):
         self.wizard.current_step = self.second_step
 
@@ -411,6 +425,7 @@ class WizardIntegrationTest(TKinterTestCase):
             finish=tkinter.DISABLED
         )
 
+    @pytest.mark.flaky(reruns=3)
     def test_finish(self):
         self.wizard.current_step = self.first_step
         self.first_step.finish_step_enabled = False
@@ -432,6 +447,7 @@ class WizardIntegrationTest(TKinterTestCase):
 
         self.on_finish.assert_called_once()
 
+    @pytest.mark.flaky(reruns=3)
     def test_cancel(self):
         self.wizard.current_step = self.first_step
 

@@ -27,6 +27,7 @@ from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.Wafer.Chip import Chip
+from LabExT.Wafer.ChipSourceAPI import ChipSourceAPI
 
 if TYPE_CHECKING:
     from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
@@ -78,6 +79,7 @@ class ExperimentManager:
             None, self, mover=self.mover, parent=self.root)
         self.live_viewer_model: LiveViewerModel = None
         self.instrument_api = InstrumentAPI(self)
+        self.chip_source_api = ChipSourceAPI(self)
         self.docu = None
         self.already_shown_docu_path = False
         self.live_viewer_cards = {}
@@ -160,11 +162,14 @@ class ExperimentManager:
             n, path) for path, n in self.lvcards_import_stats.items()])
         stages_addon_stats = '\n'.join(['    imported {:d} stages from {:s}'.format(
             n, path) for path, n in self.mover.plugin_loader_stats.items()])
+        chip_sources_addon_stats = '\n'.join(['    imported {:d} chip sources from {:s}'.format(
+            n, path) for path, n in self.chip_source_api.plugin_loader_stats.items()])
         self.logger.info('Plugins loaded:\n' +
                          '  Measurements\n' + meas_addon_stats + '\n' +
                          '  Instruments\n' + instr_addon_stats + '\n' +
                          '  LVCards\n' + lvcards_addon_stats + '\n' +
-                         '  Stages\n' + stages_addon_stats)
+                         '  Stages\n' + stages_addon_stats + '\n' +
+                         '  Chip Sources\n' + chip_sources_addon_stats)
 
         if instruments_are_default:
             self.logger.warning(
@@ -177,41 +182,21 @@ class ExperimentManager:
     def set_experiment(self, experiment):
         raise DeprecatedException("Experiment object must not be recreated!")
 
-    def import_chip(self, path, name=None):
-        """Import a new chip from file.
-
-        Parameters
-        ----------
-        path : string
-            Location of the chip file.
-        name : string, optional
-            Name of the string, displayed in MainWindow.
-
-        Raises
-        ------
-        ValueError
-            If path is empty.
-        """
-        self.logger.debug('Import chip requested.')
-
-        if not path:
-            self.logger.error('Wants to import chip without path. Throwing..')
-            raise ValueError("Empty path, could not import chip!")
-        else:
-            # create chip based on description file on path
-            self.chip = Chip.from_file(path, name)
-            # ban user to make any more changes to exp parameters
-            self.main_window.model.allow_change_chip_params.set(False)
-            # update chip reference in subclasses
-            if self.exp is not None:
-                self.exp.update_chip(self.chip)
-
-            if self._skip_setup:
-                return
-
-            self.main_window.offer_calibration_reload_possibility(
-                chip=self.chip)
-            self.mover.set_chip(self.chip)
+    def register_chip(self, chip: Chip):
+        """ A new chip manifest has been loaded - register it for usage throughout LabExT. """
+        self.chip = chip
+        # update chip reference in experiment and therefore in main window
+        if self.exp is not None:
+            self.exp.update_chip(self.chip)
+        # ban user to make any more changes to exp parameters in main window
+        self.main_window.model.allow_change_chip_params.set(False)
+        # this is true during unittests and removes the necessity to mock out other things
+        if self._skip_setup:
+            return
+        # it might be that we already have a calibration loaded for this chip, offer reload possibility
+        self.main_window.offer_calibration_reload_possibility(chip=self.chip)
+        # mover also needs to know about chip for calibration 
+        self.mover.set_chip(self.chip)
 
     def show_documentation(self, event):
         if self.docu.docu_available:
@@ -228,6 +213,8 @@ class ExperimentManager:
         # then we load all stage classes and mover settings
         self.mover.import_stage_classes()
         self.mover.load_settings()
+        # then we load all available chip sources
+        self.chip_source_api.load_all_chip_sources()
         # finally, we load all cards for the liveviewer
         self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(
             experiment_manager=self)
