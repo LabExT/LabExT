@@ -51,7 +51,7 @@ class MeasurementControlSettings:
 
     def save_to_file(self) -> None:
         with open(self._settings_filepath, "w") as f:
-            json.dump(self._to_dict(), f, indent="\t")
+            json.dump(self._to_dict(), f)
 
     def _read_savefile(self) -> dict:
         if not os.path.exists(self._settings_filepath):
