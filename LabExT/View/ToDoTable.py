@@ -104,7 +104,10 @@ class ToDoTable(CustomFrame):
         self.logger.debug('Selected iid: %s', selected_iid)
         if not selected_iid:
             return None
-        todo_idx = int(self._tree.set(selected_iid, 0))
+        todo_idx_str = self._tree.set(selected_iid, 0)
+        if not todo_idx_str:
+            return None
+        todo_idx = int(todo_idx_str)
         self.logger.debug('Selected ToDo index: %s', todo_idx)
         return todo_idx
 
