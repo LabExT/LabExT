@@ -78,6 +78,8 @@ class MListener:
         """Called when user wants to start new Experiment. Calls the
         ExperimentWizard.
         """
+        self._experiment_manager.main_window.serialize_parameter_frame()
+
         if try_to_lift_window(self.swept_exp_wizard_toplevel):
             return
 
