@@ -8,6 +8,7 @@ Released 2024-03-11
   * a sweep overview file is also added for easier post-processing
 * feature: InsertionLossSweep now supports loading a previously measured insertion loss sweep for a calibrated loss measurement
 * feature: Chip manifest loading can now be extended to other formats by simply loading your custom classes as addons
+* usability: a new settings window allows adjusting the amount of displayed ToDos and the amount of in-memory measurements - useful for long running experiments
 * usability: repeating more than just the last measurement is now possible - LabExT will ask you how many older measurement should be repeated
 * usability: chip names can be changed after every measurement (provided no manifest is loaded)
 * usability: console logging now highlights warnings/errors with colors
