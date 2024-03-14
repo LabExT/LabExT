@@ -10,7 +10,7 @@ from itertools import product
 from os import remove
 from os.path import join, dirname
 import pytest
-from unittest.mock import patch, mock_open
+from unittest.mock import Mock, patch, mock_open
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.ChipSources.PhoenixPhotonics import PhoenixPhotonics
 
@@ -322,9 +322,9 @@ class ExperimentWizardTest(TKinterTestCase):
 
         # various patches necessary s.t. tkinter runs although there is no main thread
         with patch("LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed"):
-            with patch("LabExT.Experiments.StandardExperiment.StandardExperiment.read_parameters_to_variables"):
-                self.mwm.commands[0].button_handle.invoke()
-                self.pump_events()
+            self.expm.exp.read_parameters_to_variables = Mock()
+            self.mwm.commands[0].button_handle.invoke()
+            self.pump_events()
 
         # wait for the simulated measurement to complete
         self.mwm.experiment_handler._experiment_thread.join()
