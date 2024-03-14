@@ -597,6 +597,13 @@ class MainWindowController:
         self.serialize_parameter_frame()
         self.experiment_manager.main_window.open_edit_measurement_wizard()
 
+    def new_swept_devices_experiment(self):
+        """
+        Called when the user presses "New device sweep experiment" button.
+        """
+        self.serialize_parameter_frame()
+        self.view.frame.menu_listener.client_new_experiment()
+
     def on_shutdown(self):
         """Gets called once the application is trying to close.
         Terminates the currently running experiment.
