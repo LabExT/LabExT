@@ -286,7 +286,7 @@ class MainWindowButtonsFrame(LabelFrame):
         self.new_exp_button = Button(
             self,
             text="New device sweep experiment",
-            command=self.main_frame.menu_listener.client_new_experiment,
+            command=self.controller.new_swept_devices_experiment,
         )
         self.new_exp_button.grid(row=1, column=0, sticky="we", padx=5)
         self.repeat_meas_button = Button(
