@@ -67,10 +67,7 @@ class MainWindowController:
 
         self.allow_GUI_changes = True
 
-    def on_window_close(self):
-        """Called when user closes the application. Save experiment
-        settings in .json and call context-callback.
-        """
+    def serialize_parameter_frame(self):
         # remove any chip path from parameters if chip is not loaded -> prevent offering reloading-of not loaded chip
         # on next startup
         if self.experiment_manager.chip is None:
@@ -80,6 +77,11 @@ class MainWindowController:
         if self.view.frame.parameter_frame.save_parameter_table.serialize(self.model.savetable_settings_path):
             self.logger.info("Saved json save path settings to file.")
 
+    def on_window_close(self):
+        """Called when user closes the application. Save experiment
+        settings in .json and call context-callback.
+        """
+        self.serialize_parameter_frame()
         self.on_shutdown()
 
     def experiment_changed(self, ex):
