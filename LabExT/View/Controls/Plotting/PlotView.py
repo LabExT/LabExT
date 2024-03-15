@@ -8,6 +8,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from typing import TYPE_CHECKING, Callable, Optional
 
 import tkinter as tk
+import tktooltip as tktt
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
@@ -55,6 +56,7 @@ class PlotView:
             axis_y_var=plot_model.axis_y_key_name,
             axis_z_var=plot_model.axis_z_key_name,
             buckets_count_var=plot_model.contour_bucket_count,
+            interpolation_type_var=plot_model.contour_interpolation_type,
             legend_elements=plot_model.legend_elements,
         )
         self._settings_frame.title = "Plot Settings"
@@ -122,6 +124,7 @@ class PlottingSettingsFrame(CustomFrame):
         axis_y_var: tk.StringVar,
         axis_z_var: tk.StringVar,
         buckets_count_var: tk.IntVar,
+        interpolation_type_var: tk.StringVar,
         legend_elements: list[str],
         *args,
         **kwargs,
@@ -147,6 +150,7 @@ class PlottingSettingsFrame(CustomFrame):
         # plot options
         self._bucket_count_entry = tk.Entry(self)
         self._bucket_count_var = buckets_count_var
+        self._interpolation_var = interpolation_type_var
 
         # legend options
         self._legend_options = legend_elements
@@ -158,6 +162,7 @@ class PlottingSettingsFrame(CustomFrame):
                 self._axis_x_var,
                 self._axis_y_var,
                 self._axis_z_var,
+                self._interpolation_var,
             ]
         )
 
@@ -329,6 +334,24 @@ class PlottingSettingsFrame(CustomFrame):
             values=[shared_values, unequal_params, shared_values], base_row=base_row, with_z=True
         )
 
+        if self._interpolation_var.get() == "":
+            self._interpolation_var.set(INTERPOLATE_TYPES[0])
+        interpolation_label = tk.Label(self, anchor="w", text="Interpolation Type:")
+        interpolation_menu = tk.OptionMenu(self, self._interpolation_var, *INTERPOLATE_TYPES)
+        self.add_widget(interpolation_label, column=0, row=base_row + 4, sticky="we")
+        self.add_widget(interpolation_menu, column=1, row=base_row + 4, sticky="ew")
+        self.rowconfigure(base_row + 4, weight=0)
+        tktt.ToolTip(
+            interpolation_label,
+            msg="This option controls what to do if some measurements have a more densely populated x-axis than others.",
+            delay=1.0,
+        )
+        if self._interpolation_var.get() == INTERPOLATE_NAN:
+            msg = "Fill missing values with NAN.\nThis will result in a white color."
+        else:
+            msg = "Lineraly interpolate between\nthe next two closest existing values."
+        tktt.ToolTip(interpolation_menu, msg=msg, delay=1.0)
+
         buckets_label = tk.Label(self, anchor="w", text="No of Buckets:")
         self._bucket_count_entry = tk.Entry(
             self,
@@ -341,9 +364,9 @@ class PlottingSettingsFrame(CustomFrame):
 
         self._bucket_count_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
         self._bucket_count_entry.bind("<Return>", lambda *_: self.focus())
-        self.add_widget(buckets_label, column=0, row=base_row + 4, sticky="we")
-        self.add_widget(self._bucket_count_entry, column=1, row=base_row + 4, sticky="ew")
-        self.rowconfigure(base_row + 4, weight=0)
+        self.add_widget(buckets_label, column=0, row=base_row + 5, sticky="we")
+        self.add_widget(self._bucket_count_entry, column=1, row=base_row + 5, sticky="ew")
+        self.rowconfigure(base_row + 5, weight=0)
 
         return base_row + 4
 

@@ -20,6 +20,8 @@ class PlotModel:
 
         self.plot_type = tk.StringVar()
         """Stores the type of plot currently being shown. See `PlotConstants.PLOT_TYPES`."""
+        self.contour_interpolation_type = tk.StringVar()
+        """Stores the type of interpolation to use for missing values in contour plot. See `PlotConstants.INTERPOLATION_TYPES`."""
 
         self.axis_x_key_name = tk.StringVar()
         """Stores the name of the key that populates the x-values of the plot."""

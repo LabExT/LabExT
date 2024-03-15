@@ -177,21 +177,50 @@ class PlotController:
         y_z_data = list()
         for meas in self._plottable_data.values():
             y_values = meas["measurement_params"][y_key]
+
+            # if there are no x-values missing we don't have to interpolate anything
+            if len(meas["values"][x_key]) == len(x_data):
+                y_z_data.append((y_values, meas["values"][z_key]))
+                continue
+
             z_values = list()
-            z_iterator = iter(meas["values"][z_key])
-            try:
-                for x in x_data:
-                    z_values.append(next(z_iterator) if x in meas["values"][x_key] else np.nan)
-            except StopIteration as s:
-                plot.text(
-                    0.5,
-                    0.5,
-                    f"The values corresponding to '{z_key}' don't\n"
-                    + f"match the number of values corresponding to '{x_key}'.",
-                    color="red",
-                    horizontalalignment="center",
-                )
-                return
+            original_index = 0
+            for i, x in enumerate(x_data):
+                # if the x coordinate is contained in the original data we add the corresponding z-value
+                if x == meas["values"][x_key][original_index]:
+                    z_values.append(meas["values"][z_key][original_index])
+                    original_index += 1
+                    continue
+                
+                # otherwise we insert NAN if the user chose so
+                if self._model.contour_interpolation_type.get() == INTERPOLATE_NAN:
+                    z_values.append(np.nan)
+                    continue
+
+                # interpolation is different for edges
+                if original_index == 0:
+                    x_prev = meas["values"][x_key][0]
+                    x_next = meas["values"][x_key][1]
+                    z_prev = meas["values"][z_key][0]
+                    z_next = meas["values"][z_key][1]
+                elif original_index == len(meas["values"][z_key]):
+                    x_prev = meas["values"][x_key][-2]
+                    x_next = meas["values"][x_key][-1]
+                    z_prev = meas["values"][z_key][-2]
+                    z_next = meas["values"][z_key][-1]
+                else:
+                    x_prev = meas["values"][x_key][original_index - 1]
+                    x_next = meas["values"][x_key][original_index]
+                    z_prev = meas["values"][z_key][original_index - 1]
+                    z_next = meas["values"][z_key][original_index]
+
+                #interploate
+                alpha = (x - x_prev) / (x_next - x_prev)
+                z_inter = z_prev + alpha * (z_next - z_prev)
+
+                # append interpolated value
+                z_values.append(z_inter)
+                    
             y_z_data.append((y_values, z_values))
 
         # We sort the list of pairs by the swept param (i.e. the y-value)
@@ -241,6 +270,7 @@ class PlotController:
             e = _e
         return True
 
+    @staticmethod
     def __merge_union_sorted(a: Iterable[T], b: Iterable[T]) -> list[T]:
         """Calculates the merge of the two sorted iterables a and b without keeping duplicates.
 
