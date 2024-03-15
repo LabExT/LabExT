@@ -57,6 +57,8 @@ class PlotView:
             axis_z_var=plot_model.axis_z_key_name,
             buckets_count_var=plot_model.contour_bucket_count,
             interpolation_type_var=plot_model.contour_interpolation_type,
+            axis_bound_type_var=plot_model.axis_bound_types,
+            axis_bounds=plot_model.axis_bounds,
             legend_elements=plot_model.legend_elements,
         )
         self._settings_frame.title = "Plot Settings"
@@ -125,6 +127,8 @@ class PlottingSettingsFrame(CustomFrame):
         axis_z_var: tk.StringVar,
         buckets_count_var: tk.IntVar,
         interpolation_type_var: tk.StringVar,
+        axis_bounds: list[tuple[float, float]],
+        axis_bound_type_var: tk.StringVar,
         legend_elements: list[str],
         *args,
         **kwargs,
@@ -151,6 +155,8 @@ class PlottingSettingsFrame(CustomFrame):
         self._bucket_count_entry = tk.Entry(self)
         self._bucket_count_var = buckets_count_var
         self._interpolation_var = interpolation_type_var
+        self._axis_bounds = axis_bounds
+        self._axis_bound_types = axis_bound_type_var
 
         # legend options
         self._legend_options = legend_elements
@@ -163,6 +169,7 @@ class PlottingSettingsFrame(CustomFrame):
                 self._axis_y_var,
                 self._axis_z_var,
                 self._interpolation_var,
+                self._axis_bound_types,
             ]
         )
 
@@ -227,11 +234,153 @@ class PlottingSettingsFrame(CustomFrame):
             self.rowconfigure(i, pad=0)
 
         if current_plot_type == LINE_PLOT:
-            _ = self.__setup_line_plot(shared_values=shared_values, unequal_params=unequal_params)
+            lowest_row = self.__setup_line_plot(shared_values=shared_values, unequal_params=unequal_params)
         elif current_plot_type == CONTOUR or current_plot_type == CONTOUR_F:
-            _ = self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
+            lowest_row = self.__setup_contour_plot(shared_values=shared_values, unequal_params=unequal_params)
         else:
-            pass
+            lowest_row = 0
+
+        if lowest_row == 0:
+            return
+
+        bound_label = tk.Label(self, anchor="w", text="Axis bounds type:")
+        bound_menu = tk.OptionMenu(self, self._axis_bound_types, *AXIS_BOUND_TYPES)
+        self.add_widget(bound_label, column=0, row=lowest_row + 1, ipadx=10, ipady=0, sticky="we")
+        self.add_widget(bound_menu, column=1, row=lowest_row + 1, ipadx=10, ipady=0, sticky="ew")
+        self.rowconfigure(lowest_row, weight=0)
+        self.rowconfigure(lowest_row + 1, weight=0)
+
+        if self._axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+
+            def set_new_bounds(xmin, xmax, ymin, ymax):
+                x_old = self._axis_bounds[0]
+                y_old = self._axis_bounds[1]
+                self._axis_bounds.clear()
+                self._axis_bounds.append(
+                    (xmin if xmin is not None else x_old[0], xmax if xmax is not None else x_old[1])
+                )
+                self._axis_bounds.append(
+                    (ymin if ymin is not None else y_old[0], ymax if ymax is not None else y_old[1])
+                )
+
+            validate = (self.register(self._validate_float), "%d", "%P")
+            text_width = 8
+
+            msg = "Define the lowest and highest coordinate yourself."
+            x_frame = tk.Frame(self)
+            x_frame.columnconfigure(0, weight=1)
+            x_frame.columnconfigure(1, weight=1)
+
+            x_min_var = tk.StringVar()
+            x_min_var.set(f"{self._axis_bounds[0][0]:.1f}")
+            x_min_frame = tk.Frame(x_frame)
+            x_min_frame.columnconfigure(0, weight=1)
+            x_min_frame.columnconfigure(1, weight=1)
+            x_min_label = tk.Label(x_min_frame, text="x-min", anchor="w")
+            x_min_entry = tk.Entry(
+                x_min_frame,
+                textvariable=x_min_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            x_min_label.grid(column=0, row=0, sticky="we")
+            x_min_entry.grid(column=1, row=0, sticky="ew")
+
+            x_max_var = tk.StringVar()
+            x_max_var.set(f"{self._axis_bounds[0][1]:.1f}")
+            x_max_frame = tk.Frame(x_frame)
+            x_max_frame.columnconfigure(0, weight=1)
+            x_max_frame.columnconfigure(1, weight=1)
+            x_max_label = tk.Label(x_max_frame, text="x-max", anchor="w")
+            x_max_entry = tk.Entry(
+                x_max_frame,
+                textvariable=x_max_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            x_max_label.grid(column=0, row=0, sticky="we")
+            x_max_entry.grid(column=1, row=0, sticky="ew")
+
+            x_min_frame.grid(column=0, row=0)
+            x_max_frame.grid(column=1, row=0)
+
+            y_frame = tk.Frame(self)
+            y_frame.columnconfigure(0, weight=1)
+            y_frame.columnconfigure(1, weight=1)
+
+            y_min_frame = tk.Frame(y_frame)
+            y_min_frame.columnconfigure(0, weight=1)
+            y_min_frame.columnconfigure(1, weight=1)
+            y_min_var = tk.StringVar()
+            y_min_var.set(f"{self._axis_bounds[1][0]:.1f}")
+            y_min_label = tk.Label(y_min_frame, text="y-min", anchor="w")
+            y_min_entry = tk.Entry(
+                y_min_frame,
+                textvariable=y_min_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            y_min_label.grid(column=0, row=0, sticky="we")
+            y_min_entry.grid(column=1, row=0, sticky="ew")
+
+            y_max_frame = tk.Frame(y_frame)
+            y_max_frame.columnconfigure(0, weight=1)
+            y_max_frame.columnconfigure(1, weight=1)
+            y_max_var = tk.StringVar()
+            y_max_var.set(f"{self._axis_bounds[1][1]:.1f}")
+            y_max_label = tk.Label(y_max_frame, text="y-max", anchor="w")
+            y_max_entry = tk.Entry(
+                y_max_frame,
+                textvariable=y_max_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            y_max_label.grid(column=0, row=0, sticky="we")
+            y_max_entry.grid(column=1, row=0, sticky="ew")
+
+            y_min_frame.grid(column=0, row=0)
+            y_max_frame.grid(column=1, row=0)
+
+            self.add_widget(x_frame, column=0, row=lowest_row + 2, sticky="we")
+            self.add_widget(y_frame, column=1, row=lowest_row + 2, sticky="ew")
+            self.rowconfigure(lowest_row + 2, weight=0)
+
+            x_min_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(float(x_min_var.get()) if x_min_var.get() != "" else None, None, None, None),
+            )
+            x_max_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(None, float(x_max_var.get()) if x_min_var.get() != "" else None, None, None),
+            )
+            y_min_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(None, None, float(y_min_var.get()) if x_min_var.get() != "" else None, None),
+            )
+            y_max_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(None, None, None, float(y_max_var.get()) if x_min_var.get() != "" else None),
+            )
+            x_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            x_min_entry.bind("<Return>", lambda *_: self.focus())
+            x_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            x_max_entry.bind("<Return>", lambda *_: self.focus())
+            y_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            y_min_entry.bind("<Return>", lambda *_: self.focus())
+            y_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            y_max_entry.bind("<Return>", lambda *_: self.focus())
+
+        else:
+            msg = "Let matplotlib figure out the coordinates."
+        tktt.ToolTip(bound_menu, msg=msg, delay=0.5)
 
     def __show_value_error(self, base_row: int, parameter: bool = False):
         """Shows an error message about non-matching values or parameters in the selected measurements."""
@@ -409,7 +558,7 @@ class PlottingSettingsFrame(CustomFrame):
             self.rowconfigure(base_row + i + 3, pad=0)
             self.rowconfigure(base_row + i + 3, weight=0)
 
-        return base_row + 2
+        return base_row + 3 + len(legend_options)
 
     @property
     def legend_changed_callbacks(self):
@@ -454,6 +603,26 @@ class PlottingSettingsFrame(CustomFrame):
             # mode == 1 means insertion
             pattern = r"[0-9]*"
             return re.fullmatch(pattern, text) is not None
+        else:
+            return True
+
+    def _validate_float(self, mode: str, text: str) -> bool:
+        """Allows only ints and floats in the text field.
+
+        Args:
+            mode: an integer specifying the type of change ('%d' in tk)
+            text: the new value of the entry after the change ('%P' in tk)
+
+        Returns:
+            false if there was an invalid insertion, true otherwise
+        """
+        if int(mode) == 1:
+            # mode == 1 means insertion
+            optional_fraction = r"[0-9]+(?:[.][0-9]*)?"
+            optional_whole = r"[.][0-9]+"
+            pattern = r"[+-]?(" + optional_fraction + "|" + optional_whole + r")"
+            ret = re.fullmatch(pattern, text)
+            return ret is not None
         else:
             return True
 

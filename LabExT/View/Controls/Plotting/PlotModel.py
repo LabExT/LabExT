@@ -34,6 +34,12 @@ class PlotModel:
 
         self.legend_elements: list[str] = []
         """Stores the names of the elements selected for the legend."""
+        self.axis_bounds: list[tuple[float, float]] = [(0, 0), (0, 0)]
+        """Stores the lower and upper bounds for the x- and y- axis.
+           The format is `[(x_low, x_high), (y_low, y_high)]`"""
+        self.axis_bound_types = tk.StringVar()
+        """What type of bounds should be used."""
 
         # default values
         self.contour_bucket_count.set(10)
+        self.axis_bound_types.set("Auto")

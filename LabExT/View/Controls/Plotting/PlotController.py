@@ -127,6 +127,13 @@ class PlotController:
                 measurement["values"][axis_x_key], measurement["values"][axis_y_key], label=get_label(measurement)
             )
 
+        if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+            plot.set_xbound(self._model.axis_bounds[0][0], self._model.axis_bounds[0][1])
+            plot.set_ybound(self._model.axis_bounds[1][0], self._model.axis_bounds[1][1])
+        elif self._model.axis_bound_types.get() == AXIS_BOUND_AUTO:
+            self._model.axis_bounds[0] = plot.get_xbound()
+            self._model.axis_bounds[1] = plot.get_ybound()
+
         plot.set_xlabel(axis_x_key)
         plot.set_ylabel(axis_y_key)
 
@@ -191,7 +198,7 @@ class PlotController:
                     z_values.append(meas["values"][z_key][original_index])
                     original_index += 1
                     continue
-                
+
                 # otherwise we insert NAN if the user chose so
                 if self._model.contour_interpolation_type.get() == INTERPOLATE_NAN:
                     z_values.append(np.nan)
@@ -214,13 +221,13 @@ class PlotController:
                     z_prev = meas["values"][z_key][original_index - 1]
                     z_next = meas["values"][z_key][original_index]
 
-                #interploate
+                # interploate
                 alpha = (x - x_prev) / (x_next - x_prev)
                 z_inter = z_prev + alpha * (z_next - z_prev)
 
                 # append interpolated value
                 z_values.append(z_inter)
-                    
+
             y_z_data.append((y_values, z_values))
 
         # We sort the list of pairs by the swept param (i.e. the y-value)
@@ -239,6 +246,13 @@ class PlotController:
         contour = plot_method(x_data, y_data, z_data, self._model.contour_bucket_count.get())
 
         self._model.figure.colorbar(contour, label=z_key)
+
+        if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+            plot.set_xbound(self._model.axis_bounds[0][0], self._model.axis_bounds[0][1])
+            plot.set_ybound(self._model.axis_bounds[1][0], self._model.axis_bounds[1][1])
+        elif self._model.axis_bound_types.get() == AXIS_BOUND_AUTO:
+            self._model.axis_bounds[0] = plot.get_xbound()
+            self._model.axis_bounds[1] = plot.get_ybound()
 
         plot.set_xlabel(x_key)
         plot.set_ylabel(y_key)
