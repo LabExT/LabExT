@@ -12,14 +12,13 @@ import sys
 import time
 import traceback
 import uuid
-import json
 from collections import OrderedDict
 from glob import glob
 from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
-from typing import TYPE_CHECKING, Type, List, Tuple
+from typing import TYPE_CHECKING, Type, List, Tuple, Union
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
@@ -30,11 +29,14 @@ from LabExT.View.Controls.ParameterTable import ConfigParameter
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 from LabExT.Experiments.TypeHints import MeasurementDict
+from LabExT.Wafer.Chip import Chip
 
 if TYPE_CHECKING:
+    from LabExT.ExperimentManager import ExperimentManager
     from LabExT.Experiments.ToDo import ToDo
     from LabExT.Wafer.Device import Device
 else:
+    ExperimentManager = None
     ToDo = None
     Device = None
 
@@ -53,7 +55,9 @@ class StandardExperiment:
     """StandardExperiment implements the routine of performing single or multiple measurements and gathers their
     output data dictionary."""
 
-    def __init__(self, experiment_manager, parent: Tk, chip, mover=None):
+    def __init__(
+        self, experiment_manager: ExperimentManager, parent: Tk, chip: Chip, mover: Union[Type[MoverNew], None] = None
+    ):
         self.logger = logging.getLogger()
 
         self._experiment_manager = experiment_manager  # LabExT main class
@@ -526,7 +530,7 @@ class StandardExperiment:
 
         return new_meas
 
-    def update_chip(self, chip):
+    def update_chip(self, chip: Chip):
         """Update reference to chip and respective parameters.
 
         Parameters
