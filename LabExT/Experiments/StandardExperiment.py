@@ -92,8 +92,8 @@ class StandardExperiment:
 
         # used in "new device sweep" wizard
         self.device_list = []  # selected devices to sweep over
-        # selected measurement names to execute on each device
-        self.selected_measurements = []
+        # selected measurements to execute on each device
+        self.selected_measurements: list[Measurement] = []
 
         # datastructure to store all FUTURE measurements
         # list to contain all future ToDos, do not redefine!
@@ -173,7 +173,8 @@ class StandardExperiment:
                 return False
         return True
 
-    def show_meas_finished_infobox(self):
+    @staticmethod
+    def show_meas_finished_infobox():
         messagebox.showinfo("Measurements finished!", "Measurements finished!")
 
     def run(self):
@@ -565,7 +566,8 @@ class StandardExperiment:
         """Updates main window tables."""
         self._experiment_manager.main_window.update_tables(plot_new_meas=plot_new_meas)
 
-    def uniquify_safe_file_name(self, desired_filename):
+    @staticmethod
+    def uniquify_safe_file_name(desired_filename):
         """Makes filename unique for safe files."""
         existing = glob(desired_filename + "*")
         if len(existing) > 0:
