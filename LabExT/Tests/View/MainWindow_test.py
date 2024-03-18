@@ -8,7 +8,7 @@ import json
 import random
 from os import remove
 import pytest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from typing import TYPE_CHECKING
 
@@ -178,7 +178,7 @@ class MainWindowTest(TKinterTestCase):
                         self.pump_events()
 
             # stage 4: sweeps
-            random_reps = 1 #random.randint(2, 6)
+            random_reps = random.randint(2, 6)
             sweep_param_frame: SweepParameterFrame = new_meas_wizard_c.entry_controllers[4]._view.content
             sweep_param_frame._plus_button.invoke()
             self.pump_events()
@@ -257,9 +257,9 @@ class MainWindowTest(TKinterTestCase):
             # Back to Main Window: run simulation measurement
             # various patches necessary s.t. tkinter runs although there is no main thread
             with patch('LabExT.View.MainWindow.MainWindowModel.MainWindowModel.exctrl_vars_changed'):
-                with patch('LabExT.Experiments.StandardExperiment.StandardExperiment.read_parameters_to_variables'):
-                    self.mwm.commands[0].button_handle.invoke()
-                    self.pump_events()
+                self.expm.exp.read_parameters_to_variables = Mock()
+                self.mwm.commands[0].button_handle.invoke()
+                self.pump_events()
 
             # wait for the simulated measurement to complete
             self.mwm.experiment_handler._experiment_thread.join()

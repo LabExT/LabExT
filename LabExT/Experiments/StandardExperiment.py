@@ -26,6 +26,7 @@ from LabExT.Movement.MoverNew import MoverNew
 from LabExT.PluginLoader import PluginLoader
 from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.Controls.ParameterTable import ConfigParameter
+from LabExT.View.MeasurementControlSettings import MeasurementControlSettings
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 from LabExT.Experiments.TypeHints import MeasurementDict
@@ -113,6 +114,7 @@ class StandardExperiment:
         # data structures for FINISHED measurements
         self.measurements: ObservableList[MeasurementDict] = ObservableList()
         self.measurements_hashes = []
+        self._meas_control_settings = MeasurementControlSettings()
 
         self.__setup__()
 
@@ -179,12 +181,15 @@ class StandardExperiment:
 
         # update local exctrl variables from GUI, just for safety
         self._experiment_manager.main_window.model.exctrl_vars_changed()
+        # update measurement control settings if it was adjusted during the session
+        self._meas_control_settings.update()
 
         self.read_parameters_to_variables()
 
         if not self.ask_user_to_continue_even_if_live_viewer_active():
             self.logger.info(
-                "The LiveViewer currently occupies some instruments needed for executing measurements. Please stop live viewer cards before running measurements."
+                "The LiveViewer currently occupies some instruments needed for executing measurements. "
+                "Please stop live viewer cards before running measurements."
             )
             return
 
@@ -308,7 +313,7 @@ class StandardExperiment:
                 data["finished"] = True
 
                 # save current measurement's data on disk
-                data.save()
+                data.save(indented=self._meas_control_settings.json_indented)
                 data.auto_save = False
                 final_path = save_file_path + save_file_ending
                 rename(data.file_path, final_path)
@@ -382,7 +387,8 @@ class StandardExperiment:
 
         Args:
             target: The dictionary to write the metadata to.
-            file_path: If no `target` is given, this file_path is used to initialize the `AutosaveDict` that will be returned.
+            file_path: If no `target` is given, this file_path is used to initialize the `AutosaveDict` that will be
+            returned.
 
         Returns:
             The dictionary with the data written to it.
@@ -460,6 +466,16 @@ class StandardExperiment:
 
         # add file path to dictionary
         meas_dict["file_path_known"] = file_path
+
+        # remove measurements if necessary
+        if self._meas_control_settings.finished_meas_limited:
+            while len(self.measurements_hashes) >= self._meas_control_settings.max_finished_meas:
+                ts_known_sorted = sorted([m["timestamp_known"] for m in self.measurements])
+                for meas in self.measurements:
+                    if meas["timestamp_known"] == ts_known_sorted[0]:
+                        self.measurements.remove(meas)
+                        self.measurements_hashes.remove(calc_measurement_key(meas))
+                        break
 
         # all good, append to measurements
         self.measurements_hashes.extend([meas_hash])

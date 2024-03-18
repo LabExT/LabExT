@@ -118,6 +118,10 @@ class MainWindowContextMenu(Menu):
             label="Stage Driver Settings",
             command=self._menu_listener.client_stage_driver_settings,
         )
+        self._settings.add_command(
+            label="Measurement Control Settings",
+            command=self._menu_listener.client_measurement_control_settings
+        )
 
         self._help.add_command(
             label="Documentation and Help (F1)",
@@ -282,7 +286,7 @@ class MainWindowButtonsFrame(LabelFrame):
         self.new_exp_button = Button(
             self,
             text="New device sweep experiment",
-            command=self.main_frame.menu_listener.client_new_experiment,
+            command=self.controller.new_swept_devices_experiment,
         )
         self.new_exp_button.grid(row=1, column=0, sticky="we", padx=5)
         self.repeat_meas_button = Button(
@@ -615,7 +619,7 @@ class MainWindowFrame(Frame):
 
 class MainWindowView:
     """
-    View Class for the mainwindow. Sets up and controls everything about the mainwindow, including
+    View Class for the main window. Sets up and controls everything about the main window, including
     the TKinter main window setup routines.
     """
 

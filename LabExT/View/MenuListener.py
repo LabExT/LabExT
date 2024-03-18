@@ -17,8 +17,8 @@ from tkinter import filedialog, messagebox, Toplevel, Label, Frame, font
 from LabExT.Utils import get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
+from LabExT.View.MeasurementControlSettings import MeasurementControlSettingsView
 from LabExT.View.ExperimentWizard.ExperimentWizard import ExperimentWizard
-
 from LabExT.View.ExperimentWizard.ExperimentWizardController import ExperimentWizardController
 from LabExT.View.Exporter import Exporter
 from LabExT.View.ExtraPlots import ExtraPlots
@@ -53,7 +53,9 @@ class MListener:
         self.logger = logging.getLogger()
         self.logger.debug("Initialised MenuListener with parent: %s experiment_manager: %s", root, experiment_manager)
         self._experiment_manager = experiment_manager
+        self._experiment_wizard = None
         self._root = root
+        self.file_names: list[str] = []
 
         # toplevel tracking to simply raise window if already opened once instead of opening a new one
         self.swept_exp_wizard_toplevel = None
@@ -64,9 +66,10 @@ class MListener:
         self.sfpp_toplevel = None
         self.extra_plots_toplevel = None
         self.live_viewer_toplevel = None
-        self.instrument_conn_debuger_toplevel = None
+        self.instrument_conn_debugger_toplevel = None
         self.addon_settings_dialog_toplevel = None
         self.stage_driver_settings_dialog_toplevel = None
+        self.measurement_control_settings_toplevel = None
         self.about_toplevel = None
         self.pgb = None
         self.import_done = False
@@ -224,9 +227,9 @@ class MListener:
         )
 
         if not messagebox.askyesno(
-            "Restore calibration",
-            f"Found mover calibration for chip: {chip.name}. \n Last updated at: {last_updated_at}. \n"
-            "Do you want to restore it?",
+            title="Restore calibration",
+            message=f"Found mover calibration for chip: {chip.name}. \n Last update at: {last_updated_at}. \n"
+                    f"Do you want to restore it?"
         ):
             return
 
@@ -265,9 +268,7 @@ class MListener:
             return
 
         self.logger.debug("Opening new live viewer window.")
-        lv = LiveViewerController(
-            self._root, self._experiment_manager
-        )  # blocking call until all settings have been made
+        lv = LiveViewerController(self._root, self._experiment_manager)  # blocking call until all settings are made
         self.live_viewer_toplevel = lv.current_window  # reference to actual toplevel
 
     def client_instrument_connection_debugger(self):
@@ -276,7 +277,7 @@ class MListener:
             return
 
         icd = InstrumentConnectionDebugger(self._root, self._experiment_manager)
-        self.instrument_conn_debuger_toplevel = icd.wizard_window
+        self.instrument_conn_debugger_toplevel = icd.wizard_window
 
     def client_addon_settings(self):
         """opens the addon settings dialog"""
@@ -297,19 +298,28 @@ class MListener:
                 title="Stage Driver Settings",
                 label="SmarAct MCSControl driver module path",
                 hint="Specify the directory where the module MCSControl_PythonWrapper is found.\n"
-                "This is external software, provided by SmarAct GmbH and is available from them. "
-                "See https://smaract.com.",
+                     "This is an external software provided by SmarAct GmbH and is available from them.\n"
+                     "See https://smaract.com."
             )
-            self._root.wait_window(self.stage_driver_settings_dialog_toplevel)
+            self._root.wait_window(
+                self.stage_driver_settings_dialog_toplevel)
 
         if self.stage_driver_settings_dialog_toplevel.path_has_changed:
             if messagebox.askokcancel(
-                "Stage Driver Path changed",
-                "The path to the driver of the SmarAct MCSControl Interface was successfully changed."
-                "LabExT must be restarted for the changes to take effect. Do you want to restart LabExT now?",
-                parent=self._root,
+                title="Stage Driver Path changed",
+                message="The path to the driver ofo the SmarAct MCSControl Interface was successfully changed."
+                        "LabExT must be restarted for the changes to take effect. Do you want to restart LabExT now?",
+                parent=self._root
             ):
                 self.client_restart()
+
+    def client_measurement_control_settings(self):
+        """ Open measurement control settings dialog. """
+        if try_to_lift_window(self.measurement_control_settings_toplevel):
+            return
+
+        meas_settings = MeasurementControlSettingsView(self._root, self._experiment_manager)
+        self.measurement_control_settings_toplevel = meas_settings.window
 
     def client_documentation(self):
         """Opens the documentation in a new browser session."""
@@ -340,9 +350,9 @@ class MListener:
 
         label_description = Label(
             about_window,
-            text="a laboratory experiment software environment for performing measurements and visualizing data\n"
-            + f'Copyright (C) {datetime.date.today().strftime("%Y"):s} ETH Zurich and Polariton Technologies AG\n'
-            "released under GPL v3, see LICENSE file",
+            text=f"a laboratory experiment software environment for performing measurements and visualizing data.\n"
+                 f"Copyright (C) {datetime.date.today().strftime('%Y'):s} ETH Zurich and Polariton Technologies AG\n"
+                 f"released under GPL v3, see LICENSE file"
         )
         label_description.configure(font=font_normal)
         label_description.grid(row=1, column=0)
