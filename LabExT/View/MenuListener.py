@@ -13,6 +13,7 @@ import os
 import webbrowser
 from threading import Thread
 from tkinter import filedialog, messagebox, Toplevel, Label, Frame, font
+from typing import TYPE_CHECKING
 
 from LabExT.Utils import get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
@@ -36,11 +37,16 @@ from LabExT.View.Movement import (
 )
 from LabExT.Wafer.ImportChipWizard import ImportChipWizard
 
+if TYPE_CHECKING:
+    from LabExT.ExperimentManager import ExperimentManager
+else:
+    ExperimentManager = None
+
 
 class MListener:
     """Listens to the events triggered by clicks on the menu bar."""
 
-    def __init__(self, experiment_manager, root):
+    def __init__(self, experiment_manager: ExperimentManager, root):
         """Constructor.
 
         Parameters
@@ -55,7 +61,6 @@ class MListener:
         self._experiment_manager = experiment_manager
         self._experiment_wizard = None
         self._root = root
-        self.file_names: list[str] = []
 
         # toplevel tracking to simply raise window if already opened once instead of opening a new one
         self.swept_exp_wizard_toplevel = None
@@ -81,14 +86,18 @@ class MListener:
 
     def client_new_experiment(self):
         """Called when user wants to start new Experiment. Calls the ExperimentWizard."""
+        if not self._experiment_manager.chip:
+            messagebox.showinfo(
+                title="No Chip Loaded",
+                message="This feature currently only works when a chip is loaded. "
+                "Please make sure you import a chip first.",
+            )
+            return
+
         if try_to_lift_window(self.swept_exp_wizard_toplevel):
             return
         # start the measurement wizard
         self.swept_exp_wizard_toplevel = ExperimentWizard(self._root, self._experiment_manager)
-
-        # self._experiment_wizard = ExperimentWizardController(self._root, self._experiment_manager)
-        # self.swept_exp_wizard_toplevel = self._experiment_wizard.view.main_window
-        # self._experiment_wizard.start_wizard()
 
     def client_load_data(self) -> None:
         """Called when user wants to load data. Opens a file dialog and then imports selected files."""
@@ -229,7 +238,7 @@ class MListener:
         if not messagebox.askyesno(
             title="Restore calibration",
             message=f"Found mover calibration for chip: {chip.name}. \n Last update at: {last_updated_at}. \n"
-                    f"Do you want to restore it?"
+            f"Do you want to restore it?",
         ):
             return
 
@@ -298,23 +307,22 @@ class MListener:
                 title="Stage Driver Settings",
                 label="SmarAct MCSControl driver module path",
                 hint="Specify the directory where the module MCSControl_PythonWrapper is found.\n"
-                     "This is an external software provided by SmarAct GmbH and is available from them.\n"
-                     "See https://smaract.com."
+                "This is an external software provided by SmarAct GmbH and is available from them.\n"
+                "See https://smaract.com.",
             )
-            self._root.wait_window(
-                self.stage_driver_settings_dialog_toplevel)
+            self._root.wait_window(self.stage_driver_settings_dialog_toplevel)
 
         if self.stage_driver_settings_dialog_toplevel.path_has_changed:
             if messagebox.askokcancel(
                 title="Stage Driver Path changed",
                 message="The path to the driver ofo the SmarAct MCSControl Interface was successfully changed."
-                        "LabExT must be restarted for the changes to take effect. Do you want to restart LabExT now?",
-                parent=self._root
+                "LabExT must be restarted for the changes to take effect. Do you want to restart LabExT now?",
+                parent=self._root,
             ):
                 self.client_restart()
 
     def client_measurement_control_settings(self):
-        """ Open measurement control settings dialog. """
+        """Open measurement control settings dialog."""
         if try_to_lift_window(self.measurement_control_settings_toplevel):
             return
 
@@ -351,8 +359,8 @@ class MListener:
         label_description = Label(
             about_window,
             text=f"a laboratory experiment software environment for performing measurements and visualizing data.\n"
-                 f"Copyright (C) {datetime.date.today().strftime('%Y'):s} ETH Zurich and Polariton Technologies AG\n"
-                 f"released under GPL v3, see LICENSE file"
+            f"Copyright (C) {datetime.date.today().strftime('%Y'):s} ETH Zurich and Polariton Technologies AG\n"
+            f"released under GPL v3, see LICENSE file",
         )
         label_description.configure(font=font_normal)
         label_description.grid(row=1, column=0)
