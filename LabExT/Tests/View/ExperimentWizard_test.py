@@ -26,8 +26,8 @@ from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.DummyMeas_test import check_DummyMeas_data_output
 from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
 from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
-from LabExT.Tests.View.MainWindow_test import check_InsertionLossSweep_meas_dict_meta_data
-
+from LabExT.Tests.View.MainWindow_test import check_InsertionLossSweep_meas_dict_meta_data, \
+    simulator_only_instruments_descriptions
 
 
 def check_DummyMeas_meas_dict_meta_data(testinst, meas_record, dev_props=None, meas_props=None):
@@ -161,13 +161,13 @@ class ExperimentWizardTest(TKinterTestCase):
             meas_info = meas_step.meas_table.get_tree().item(row_id)
             self.assertEqual(meas_info["values"][0], k + 1)
 
-        # with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
-            # with patch(
-            #     "LabExT.View.ExperimentWizard.Components.InstrumentWindow.get_visa_address",
-            #     simulator_only_instruments_descriptions,
-            # ):
-        exp_wizard._next_button.invoke()
-        self.pump_events()
+        with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
+            with patch(
+                "LabExT.View.ExperimentWizard.ExperimentWizard.get_visa_address",
+                simulator_only_instruments_descriptions,
+            ):
+                exp_wizard._next_button.invoke()
+                self.pump_events()
 
         #
         # instrument selection step
@@ -192,14 +192,14 @@ class ExperimentWizardTest(TKinterTestCase):
         opm_role.selected_instr.set(pm_sim)
         opm_role.selected_channel.set("1")
 
-        # with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
-        #     with patch(
-        #         "LabExT.View.ExperimentWizard.Components.InstrumentWindow.get_visa_address",
-        #         simulator_only_instruments_descriptions,
-        #     ):
-        #         with patch("LabExT.Instruments.InstrumentAPI._Instrument.get_visa_lib_string", lambda: "@py"):
-        exp_wizard._next_button.invoke()
-        self.pump_events()
+        with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
+            with patch(
+                "LabExT.View.ExperimentWizard.ExperimentWizard.get_visa_address",
+                simulator_only_instruments_descriptions,
+            ):
+                with patch("LabExT.Instruments.InstrumentAPI._Instrument.get_visa_lib_string", lambda: "@py"):
+                    exp_wizard._next_button.invoke()
+                    self.pump_events()
 
         #
         # measurement properties selection step
