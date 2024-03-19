@@ -19,3 +19,24 @@ INTERPOLATE_TYPES = [INTERPOLATE_NAN, INTERPOLATE_LINEAR]
 AXIS_BOUND_AUTO = "Auto"
 AXIS_BOUND_CUSTOM = "Custom"
 AXIS_BOUND_TYPES = [AXIS_BOUND_AUTO, AXIS_BOUND_CUSTOM]
+
+COLOR_MAPS = [
+	"default",
+    "viridis",
+    "plasma",
+    "inferno",
+    "magma",
+    "cividis",
+    "PiYG",
+    "PRGn",
+    "BrBG",
+    "PuOr",
+    "RdGy",
+    "RdBu",
+    "RdYlBu",
+    "RdYlGn",
+    "Spectral",
+    "coolwarm",
+    "bwr",
+    "seismic",
+]

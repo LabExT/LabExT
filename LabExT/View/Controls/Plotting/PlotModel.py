@@ -10,6 +10,8 @@ from matplotlib.axes import Axes
 
 import tkinter as tk
 
+from LabExT.View.Controls.Plotting.PlotConstants import COLOR_MAPS
+
 
 class PlotModel:
     """The model part of the model-view-controller architecture for plotting"""
@@ -22,6 +24,8 @@ class PlotModel:
         """Stores the type of plot currently being shown. See `PlotConstants.PLOT_TYPES`."""
         self.contour_interpolation_type = tk.StringVar()
         """Stores the type of interpolation to use for missing values in contour plot. See `PlotConstants.INTERPOLATION_TYPES`."""
+        self.color_map_name = tk.StringVar()
+        """Stores the name of the colormap used to color the graphs."""
 
         self.axis_x_key_name = tk.StringVar()
         """Stores the name of the key that populates the x-values of the plot."""
@@ -41,5 +45,6 @@ class PlotModel:
         """What type of bounds should be used."""
 
         # default values
+        self.color_map_name.set(COLOR_MAPS[0])
         self.contour_bucket_count.set(10)
         self.axis_bound_types.set("Auto")

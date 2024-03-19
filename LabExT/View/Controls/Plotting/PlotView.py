@@ -59,6 +59,7 @@ class PlotView:
             interpolation_type_var=plot_model.contour_interpolation_type,
             axis_bound_type_var=plot_model.axis_bound_types,
             axis_bounds=plot_model.axis_bounds,
+            color_map_var=plot_model.color_map_name,
             legend_elements=plot_model.legend_elements,
         )
         self._settings_frame.title = "Plot Settings"
@@ -129,6 +130,7 @@ class PlottingSettingsFrame(CustomFrame):
         interpolation_type_var: tk.StringVar,
         axis_bounds: list[tuple[float, float]],
         axis_bound_type_var: tk.StringVar,
+        color_map_var: tk.StringVar,
         legend_elements: list[str],
         *args,
         **kwargs,
@@ -157,6 +159,7 @@ class PlottingSettingsFrame(CustomFrame):
         self._interpolation_var = interpolation_type_var
         self._axis_bounds = axis_bounds
         self._axis_bound_types = axis_bound_type_var
+        self._color_map = color_map_var
 
         # legend options
         self._legend_options = legend_elements
@@ -170,6 +173,7 @@ class PlottingSettingsFrame(CustomFrame):
                 self._axis_z_var,
                 self._interpolation_var,
                 self._axis_bound_types,
+                self._color_map,
             ]
         )
 
@@ -242,6 +246,13 @@ class PlottingSettingsFrame(CustomFrame):
 
         if lowest_row == 0:
             return
+
+        color_label = tk.Label(self, anchor="w", text="Colormap for plots:")
+        color_menu = tk.OptionMenu(self, self._color_map, *COLOR_MAPS)
+        self.add_widget(color_label, column=0, row=lowest_row + 1, ipadx=10, ipady=0, sticky="we")
+        self.add_widget(color_menu, column=1, row=lowest_row + 1, ipadx=10, ipady=0, sticky="ew")
+
+        lowest_row += 1
 
         bound_label = tk.Label(self, anchor="w", text="Axis bounds type:")
         bound_menu = tk.OptionMenu(self, self._axis_bound_types, *AXIS_BOUND_TYPES)
@@ -517,7 +528,7 @@ class PlottingSettingsFrame(CustomFrame):
         self.add_widget(self._bucket_count_entry, column=1, row=base_row + 5, sticky="ew")
         self.rowconfigure(base_row + 5, weight=0)
 
-        return base_row + 4
+        return base_row + 5
 
     def __setup_line_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2) -> int:
         """Sets up the components needed for a line-plot.

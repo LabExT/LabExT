@@ -13,6 +13,8 @@ from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableDataHand
 from LabExT.View.Controls.Plotting.PlotConstants import *
 from LabExT.View.MeasurementTable import SelectionChangedEvent
 
+from matplotlib import colormaps
+
 import numpy as np
 
 if TYPE_CHECKING:
@@ -120,12 +122,25 @@ class PlotController:
                     res += f"{name} = {meas['measurement_params'][name]}"
             return res
 
+        # define the colors used by the individual lines
+        cmap_name = self._model.color_map_name.get()
+        if cmap_name != "default":
+            colors = colormaps[cmap_name](np.linspace(0, 1, len(self._plottable_data)))
+
         plot = self._model.figure.add_subplot(1, 1, 1)
-        for meas_hash in self._plottable_data.keys():
+        for i, meas_hash in enumerate(self._plottable_data.keys()):
             measurement = self._plottable_data[meas_hash]
-            plot.plot(
-                measurement["values"][axis_x_key], measurement["values"][axis_y_key], label=get_label(measurement)
-            )
+            if cmap_name != "default":
+                plot.plot(
+                    measurement["values"][axis_x_key],
+                    measurement["values"][axis_y_key],
+                    label=get_label(measurement),
+                    color=colors[i],
+                )
+            else:
+                plot.plot(
+                    measurement["values"][axis_x_key], measurement["values"][axis_y_key], label=get_label(measurement)
+                )
 
         if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
             plot.set_xbound(self._model.axis_bounds[0][0], self._model.axis_bounds[0][1])
@@ -243,7 +258,10 @@ class PlotController:
             plot_method = plot.contour
         else:
             plot_method = plot.contourf
-        contour = plot_method(x_data, y_data, z_data, self._model.contour_bucket_count.get())
+        color = self._model.color_map_name.get()
+        if color == "default":
+            color = COLOR_MAPS[1]
+        contour = plot_method(x_data, y_data, z_data, self._model.contour_bucket_count.get(), cmap=color)
 
         self._model.figure.colorbar(contour, label=z_key)
 
