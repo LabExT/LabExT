@@ -571,17 +571,15 @@ class PeakSearcher(Measurement):
 
     def update_params_from_savefile(self):
         if not os.path.isfile(self.settings_path_full):
-            self.logger.info(
-                "SFP Parameter save file at {:s} not found. Using default parameters.".format(
-                    self.settings_path_full))
+            self.logger.debug(f"SFP Parameter save file at {self.settings_path_full} not found. "
+                              f"Using default parameters.")
             return
+
         with open(self.settings_path_full, 'r') as json_file:
             data = json.loads(json_file.read())
-        for parameter_name in data:
-            self.parameters[parameter_name].value = data[parameter_name]
-        self.logger.info(
-            "SearchForPeak parameters loaded from file: {:s}.".format(
-                self.settings_path_full))
+
+        for param_name, param_value in data["data"].items():
+            self.parameters[param_name].value = param_value
 
     def algorithm(self, device, data, instruments, parameters):
         raise NotImplementedError()

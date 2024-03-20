@@ -6,10 +6,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
-from tkinter import Button, TclError
+from typing import Callable
+from tkinter import Button, TclError, Event
 
 
-def callback_if_btn_enabled(callback_fn, tk_button: Button):
+def callback_if_btn_enabled(callback_fn, tk_button: Button) -> Callable[[Event], object]:
     """
     Creates and returns a callback function which ONLY fires if the corresponding button element is in enabled state.
 

@@ -8,15 +8,15 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 import json
 from unittest.mock import patch, mock_open
 from pathlib import Path
-from flaky import flaky
+import pytest
 
 from LabExT.Tests.Utils import TKinterTestCase
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 
 
-@flaky(max_runs=3)
 class DriverPathDialogTest(TKinterTestCase):
 
+    @pytest.mark.flaky(reruns=3)
     def test_dialog_initial_state(self):
         settings_file_path = 'my_path_file.txt'
         current_driver_path = str(Path('/path/to/control/module.py'))
@@ -33,6 +33,7 @@ class DriverPathDialogTest(TKinterTestCase):
                     current_driver_path
                 )
 
+    @pytest.mark.flaky(reruns=3)
     def test_save_without_change(self):
         settings_file_path = 'my_path_file.txt'
         current_driver_path = str(Path('/path/to/control/module.py'))
@@ -45,6 +46,7 @@ class DriverPathDialogTest(TKinterTestCase):
                 self.assertEqual(Path(dialog.driver_path), Path(current_driver_path))
                 self.assertFalse(dialog.path_has_changed)
 
+    @pytest.mark.flaky(reruns=3)
     def test_save_with_change(self):
         settings_file_path = 'my_path_file.txt'
         current_driver_path = str(Path('/path/to/control/module.py'))

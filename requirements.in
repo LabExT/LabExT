@@ -11,6 +11,7 @@
 numpy
 scipy
 matplotlib
+pandas
 
 # interface to VISA library
 pyvisa
@@ -29,6 +30,7 @@ collision
 # extra GUI widgets
 ttkwidgets
 pillow
+tkinter-tooltip
 
 # documentation generation
 mkdocs

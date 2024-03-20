@@ -6,12 +6,18 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+from typing import TYPE_CHECKING
+
 from tkinter import BooleanVar, StringVar
 
 from LabExT.Model.ExperimentHandler import ExperimentHandler
 from LabExT.Utils import DeprecatedException
 from LabExT.View.Controls.ControlPanel import ControlCommand
 
+if TYPE_CHECKING:
+    from LabExT.View.EditMeasurementWizard.EditMeasurementWizardController import EditMeasurementWizardController
+else:
+    EditMeasurementWizardController = None
 
 class MainWindowModel:
     """
@@ -57,9 +63,8 @@ class MainWindowModel:
         self.experiment = None
         self.chip_parameters = None
         self.save_parameters = None
-        self.live_plot_data = None
         self.selec_plot_data = None
-        self.last_opened_new_meas_wizard_controller = None
+        self.last_opened_new_meas_wizard_controller: EditMeasurementWizardController = None
 
         self.load_exp_parameters()
 
@@ -101,7 +106,6 @@ class MainWindowModel:
             self.experiment = self.experiment_manager.exp
             self.chip_parameters = self.experiment_manager.exp.chip_parameters
             self.save_parameters = self.experiment_manager.exp.save_parameters
-            self.live_plot_data = self.experiment.live_plot_collection
             self.selec_plot_data = self.experiment.selec_plot_collection
 
     def experiment_changed(self, ex):
@@ -135,6 +139,8 @@ class MainWindowModel:
         self.commands[0].can_execute = True  # enable the start button
         self.commands[1].can_execute = False  # disable the stop button
         # enable change in save file parameters
+        if not self.experiment_manager.chip:
+            self.allow_change_chip_params.set(True)
         self.allow_change_save_params.set(True)
 
     def exctrl_vars_changed(self, *args):

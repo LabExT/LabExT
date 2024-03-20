@@ -209,20 +209,19 @@ class InstrumentSelector(CustomFrame):
                 m.add_command(label=str(c), command=_setit(role.selected_channel, str(c)))
         return fn
 
-    def serialize(self, file_name):
+    def serialize(self, file_name) -> bool:
         """Serializes data in table to json."""
-        if self._instrument_source is None:
-            return
         settings_path = get_configuration_file_path(file_name)
         if os.path.isfile(settings_path):
             with open(settings_path, 'r') as json_file:
                 data = json.loads(json_file.read())
         else:
             data = {}
-        for role_name in self._instrument_source:
-            data[role_name] = self._instrument_source[role_name].choice
+        if not self.serialize_to_dict(data):
+            return False
         with open(settings_path, 'w') as json_file:
             json_file.write(json.dumps(data))
+        return True
 
     def deserialize(self, file_name):
         """Deserializes the table data from a given file and loads it
@@ -232,7 +231,24 @@ class InstrumentSelector(CustomFrame):
             return
         with open(settings_path, 'r') as json_file:
             data = json.loads(json_file.read())
-        for role_name in data:
+        self.deserialize_from_dict(settings=data)
+
+    def serialize_to_dict(self, settings: dict) -> bool:
+        """Serializes data in table to given dict."""
+        if self._instrument_source is None:
+            return False
+
+        for role_name in self._instrument_source:
+            settings[role_name] = self._instrument_source[role_name].choice
+        return True
+
+    def deserialize_from_dict(self, settings: dict):
+        """Deserializes the table data from a given dict and loads it
+        into the cells."""
+        if self._instrument_source is None:
+            return
+            
+        for role_name, role in settings.items():
             if role_name in self._instrument_source:
-                self._instrument_source[role_name].create_and_set(data[role_name])
+                self._instrument_source[role_name].create_and_set(role)
         self.__setup__()

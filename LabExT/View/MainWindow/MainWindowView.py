@@ -7,9 +7,20 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 from platform import system
-from tkinter import Frame, Menu, Checkbutton, \
-    Label, StringVar, OptionMenu, LabelFrame, Button, scrolledtext, Entry, \
-    NORMAL, DISABLED
+from tkinter import (
+    Frame,
+    Menu,
+    Checkbutton,
+    Label,
+    StringVar,
+    OptionMenu,
+    LabelFrame,
+    Button,
+    scrolledtext,
+    Entry,
+    NORMAL,
+    DISABLED,
+)
 
 from LabExT.Logs.LoggingWidgetHandler import LoggingWidgetHandler
 from LabExT.Utils import get_labext_version
@@ -44,105 +55,90 @@ class MainWindowContextMenu(Menu):
         self.add_cascade(label="Settings", menu=self._settings)
         self.add_cascade(label="Help", menu=self._help)
 
-        self._file.add_command(
-            label="New Experiment",
-            command=self._menu_listener.client_new_experiment)
-        self._file.add_command(
-            label="Load Data", command=self._menu_listener.client_load_data)
-        self._file.add_command(
-            label="Import Chip",
-            command=self._menu_listener.client_import_chip)
-        self._file.add_command(
-            label="Export Data",
-            command=self._menu_listener.client_export_data)
-        self._file.add_command(
-            label="Restart",
-            command=self._menu_listener.client_restart)
-        self._file.add_command(
-            label="Quit",
-            command=self._menu_listener.client_quit)
+        self._file.add_command(label="New Experiment", command=self._menu_listener.client_new_experiment)
+        self._file.add_command(label="Load Data", command=self._menu_listener.client_load_data)
+        self._file.add_command(label="Import Chip", command=self._menu_listener.client_import_chip)
+        self._file.add_command(label="Export Data", command=self._menu_listener.client_export_data)
+        self._file.add_command(label="Restart", command=self._menu_listener.client_restart)
+        self._file.add_command(label="Quit", command=self._menu_listener.client_quit)
 
-        self._movement.add_command(
-            label=f"State: {self._mover.state}",
-            state=DISABLED)
+        self._movement.add_command(label=f"State: {self._mover.state}", state=DISABLED)
         self._movement.add_separator()
 
         if self._mover.has_connected_stages:
             self._movement.add_command(
                 label=f"{len(self._mover.calibrations)} connected stage(s):",
-                state=DISABLED)
+                state=DISABLED,
+            )
             for c in self._mover.calibrations.values():
-                self._movement.add_cascade(
-                    label=str(c),
-                    menu=self._make_calibration_menu(c))
+                self._movement.add_cascade(label=str(c), menu=self._make_calibration_menu(c))
             self._movement.add_separator()
-        
-        self._movement.add_command(
-            label="Configure Stages...",
-            command=self._menu_listener.client_setup_stages)
+
+        self._movement.add_command(label="Configure Stages...", command=self._menu_listener.client_setup_stages)
         self._movement.add_command(
             label="Configure Mover...",
             command=self._menu_listener.client_setup_mover,
-            state=NORMAL if self._mover.has_connected_stages else DISABLED)
+            state=NORMAL if self._mover.has_connected_stages else DISABLED,
+        )
         self._movement.add_command(
             label="Calibrate Stages...",
             command=self._menu_listener.client_calibrate_stage,
-            state=NORMAL if self._mover.has_connected_stages else DISABLED)
+            state=NORMAL if self._mover.has_connected_stages else DISABLED,
+        )
         self._movement.add_separator()
         self._movement.add_command(
             label="Move Stages Relative",
             command=self._menu_listener.client_move_stages,
-            state=NORMAL if self._mover.can_move_relatively else DISABLED)
+            state=NORMAL if self._mover.can_move_relatively else DISABLED,
+        )
         self._movement.add_command(
             label="Move Stages to Device",
             command=self._menu_listener.client_move_device,
-            state=NORMAL if self._mover.can_move_absolutely else DISABLED)
+            state=NORMAL if self._mover.can_move_absolutely else DISABLED,
+        )
         self._movement.add_separator()
         self._movement.add_command(
             label="Search for Peak (Ctrl+S)",
             command=self._menu_listener.client_search_for_peak,
-            state=NORMAL if self._mover.has_connected_stages else DISABLED)
+            state=NORMAL if self._mover.has_connected_stages else DISABLED,
+        )
 
-        self._view.add_command(
-            label="Open Extra Plots",
-            command=self._menu_listener.client_extra_plots)
+        self._view.add_command(label="Open Extra Plots", command=self._menu_listener.client_extra_plots)
         self._view.add_command(
             label="Start Live Instrument View (Ctrl+L)",
-            command=self._menu_listener.client_live_view)
+            command=self._menu_listener.client_live_view,
+        )
 
         self._settings.add_command(
             label="Instrument Connection Debugger",
-            command=self._menu_listener.client_instrument_connection_debugger)
-        self._settings.add_command(
-            label="Addon Settings",
-            command=self._menu_listener.client_addon_settings)
+            command=self._menu_listener.client_instrument_connection_debugger,
+        )
+        self._settings.add_command(label="Addon Settings", command=self._menu_listener.client_addon_settings)
         self._settings.add_command(
             label="Stage Driver Settings",
-            command=self._menu_listener.client_stage_driver_settings)
+            command=self._menu_listener.client_stage_driver_settings,
+        )
+        self._settings.add_command(
+            label="Measurement Control Settings",
+            command=self._menu_listener.client_measurement_control_settings
+        )
 
         self._help.add_command(
             label="Documentation and Help (F1)",
-            command=self._menu_listener.client_documentation)
-        self._help.add_command(
-            label="Sourcecode", command=self._menu_listener.client_sourcecode)
-        self._help.add_command(
-            label="About", command=self._menu_listener.client_load_about)
-
+            command=self._menu_listener.client_documentation,
+        )
+        self._help.add_command(label="Sourcecode", command=self._menu_listener.client_sourcecode)
+        self._help.add_command(label="About", command=self._menu_listener.client_load_about)
 
     def _make_calibration_menu(self, calibration):
         calibration_menu = Menu(self)
 
-        calibration_menu.add_command(
-            label=f"State: {calibration.state}",
-            state=DISABLED)
-        calibration_menu.add_command(
-            label=f"Orientation: {calibration._orientation}",
-            state=DISABLED)
-        calibration_menu.add_command(
-            label=f"Device Port: {calibration._device_port}",
-            state=DISABLED)
+        calibration_menu.add_command(label=f"State: {calibration.state}", state=DISABLED)
+        calibration_menu.add_command(label=f"Orientation: {calibration._orientation}", state=DISABLED)
+        calibration_menu.add_command(label=f"Device Port: {calibration._device_port}", state=DISABLED)
 
         return calibration_menu
+
 
 class MainWindowControlFrame(Frame):
     """
@@ -151,17 +147,18 @@ class MainWindowControlFrame(Frame):
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
-        self.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky='nswe')
-        title = Label(self,
-                      text="LabExT",
-                      font='Helvetica 18 bold')
-        title.grid(row=0, column=0, pady=(20, 0), sticky='we')
+        self.grid(row=0, column=0, rowspan=2, padx=5, pady=5, sticky="nswe")
+        title = Label(self, text="LabExT", font="Helvetica 18 bold")
+        title.grid(row=0, column=0, pady=(20, 0), sticky="we")
         version, gitref = get_labext_version()
-        if gitref != '-':
-            version = Label(self, text='v' + str(version) + ' @ Git ref ' + str(gitref) + "\nPress F1 for help.")
+        if gitref != "-":
+            version = Label(
+                self,
+                text="v" + str(version) + " @ Git ref " + str(gitref) + "\nPress F1 for help.",
+            )
         else:
-            version = Label(self, text='v' + str(version) + "\nPress F1 for help.")
-        version.grid(row=1, column=0, pady=(0, 20), sticky='we')
+            version = Label(self, text="v" + str(version) + "\nPress F1 for help.")
+        version.grid(row=1, column=0, pady=(0, 20), sticky="we")
 
         self.rowconfigure(2, weight=1)
         self.rowconfigure(3, weight=1)
@@ -185,9 +182,9 @@ class MainWindowControlPanel(ControlPanel):
         #
         # control buttons
         #
-        self.logger.debug('Adding control buttons..')
-        self.grid(row=5, column=0, sticky='we')
-        self.title = 'Execute ToDos'
+        self.logger.debug("Adding control buttons..")
+        self.grid(row=5, column=0, sticky="we")
+        self.title = "Execute ToDos"
         self.command_source = self.model.commands
         self.button_width = None
 
@@ -195,34 +192,37 @@ class MainWindowControlPanel(ControlPanel):
         self.exctrl_mm_pause = Checkbutton(
             self,
             text="Pause after every device (Manual Mode)",
-            variable=self.model.var_mm_pause)
-        self.add_widget(self.exctrl_mm_pause, column=0, row=1, sticky='we')
+            variable=self.model.var_mm_pause,
+        )
+        self.add_widget(self.exctrl_mm_pause, column=0, row=1, sticky="we")
         self.exctrl_mm_pause_reason = Label(self, textvariable=self.model.var_mm_pause_reason)
-        self.exctrl_mm_pause_reason.config(state='disabled')
-        self.add_widget(self.exctrl_mm_pause_reason, column=1, row=1, sticky='we')
+        self.exctrl_mm_pause_reason.config(state="disabled")
+        self.add_widget(self.exctrl_mm_pause_reason, column=1, row=1, sticky="we")
 
         self.wait_time_lbl = Label(self, text="Seconds to wait between measurements")
-        self.add_widget(self.wait_time_lbl, column=0, row=2, sticky='e')
+        self.add_widget(self.wait_time_lbl, column=0, row=2, sticky="e")
         self.exctrl_wait_time = Entry(self, textvariable=self.model.var_imeas_wait_time_str)
-        self.add_widget(self.exctrl_wait_time, column=1, row=2, sticky='w', padx=5, pady=5)
+        self.add_widget(self.exctrl_wait_time, column=1, row=2, sticky="w", padx=5, pady=5)
 
         self.exctrl_auto_move = Checkbutton(
             self,
             text="Automatically move Piezo Stages to device",
-            variable=self.model.var_auto_move)
-        self.add_widget(self.exctrl_auto_move, column=0, row=3, sticky='we')
+            variable=self.model.var_auto_move,
+        )
+        self.add_widget(self.exctrl_auto_move, column=0, row=3, sticky="we")
         self.exctrl_auto_move_reason = Label(self, textvariable=self.model.var_auto_move_reason)
-        self.exctrl_auto_move_reason.config(state='disabled')
-        self.add_widget(self.exctrl_auto_move_reason, column=1, row=3, sticky='we')
+        self.exctrl_auto_move_reason.config(state="disabled")
+        self.add_widget(self.exctrl_auto_move_reason, column=1, row=3, sticky="we")
 
         self.exctrl_sfp_ena = Checkbutton(
             self,
             text="Execute Search-for-Peak before measurement",
-            variable=self.model.var_sfp_ena)
-        self.add_widget(self.exctrl_sfp_ena, column=0, row=4, sticky='we')
+            variable=self.model.var_sfp_ena,
+        )
+        self.add_widget(self.exctrl_sfp_ena, column=0, row=4, sticky="we")
         self.exctrl_sfp_ena_reason = Label(self, textvariable=self.model.var_sfp_ena_reason)
-        self.exctrl_sfp_ena_reason.config(state='disabled')
-        self.add_widget(self.exctrl_sfp_ena_reason, column=1, row=4, sticky='we')
+        self.exctrl_sfp_ena_reason.config(state="disabled")
+        self.add_widget(self.exctrl_sfp_ena_reason, column=1, row=4, sticky="we")
 
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -241,20 +241,24 @@ class MainWindowCouplingTools(LabelFrame):
     def __init__(self, parent, controller):
         self.parent = parent
         self.controller = controller
-        LabelFrame.__init__(self, self.parent, text='Couple Light to SiP Chip')
-        self.grid(row=3, column=0, sticky='we')
+        LabelFrame.__init__(self, self.parent, text="Couple Light to SiP Chip")
+        self.grid(row=3, column=0, sticky="we")
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
 
-        self.live_viewer_btn = Button(self,
-                                      text='Open Live Viewer (Ctrl+L)',
-                                      command=self.controller.open_live_viewer)
-        self.live_viewer_btn.grid(row=0, column=0, sticky='we', padx=5, pady=5)
-        self.peak_searcher_btn = Button(self,
-                                        text='Peak Searcher (Ctrl+S)',
-                                        command=self.controller.open_peak_searcher)
-        self.peak_searcher_btn.grid(row=1, column=0, sticky='we', padx=5, pady=5)
+        self.live_viewer_btn = Button(
+            self,
+            text="Open Live Viewer (Ctrl+L)",
+            command=self.controller.open_live_viewer,
+        )
+        self.live_viewer_btn.grid(row=0, column=0, sticky="we", padx=5, pady=5)
+        self.peak_searcher_btn = Button(
+            self,
+            text="Peak Searcher (Ctrl+S)",
+            command=self.controller.open_peak_searcher,
+        )
+        self.peak_searcher_btn.grid(row=1, column=0, sticky="we", padx=5, pady=5)
 
 
 class MainWindowButtonsFrame(LabelFrame):
@@ -266,25 +270,31 @@ class MainWindowButtonsFrame(LabelFrame):
         self.main_frame = main_frame
         self.parent = parent
         self.controller = controller
-        LabelFrame.__init__(self, self.parent, text='Create new ToDos')
-        self.grid(row=4, column=0, sticky='we')
+        LabelFrame.__init__(self, self.parent, text="Create new ToDos")
+        self.grid(row=4, column=0, sticky="we")
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
 
-        self.new_meas_button = Button(self,
-                                      text='New single measurement (Ctrl+N)',
-                                      command=self.controller.new_single_measurement)
-        self.new_meas_button.grid(row=0, column=0, sticky='we', padx=5, pady=5)
+        self.new_meas_button = Button(
+            self,
+            text="New single measurement (Ctrl+N)",
+            command=self.controller.new_single_measurement,
+        )
+        self.new_meas_button.grid(row=0, column=0, sticky="we", padx=5, pady=5)
         self.new_meas_button.focus_set()
-        self.new_exp_button = Button(self,
-                                     text='New device sweep experiment',
-                                     command=self.main_frame.menu_listener.client_new_experiment)
-        self.new_exp_button.grid(row=1, column=0, sticky='we', padx=5)
-        self.repeat_meas_button = Button(self,
-                                         text='Repeat last executed measurement (Ctrl+R)',
-                                         command=self.controller.repeat_last_exec_measurement)
-        self.repeat_meas_button.grid(row=2, column=0, sticky='we', padx=5, pady=5)
+        self.new_exp_button = Button(
+            self,
+            text="New device sweep experiment",
+            command=self.controller.new_swept_devices_experiment,
+        )
+        self.new_exp_button.grid(row=1, column=0, sticky="we", padx=5)
+        self.repeat_meas_button = Button(
+            self,
+            text="Repeat last executed measurements (Ctrl+R)",
+            command=self.controller.repeat_last_exec_measurement,
+        )
+        self.repeat_meas_button.grid(row=2, column=0, sticky="we", padx=5, pady=5)
 
 
 class MainWindowParameterFrame(Frame):
@@ -301,14 +311,14 @@ class MainWindowParameterFrame(Frame):
         #
         # parameter table
         #
-        self.grid(row=2, column=0, sticky='we')
+        self.grid(row=2, column=0, sticky="we")
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
 
         self.chip_parameter_table = ParameterTable(self)
-        self.chip_parameter_table.grid(row=0, column=0, sticky='we')
-        self.chip_parameter_table.title = 'Chip Description Parameters'
+        self.chip_parameter_table.grid(row=0, column=0, sticky="we")
+        self.chip_parameter_table.title = "Chip Description Parameters"
         self.chip_parameter_table.enabled = self.model.allow_change_chip_params
         self.chip_parameter_table.parameter_source = self.model.chip_parameters
         if self.chip_parameter_table.deserialize(self.model.chiptable_settings_path):
@@ -316,8 +326,8 @@ class MainWindowParameterFrame(Frame):
         self.chip_parameter_table.columnconfigure(0, weight=1)
 
         self.save_parameter_table = ParameterTable(self)
-        self.save_parameter_table.grid(row=1, column=0, sticky='we')
-        self.save_parameter_table.title = 'Save Directory for JSON Files'
+        self.save_parameter_table.grid(row=1, column=0, sticky="we")
+        self.save_parameter_table.title = "Save Directory for JSON Files"
         self.save_parameter_table.enabled = self.model.allow_change_save_params
         self.save_parameter_table.parameter_source = self.model.save_parameters
         if self.save_parameter_table.deserialize(self.model.savetable_settings_path):
@@ -334,33 +344,33 @@ class MainWindowAxesFrame(LabelFrame):
         self.parent = parent
         self.root = root
         self.controller = controller
-        LabelFrame.__init__(self, self.parent, text='Choose Axes to Display')
+        LabelFrame.__init__(self, self.parent, text="Choose Axes to Display")
 
-        self.grid(row=6, column=0, sticky='we')
+        self.grid(row=6, column=0, sticky="we")
         self.rowconfigure(2, weight=1)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
 
-        self._x_axis_plot_label = Label(self, text='Set data for x-axis:')
-        self._x_axis_plot_label.grid(row=1, column=0, sticky='we')
-        self._y_axis_plot_label = Label(self, text='Set data for y-axis:')
-        self._y_axis_plot_label.grid(row=0, column=0, sticky='we')
+        self._x_axis_plot_label = Label(self, text="Set data for x-axis:")
+        self._x_axis_plot_label.grid(row=1, column=0, sticky="we")
+        self._y_axis_plot_label = Label(self, text="Set data for y-axis:")
+        self._y_axis_plot_label.grid(row=0, column=0, sticky="we")
 
         self.x_axis_choice = StringVar(self.root)
-        self.x_axis_choice.trace('w', self.controller.axis_changed)
+        self.x_axis_choice.trace("w", self.controller.axis_changed)
         self.y_axis_choice = StringVar(self.root)
-        self.y_axis_choice.trace('w', self.controller.axis_changed)
+        self.y_axis_choice.trace("w", self.controller.axis_changed)
         self._axis_being_changed = False
 
-        self._choices = ['']
+        self._choices = [""]
 
         self.x_axis_plot_selector = OptionMenu(self, self.x_axis_choice, *self._choices)
-        self.x_axis_plot_selector.grid(row=1, column=1, sticky='we')
+        self.x_axis_plot_selector.grid(row=1, column=1, sticky="we")
         self.x_axis_plot_selector.rowconfigure(0, weight=1)
         self.x_axis_plot_selector.columnconfigure(1, weight=1)
 
         self.y_axis_plot_selector = OptionMenu(self, self.y_axis_choice, *self._choices)
-        self.y_axis_plot_selector.grid(row=0, column=1, sticky='we')
+        self.y_axis_plot_selector.grid(row=0, column=1, sticky="we")
         self.y_axis_plot_selector.rowconfigure(0, weight=1)
         self.y_axis_plot_selector.columnconfigure(1, weight=1)
 
@@ -374,13 +384,13 @@ class MainWindowLoggingWidget(LabelFrame):
     def __init__(self, parent):
         self.parent = parent
         self.logger = logging.getLogger()
-        LabelFrame.__init__(self, self.parent, text='Log')
-        self.grid(row=2, rowspan=2, column=0, padx=5, pady=5, sticky='nswe')
+        LabelFrame.__init__(self, self.parent, text="Log")
+        self.grid(row=2, rowspan=2, column=0, padx=5, pady=5, sticky="nswe")
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
-        st = scrolledtext.ScrolledText(self, state='disabled')
-        st.configure(font='TkFixedFont')
-        st.grid(row=0, column=0, sticky='nswe')
+        st = scrolledtext.ScrolledText(self, state="disabled")
+        st.configure(font="TkFixedFont")
+        st.grid(row=0, column=0, sticky="nswe")
         # register widget handler to root logger
         self.logger.addHandler(LoggingWidgetHandler(st))
 
@@ -393,15 +403,17 @@ class MainWindowMeasurementTable(MeasurementTable):
     def __init__(self, parent, experiment_manager):
         self.parent = parent
         self.experiment_manager = experiment_manager
-        MeasurementTable.__init__(self,
-                                  parent=self.parent,
-                                  experiment_manager=self.experiment_manager,
-                                  total_col_width=540,
-                                  do_changed_callbacks=True,
-                                  allow_only_single_meas_name=True)
+        MeasurementTable.__init__(
+            self,
+            parent=self.parent,
+            experiment_manager=self.experiment_manager,
+            total_col_width=540,
+            do_changed_callbacks=True,
+            allow_only_single_meas_name=True,
+        )
 
         self.title = "Finished Measurements"
-        self.grid(row=2, column=1, padx=5, pady=5, sticky='nswe')
+        self.grid(row=2, column=1, padx=5, pady=5, sticky="nswe")
 
 
 class MainWindowToDoTable(ToDoTable):
@@ -413,14 +425,16 @@ class MainWindowToDoTable(ToDoTable):
         self.parent = parent
         self.controller = controller
         self.experiment_manager = experiment_manager
-        ToDoTable.__init__(self,
-                           parent=self.parent,
-                           experiment_manager=self.experiment_manager,
-                           total_col_width=480,
-                           selec_mode='browse',
-                           double_click_callback=self.controller.todo_edit)
+        ToDoTable.__init__(
+            self,
+            parent=self.parent,
+            experiment_manager=self.experiment_manager,
+            total_col_width=480,
+            selec_mode="browse",
+            double_click_callback=self.controller.todo_edit,
+        )
         self.title = "ToDo Queue"
-        self.grid(row=2, column=2, padx=5, pady=5, sticky='nswe')
+        self.grid(row=2, column=2, padx=5, pady=5, sticky="nswe")
 
 
 class MainWindowFinishedMeasFrame(CustomFrame):
@@ -433,23 +447,39 @@ class MainWindowFinishedMeasFrame(CustomFrame):
         self.controller = controller
         CustomFrame.__init__(self, self.parent)
         self.title = "Edit Finished Measurements"
-        self.grid(row=3, column=1, padx=5, pady=5, sticky='nswe')
+        self.grid(row=3, column=1, padx=5, pady=5, sticky="nswe")
 
-        _check_all_meas = Button(self, text='Check All',
-                                 command=self.controller.check_all_measurements, width=10)
-        _check_all_meas.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        _check_all_meas = Button(
+            self,
+            text="Check All",
+            command=self.controller.check_all_measurements,
+            width=10,
+        )
+        _check_all_meas.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-        _uncheck_all_meas = Button(self, text='Uncheck All',
-                                   command=self.controller.uncheck_all_plotted_measurements, width=10)
-        _uncheck_all_meas.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+        _uncheck_all_meas = Button(
+            self,
+            text="Uncheck All",
+            command=self.controller.uncheck_all_plotted_measurements,
+            width=10,
+        )
+        _uncheck_all_meas.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
-        _remove_checked_meas = Button(self, text='Remove Checked',
-                                      command=self.controller.remove_checked_measurements, width=15)
-        _remove_checked_meas.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+        _remove_checked_meas = Button(
+            self,
+            text="Remove Checked",
+            command=self.controller.remove_checked_measurements,
+            width=15,
+        )
+        _remove_checked_meas.grid(row=0, column=2, padx=5, pady=5, sticky="w")
 
-        _remove_all_meas = Button(self, text='Remove All',
-                                  command=self.controller.remove_all_measurements, width=15)
-        _remove_all_meas.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+        _remove_all_meas = Button(
+            self,
+            text="Remove All",
+            command=self.controller.remove_all_measurements,
+            width=15,
+        )
+        _remove_all_meas.grid(row=0, column=3, padx=5, pady=5, sticky="w")
 
 
 class MainWindowToDoFrame(CustomFrame):
@@ -463,28 +493,28 @@ class MainWindowToDoFrame(CustomFrame):
         self.controller = controller
         CustomFrame.__init__(self, parent)
         self.title = "Edit ToDo Queue"
-        self.grid(row=3, column=2, padx=5, pady=5, sticky='nswe')
+        self.grid(row=3, column=2, padx=5, pady=5, sticky="nswe")
 
-        _edit_todo_meas = Button(self, text='Edit ToDo', command=self.controller.todo_edit, width=10)
-        _edit_todo_meas.grid(row=0, column=0, padx=5, pady=5, sticky='w')
+        _edit_todo_meas = Button(self, text="Edit ToDo", command=self.controller.todo_edit, width=10)
+        _edit_todo_meas.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-        _dupl_todo_meas = Button(self, text='Clone ToDo', command=self.controller.todo_clone, width=10)
-        _dupl_todo_meas.grid(row=0, column=1, padx=5, pady=5, sticky='w')
+        _dupl_todo_meas = Button(self, text="Clone ToDo", command=self.controller.todo_clone, width=10)
+        _dupl_todo_meas.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
-        self.delete_todo_meas = Button(self, text='Delete ToDo', command=self.controller.todo_delete, width=10)
-        self.delete_todo_meas.grid(row=0, column=2, padx=5, pady=5, sticky='w')
+        self.delete_todo_meas = Button(self, text="Delete ToDo", command=self.controller.todo_delete, width=10)
+        self.delete_todo_meas.grid(row=0, column=2, padx=5, pady=5, sticky="w")
 
-        _open_todo_side_window = Button(self, text='Side Window', command=self.controller.todo_side_window, width=10)
-        _open_todo_side_window.grid(row=0, column=3, padx=5, pady=5, sticky='w')
+        _open_todo_side_window = Button(self, text="Side Window", command=self.controller.todo_side_window, width=10)
+        _open_todo_side_window.grid(row=0, column=3, padx=5, pady=5, sticky="w")
 
-        _move_todo_up = Button(self, text='Move Up', command=self.controller.move_todo_up, width=10)
-        _move_todo_up.grid(row=0, column=4, padx=5, pady=5, sticky='w')
+        _move_todo_up = Button(self, text="Move Up", command=self.controller.move_todo_up, width=10)
+        _move_todo_up.grid(row=0, column=4, padx=5, pady=5, sticky="w")
 
-        _move_todo_down = Button(self, text='Move Down', command=self.controller.move_todo_down, width=10)
-        _move_todo_down.grid(row=0, column=5, padx=5, pady=5, sticky='w')
+        _move_todo_down = Button(self, text="Move Down", command=self.controller.move_todo_down, width=10)
+        _move_todo_down.grid(row=0, column=5, padx=5, pady=5, sticky="w")
 
-        _delete_all_todo_meas = Button(self, text='Delete All', command=self.controller.todo_delete_all, width=10)
-        _delete_all_todo_meas.grid(row=0, column=6, padx=5, pady=5, sticky='w')
+        _delete_all_todo_meas = Button(self, text="Delete All", command=self.controller.todo_delete_all, width=10)
+        _delete_all_todo_meas.grid(row=0, column=6, padx=5, pady=5, sticky="w")
 
 
 class MainWindowFrame(Frame):
@@ -505,7 +535,7 @@ class MainWindowFrame(Frame):
         Frame.__init__(self, self.root)
 
         # place main window in root element
-        self.grid(row=0, column=0, sticky='nswe')
+        self.grid(row=0, column=0, sticky="nswe")
 
         # these settings are needed to make everything scale to the window size
         self.root.rowconfigure(0, weight=1)
@@ -529,7 +559,6 @@ class MainWindowFrame(Frame):
         self.control_panel = None
 
         self.selec_plot = None
-        self.live_plot = None
         self.axes_frame = None
 
         self.logging_frame = None
@@ -557,22 +586,19 @@ class MainWindowFrame(Frame):
         self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
         self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
-        self.selec_plot = PlotControl(self, add_toolbar=True, figsize=(5, 5), add_legend=True,
-                                      onclick=self.menu_listener.client_extra_plots)
-        self.selec_plot.title = 'Measurement Selection Plot'
+        self.selec_plot = PlotControl(
+            self,
+            add_toolbar=True,
+            figsize=(5, 5),
+            add_legend=True,
+            onclick=self.menu_listener.client_extra_plots,
+        )
+        self.selec_plot.title = "Measurement Selection Plot"
         self.selec_plot.show_grid = True
         self.selec_plot.data_source = self.model.selec_plot_data
-        self.selec_plot.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky='nswe')
+        self.selec_plot.grid(row=0, column=1, rowspan=2, columnspan=2, padx=10, pady=10, sticky='nswe')
         self.selec_plot.rowconfigure(0, weight=1)
         self.selec_plot.columnconfigure(0, weight=1)
-
-        self.live_plot = PlotControl(self, add_toolbar=True, figsize=(5, 5), polling_time_s=.5)
-        self.live_plot.title = 'Live Plot'
-        self.live_plot.show_grid = True
-        self.live_plot.data_source = self.model.live_plot_data
-        self.live_plot.grid(row=0, column=2, rowspan=2, padx=10, pady=10, sticky='nswe')
-        self.live_plot.rowconfigure(0, weight=1)
-        self.live_plot.columnconfigure(0, weight=1)
 
     def set_up_logging_frame(self):
         """
@@ -593,7 +619,7 @@ class MainWindowFrame(Frame):
 
 class MainWindowView:
     """
-    View Class for the mainwindow. Sets up and controls everything about the mainwindow, including
+    View Class for the main window. Sets up and controls everything about the main window, including
     the TKinter main window setup routines.
     """
 
@@ -624,10 +650,10 @@ class MainWindowView:
         """
         Handles platform specific code
         """
-        if system() == 'Windows':
-            self.root.wm_state('zoomed')  # as large as possible without hiding task bar
+        if system() == "Windows":
+            self.root.wm_state("zoomed")  # as large as possible without hiding task bar
         else:
-            self.root.geometry('{}x{}'.format(self.model.app_width, self.model.app_height))  # window size
+            self.root.geometry("{}x{}".format(self.model.app_width, self.model.app_height))  # window size
 
     def set_up_main_window(self):
         """
@@ -641,10 +667,10 @@ class MainWindowView:
         self.frame.set_up_control_frame()
 
         self.frame.set_up_logging_frame()
+
         #
         # active and finished measurement tables
         #
-
         self.frame.set_up_auxiliary_tables()
 
     def set_up_context_menu(self):

@@ -129,7 +129,7 @@ class AdhocDeviceFrame(CustomFrame):
 
         params = {kv.get(): vv.get() for kv, vv in self._extra_parameter_vars}
 
-        return Device(_id, [_inp_x, _inp_y], [_oup_x, _oup_y], _type, params)
+        return Device(id=_id, in_position=[_inp_x, _inp_y], out_position=[_oup_x, _oup_y], type=_type, parameters=params)
 
     def load_existing_device(self, device: Device):
         """Loads existing device information from an existing device object."""
@@ -169,6 +169,37 @@ class AdhocDeviceFrame(CustomFrame):
             return
         with open(settings_path, 'r') as json_file:
             data = json.loads(json_file.read())
+
+        self._entry_id.insert(0, data["_id"])
+        self._entry_type.insert(0, data["_type"])
+        self._entry_inp_x.insert(0, data["_inp_x"])
+        self._entry_inp_y.insert(0, data["_inp_y"])
+        self._entry_oup_x.insert(0, data["_oup_x"])
+        self._entry_oup_y.insert(0, data["_oup_y"])
+
+        # do not save empty extra parameters
+        self._extra_parameter_vars = [(StringVar(value=kv), StringVar(value=vv)) for kv, vv in
+                                      data["extra_parameter"].items() if len(kv) > 0 or len(vv) > 0]
+        self.__setup_extra_params__()
+
+    def serialize_to_dict(self, store_location: dict):
+        """Serializes data in table to dict."""
+        data = {
+            "_id": self._entry_id.get(),
+            "_inp_x": self._entry_inp_x.get() or 0,
+            "_inp_y": self._entry_inp_y.get() or 0,
+            "_oup_x": self._entry_oup_x.get() or 0,
+            "_oup_y": self._entry_oup_y.get() or 0,
+            "_type": self._entry_type.get()
+        }
+        data['extra_parameter'] = {kv.get(): vv.get() for kv, vv in self._extra_parameter_vars}
+        store_location.update(data)
+
+    def deserialize_from_dict(self, data: dict):
+        """Deserializes the table data from a given dict and loads it
+        into the cells."""
+        if len(data) == 0:
+            return
 
         self._entry_id.insert(0, data["_id"])
         self._entry_type.insert(0, data["_type"])

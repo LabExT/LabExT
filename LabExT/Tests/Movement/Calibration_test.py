@@ -73,7 +73,7 @@ class CalibrationTestCase(unittest.TestCase):
         self.calibration.update_single_point_offset(CoordinatePairing(
             self.calibration,
             StageCoordinate.from_numpy(VACHERIN_STAGE_COORDS[0]),
-            Device(id=1, in_position=[0,0], out_position=[1,1]),
+            Device(id=1, type='test', in_position=[0,0], out_position=[1,1]),
             ChipCoordinate.from_numpy(VACHERIN_CHIP_COORDS[0])
         ))
 
@@ -83,7 +83,7 @@ class CalibrationTestCase(unittest.TestCase):
             self.calibration.update_kabsch_rotation(CoordinatePairing(
                 calibration=self.calibration,
                 stage_coordinate=StageCoordinate.from_numpy(stage_coord),
-                device=Device(device_id, [0,0], [1,1]),
+                device=Device(id=device_id, in_position=[0,0], out_position=[1,1], type='bla'),
                 chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
 
 
@@ -721,9 +721,10 @@ class CalibrationTest(CalibrationTestCase):
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
+            path="/example/path",
             devices=[
-                Device(0, [23236.35, -7888.67, 18956.06], [0,0])
-            ])
+                Device(id=0, in_position=[23236.35, -7888.67, 18956.06], out_position=[0,0], type='bla')
+            ], _serialize_to_disk=False)
 
         calibration_data = {
             "orientation": "LEFT",
@@ -747,12 +748,13 @@ class CalibrationTest(CalibrationTestCase):
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
+            path="/example/path",
             devices=[
-                Device(0, [0,0], [1,1]),
-                Device(1, [2,2], [3,3]),
-                Device(2, [4,4], [5,5]),
-                Device(3, [6,6], [7,7])
-            ])
+                Device(id=0, in_position=[0,0], out_position=[1,1], type='bla'),
+                Device(id=1, in_position=[2,2], out_position=[3,3], type='bla'),
+                Device(id=2, in_position=[4,4], out_position=[5,5], type='bla'),
+                Device(id=3, in_position=[6,6], out_position=[7,7], type='bla')
+            ], _serialize_to_disk=False)
 
         calibration_data = {
             "orientation": "LEFT",
@@ -798,12 +800,13 @@ class CalibrationTest(CalibrationTestCase):
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
+            path="/example/path",
             devices=[
-                Device(0, [0,0], [1,1]),
-                Device(1, [2,2], [3,3]),
-                Device(2, [4,4], [5,5]),
-                Device(3, [6,6], [7,7])
-            ])
+                Device(id=0, in_position=[0,0], out_position=[1,1], type='bla'),
+                Device(id=1, in_position=[2,2], out_position=[3,3], type='bla'),
+                Device(id=2, in_position=[4,4], out_position=[5,5], type='bla'),
+                Device(id=3, in_position=[6,6], out_position=[7,7], type='bla')
+            ], _serialize_to_disk=False)
 
         calibration_data = {
             "orientation": "LEFT",

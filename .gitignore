@@ -219,3 +219,6 @@ pip-selfcheck.json
 
 # ignore all experiment/measurement settings files
 *_settings.json
+
+# vscode settings
+.vscode

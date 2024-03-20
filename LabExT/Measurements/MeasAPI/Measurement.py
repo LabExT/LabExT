@@ -6,6 +6,25 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 import logging
+from typing import List, Dict
+
+from typing import TYPE_CHECKING, List, Dict, Tuple, Optional
+
+import uuid
+
+from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+
+if TYPE_CHECKING:
+    from LabExT.Experiments.StandardExperiment import StandardExperiment
+    from LabExT.ExperimentManager import ExperimentManager
+    from LabExT.Instruments.InstrumentAPI.InstrumentAPI import Instrument
+else:
+    StandardExperiment = None
+    ExperimentManager = None
+    Instrument = None
+
+
+MEAS_PARAMS_TYPE = Dict[str, MeasParam]
 
 
 class Measurement:
@@ -39,7 +58,9 @@ class Measurement:
     check_param = 'Raise'
     check_instr = 'Raise'
 
-    def __init__(self, experiment=None, experiment_manager=None):
+    def __init__(self, 
+                 experiment: Optional[StandardExperiment] = None, 
+                 experiment_manager: Optional[ExperimentManager] = None):
         """Constructor of a measurement.
 
         The arguments are automatically filled when using the measurement with the LabExT GUI. For standalone use, the
@@ -65,21 +86,38 @@ class Measurement:
         """
         Measurement class internal use
         """
-        # list of strings of instrument roles as defined in instruments.config
-        self.selected_instruments = {}
-        # dict of measurement parameters, values are MeasParam() instances
-        self._parameters = {}
-        # dict for initialized instruments, format: (role_name, instr_class_name): instr_object
-        self._instruments = {}
-        # only used internally in class Measurement
+
+        self.selected_instruments: Dict[str, Dict] = {}
+        """Dict of strings of instrument roles as defined in instruments.config"""
+
+        self._parameters: Dict[str, MeasParam] = {}
+        """Dict of measurement parameters, values are MeasParam() instances"""
+
+        self._instruments: Dict[Tuple[str, str], Instrument] = {}
+        """Dict for initialized instruments, format: (role_name, instr_class_name): instr_object"""
+
         self._instr_pointer = None
-        # list of strings of instrument types as defined in instruments.config
-        self.wanted_instruments = []
-        # logger object, use this to log to console and log file
+        """Only used internally in class Measurement"""
+
+        self.wanted_instruments: List[str] = []
+        """List of strings of instrument types as defined in instruments.config"""
+
         self.logger = logging.getLogger()
+        """Logger object, use this to log to console and log file"""
+
+        self._id: uuid.UUID = uuid.uuid4()
+        """A random id for the measurement. It is based on the measurement name and the parameters."""
 
     @property
-    def parameters(self):
+    def id(self) -> uuid.UUID:
+        """Returns a unique ID for this measurement based on its name and its parameters.
+        
+        Measurements with the same name and parameters will have the same id.
+        """
+        return self._id
+
+    @property
+    def parameters(self) -> Dict[str, MeasParam]:
         """`dict` of `MeasParam`: access the currently set parameters for this measurement. If no parameters were set,
         the default parameters are taken. Key is the parameters name and the Value is a `MeasParam` instance.
         """
@@ -92,7 +130,7 @@ class Measurement:
         self._parameters = new_param
 
     @property
-    def instruments(self):
+    def instruments(self) -> Dict[Tuple[str, str], Instrument]:
         """`dict` of `Instrument`: Holds the instances of the instrument drivers after calling `init_instruments()`,
         otherwise returns an empty dict. Keys are a 2-tuple of strings: (type, driver name): type is the type
         requested in `get_wanted_instrument()` and the driver name is the class name of the instruments driver. The
@@ -101,13 +139,13 @@ class Measurement:
         return self._instruments
 
     @instruments.setter
-    def instruments(self, new_intrs):
+    def instruments(self, new_intrs: Dict[Tuple[str, str], Instrument]):
         self._instruments = new_intrs
 
-    def get_name_with_id(self):
+    def get_name_with_id(self) -> str:
         """Returns the measurements `name` property and the unique id for this measurement's instance.
         """
-        return str(self.name) + " (id " + str(id(self))[-5:] + ")"
+        return str(self.name) + " (shortened id = " + self.id.hex[-5:] + ")"
 
     def init_instruments(self):
         """Instantiates instrument drivers according to `self.selected_instruments` and saves them in `self.instruments`
@@ -125,7 +163,7 @@ class Measurement:
         if not all(inst is not None for inst in self.instruments.values()):
             raise RuntimeError('Instruments were not initialized correctly.')
 
-    def get_instrument(self, instrument_type):
+    def get_instrument(self, instrument_type: str) -> Instrument:
         """Returns the pointer to the initialized instrument for the given instrument type.
 
         Use this function within self.algorithm() to get the pointer to the instrument driver you can use for
@@ -152,7 +190,7 @@ class Measurement:
         else:
             raise ValueError("No instrument with type " + str(instrument_type) + " in dict of initialized instruments.")
 
-    def _get_data_from_all_instruments(self):
+    def _get_data_from_all_instruments(self) -> Dict[str, Dict]:
         """Gets the settings of all instruments used in the measurement.
 
         Called from a standard experiment routine from LabExT to save all involved instrument's meta data and settings.
@@ -166,7 +204,7 @@ class Measurement:
         return inst_data
 
     @staticmethod
-    def get_default_parameter():
+    def get_default_parameter() -> Dict[str, MeasParam]:
         """The dictionary of all parameters required in this measurement at their default value.
 
         Inside the `algorithm`, you can access all parameters via the `parameters` argument which is the same
@@ -183,7 +221,19 @@ class Measurement:
         raise NotImplementedError()
 
     @staticmethod
-    def get_wanted_instrument():
+    def get_non_sweepable_parameters() -> Dict[str, MeasParam]:
+        """A `dict` mapping names of the parameters that are explicitly non-sweepable to the corresponding `MeasParam`.
+        
+        If all parameters are sweepable this method should return an empty `dict`.
+        The default implementation also returns an empty `dict`.
+        
+        Returns:
+            dict[str, MeasParam]: names of the parameters that aren't sweepable mapped to the corresponding parameters
+        """
+        return dict()
+
+    @staticmethod
+    def get_wanted_instrument() -> List[str]:
         """The list of all instrument types (strings) required in this measurement.
 
         Inside the `algorithm`, you can access the instantiated instrument driver classes by accessing the
@@ -291,8 +341,8 @@ class Measurement:
         raise NotImplementedError
 
     @classmethod
-    def setup_return_dict(cls):
-        """Gives the absolute bare minimum of keys which is to be filled in `data` dictionary in an `algorithm()` run.
+    def setup_return_dict(cls) -> Dict[str, Dict]:
+        """Gives the absolute bare minimum of keys which need to be filled in `data` dictionary in an `algorithm()` run.
 
         Returns:
             dict: The minimum set of keys for a `data` dictionary necessary to populate during a call of `algorithm()`.

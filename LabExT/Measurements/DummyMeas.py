@@ -7,11 +7,16 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from time import sleep
 
+from typing import TYPE_CHECKING, Dict
+
 import numpy as np
 
 from LabExT.Measurements.MeasAPI import *
-from LabExT.View.Controls.PlotControl import PlotData
-from LabExT.ViewModel.Utilities.ObservableList import ObservableList
+
+if TYPE_CHECKING:
+    from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+else:
+    MeasParam = None
 
 
 class DummyMeas(Measurement):
@@ -41,8 +46,6 @@ class DummyMeas(Measurement):
         self.name = 'DummyMeas'
         self.settings_path = 'DummyMeas_settings.json'
 
-        self.plot = None
-
         self.parameters = DummyMeas.get_default_parameter()
         self.wanted_instruments = DummyMeas.get_wanted_instrument()
 
@@ -56,8 +59,16 @@ class DummyMeas(Measurement):
             'simulate measurement error': MeasParamBool(value=False)
         }
 
-    @classmethod
-    def get_wanted_instrument(cls):
+    @staticmethod
+    def get_non_sweepable_parameters() -> Dict[str, MeasParam]:
+        def_params = DummyMeas.get_default_parameter()
+        return {
+            "number of points": def_params["number of points"],
+            "total measurement time": def_params["total measurement time"]
+        }
+
+    @staticmethod
+    def get_wanted_instrument():
         return []
 
     def algorithm(self, device, data, instruments, parameters):
@@ -65,7 +76,6 @@ class DummyMeas(Measurement):
         # get the parameters
         n_points = parameters.get('number of points').value
         tot_time = parameters.get('total measurement time').value
-        ptime = tot_time / n_points
         y_mean = parameters.get('mean').value
         y_stddev = parameters.get('std. deviation').value
         raise_error = parameters['simulate measurement error'].value
@@ -73,11 +83,6 @@ class DummyMeas(Measurement):
         # write the measurement parameters into the measurement settings
         for pname, pparam in parameters.items():
             data['measurement settings'][pname] = pparam.as_dict()
-
-        # start live plottings
-        if self._experiment is not None:
-            self.plot = PlotData(ObservableList(), ObservableList())
-            self._experiment.live_plot_collection.append(self.plot)
 
         # provoke error if set in parameters
         if raise_error:
@@ -87,14 +92,7 @@ class DummyMeas(Measurement):
         xvec = np.arange(0, n_points)
         yvec = y_stddev * np.random.randn(n_points) + y_mean
 
-        if self._experiment is not None:
-            # play to live plot
-            for x, y in zip(xvec, yvec):
-                self.plot.x.append(x)
-                self.plot.y.append(y)
-                sleep(ptime)
-        else:
-            sleep(tot_time)
+        sleep(tot_time)
 
         # convert numpy float32/float64 to python float
         data['values']['point indices'] = [x.item() for x in xvec]
@@ -102,9 +100,5 @@ class DummyMeas(Measurement):
 
         # sanity check if data contains all necessary keys
         self._check_data(data)
-
-        # remove live plot again from experiment
-        if self._experiment is not None:
-            self._experiment.live_plot_collection.remove(self.plot)
 
         return data

@@ -9,6 +9,7 @@ instrument drivers, reported bugs, helped answer newbie questions, and generally
 * Andreas Messner
 * Boris Vukovic <vukovicb@ethz.ch>
 * David Moor
+* Dillon Elste
 * Dominik Werner
 * Etienne Corminboeuf
 * Guy Lüthi

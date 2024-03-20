@@ -10,12 +10,12 @@ import logging
 import os.path
 import re
 import threading
-from typing import Type
-import pkg_resources
+
+import importlib_metadata
 from os import makedirs
 from os.path import join, dirname, abspath, exists, basename
 from pathlib import Path
-from tkinter import Entry, TclError, Toplevel, ttk, Label
+from tkinter import TclError, Toplevel, ttk, Label
 
 import unicodedata
 
@@ -24,7 +24,7 @@ class DeprecatedException(Exception):
     pass
 
 
-def get_labext_version():
+def get_labext_version() -> tuple[str, str]:
     """
     Finds the release version and the current Git commit the file is on.
 
@@ -34,8 +34,8 @@ def get_labext_version():
 
     # read version from python builtin methods
     try:
-        version_str = pkg_resources.get_distribution("LabExT_pkg").version
-    except pkg_resources.DistributionNotFound:
+        version_str = importlib_metadata.distribution("LabExT_pkg").version
+    except importlib_metadata.PackageNotFoundError:
         # pkg_resources cannot find LabExT, lets manually try to parse from setup.py as stored in the Git repo
         version_str = None
 
@@ -46,7 +46,7 @@ def get_labext_version():
             with open(setup_py_path, 'r') as fp:
                 content = fp.read()
         except FileNotFoundError:
-            # if package is not installed and we cannot find the setup.py file, we
+            # if package is not installed, and we cannot find the setup.py file, we
             # effectively cannot find out our package version :/
             content = ''
 
@@ -82,7 +82,7 @@ def get_labext_version():
     return version_str, git_short_ref
 
 
-def get_author_list():
+def get_author_list() -> list[str]:
     """
     Returns a list of all authors as listed in the AUTHORS.md file.
     The format of each string should be:
@@ -91,11 +91,11 @@ def get_author_list():
     # utf-8 decoding is needed because of umlauts in German names
     with open(join(dirname(dirname(__file__)), 'AUTHORS.md'), encoding='utf-8') as authors_file:
         authors_lines = authors_file.readlines()
-    authors = [l[1:].strip() for l in authors_lines if l[0] == '*']
+    authors = [line[1:].strip() for line in authors_lines if line[0] == '*']
     return authors
 
 
-def get_visa_lib_string():
+def get_visa_lib_string() -> str:
     """
     Gets the visa library string specified in the LabExT settings. See
     https://pyvisa.readthedocs.io/en/latest/introduction/configuring.html
@@ -113,7 +113,8 @@ def get_visa_lib_string():
             cfg_content = json.load(fp)
         return cfg_content['Visa Library Path']
 
-def get_visa_address(name):
+
+def get_visa_address(name: str) -> list[dict]:
     """Gets the VISA addresses of all wanted instruments, as
     specified in instruments.config file.
 
@@ -125,8 +126,7 @@ def get_visa_address(name):
 
     Returns
     -------
-    list
-        List of all available instruments for that type.
+    List of dictionary with all available instruments for that type.
 
     Raises
     ------
@@ -177,7 +177,7 @@ def find_dict_with_ignore(target, search_list, ignore_keys):
     return None
     
 
-def make_filename_compliant(value, force_lower=False):
+def make_filename_compliant(value: str, force_lower: bool = False) -> str:
     """
     Makes a string filename compliant.
     From: https://github.com/django/django/blob/master/django/utils/text.py
@@ -194,14 +194,15 @@ def make_filename_compliant(value, force_lower=False):
     return re.sub(r'[-\s]+', '-', value)
 
 
-def setup_user_settings_directory(makedir_if_needed=False):
+def setup_user_settings_directory(makedir_if_needed: bool = False) -> str:
     """
     Setups the LabExT settings directory in the users home folder.
 
     Parameters
     ----------
     makedir_if_needed
-        (optional) boolean flag default false, set to True if you want to create the settings directory if doesnt exist
+        (optional) boolean flag default false, set to True if you want to create the settings directory in case it
+        doesn't exist
 
     Returns
     -------
@@ -213,7 +214,7 @@ def setup_user_settings_directory(makedir_if_needed=False):
     return settings_directory
 
 
-def get_configuration_file_path(config_file_path_in_settings_dir, ignore_missing=True):
+def get_configuration_file_path(config_file_path_in_settings_dir: str, ignore_missing: bool = True) -> str:
     """ Searches for a given configuration file in the users labext configuration directory at: ~/.labext/
 
     Should be used in two cases:
@@ -266,6 +267,7 @@ def run_with_wait_window(tk_root, description: str, function):
 
     threading.Thread(target=async_exec_func, name="wait window: " + str(description)).start()
     tk_root.wait_window(new_window)
+
 
 def try_to_lift_window(window):
     if window is None:
