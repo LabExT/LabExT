@@ -222,10 +222,12 @@ class MultiDeviceTable(Frame):
             json.dump(self.get_marked_device_ids(), f)
 
     def get_marked_device_ids(self) -> list[str]:
+        """Return a list of ids from the marked devices sorted according to the original index."""
         tree = self.device_table.get_tree()
         marked_iid = [iid for iid in tree.get_children() if tree.set(iid, column=1) == "marked"]
+        device_indices = [tree.set(iid, column=0) for iid in marked_iid]
         device_ids = [tree.set(iid, column=2) for iid in marked_iid]
-        return device_ids
+        return [_id for _, _id in sorted(zip(device_indices, device_ids))]
 
     def get_marked_devices(self) -> list[Device]:
         return [self.chip.devices[dev_id] for dev_id in self.get_marked_device_ids()]
