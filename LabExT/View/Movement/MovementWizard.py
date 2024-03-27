@@ -6,9 +6,10 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from logging import getLogger
+from abc import ABC, abstractmethod, abstractproperty
 from functools import partial
 from itertools import product
-from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
+from tkinter import E, W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
 from typing import Type, List
 from bidict import bidict
 from LabExT.Movement.PathPlanning import SingleModeFiber, StagePolygon
@@ -274,7 +275,6 @@ class CalibrationWizard(Wizard):
             master,
             width=1100,
             height=800,
-            on_finish=self.finish,
             next_button_label="Next Step",
             previous_button_label="Previous Step",
             cancel_button_label="Cancel",
@@ -285,26 +285,14 @@ class CalibrationWizard(Wizard):
         self.calibrate_axes_step = AxesCalibrationStep(self, self.mover)
         self.coordinate_pairing_step = CoordinatePairingStep(
             self, self.mover, self.chip)
+        self.calibration_check_step = CalibrationCheckStep(self, self.mover)
 
         self.calibrate_axes_step.next_step = self.coordinate_pairing_step
         self.coordinate_pairing_step.previous_step = self.calibrate_axes_step
+        self.coordinate_pairing_step.next_step = self.calibration_check_step
+        self.calibration_check_step.previous_step = self.coordinate_pairing_step
 
         self.current_step = self.calibrate_axes_step
-
-    def finish(self):
-        """
-        Callback when user wants to finish the calibration.
-        """
-        try:
-            self.mover.dump_calibrations()
-        except Exception as err:
-            messagebox.showerror(
-                "Error",
-                f"Could not store calibration settings to disk: {err}",
-                parent=self)
-            return False
-
-        return True
 
 
 class StageDriverStep(Step):
@@ -924,8 +912,8 @@ class CoordinatePairingStep(Step):
         super().__init__(
             wizard,
             self.build,
-            finish_step_enabled=True,
             on_reload=self.on_reload,
+            on_next=self.on_next,
             title="Stage Configuration")
         self.mover: Type[MoverNew] = mover
         self.chip: Type[Chip] = chip
@@ -1129,28 +1117,39 @@ class CoordinatePairingStep(Step):
         """
         if not self.chip:
             self.next_step_enabled = False
-            self.finish_step_enabled = False
             self.wizard.set_error("Please import a chip to calibrate stages.")
             return
 
         if not all(
                 c._single_point_offset.is_valid for c in self.mover.calibrations.values()):
             self.next_step_enabled = False
-            self.finish_step_enabled = False
             self.wizard.set_error("Please fix for each stage a single point.")
             return
 
         if not all(
                 c._kabsch_rotation.is_valid for c in self.mover.calibrations.values()):
             self.next_step_enabled = False
-            self.finish_step_enabled = True
             self.wizard.set_error(
                 "Please define for each stage at least three points to calibrate the stages globally.")
             return
 
-        self.finish_step_enabled = True
         self.next_step_enabled = True
         self.wizard.set_error("")
+
+    def on_next(self) -> bool:
+        """
+        Callback when user wants to finish the calibration.
+        """
+        try:
+            self.mover.dump_calibrations()
+        except Exception as err:
+            messagebox.showerror(
+                "Error",
+                f"Could not store calibration settings to disk: {err}",
+                parent=self)
+            return False
+
+        return True
 
     def _reset_all_pairings(self):
         """
@@ -1298,3 +1297,119 @@ class CoordinatePairingStep(Step):
         self.chip = self.wizard.experiment_manager.chip
 
         self.wizard.__reload__()
+
+
+class MoverPostCheck(ABC):
+    """
+    Abstract base class interface for mover checks.
+    """
+
+    title: str = None
+
+    def __init__(self, mover: Type[MoverNew]) -> None:
+        """
+        Constructor for a base mover check.
+        """
+        super().__init__()
+
+        self.mover = MoverNew
+        self.logger = getLogger()
+
+    @abstractproperty
+    def is_success(self) -> bool:
+        """
+        Returns True if the mover check was successful.
+        """
+        pass
+
+    @abstractmethod
+    def get_success_message(self) -> str:
+        """
+        Returns a message if the check was successful.
+        """
+        pass
+
+    @abstractmethod
+    def get_failure_message(self) -> str:
+        """
+        Returns a message if the check failed.
+        """
+        pass
+
+    def render_action_recommendation(
+        self,
+        parent: Type[Frame]
+    ) -> None:
+        """
+        Renders a widget to an action recommendation
+        """
+        pass
+
+
+class CalibrationCheckStep(Step):
+    """
+    Wizard Step to perform mover checks.
+    """
+
+    CHECKS = []
+
+    def __init__(self, wizard, mover) -> None:
+        """
+        Constructor for new Wizard step for check calibrations.
+
+        Parameters
+        ----------
+        master : Tk
+            Tk instance of the master toplevel
+        mover : Mover
+            Instance of the current mover
+        """
+        super().__init__(
+            wizard,
+            self.build,
+            finish_step_enabled=True,
+            title="Calibrations done")
+        self.mover: Type[MoverNew] = mover
+
+    def build(self, frame: Type[CustomFrame]):
+        """
+        Builds step to perform post mover calibration checks.
+
+        Parameters
+        ----------
+        frame : CustomFrame
+            Instance of a customized Tkinter frame.
+        """
+        frame.title = "Mover Calibration Completed"
+
+        Label(
+            frame,
+            text="The mover calibration has been successfully completed.\n" +
+            "With the help of the newly collected information, we have automatically carried out checks to avoid errors beforehand.\n" +
+            "Below you will find the results and, if necessary, suggestions for action.").pack(
+            side=TOP,
+            fill=X)
+
+        check_summary_frame = CustomFrame(frame)
+        check_summary_frame.title = "Conducted Mover Checks"
+        check_summary_frame.pack(side=TOP, fill=X, pady=10)
+
+        for check_cls in self.CHECKS:
+            check = check_cls(self.mover)
+
+            check_frame = Frame(check_summary_frame)
+            check_frame.pack(side=TOP, fill=X, pady=10)
+            check_frame.grid_columnconfigure(0, weight=1)
+
+            check_title = Label(check_frame, text=check.title)
+            check_title.grid(row=0, column=0, padx=5, sticky=W)
+
+            check_message = Label(check_frame, text=check.get_success_message(
+            ) if check.is_success else check.get_failure_message())
+            check_message.grid(row=1, column=0, padx=5, sticky=W)
+
+            check_result = Label(
+                check_frame,
+                text="Success" if check.is_success else "Action may be necessary",
+                foreground="#4BB543" if check.is_success else "#FF3333")
+            check_result.grid(row=0, column=1, padx=5, sticky=E)
