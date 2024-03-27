@@ -4,15 +4,16 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
+import numpy as np
 
-from tkinter import Frame, Toplevel, Button, Label, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y
+from tkinter import W, Frame, Toplevel, Button, Label, StringVar, messagebox, LEFT, RIGHT, TOP, X, BOTH, DISABLED, FLAT, NORMAL, Y, SUNKEN
 from typing import Callable, Type
 from LabExT.Utils import run_with_wait_window
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.DeviceTable import DeviceTable
 from LabExT.View.Controls.CoordinateWidget import CoordinateWidget, StagePositionWidget
 
-from LabExT.Movement.Transformations import CoordinatePairing
+from LabExT.Movement.Transformations import CoordinatePairing, calculate_z_plane_angle, rigid_transform_with_orientation_preservation
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.config import CoordinateSystem
@@ -82,6 +83,9 @@ class CoordinatePairingsWindow(Toplevel):
 
         self._device = None
 
+        self._input_kabsch_rmsd = StringVar(self, value="0.0")
+        self._input_tilt_angle = StringVar(self, value=("0", "0", "0"))
+
         # Set up window
         self.title("New Chip-Stage-Coordinates Pairings")
         self.geometry('{:d}x{:d}+{:d}+{:d}'.format(1000, 600, 200, 200))
@@ -150,7 +154,7 @@ class CoordinatePairingsWindow(Toplevel):
             )
             self._clear_device_button.pack(side=LEFT, padx=5)
 
-        frame = CustomFrame(self._main_frame)
+        frame = Frame(self._main_frame)
         frame.pack(side=TOP, fill=X, pady=5)
 
         step_hint = Label(frame, text=self._get_coupling_hint())
@@ -166,23 +170,31 @@ class CoordinatePairingsWindow(Toplevel):
                 frame, self.mover.output_calibration).pack(
                 side=TOP, fill=X)
 
-        if self.experiment_manager:
-            shortcuts_frame = CustomFrame(self._main_frame)
-            shortcuts_frame.pack(side=TOP, fill=X, pady=5)
+        shortcuts_frame = CustomFrame(self._main_frame)
+        shortcuts_frame.pack(side=TOP, fill=X, pady=5)
 
+        refresh_kabsch_button = Button(
+            shortcuts_frame,
+            text="Recalculate Kabsch Properties",
+            state=NORMAL if self._device else DISABLED,
+            command=self.__reload__)
+        refresh_kabsch_button.pack(
+            side=LEFT, fill=Y, pady=5, padx=5, expand=0)
+
+        if self.experiment_manager:
             search_for_peak_button = Button(
                 shortcuts_frame,
                 text="Perform Search for Peak...",
                 command=self.experiment_manager.main_window.open_peak_searcher)
             search_for_peak_button.pack(
-                side=RIGHT, fill=Y, pady=5, expand=0)
+                side=RIGHT, fill=Y, pady=5, padx=5, expand=0)
 
             live_viewer_button = Button(
                 shortcuts_frame,
                 text="Open Live Viewer...",
                 command=self.experiment_manager.main_window.open_live_viewer)
             live_viewer_button.pack(
-                side=RIGHT, fill=Y, pady=5, expand=0)
+                side=RIGHT, fill=Y, pady=5, padx=5, expand=0)
 
     def __reload__(self) -> None:
         """
@@ -305,39 +317,133 @@ class CoordinatePairingsWindow(Toplevel):
                 chip_coord)
 
     def _calibration_pairing_widget(
-            self, parent, calibration) -> Type[CustomFrame]:
+        self,
+        parent,
+        calibration
+    ) -> Type[CustomFrame]:
         """
         Builds and returns a frame to display the current pairing state.
         """
-        pairing_frame = CustomFrame(parent)
-        pairing_frame.title = calibration.short_str
-        pairing_frame.pack(side=TOP, fill=X, pady=5)
+        frame = CustomFrame(parent)
+        frame.title = calibration.short_str
+        frame.pack(side=TOP, fill=X, pady=5, padx=2)
 
-        if self._device:
+        if not self._device:
             Label(
-                pairing_frame,
-                text="Chip coordinate:"
-            ).pack(side=LEFT)
-
-            CoordinateWidget(
-                pairing_frame,
-                coordinate=self._device.input_coordinate if calibration.is_input_stage else self._device.output_coordinate
-            ).pack(side=LEFT)
-
-            Label(
-                pairing_frame,
-                text="will be paired with Stage coordinate:"
-            ).pack(side=LEFT)
-
-            StagePositionWidget(pairing_frame, calibration).pack(side=LEFT)
-        else:
-            Label(
-                pairing_frame,
+                frame,
                 text="No device selected",
                 foreground="#FF3333"
             ).pack(side=LEFT)
+            return frame
 
-        return pairing_frame
+        self._build_pairing_frame(frame, calibration)
+        self._build_live_kabsch_frame(frame, calibration)
+
+        return frame
+
+    def _build_pairing_frame(
+        self,
+        parent,
+        calibration
+    ) -> None:
+        """
+        Builds a frame for coordinate pairing
+        """
+        if not self._device:
+            return
+
+        pairing_frame = Frame(parent)
+        pairing_frame.pack(side=TOP, fill=X, pady=2)
+
+        Label(
+            pairing_frame,
+            text="Chip coordinate:"
+        ).pack(side=LEFT)
+
+        CoordinateWidget(
+            pairing_frame,
+            coordinate=self._device.input_coordinate if calibration.is_input_stage else self._device.output_coordinate
+        ).pack(side=LEFT)
+
+        Label(
+            pairing_frame,
+            text="will be paired with Stage coordinate:"
+        ).pack(side=LEFT)
+
+        StagePositionWidget(pairing_frame, calibration).pack(side=LEFT)
+
+    def _build_live_kabsch_frame(
+        self,
+        parent,
+        calibration
+    ) -> None:
+        """
+        Builds a frame for live kabsch properties
+        """
+        if not self._device:
+            return
+
+        curr_pairing = self._get_pairing(calibration)
+
+        kabsch_rotation = calibration._kabsch_rotation
+        old_stage_coords = kabsch_rotation.stage_coordinates.copy()
+        old_chip_coords = kabsch_rotation.chip_coordinates.copy()
+        new_stage_coords = np.append(old_stage_coords, np.array(
+            [curr_pairing.stage_coordinate.to_numpy()]).T, axis=1)
+        new_chip_coords = np.append(old_chip_coords, np.array(
+            [curr_pairing.chip_coordinate.to_numpy()]).T, axis=1)
+
+        old_rotation, _, _, _, old_rmsd = rigid_transform_with_orientation_preservation(
+            old_chip_coords, old_stage_coords, axes_rotation=calibration._axes_rotation.matrix)
+        _, old_angle_deg, _ = calculate_z_plane_angle(old_rotation)
+
+        new_rotation, _, _, _, new_rmsd = rigid_transform_with_orientation_preservation(
+            new_chip_coords, new_stage_coords, axes_rotation=calibration._axes_rotation.matrix)
+        _, new_angle_deg, _ = calculate_z_plane_angle(new_rotation)
+
+        live_kabsch_frame = CustomFrame(parent)
+        live_kabsch_frame.title = "Kabsch Properties:"
+        live_kabsch_frame.pack(side=TOP, fill=X, pady=2)
+
+        def get_relative_change(new, old) -> float:
+            try:
+                return (new - old) / old * 100.0
+            except ZeroDivisionError:
+                return 0.0
+
+        rmsd_change = get_relative_change(new_rmsd, old_rmsd)
+        Label(
+            live_kabsch_frame,
+            text="Root-Mean-Square Deviation:"
+        ).grid(row=0, column=0, padx=(0, 5), sticky=W)
+        Label(
+            live_kabsch_frame,
+            text="{:.2f} um from {:.2f} um".format(
+                old_rmsd, new_rmsd)
+        ).grid(row=0, column=1, padx=(0, 5), sticky=W)
+        Label(
+            live_kabsch_frame,
+            text="{:.2f}% {}".format(
+                rmsd_change, "increase" if rmsd_change > 0 else "decrease"),
+            foreground="#FF3333" if rmsd_change > 0 else "#4BB543"
+        ).grid(row=0, column=2, sticky=W)
+
+        angle_change = get_relative_change(new_angle_deg, old_angle_deg)
+        Label(
+            live_kabsch_frame,
+            text="Angle between XY Plane:"
+        ).grid(row=1, column=0, padx=(0, 5))
+        Label(
+            live_kabsch_frame,
+            text="{:.2f}° from {:.2f}°".format(
+                old_angle_deg, new_angle_deg)
+        ).grid(row=1, column=1, padx=(0, 5))
+        Label(
+            live_kabsch_frame,
+            text="{:.2f}% {}".format(
+                angle_change, "increase" if angle_change > 0 else "decrease"),
+            foreground="#FF3333" if angle_change > 0 else "#4BB543"
+        ).grid(row=1, column=2)
 
     def _get_coupling_hint(self):
         """
