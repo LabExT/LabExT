@@ -110,7 +110,8 @@ class AddonSettingsDialog:
         CustomTable(parent=loaded_meas_frame,
                     columns=('Measurement class', 'imported from'),
                     rows=self._get_loaded_measurements_and_paths(),
-                    selectmode='none')  # custom table inserts itself into the parent frame
+                    selectmode='none',
+                    sortable=False)  # custom table inserts itself into the parent frame
 
         #
         # table with paths to all loaded instruments
@@ -124,7 +125,8 @@ class AddonSettingsDialog:
         CustomTable(parent=loaded_instr_frame,
                     columns=('Instrument class', 'imported from'),
                     rows=self._get_loaded_instruments_and_paths(),
-                    selectmode='none')  # custom table inserts itself into the parent frame
+                    selectmode='none',
+                    sortable=False)  # custom table inserts itself into the parent frame
 
         #
         # table with paths to all loaded live viewer cards
@@ -138,7 +140,8 @@ class AddonSettingsDialog:
         CustomTable(parent=loaded_lvcards_frame,
                     columns=('CardFrame class', 'instrument type', 'imported from'),
                     rows=self._get_loaded_lvcards_and_paths(),
-                    selectmode='none')  # custom table inserts itself into the parent frame
+                    selectmode='none',
+                    sortable=False)  # custom table inserts itself into the parent frame
 
         #
         # table with paths for all loaded stage classes
@@ -152,7 +155,8 @@ class AddonSettingsDialog:
         CustomTable(parent=loaded_stage_frame,
                 columns=('Stage class', 'imported from'),
                 rows=self._get_loaded_stages_and_paths(),
-                selectmode='none')  # custom table inserts itself into the parent frame
+                selectmode='none',
+                sortable=False)  # custom table inserts itself into the parent frame
         
         #
         # table with paths for all loaded stage classes
@@ -166,7 +170,8 @@ class AddonSettingsDialog:
         CustomTable(parent=loaded_chipsource_frame,
                 columns=('Chip Source class', 'imported from'),
                 rows=self._get_loaded_chip_sources_and_paths(),
-                selectmode='none')  # custom table inserts itself into the parent frame
+                selectmode='none',
+                sortable=False)  # custom table inserts itself into the parent frame
 
         #
         # bottom row buttons

@@ -22,7 +22,8 @@ class CustomTable(object):
                  col_width=20,
                  add_checkboxes=False,
                  selectmode='extended',
-                 showmode='headings'):
+                 showmode='headings',
+                 sortable=True):
         """Constructor.
 
         Parameters
@@ -38,6 +39,8 @@ class CustomTable(object):
         selectmode : str, optional
             Whether the user can select items in the table
             'none' for no selection possible, 'browse' for single row selection, 'extended' for multiple rows selection
+        sortable : bool, optional
+            Sets ability to sort the table when clicking on the column headers
         """
         self._col_width = col_width
         self._root = parent
@@ -48,6 +51,7 @@ class CustomTable(object):
         self._select_mode = selectmode
         self._show_mode = showmode
         self._selection = dict()
+        self._sortable = sortable
 
         self.logger = logging.getLogger()
         self.logger.debug('Initialised CustomTable with parent: %s columns: %s' +
@@ -107,7 +111,7 @@ class CustomTable(object):
         """
         for col in self._columns:
             self._tree.heading(
-                col, text=col, command=lambda c=col: sortby(self._tree, c, 0))
+                col, text=col, command=lambda c=col: sortby(self._tree, c, 0) if self._sortable else None)
             # adjust the column's width
             self._tree.column(col, width=self._col_width)
 
