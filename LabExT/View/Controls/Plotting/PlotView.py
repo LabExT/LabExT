@@ -181,6 +181,20 @@ class PlottingSettingsFrame(CustomFrame):
         for var in variables:
             var.trace_add("write", self.__notify_settings_changed_callbacks)
 
+    def _draw_general(self):
+        general_window = CustomFrame(self)
+        general_window.title = "General Settings"
+
+        self._plot_selector = tk.OptionMenu(general_window, self._plot_type_var, *PLOT_TYPES)
+        plot_label = tk.Label(general_window, anchor="w", text="Plot Type:")
+
+        general_window.add_widget(plot_label, column=0, row=0, ipadx=10, ipady=0, sticky="we")
+        general_window.add_widget(self._plot_selector, column=1, row=0, ipadx=10, ipady=0, sticky="ew")
+        general_window.columnconfigure(0, weight=1)
+        general_window.columnconfigure(1, weight=1)
+
+        self.add_widget(general_window, row=0, column=0, ipadx=10, ipady=0, sticky="we")
+
     def __setup__(
         self,
         current_plot_type: Optional[str] = None,
@@ -224,15 +238,10 @@ class PlottingSettingsFrame(CustomFrame):
             current_plot_type = self._plot_type_var.get()
 
         # start setup
-        self._plot_selector = tk.OptionMenu(self, self._plot_type_var, *PLOT_TYPES)
-
-        plot_label = tk.Label(self, anchor="w", text="Plot Type:")
-        self.add_widget(plot_label, column=0, row=0, ipadx=10, ipady=0, sticky="we")
-        self.add_widget(self._plot_selector, column=1, row=0, ipadx=10, ipady=0, sticky="ew")
+        self._draw_general()
 
         # This is needed for correct width and placement of widgets
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
         for i in range(10):
             self.rowconfigure(i, weight=1)
             self.rowconfigure(i, pad=0)
@@ -247,227 +256,28 @@ class PlottingSettingsFrame(CustomFrame):
         if lowest_row == 0:
             return
 
-        color_label = tk.Label(self, anchor="w", text="Colormap for plots:")
-        color_menu = tk.OptionMenu(self, self._color_map, *COLOR_MAPS)
-        self.add_widget(color_label, column=0, row=lowest_row + 1, ipadx=10, ipady=0, sticky="we")
-        self.add_widget(color_menu, column=1, row=lowest_row + 1, ipadx=10, ipady=0, sticky="ew")
+        self.__setup_design(lowest_row + 1)
 
-        lowest_row += 1
-
-        bound_label = tk.Label(self, anchor="w", text="Axis bounds type:")
-        bound_menu = tk.OptionMenu(self, self._axis_bound_types, *AXIS_BOUND_TYPES)
-        self.add_widget(bound_label, column=0, row=lowest_row + 1, ipadx=10, ipady=0, sticky="we")
-        self.add_widget(bound_menu, column=1, row=lowest_row + 1, ipadx=10, ipady=0, sticky="ew")
-        self.rowconfigure(lowest_row, weight=0)
-        self.rowconfigure(lowest_row + 1, weight=0)
-
-        if self._axis_bound_types.get() == AXIS_BOUND_CUSTOM:
-
-            def set_new_bounds(xmin, xmax, ymin, ymax):
-                x_old = self._axis_bounds[0]
-                y_old = self._axis_bounds[1]
-                self._axis_bounds.clear()
-                self._axis_bounds.append(
-                    (xmin if xmin is not None else x_old[0], xmax if xmax is not None else x_old[1])
-                )
-                self._axis_bounds.append(
-                    (ymin if ymin is not None else y_old[0], ymax if ymax is not None else y_old[1])
-                )
-
-            validate = (self.register(self._validate_float), "%d", "%P")
-            text_width = 8
-
-            msg = "Define the lowest and highest coordinate yourself."
-            x_frame = tk.Frame(self)
-            x_frame.columnconfigure(0, weight=1)
-            x_frame.columnconfigure(1, weight=1)
-
-            x_min_var = tk.StringVar()
-            x_min_var.set(f"{self._axis_bounds[0][0]:.1f}")
-            x_min_frame = tk.Frame(x_frame)
-            x_min_frame.columnconfigure(0, weight=1)
-            x_min_frame.columnconfigure(1, weight=1)
-            x_min_label = tk.Label(x_min_frame, text="x-min", anchor="w")
-            x_min_entry = tk.Entry(
-                x_min_frame,
-                textvariable=x_min_var,
-                justify="right",
-                validate="key",
-                validatecommand=validate,
-                width=text_width,
-            )
-            x_min_label.grid(column=0, row=0, sticky="we")
-            x_min_entry.grid(column=1, row=0, sticky="ew")
-
-            x_max_var = tk.StringVar()
-            x_max_var.set(f"{self._axis_bounds[0][1]:.1f}")
-            x_max_frame = tk.Frame(x_frame)
-            x_max_frame.columnconfigure(0, weight=1)
-            x_max_frame.columnconfigure(1, weight=1)
-            x_max_label = tk.Label(x_max_frame, text="x-max", anchor="w")
-            x_max_entry = tk.Entry(
-                x_max_frame,
-                textvariable=x_max_var,
-                justify="right",
-                validate="key",
-                validatecommand=validate,
-                width=text_width,
-            )
-            x_max_label.grid(column=0, row=0, sticky="we")
-            x_max_entry.grid(column=1, row=0, sticky="ew")
-
-            x_min_frame.grid(column=0, row=0)
-            x_max_frame.grid(column=1, row=0)
-
-            y_frame = tk.Frame(self)
-            y_frame.columnconfigure(0, weight=1)
-            y_frame.columnconfigure(1, weight=1)
-
-            y_min_frame = tk.Frame(y_frame)
-            y_min_frame.columnconfigure(0, weight=1)
-            y_min_frame.columnconfigure(1, weight=1)
-            y_min_var = tk.StringVar()
-            y_min_var.set(f"{self._axis_bounds[1][0]:.1f}")
-            y_min_label = tk.Label(y_min_frame, text="y-min", anchor="w")
-            y_min_entry = tk.Entry(
-                y_min_frame,
-                textvariable=y_min_var,
-                justify="right",
-                validate="key",
-                validatecommand=validate,
-                width=text_width,
-            )
-            y_min_label.grid(column=0, row=0, sticky="we")
-            y_min_entry.grid(column=1, row=0, sticky="ew")
-
-            y_max_frame = tk.Frame(y_frame)
-            y_max_frame.columnconfigure(0, weight=1)
-            y_max_frame.columnconfigure(1, weight=1)
-            y_max_var = tk.StringVar()
-            y_max_var.set(f"{self._axis_bounds[1][1]:.1f}")
-            y_max_label = tk.Label(y_max_frame, text="y-max", anchor="w")
-            y_max_entry = tk.Entry(
-                y_max_frame,
-                textvariable=y_max_var,
-                justify="right",
-                validate="key",
-                validatecommand=validate,
-                width=text_width,
-            )
-            y_max_label.grid(column=0, row=0, sticky="we")
-            y_max_entry.grid(column=1, row=0, sticky="ew")
-
-            y_min_frame.grid(column=0, row=0)
-            y_max_frame.grid(column=1, row=0)
-
-            self.add_widget(x_frame, column=0, row=lowest_row + 2, sticky="we")
-            self.add_widget(y_frame, column=1, row=lowest_row + 2, sticky="ew")
-            self.rowconfigure(lowest_row + 2, weight=0)
-
-            x_min_var.trace_add(
-                "write",
-                lambda *_: set_new_bounds(float(x_min_var.get()) if x_min_var.get() != "" else None, None, None, None),
-            )
-            x_max_var.trace_add(
-                "write",
-                lambda *_: set_new_bounds(None, float(x_max_var.get()) if x_min_var.get() != "" else None, None, None),
-            )
-            y_min_var.trace_add(
-                "write",
-                lambda *_: set_new_bounds(None, None, float(y_min_var.get()) if x_min_var.get() != "" else None, None),
-            )
-            y_max_var.trace_add(
-                "write",
-                lambda *_: set_new_bounds(None, None, None, float(y_max_var.get()) if x_min_var.get() != "" else None),
-            )
-            x_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            x_min_entry.bind("<Return>", lambda *_: self.focus())
-            x_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            x_max_entry.bind("<Return>", lambda *_: self.focus())
-            y_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            y_min_entry.bind("<Return>", lambda *_: self.focus())
-            y_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            y_max_entry.bind("<Return>", lambda *_: self.focus())
-
-        else:
-            msg = "Let matplotlib figure out the coordinates."
-        tktt.ToolTip(bound_menu, msg=msg, delay=0.5)
-
-    def __show_value_error(self, base_row: int, parameter: bool = False):
-        """Shows an error message about non-matching values or parameters in the selected measurements."""
-        error_message = tk.Label(
-            self,
-            anchor="s",
-            text="Please select measurements whose \n"
-            + ("parameters " if parameter else "measured values ")
-            + "share at least 1 key"
-            + (" (e.g. a sweep)." if parameter else ".")
-            + (
-                "\nMake sure there is at least one parameter\nwhose values differ in at least one measurement."
-                if parameter
-                else ""
-            ),
-        )
-        self.add_widget(
-            error_message, column=0, row=base_row, columnspan=2, rowspan=2, ipadx=10, ipady=0, sticky="snwe"
-        )
-        self._axis_x_var.set("")
-        self._axis_y_var.set("")
-        self._axis_z_var.set("")
-
-    def __setup_axes_settings(self, values: list[list[str]], base_row: int, with_z: bool = False):
-        """Adds the x- and y-axis selection widgets to the parent component.
-
-        If the variables storing the axis selections are set to the empty string they will be set to
-        the first and if available second element of the `shared_values` parameter.
+    def __setup_line_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2) -> int:
+        """Sets up the components needed for a line-plot.
 
         Args:
-            values: A list of lists of possible values the axis selectors can take. The first list is used for
-                the x-axis, the second list is used for the y-axis and if `with_z` is `True` the third list is
-                used for the z-axis.
-            base_row: In which row the elements should start to be placed in the parent grid.
-            with_z: If `True` then the selector for the z-axis will be added as well.
-
-        Raises:
-            AssertionError if `values` has less than the required number of entries.
+            shared_values: A list of the names of the values shared by all selected measurements.
+            unequal_params: A list of the names of the parameters unequal across all selected measurements.
+            base_row: In which row of the parent grid the setting widgets are drawn.
+        Returns:
+            The index of the lowest used row
         """
-        if with_z:
-            assert len(values) >= 3
-            assert len(values[2]) > 0
-        else:
-            assert len(values) >= 2
-        assert len(values[0]) > 0 and len(values[1]) > 0
+        if len(shared_values) == 0:
+            # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
+            self.__show_value_error(base_row=base_row)
+            return 0
 
-        axis_x_label = tk.Label(self, anchor="w", text="X-Axis:")
-        axis_y_label = tk.Label(self, anchor="w", text="Y-Axis:")
-        axis_z_label = tk.Label(self, anchor="w", text="Z-Axis:")
+        self.__setup_axes_settings(values=[shared_values, shared_values], base_row=base_row)
 
-        if self._axis_x_var.get() == "" or self._axis_x_var.get() not in values[0]:
-            self._axis_x_var.set(values[0][0])
-        if self._axis_y_var.get() == "" or self._axis_y_var.get() not in values[1]:
-            # because it's quite rare for someone to want to plot the same values on the x- and y-axis,
-            # the y-axis selector is set to the second entry of the values if it exists
-            self._axis_y_var.set(values[1][0 if values[0] != values[1] else 1])
-        if with_z and (self._axis_z_var.get() == "" or self._axis_z_var.get() not in values[2]):
-            self._axis_z_var.set(values[2][0 if values[0] != values[2] else 1])
+        self.__setup_legend(base_row=base_row + 1, unequal_params=unequal_params)
 
-        self._axis_x_selector = tk.OptionMenu(self, self._axis_x_var, *values[0])
-        self._axis_y_selector = tk.OptionMenu(self, self._axis_y_var, *values[1])
-        if with_z:
-            self._axis_z_selector = tk.OptionMenu(self, self._axis_z_var, *values[2])
-
-        self.add_widget(axis_x_label, column=0, row=base_row, sticky="we")
-        self.add_widget(self._axis_x_selector, column=1, row=base_row, sticky="ew")
-        self.rowconfigure(base_row, weight=0)
-
-        self.add_widget(axis_y_label, column=0, row=base_row + 1, sticky="we")
-        self.add_widget(self._axis_y_selector, column=1, row=base_row + 1, sticky="ew")
-        self.rowconfigure(base_row + 1, weight=0)
-
-        if with_z:
-            self.add_widget(axis_z_label, column=0, row=base_row + 2, sticky="we")
-            self.add_widget(self._axis_z_selector, column=1, row=base_row + 2, sticky="ew")
-            self.rowconfigure(base_row + 2, weight=0)
+        return base_row + 1
 
     def __setup_contour_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2) -> int:
         """Sets up the components needed for a contour-plot.
@@ -494,13 +304,43 @@ class PlottingSettingsFrame(CustomFrame):
             values=[shared_values, unequal_params, shared_values], base_row=base_row, with_z=True
         )
 
+        self.__setup_interpolation(base_row + 1)
+
+        return base_row + 1
+
+    def __show_value_error(self, base_row: int, parameter: bool = False):
+        """Shows an error message about non-matching values or parameters in the selected measurements."""
+        error_message = tk.Label(
+            self,
+            anchor="s",
+            text="Please select measurements whose \n"
+            + ("parameters " if parameter else "measured values ")
+            + "share at least 1 key"
+            + (" (e.g. a sweep)." if parameter else ".")
+            + (
+                "\nMake sure there is at least one parameter\nwhose values differ in at least one measurement."
+                if parameter
+                else ""
+            ),
+        )
+        self.add_widget(error_message, column=0, row=base_row, rowspan=2, ipadx=10, ipady=0, sticky="snwe")
+        self._axis_x_var.set("")
+        self._axis_y_var.set("")
+        self._axis_z_var.set("")
+
+    def __setup_interpolation(self, base_row: int):
+        interp_container = CustomFrame(self)
+        interp_container.title = "Contour Settings"
+
         if self._interpolation_var.get() == "":
+            # set default value
             self._interpolation_var.set(INTERPOLATE_TYPES[0])
-        interpolation_label = tk.Label(self, anchor="w", text="Interpolation Type:")
-        interpolation_menu = tk.OptionMenu(self, self._interpolation_var, *INTERPOLATE_TYPES)
-        self.add_widget(interpolation_label, column=0, row=base_row + 4, sticky="we")
-        self.add_widget(interpolation_menu, column=1, row=base_row + 4, sticky="ew")
-        self.rowconfigure(base_row + 4, weight=0)
+
+        interpolation_label = tk.Label(interp_container, anchor="w", text="Interpolation Type:")
+        interpolation_menu = tk.OptionMenu(interp_container, self._interpolation_var, *INTERPOLATE_TYPES)
+        interp_container.add_widget(interpolation_label, column=0, row=0, sticky="we")
+        interp_container.add_widget(interpolation_menu, column=1, row=0, sticky="ew")
+        interp_container.rowconfigure(0, weight=0)
         tktt.ToolTip(
             interpolation_label,
             msg="This option controls what to do if some measurements have a more densely populated x-axis than others.",
@@ -512,9 +352,9 @@ class PlottingSettingsFrame(CustomFrame):
             msg = "Lineraly interpolate between\nthe next two closest existing values."
         tktt.ToolTip(interpolation_menu, msg=msg, delay=1.0)
 
-        buckets_label = tk.Label(self, anchor="w", text="No of Buckets:")
+        buckets_label = tk.Label(interp_container, anchor="w", text="No of Buckets:")
         self._bucket_count_entry = tk.Entry(
-            self,
+            interp_container,
             textvariable=self._bucket_count_var,
             validate="key",
             validatecommand=(self.register(self._validate_positive_non_empty_int), "%d", "%P"),
@@ -524,34 +364,86 @@ class PlottingSettingsFrame(CustomFrame):
 
         self._bucket_count_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
         self._bucket_count_entry.bind("<Return>", lambda *_: self.focus())
-        self.add_widget(buckets_label, column=0, row=base_row + 5, sticky="we")
-        self.add_widget(self._bucket_count_entry, column=1, row=base_row + 5, sticky="ew")
-        self.rowconfigure(base_row + 5, weight=0)
+        interp_container.add_widget(buckets_label, column=0, row=1, sticky="we")
+        interp_container.add_widget(self._bucket_count_entry, column=1, row=1, sticky="ew")
+        interp_container.rowconfigure(1, weight=0)
 
-        return base_row + 5
+        self.add_widget(interp_container, column=0, row=base_row, sticky="we")
+        interp_container.columnconfigure(0, weight=1)
+        interp_container.columnconfigure(1, weight=1)
 
-    def __setup_line_plot(self, shared_values: list[str], unequal_params: list[str], base_row: int = 2) -> int:
-        """Sets up the components needed for a line-plot.
+    def __setup_axes_settings(self, values: list[list[str]], base_row: int, with_z: bool = False):
+        """Adds the x- and y-axis selection widgets to the parent component.
+
+        If the variables storing the axis selections are set to the empty string they will be set to
+        the first and if available second element of the `shared_values` parameter.
 
         Args:
-            shared_values: A list of the names of the values shared by all selected measurements.
-            unequal_params: A list of the names of the parameters unequal across all selected measurements.
-            base_row: In which row of the parent grid the setting widgets are drawn.
-        Returns:
-            The index of the lowest used row
+            values: A list of lists of possible values the axis selectors can take. The first list is used for
+                the x-axis, the second list is used for the y-axis and if `with_z` is `True` the third list is
+                used for the z-axis.
+            base_row: In which row the elements should start to be placed in the parent grid.
+            with_z: If `True` then the selector for the z-axis will be added as well.
+
+        Raises:
+            AssertionError if `values` has less than the required number of entries.
         """
-        if len(shared_values) == 0:
-            # If there are no shared values, there really isn't anything to plot, so we don't draw any settings
-            self.__show_value_error(base_row=base_row)
-            return 0
+        if with_z:
+            assert len(values) >= 3
+            assert len(values[2]) > 0
+        else:
+            assert len(values) >= 2
+        assert len(values[0]) > 0 and len(values[1]) > 0
 
-        self.__setup_axes_settings(values=[shared_values, shared_values], base_row=base_row)
+        axis_container = CustomFrame(self)
+        axis_container.title = "Data Settings"
 
-        legend_label = tk.Label(self, anchor="w", text="Legend elements:")
-        self.add_widget(legend_label, row=base_row + 3, column=0, ipadx=10, ipady=0, sticky="we")
+        axis_x_label = tk.Label(axis_container, anchor="w", text="X-Axis:")
+        axis_y_label = tk.Label(axis_container, anchor="w", text="Y-Axis:")
+        axis_z_label = tk.Label(axis_container, anchor="w", text="Z-Axis:")
+
+        # set default values for option menus
+        if self._axis_x_var.get() == "" or self._axis_x_var.get() not in values[0]:
+            self._axis_x_var.set(values[0][0])
+        if self._axis_y_var.get() == "" or self._axis_y_var.get() not in values[1]:
+            # because it's quite rare for someone to want to plot the same values on the x- and y-axis,
+            # the y-axis selector is set to the second entry of the values if it exists
+            self._axis_y_var.set(values[1][0 if values[0] != values[1] else 1])
+        if with_z and (self._axis_z_var.get() == "" or self._axis_z_var.get() not in values[2]):
+            self._axis_z_var.set(values[2][0 if values[0] != values[2] else 1])
+
+        self._axis_x_selector = tk.OptionMenu(axis_container, self._axis_x_var, *values[0])
+        self._axis_y_selector = tk.OptionMenu(axis_container, self._axis_y_var, *values[1])
+        if with_z:
+            self._axis_z_selector = tk.OptionMenu(axis_container, self._axis_z_var, *values[2])
+
+        axis_container.add_widget(axis_x_label, column=0, row=0, sticky="we")
+        axis_container.add_widget(self._axis_x_selector, column=1, row=0, sticky="ew")
+        axis_container.rowconfigure(0, weight=0)
+
+        axis_container.add_widget(axis_y_label, column=0, row=1, sticky="we")
+        axis_container.add_widget(self._axis_y_selector, column=1, row=1, sticky="ew")
+        axis_container.rowconfigure(1, weight=0)
+
+        if with_z:
+            axis_container.add_widget(axis_z_label, column=0, row=2, sticky="we")
+            axis_container.add_widget(self._axis_z_selector, column=1, row=2, sticky="ew")
+            axis_container.rowconfigure(2, weight=0)
+
+        axis_container.columnconfigure(0, weight=1)
+        axis_container.columnconfigure(1, weight=1)
+
+        self.add_widget(axis_container, column=0, row=base_row, sticky="we")
+
+    def __setup_legend(self, base_row: int, unequal_params: list[str]):
+        legend_container = CustomFrame(self)
+        legend_container.title = "Legend Settings"
+
+        legend_label = tk.Label(legend_container, anchor="w", text="Legend elements:")
+        legend_container.add_widget(legend_label, row=0, column=0, ipadx=10, ipady=0, sticky="we")
 
         legend_options = ["Measurement name", "Measurement ID"] + unequal_params
-        checkbox_variables = [tk.IntVar() for i in range(len(legend_options))]
+        checkbox_variables = [tk.IntVar() for _ in range(len(legend_options))]
 
         def _on_legend_change():
             self._legend_options.clear()
@@ -563,13 +455,15 @@ class PlottingSettingsFrame(CustomFrame):
 
         for i, (option, var) in enumerate(zip(legend_options, checkbox_variables)):
             checkbox = tk.Checkbutton(
-                self, text=option, variable=var, onvalue=1, offvalue=0, command=_on_legend_change
+                legend_container, text=option, variable=var, onvalue=1, offvalue=0, command=_on_legend_change
             )
-            self.add_widget(checkbox, row=base_row + 3 + i, column=1, sticky="w", ipadx=10, ipady=0)
-            self.rowconfigure(base_row + i + 3, pad=0)
-            self.rowconfigure(base_row + i + 3, weight=0)
+            legend_container.add_widget(checkbox, row=1 + i, column=1, sticky="w", ipadx=10, ipady=0)
+            legend_container.rowconfigure(i + 1, pad=0)
+            legend_container.rowconfigure(i + 1, weight=0)
 
-        return base_row + 3 + len(legend_options)
+        self.add_widget(legend_container, column=0, row=base_row, sticky="we")
+        legend_container.columnconfigure(0, weight=1)
+        legend_container.columnconfigure(1, weight=1)
 
     @property
     def legend_changed_callbacks(self):
@@ -651,3 +545,156 @@ class PlottingSettingsFrame(CustomFrame):
             # because we changed the value of entry inside the validation or invalid function, validate
             # is set to 'none', so we reset it here.
             self._bucket_count_entry.config(validate="key")
+
+    def __setup_design(self, base_row: int):
+        design_container = CustomFrame(self)
+        design_container.title = "Design Settings"
+
+        color_label = tk.Label(design_container, anchor="w", text="Colormap for plots:")
+        color_menu = tk.OptionMenu(design_container, self._color_map, *COLOR_MAPS)
+        design_container.add_widget(color_label, column=0, row=0, ipadx=10, ipady=0, sticky="we")
+        design_container.add_widget(color_menu, column=1, row=0, ipadx=10, ipady=0, sticky="ew")
+
+        bound_label = tk.Label(design_container, anchor="w", text="Axis bounds type:")
+        bound_menu = tk.OptionMenu(design_container, self._axis_bound_types, *AXIS_BOUND_TYPES)
+        design_container.add_widget(bound_label, column=0, row=1, ipadx=10, ipady=0, sticky="we")
+        design_container.add_widget(bound_menu, column=1, row=1, ipadx=10, ipady=0, sticky="ew")
+
+        design_container.rowconfigure(0, weight=0)
+        design_container.rowconfigure(1, weight=0)
+
+        if self._axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+
+            def set_new_bounds(xmin, xmax, ymin, ymax):
+                x_old = self._axis_bounds[0]
+                y_old = self._axis_bounds[1]
+                self._axis_bounds.clear()
+                self._axis_bounds.append(
+                    (xmin if xmin is not None else x_old[0], xmax if xmax is not None else x_old[1])
+                )
+                self._axis_bounds.append(
+                    (ymin if ymin is not None else y_old[0], ymax if ymax is not None else y_old[1])
+                )
+
+            validate = (self.register(self._validate_float), "%d", "%P")
+            text_width = 8
+
+            msg = "Define the lowest and highest coordinate yourself."
+            x_frame = tk.Frame(design_container)
+            x_frame.columnconfigure(0, weight=1)
+            x_frame.columnconfigure(1, weight=1)
+
+            x_min_var = tk.StringVar()
+            x_min_var.set(f"{self._axis_bounds[0][0]:.1f}")
+            x_min_frame = tk.Frame(x_frame)
+            x_min_frame.columnconfigure(0, weight=1)
+            x_min_frame.columnconfigure(1, weight=1)
+            x_min_label = tk.Label(x_min_frame, text="x-min", anchor="w")
+            x_min_entry = tk.Entry(
+                x_min_frame,
+                textvariable=x_min_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            x_min_label.grid(column=0, row=0, sticky="we")
+            x_min_entry.grid(column=1, row=0, sticky="ew")
+
+            x_max_var = tk.StringVar()
+            x_max_var.set(f"{self._axis_bounds[0][1]:.1f}")
+            x_max_frame = tk.Frame(x_frame)
+            x_max_frame.columnconfigure(0, weight=1)
+            x_max_frame.columnconfigure(1, weight=1)
+            x_max_label = tk.Label(x_max_frame, text="x-max", anchor="w")
+            x_max_entry = tk.Entry(
+                x_max_frame,
+                textvariable=x_max_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            x_max_label.grid(column=0, row=0, sticky="we")
+            x_max_entry.grid(column=1, row=0, sticky="ew")
+
+            x_min_frame.grid(column=0, row=0)
+            x_max_frame.grid(column=1, row=0)
+
+            y_frame = tk.Frame(design_container)
+            y_frame.columnconfigure(0, weight=1)
+            y_frame.columnconfigure(1, weight=1)
+
+            y_min_frame = tk.Frame(y_frame)
+            y_min_frame.columnconfigure(0, weight=1)
+            y_min_frame.columnconfigure(1, weight=1)
+            y_min_var = tk.StringVar()
+            y_min_var.set(f"{self._axis_bounds[1][0]:.1f}")
+            y_min_label = tk.Label(y_min_frame, text="y-min", anchor="w")
+            y_min_entry = tk.Entry(
+                y_min_frame,
+                textvariable=y_min_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            y_min_label.grid(column=0, row=0, sticky="we")
+            y_min_entry.grid(column=1, row=0, sticky="ew")
+
+            y_max_frame = tk.Frame(y_frame)
+            y_max_frame.columnconfigure(0, weight=1)
+            y_max_frame.columnconfigure(1, weight=1)
+            y_max_var = tk.StringVar()
+            y_max_var.set(f"{self._axis_bounds[1][1]:.1f}")
+            y_max_label = tk.Label(y_max_frame, text="y-max", anchor="w")
+            y_max_entry = tk.Entry(
+                y_max_frame,
+                textvariable=y_max_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            y_max_label.grid(column=0, row=0, sticky="we")
+            y_max_entry.grid(column=1, row=0, sticky="ew")
+
+            y_min_frame.grid(column=0, row=0)
+            y_max_frame.grid(column=1, row=0)
+
+            design_container.add_widget(x_frame, column=0, row=2, sticky="we")
+            design_container.add_widget(y_frame, column=1, row=2, sticky="ew")
+            design_container.rowconfigure(2, weight=0)
+
+            x_min_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(float(x_min_var.get()) if x_min_var.get() != "" else None, None, None, None),
+            )
+            x_max_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(None, float(x_max_var.get()) if x_min_var.get() != "" else None, None, None),
+            )
+            y_min_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(None, None, float(y_min_var.get()) if x_min_var.get() != "" else None, None),
+            )
+            y_max_var.trace_add(
+                "write",
+                lambda *_: set_new_bounds(None, None, None, float(y_max_var.get()) if x_min_var.get() != "" else None),
+            )
+            x_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            x_min_entry.bind("<Return>", lambda *_: self.focus())
+            x_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            x_max_entry.bind("<Return>", lambda *_: self.focus())
+            y_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            y_min_entry.bind("<Return>", lambda *_: self.focus())
+            y_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+            y_max_entry.bind("<Return>", lambda *_: self.focus())
+
+        else:
+            msg = "Let matplotlib figure out the coordinates."
+        tktt.ToolTip(bound_menu, msg=msg, delay=0.5)
+
+        self.add_widget(design_container, column=0, row=base_row, sticky="we")
+        design_container.columnconfigure(0, weight=1)
+        design_container.columnconfigure(1, weight=1)
