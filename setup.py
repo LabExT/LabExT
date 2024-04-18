@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="LabExT_pkg",
-    version="2.2.0",
+    version="2.3.0",
     author="Institute of Electromagnetic Fields (IEF) at ETH Zurich",
     author_email="ief@ief.ee.ethz.ch",
     maintainer="Marco Eppenberger",
