@@ -111,7 +111,6 @@ class DeviceSelection(Step):
         if not marked_devices:
             messagebox.showinfo(title="Device Selection", message="Please mark devices to continue.")
             return False
-        # todo: maybe add marked devices to wizard instead of exp_manager
         self.exp_manager.exp.device_list = marked_devices
         self.device_table.serialize()
         return True
@@ -150,10 +149,10 @@ class MultiDeviceTable(Frame):
         devices = []
         for idx, dev in enumerate(self.chip.devices.values()):
             if dev.id in saved_ids:
-                row_values = (idx + 1, "marked", dev.id, dev.in_position, dev.out_position, dev.type)
+                row_values = (idx + 1, self.MARKED, dev.id, dev.in_position, dev.out_position, dev.type)
                 saved_ids.remove(dev.id)
             else:
-                row_values = (idx + 1, " ", dev.id, dev.in_position, dev.out_position, dev.type)
+                row_values = (idx + 1, self.UNMARKED, dev.id, dev.in_position, dev.out_position, dev.type)
             row_values = (*row_values, [dev.parameters.get(param, "") for param in columns])
             devices.append(row_values)
 
@@ -244,9 +243,8 @@ class MultiDeviceTable(Frame):
         """Return a list of ids from the marked devices sorted according to the original index."""
         tree = self.device_table.get_tree()
         marked_iid = [iid for iid in tree.get_children() if tree.set(iid, column=1) == self.MARKED]
-        device_indices = [tree.set(iid, column=0) for iid in marked_iid]
         device_ids = [tree.set(iid, column=2) for iid in marked_iid]
-        return [_id for _, _id in sorted(zip(device_indices, device_ids))]
+        return [_id for _, _id in sorted(zip(marked_iid, device_ids))]
 
     def get_marked_devices(self) -> list[Device]:
         return [self.chip.devices[dev_id] for dev_id in self.get_marked_device_ids()]
