@@ -121,6 +121,8 @@ class MultiDeviceTable(Frame):
     """Shows a table with all devices of the current chip and lets the user select devices."""
 
     SETTINGS_PATH = get_configuration_file_path("device_selection.json")
+    MARKED = "marked"
+    UNMARKED = " "
 
     def __init__(self, parent: Frame, chip: Chip) -> None:
         super().__init__()
@@ -155,8 +157,9 @@ class MultiDeviceTable(Frame):
             row_values = (*row_values, [dev.parameters.get(param, "") for param in columns])
             devices.append(row_values)
 
-        info_label = Label(self.parent, text="Highlight one or more rows, then press mark to select these devices")
-        info_label.grid(column=0, row=0, padx=5, pady=5, sticky="nswe")
+        Label(self.parent, text="Highlight one or more rows, then press mark to select these devices").grid(
+            column=0, row=0, padx=5, pady=5, sticky="nswe"
+        )
 
         self.table_frame = CustomFrame(self.parent)
         self.table_frame.grid(row=1, column=0, padx=5, pady=5, sticky="nswe")
@@ -168,15 +171,19 @@ class MultiDeviceTable(Frame):
 
         button_frame = Frame(self.parent)
         button_frame.grid(column=0, row=2, sticky="w")
+        Button(button_frame, text="mark highlighted", command=self.mark_selected_items).grid(
+            row=0, column=0, padx=5, pady=5, sticky="w"
+        )
+        Button(button_frame, text="unmark highlighted", command=self.unmark_selected_items).grid(
+            row=0, column=1, padx=5, pady=5, sticky="w"
+        )
+        Button(button_frame, text="(un)mark all", command=self.mark_all).grid(
+            row=0, column=2, padx=5, sticky="w"
+        )
 
-        mark_highlighted_button = Button(button_frame, text="(un)mark highlighted", command=self.mark_selected_items)
-        mark_highlighted_button.grid(row=0, column=0, padx=5, pady=5, sticky="w")
-
-        mark_all_button = Button(button_frame, text="(un)mark all", command=self.mark_all)
-        mark_all_button.grid(row=0, column=1, padx=5, pady=5, sticky="w")
-
-        info_label = Label(self.parent, text="The selected devices will be sorted by the original index.")
-        info_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
+        Label(self.parent, text="The selected devices will be sorted by the original index.").grid(
+            row=2, column=0, padx=5, pady=5, sticky="e"
+        )
 
     def mark_items_by_ids(self, ids: list[str]) -> None:
         if not ids:
@@ -187,26 +194,38 @@ class MultiDeviceTable(Frame):
             current_id = str(tree.set(iid, column=2))
             if current_id not in ids:
                 continue
-            if tree.set(iid, column=1) == " ":
-                tree.set(iid, column=1, value="marked")
+            if tree.set(iid, column=1) == self.UNMARKED:
+                tree.set(iid, column=1, value=self.MARKED)
             else:
-                tree.set(iid, column=1, value=" ")
+                tree.set(iid, column=1, value=self.UNMARKED)
             copied_ids.remove(current_id)
             if not copied_ids:
                 break
 
     def mark_selected_items(self) -> None:
+        """Mark the currently selected rows."""
+        tree = self.device_table.get_tree()
+        for iid in tree.selection():
+            tree.set(iid, column=1, value=self.MARKED)
+
+    def unmark_selected_items(self) -> None:
+        """Unmark the currently selected rows."""
+        tree = self.device_table.get_tree()
+        for iid in tree.selection():
+            tree.set(iid, column=1, value=self.UNMARKED)
+
+    def _mark_selected_items(self) -> None:
         """Mark or un-mark the currently selected rows."""
         tree = self.device_table.get_tree()
         for iid in tree.selection():
-            if tree.set(iid, column=1) == " ":
-                tree.set(iid, column=1, value="marked")
+            if tree.set(iid, column=1) == self.UNMARKED:
+                tree.set(iid, column=1, value=self.MARKED)
             else:
-                tree.set(iid, column=1, value=" ")
+                tree.set(iid, column=1, value=self.UNMARKED)
 
     def mark_all(self) -> None:
         tree = self.device_table.get_tree()
-        value_to_set = "marked" if (self._counter_all % 2 == 0) else " "
+        value_to_set = self.MARKED if (self._counter_all % 2 == 0) else self.UNMARKED
         [tree.set(iid, column=1, value=value_to_set) for iid in tree.get_children()]
         self._counter_all += 1
 
@@ -224,7 +243,7 @@ class MultiDeviceTable(Frame):
     def get_marked_device_ids(self) -> list[str]:
         """Return a list of ids from the marked devices sorted according to the original index."""
         tree = self.device_table.get_tree()
-        marked_iid = [iid for iid in tree.get_children() if tree.set(iid, column=1) == "marked"]
+        marked_iid = [iid for iid in tree.get_children() if tree.set(iid, column=1) == self.MARKED]
         device_indices = [tree.set(iid, column=0) for iid in marked_iid]
         device_ids = [tree.set(iid, column=2) for iid in marked_iid]
         return [_id for _, _id in sorted(zip(device_indices, device_ids))]
