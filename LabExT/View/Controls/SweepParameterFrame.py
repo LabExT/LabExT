@@ -262,7 +262,7 @@ class RangeEntry(Frame):
                 )
 
             step_count = int(np.floor((to - from_) / step))
-            return (pd.Series([from_ + i * step for i in range(step_count)]), "step_size")
+            return (pd.Series([from_ + i * step for i in range(step_count + 1)]), "step_size")
 
         elif category == self._selection["step_count_linear"]:
             step_size = (to - from_) / (step - 1)
