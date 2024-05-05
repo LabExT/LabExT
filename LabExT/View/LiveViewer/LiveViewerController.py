@@ -196,7 +196,7 @@ class LiveViewerController:
         cards_props = {}
         inst_props = {}
         for _, card in self.model.cards:
-            param_data = {}
+            param_data = {'data': {}}
             card.ptable.serialize_to_dict(param_data)
             cards_props[card.instance_title] = param_data['data']
 
