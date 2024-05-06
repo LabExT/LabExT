@@ -27,6 +27,9 @@ class SweepInformation(TypedDict):
     part_of_sweep: bool
     sweep_association: Optional[dict]
 
+class ParamDict(TypedDict):
+    value: Union[int, bool, float, str]
+    unit: str
 
 class MeasurementDict(
     TypedDict(
@@ -36,7 +39,7 @@ class MeasurementDict(
             "measurement id long": str,
             "measurement name": str,
             "measurement name and id": str,
-            "measurement settings": dict,
+            "measurement settings": dict[str, ParamDict],
             "search for peak": Optional[dict],
             "timestamp end": str,
             "timestamp start": str,
@@ -50,7 +53,6 @@ class MeasurementDict(
     If instantiated at runtime the objects are regular `dict`s.
     """
 
-    measurement_params: dict[str, Union[str, float, int, bool]]
     chip: ChipDict
     device: dict
     error: ErrorDict
