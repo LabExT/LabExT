@@ -374,14 +374,7 @@ class MeasurementTable(CustomFrame):
             True if new state is checked, False if new state is UNchecked
         """
 
-        # How plotting used to work: (Currently being reworked)
-        # 1. click on item calls select_item
-        # 2. update axis_set with the new available data vector names
-        # 3. calls main_window._axis_options_changed to update the options for the dropdowns
-        # 4. this calls main_window._axis_changed which 1. sets the axis labels and 2. calls MeasurementTable.repaint
-        # 5. here we finally assemble the PlotData and append it to exp.selec_plot_collection to display the curves
-        # The extra plots window is also based on the _selection list and needs to be notified if updates happen
-        # How it will work:
+        # How plotting works:
         # 1. click on item calls select_item
         # 2. all item selection callbacks will be performed
         # 3. plottable data handler will
