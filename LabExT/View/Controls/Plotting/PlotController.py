@@ -17,6 +17,8 @@ from matplotlib import colormaps
 
 import numpy as np
 
+import logging
+
 if TYPE_CHECKING:
     from tkinter import Widget
     from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableData
@@ -52,6 +54,8 @@ class PlotController:
 
         self._plottable_data: PlottableData = None
         """The data is updated, when the user selection changes. (see `self._plottable_data_changed_callback`)"""
+
+        self._logger = logging.getLogger("Gui")
 
         self._settings_frame.add_settings_changed_callback(self._plot_settings_changed_callback)
         self._data_handler.add_plottable_data_changed_listener(self._plottable_data_changed_callback)
@@ -173,10 +177,11 @@ class PlotController:
 
         plot = self._model.figure.add_subplot(1, 1, 1)
 
+        def _print_error(message: str):
+            plot.text(0.5, 0.5, message, color="red", horizontalalignment="center")
+
         def _print_sorted_error(key: str):
-            plot.text(
-                0.5, 0.5, f"The values given by '{key}' are not sorted!", color="red", horizontalalignment="center"
-            )
+            _print_error(f"The values given by '{key}' are not sorted!")
 
         # shorthand so I don't have to type so much
         x_key = self._model.axis_x_key_name.get()
@@ -195,7 +200,30 @@ class PlotController:
                 return
             x_data = PlotController.__merge_union_sorted(x_data, meas["values"][x_key])
 
-        # Here we get the y and z-values corresponding to the x-values (we pad with NaN)
+        # find lower and upper index to not calculate too much
+        x_lower_index = 0
+        x_upper_index = len(x_data)
+        self._logger.debug(f"Creating custom bound: {self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM}")
+        if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+            for i, x_value in enumerate(x_data):
+                if x_value >= self._model.axis_bounds[0][0]:
+                    x_lower_index = i
+                    break
+            x_upper_index = 0
+            for i, x_value in enumerate(reversed(x_data)):
+                if x_value <= self._model.axis_bounds[0][1]:
+                    x_upper_index = len(x_data) - i
+                    break
+
+            self._logger.debug(f"(lower, upper) = ({x_lower_index}, {x_upper_index})\t(0, max) = (0, {len(x_data)})")
+            self._logger.debug(f"bounds = ({self._model.axis_bounds[0][0]}, {self._model.axis_bounds[0][1]})")
+        x_data = x_data[x_lower_index:x_upper_index]
+
+        if len(x_data) <= 1:
+            _print_error(f"Please select more data on the x-axis (currently {len(x_data)} data-points)")
+            return
+
+        # Here we get the y and z-values corresponding to the x-values (we pad with NaN or interpolate)
         y_z_data = list()
         for meas in self._plottable_data.values():
             y_values = meas["measurement_params"][y_key]
@@ -206,7 +234,13 @@ class PlotController:
                 continue
 
             z_values = list()
+            # find first value large enough
             original_index = 0
+            if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+                while meas["values"][x_key][original_index] < self._model.axis_bounds[0][0]:
+                    original_index += 1
+            self._logger.debug(f"original index for {meas['name_known']}")
+
             for i, x in enumerate(x_data):
                 # if the x coordinate is contained in the original data we add the corresponding z-value
                 if x == meas["values"][x_key][original_index]:
