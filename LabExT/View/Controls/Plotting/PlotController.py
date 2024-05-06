@@ -119,7 +119,9 @@ class PlotController:
             self._model.axis_y_key_name.get(),
             self._model.axis_z_key_name.get(),
         ]:
-            # the variables are set to "" by the settings frame if something doesn't work
+            # The variables are set to "" by the settings frame if the data can't be plotted
+            # This might happen if there is no data, if the data does not have the right format
+            # or if the user chose settings that can't be displayed.
             return
 
         plot = self._model.figure.add_subplot(1, 1, 1)
