@@ -53,7 +53,7 @@ class PlottableData:
         self.__measurement_map[name] = data
         if len(self.__measurement_map) == 1:
             # this is the first data being added
-            self.__common_params = data["measurement_params"].keys()
+            self.__common_params = data["measurement settings"].keys()
             if len(self.__common_params) == 0:
                 self.__common_params = list()
             else:
@@ -63,7 +63,7 @@ class PlottableData:
 
         # there is already data -> check common params and values
         for param in self.__common_params.copy():
-            if param not in data["measurement_params"]:
+            if param not in data["measurement settings"]:
                 self.__common_params.remove(param)
         for value in self.__common_values.copy():
             if value not in data["values"].keys():
@@ -93,7 +93,7 @@ class PlottableData:
 
         # we first have to set the parameters and values to something before we can start comparing to them
         # ugly hack to get the first value of a dict without having to create the full list (using iter and next)
-        self.__common_params = next(iter(self.__measurement_map.values()))["measurement_params"]
+        self.__common_params = next(iter(self.__measurement_map.values()))["measurement settings"]
         self.__common_params = list(self.__common_params.keys())
         self.__common_values = next(iter(self.__measurement_map.values()))["values"]
         self.__common_values = list(self.__common_values.keys())  # we don't want `DictKeys`
@@ -101,7 +101,7 @@ class PlottableData:
         # check for common parameters and values
         for param in self.__common_params.copy():
             for meas in self.__measurement_map.values():
-                if param not in meas["measurement_params"]:
+                if param not in meas["measurement settings"]:
                     self.__common_params.remove(param)
 
         logger.debug(f"New shared parameters: {self.__common_params}")
@@ -148,8 +148,10 @@ class PlottableData:
         equals = list()
         measurements = list(self.__measurement_map.values())
         for param_name in self.__common_params:
-            current_param = measurements[0]["measurement_params"][param_name]
-            if all(map(lambda meas: meas["measurement_params"][param_name] == current_param, measurements[1:])):
+            current_param = measurements[0]["measurement settings"][param_name]["value"]
+            if all(
+                map(lambda meas: meas["measurement settings"][param_name]["value"] == current_param, measurements[1:])
+            ):
                 equals.append(param_name)
         return equals
 
@@ -159,8 +161,10 @@ class PlottableData:
         unequals = list()
         measurements = list(self.__measurement_map.values())
         for param_name in self.__common_params:
-            current_param = measurements[0]["measurement_params"][param_name]
-            if any(map(lambda meas: meas["measurement_params"][param_name] != current_param, measurements[1:])):
+            current_param = measurements[0]["measurement settings"][param_name]["value"]
+            if any(
+                map(lambda meas: meas["measurement settings"][param_name]["value"] != current_param, measurements[1:])
+            ):
                 unequals.append(param_name)
         return unequals
 
