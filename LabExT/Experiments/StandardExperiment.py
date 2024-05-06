@@ -409,48 +409,6 @@ class StandardExperiment:
 
         return target
 
-    def __guess_params(self, meas_dict: MeasurementDict) -> dict:
-        """Tries to guess the parameters used for a certain measurement based on the "measurement settings".
-
-        This method is only used for old measurements who did not specify the "measurement_params" entry.
-        To guess the parameters we use the following scheme:
-        1. Check if the entry "measurement settings" exists
-        2. Check if the entry is a dict or dict-like
-        3. Iterate through the "keys" of the dict-like object
-            a. If the corresponding value is dict-like itself, try to get the value corresponding to the key "value".
-            b. Otherwise assume the value is some sort of float/int/bool/... and use it directly
-
-        Args:
-            meas_dict: The meas_dict which is used to guess the used parameters.
-
-        Returns:
-            A new dict containing the guessed name-value pairs.
-        """
-        if "measurement settings" not in meas_dict:
-            return dict()
-
-        def __is_dict_like(obj) -> bool:
-            if type(obj) == dict:
-                return True
-            return (
-                callable(getattr(obj, "__getitem__"))
-                and callable(getattr(obj, "__iter__"))
-                and callable(getattr(obj, "__contains__"))
-            )
-
-        settings = meas_dict["measurement settings"]
-        if not __is_dict_like(settings):
-            return dict()
-
-        ret = dict()
-        for name in settings:
-            if __is_dict_like(settings[name]) and "value" in settings[name]:
-                ret[name] = settings[name]["value"]
-            else:
-                ret[name] = settings[name]
-
-        return ret
-
     def load_measurement_dataset(self, meas_dict, file_path, force_gui_update=True):
         """
         Use this to add a dictionary of a measurement recorded dataset to the measurements. This function
@@ -504,9 +462,6 @@ class StandardExperiment:
 
         if "sweep_information" not in meas_dict.keys():
             meas_dict["sweep_information"] = {"part_of_sweep": False, "sweep_association": dict()}
-
-        if "measurement_params" not in meas_dict.keys():
-            meas_dict["measurement_params"] = self.__guess_params(meas_dict)
 
         # add file path to dictionary
         meas_dict["file_path_known"] = file_path
