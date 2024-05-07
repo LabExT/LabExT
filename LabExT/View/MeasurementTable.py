@@ -195,6 +195,16 @@ class MeasurementTable(CustomFrame):
                 measurements = self._hashes_of_meas[item_id_or_ids] if item_id_or_ids in self._hashes_of_meas else ""
             else:
                 measurements = [self._hashes_of_meas[item] for item in item_id_or_ids if item in self._hashes_of_meas]
+
+            # perform callback
+            # The argument to the callback is a `SelectionChangedEvent`.
+            # The items are:
+            # 1. the hash of the single item that was clicked or a list of hashes of all sub-items if
+            #    a header was selected.
+            # 2. a boolean which is true if and only if the items are now selected.
+            # 3. a list of tuples mapping all entries in the tree to their current state (selected or unselected)
+            # 4. a list of `MeasurementDict`s of all selected items or just one `MeasurementDict` in the case a
+            #    single measurement was selected.
             callback(
                 (
                     item_id_or_ids,
