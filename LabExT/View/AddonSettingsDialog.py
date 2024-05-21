@@ -100,6 +100,7 @@ class AddonSettingsDialog:
             "CardFrames": self._exp_mgr.live_viewer_cards,
             "Stages": self._exp_mgr.mover.stage_classes,
             "Chip Sources": self._exp_mgr.chip_source_api.chip_sources,
+            "Export Formats": self._exp_mgr.export_format_api.export_formats,
         }
 
         for title, data in loaded_addons.items():
