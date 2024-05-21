@@ -54,3 +54,15 @@ See [the example on how to implement a new measurement](./code_new_meas_example.
 
 !!! info
     Measurement code is also usable outside of the LabExT GUI [as standalone code](./code_standalone_meas.md).
+
+## Export Formats
+
+The files in the `Exporter` folder implement the necessary classes for the LabExT GUI to recognize a new export format. LabExT can be extended to export measurements into any file format, or even upload measurement data to a remote server.
+
+See [the example on how to implement a new export format](./code_new_export_example.md)
+<!-- and also the
+[MeasAPI code reference](./reference_MeasAPI.md).
+
+!!! info
+    Measurement code is also usable outside of the LabExT GUI [as standalone code](./code_standalone_meas.md). -->
+
