@@ -228,6 +228,14 @@ class PlotController:
         for meas in self._plottable_data.values():
             y_values = meas["measurement_params"][y_key]
 
+            if len(meas["values"][z_key]) < 2:
+                self._logger.info(
+                    "Measurement '{}' does not have enough data associated with key '{}' to be plottable.".format(
+                        meas["measurement name and id"], z_key
+                    )
+                )
+                continue
+
             # if there are no x-values missing we don't have to interpolate anything
             if len(meas["values"][x_key]) == len(x_data):
                 y_z_data.append((y_values, meas["values"][z_key]))
@@ -278,6 +286,10 @@ class PlotController:
                 z_values.append(z_inter)
 
             y_z_data.append((y_values, z_values))
+
+        if len(y_z_data) == 0:
+            _print_error(f"Not enough data associated with key '{z_key}' to plot!")
+            return
 
         # We sort the list of pairs by the swept param (i.e. the y-value)
         y_z_data.sort(key=lambda pair: pair[0])
