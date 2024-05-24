@@ -8,15 +8,18 @@ import itertools
 import json
 import logging
 import os.path
-from typing import TYPE_CHECKING, Union
-from tkinter import Frame, Label, Button, messagebox
+import pandas as pd
 
-from LabExT.Experiments.ToDo import ToDo
+from typing import TYPE_CHECKING, Union
+from tkinter import Frame, Label, Button, messagebox, TOP
+
+from LabExT.Experiments.ToDo import ToDo, DictionaryWrapper
 from LabExT.Utils import get_configuration_file_path, get_visa_address
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.InstrumentSelector import InstrumentSelector, InstrumentRole
 from LabExT.View.Controls.ParameterTable import ParameterTable
+from LabExT.View.Controls.SweepParameterFrame import SweepParameterFrame
 from LabExT.View.Controls.Wizard import Wizard, Step
 from LabExT.View.TooltipMenu import CreateToolTip
 
@@ -57,6 +60,7 @@ class ExperimentWizard(Wizard):
         self.step_measurement_selection = MeasurementSelection(self, self._exp_manager)
         self.step_instrument_selection = InstrumentSelection(self, self._exp_manager)
         self.step_parameter_selection = ParameterSelection(self, self._exp_manager)
+        self.step_parameter_sweep = ParameterSweep(self, self._exp_manager)
         self._connect_steps()
 
         self.current_step = self.step_device_selection
@@ -68,6 +72,8 @@ class ExperimentWizard(Wizard):
         self.step_instrument_selection.previous_step = self.step_measurement_selection
         self.step_instrument_selection.next_step = self.step_parameter_selection
         self.step_parameter_selection.previous_step = self.step_instrument_selection
+        self.step_parameter_selection.next_step = self.step_parameter_sweep
+        self.step_parameter_sweep.previous_step = self.step_parameter_selection
 
     def _on_cancel(self) -> bool:
         self.experiment.device_list.clear()
@@ -76,16 +82,50 @@ class ExperimentWizard(Wizard):
 
     def _on_finish(self) -> bool:
         self.step_parameter_selection.write_parameters()
+        self.step_parameter_sweep.write_parameters()
+        sweep_params = self.step_parameter_sweep.get_sweep_parameters()
 
-        # create ToDos
-        self.experiment.to_do_list.extend(
-            [
-                ToDo(device, meas)
-                for device, meas in itertools.product(
-                    self.experiment.device_list, self.experiment.selected_measurements
-                )
-            ]
-        )
+        for measurement, sweep_params in zip(self.experiment.selected_measurements, sweep_params):
+            for device in self.experiment.device_list:
+                if sweep_params:
+                    dataframes_per_parameter = [pd.DataFrame(series, columns=[param_name])
+                                                for param_name, (series, _) in sweep_params.items()]
+
+                    parameters = dataframes_per_parameter[0]
+                    for dataframe in dataframes_per_parameter[1:]:
+                        parameters = parameters.merge(dataframe, how='cross')
+
+                    # used to store summary dict
+                    dict_wrap = DictionaryWrapper()
+
+                    for index, row in parameters.iterrows():
+                        # create new object
+                        meas_class_name: str = type(measurement).__name__
+                        new_meas = self.experiment.create_measurement_object(
+                            meas_class_name)
+
+                        new_meas.instruments = measurement.instruments.copy()
+                        new_meas.selected_instruments = measurement.selected_instruments.copy()
+
+                        new_meas.parameters = measurement.parameters.copy()
+                        for name, value in zip(row.index, row):
+                            new_param = measurement.parameters[name].copy()
+                            new_param.value = value
+                            new_meas.parameters[name] = new_param
+
+                        parameters.loc[index, 'id'] = new_meas.id.hex
+                        parameters.loc[index, 'name'] = new_meas.get_name_with_id()
+
+                        self.experiment.to_do_list.append(
+                            ToDo(device=device,
+                                measurement=new_meas,
+                                part_of_sweep=True,
+                                sweep_parameters=parameters,
+                                dictionary_wrapper=dict_wrap)
+                        )
+                
+                else:
+                    self.experiment.to_do_list.append(ToDo(device=device, measurement=measurement))
 
         self.experiment.update()
         self.experiment.device_list.clear()
@@ -153,7 +193,7 @@ class MultiDeviceTable(Frame):
                 saved_ids.remove(dev.id)
             else:
                 row_values = (idx + 1, self.UNMARKED, dev.id, dev.in_position, dev.out_position, dev.type)
-            row_values = (*row_values, [dev.parameters.get(param, "") for param in columns])
+            row_values = (*row_values, *[dev.parameters.get(param, "") for param in columns])
             devices.append(row_values)
 
         Label(self.parent, text="Highlight one or more rows, then press mark to select these devices").grid(
@@ -399,7 +439,7 @@ class InstrumentSelection(Step):
 class ParameterSelection(Step):
 
     def __init__(self, wizard: ExperimentWizard, exp_manager: ExperimentManager) -> None:
-        super().__init__(wizard=wizard, builder=self.build, title="Parameter Selection", finish_step_enabled=True)
+        super().__init__(wizard=wizard, builder=self.build, title="Parameter Selection", finish_step_enabled=False)
         self.exp_manager = exp_manager
 
         self.parameter_tables: dict[str, ParameterTable] = {}  # measurement name as keys
@@ -426,3 +466,57 @@ class ParameterSelection(Step):
                 measurement.parameters[param_name].value = param_value
 
             table.serialize(file_name=measurement.settings_path)
+
+class ParameterSweep(Step):
+    SETTINGS_PATH = get_configuration_file_path("sweep_parameters_device_sweep.json")
+
+    def __init__(self, wizard: ExperimentWizard, exp_manager: ExperimentManager) -> None:
+        super().__init__(wizard=wizard, builder=self.build, title="Parameter Sweep", finish_step_enabled=True)
+        self.exp_manager = exp_manager
+        self.frames = []
+
+    def build(self, frame: Frame):
+        frame.title = "Parameter Sweep"
+        
+        data = {}
+
+        if not os.path.isfile(self.SETTINGS_PATH):
+            with open(self.SETTINGS_PATH, 'w') as json_file:
+                json_file.write(json.dumps({}, indent=4)) 
+
+        with open(self.SETTINGS_PATH, 'r') as json_file:
+            data = json.loads(json_file.read())
+        
+        for measurement in self.exp_manager.exp.selected_measurements:
+            sweepable_parameters = {param_name: param for param_name, param in measurement.parameters.items()
+                                    if param.sweep_type is not None
+                                    and param_name not in measurement.get_non_sweepable_parameters().keys()}
+            
+            sweep_frame = SweepParameterFrame(parent=frame,
+                                            string_var_master=self.wizard,
+                                            parameters=sweepable_parameters)
+            
+            sweep_frame.title = f"Sweep Parameters {measurement.name}"
+
+            sweep_frame.deserialize(data.get(measurement.name, {}))
+
+            sweep_frame.pack(padx=5, pady=10, side=TOP, fill='x', expand=False)
+
+            self.frames.append(sweep_frame)
+
+    def get_sweep_parameters(self):
+        return [sweep_frame.results() for sweep_frame in self.frames]
+    
+    def write_parameters(self) -> None:
+        for measurement, frame in zip(self.exp_manager.exp.selected_measurements, self.frames):
+            
+            data = {}
+            with open(self.SETTINGS_PATH, 'r') as json_file:
+                data = json.loads(json_file.read())
+
+            data[measurement.name] = {}
+            frame.serialize(data[measurement.name])
+
+            with open(self.SETTINGS_PATH, 'w') as json_file:
+                json_file.write(json.dumps(data, indent=4))
+    
