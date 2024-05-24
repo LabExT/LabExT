@@ -243,6 +243,17 @@ class ExperimentWizardTest(TKinterTestCase):
         ps["file path to reference meas."].value = random_ilm_props["file path to reference meas."]
         ps["discard raw transmission data"].value = random_ilm_props["discard raw transmission data"]
         ps["users comment"].value = random_ilm_props["users comment"]
+        
+        #
+        # continue past the parameter sweep selection step
+        #
+        
+        exp_wizard._next_button.invoke()
+        self.pump_events()
+
+        for sweep in exp_wizard.step_parameter_sweep.frames:
+            for i in range(int(len(sweep._ranges))):
+                sweep.on_minus()
 
         #
         # finalize wizard
