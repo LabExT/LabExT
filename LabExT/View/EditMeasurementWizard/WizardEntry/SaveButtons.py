@@ -43,6 +43,8 @@ class SaveButtonsController(WizardEntryController):
         for dataframe in dataframes_per_parameter[1:]:
             parameters = parameters.merge(dataframe, how='cross')
 
+        parameters.columns = pd.MultiIndex.from_tuples([("measurement settings", c) for c in parameters.columns])
+
         # used to store summary dict
         dict_wrap = DictionaryWrapper()
 
@@ -56,13 +58,13 @@ class SaveButtonsController(WizardEntryController):
             new_meas.selected_instruments = measurement.selected_instruments.copy()
 
             new_meas.parameters = measurement.parameters.copy()
-            for name, value in zip(row.index, row):
+            for (_, name), value in zip(row.index, row):
                 new_param = measurement.parameters[name].copy()
                 new_param.value = value
                 new_meas.parameters[name] = new_param
 
-            parameters.loc[index, 'id'] = new_meas.id.hex
-            parameters.loc[index, 'name'] = new_meas.get_name_with_id()
+            parameters.loc[index, ('metadata', 'id')] = new_meas.id.hex
+            parameters.loc[index, ('metadata', 'name')] = new_meas.get_name_with_id()
 
             self._main_controller._experiment.to_do_list.append(ToDo(device=device,
                                                                      measurement=new_meas,
@@ -70,7 +72,7 @@ class SaveButtonsController(WizardEntryController):
                                                                      sweep_parameters=parameters,
                                                                      dictionary_wrapper=dict_wrap))
 
-        parameters['finished'] = False
+        parameters['metadata', 'finished'] = False
 
     def results(self):
         dev: Device = self._main_controller.model.results[0]
