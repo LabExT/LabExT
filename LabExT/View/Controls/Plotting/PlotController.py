@@ -226,7 +226,7 @@ class PlotController:
         # Here we get the y and z-values corresponding to the x-values (we pad with NaN or interpolate)
         y_z_data = list()
         for meas in self._plottable_data.values():
-            y_values = meas["measurement_params"][y_key]
+            y_values = meas["measurement settings"][y_key]["value"]
 
             if len(meas["values"][z_key]) < 2:
                 self._logger.info(
@@ -236,8 +236,9 @@ class PlotController:
                 )
                 continue
 
-            # if there are no x-values missing we don't have to interpolate anything
-            if len(meas["values"][x_key]) == len(x_data):
+            # if there are no x-values missing and the user doesn't constrain z-values
+            # we don't have to interpolate anything
+            if len(meas["values"][x_key]) == len(x_data) and not self._model.data_bound_set.get():
                 y_z_data.append((y_values, meas["values"][z_key]))
                 continue
 
@@ -250,9 +251,16 @@ class PlotController:
             self._logger.debug(f"original index for {meas['name_known']}")
 
             for i, x in enumerate(x_data):
-                # if the x coordinate is contained in the original data we add the corresponding z-value
+                # if the x coordinate is contained in the original data we add the corresponding
+                # z-value if it fits the user-specified bounds or clamp it
                 if x == meas["values"][x_key][original_index]:
-                    z_values.append(meas["values"][z_key][original_index])
+                    cur_z_value = meas["values"][z_key][original_index]
+                    if self._model.data_bound_set.get() and cur_z_value < self._model.data_bounds[0][0]:
+                        z_values.append(self._model.data_bounds[0][0])
+                    elif self._model.data_bound_set.get() and cur_z_value > self._model.data_bounds[0][1]:
+                        z_values.append(self._model.data_bounds[0][1])
+                    else:
+                        z_values.append(cur_z_value)
                     original_index += 1
                     continue
 

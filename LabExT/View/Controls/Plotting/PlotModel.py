@@ -43,6 +43,10 @@ class PlotModel:
            The format is `[(x_low, x_high), (y_low, y_high)]`"""
         self.axis_bound_types = tk.StringVar()
         """What type of bounds should be used."""
+        self.data_bound_set = tk.BooleanVar()
+        """True iff custom data bounds should be used."""
+        self.data_bounds: list[tuple[float, float]] = [(0, 0)]
+        """Stores the lower and upper bound for the "z-axis" in the first element."""
 
         # default values
         self.color_map_name.set(COLOR_MAPS[0])

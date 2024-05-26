@@ -59,6 +59,8 @@ class PlotView:
             interpolation_type_var=plot_model.contour_interpolation_type,
             axis_bound_type_var=plot_model.axis_bound_types,
             axis_bounds=plot_model.axis_bounds,
+            data_bound_var=plot_model.data_bound_set,
+            data_bounds=plot_model.data_bounds,
             color_map_var=plot_model.color_map_name,
             legend_elements=plot_model.legend_elements,
         )
@@ -130,6 +132,8 @@ class PlottingSettingsFrame(CustomFrame):
         interpolation_type_var: tk.StringVar,
         axis_bounds: list[tuple[float, float]],
         axis_bound_type_var: tk.StringVar,
+        data_bound_var: tk.BooleanVar,
+        data_bounds: list[tuple[float, float]],
         color_map_var: tk.StringVar,
         legend_elements: list[str],
         *args,
@@ -159,6 +163,8 @@ class PlottingSettingsFrame(CustomFrame):
         self._interpolation_var = interpolation_type_var
         self._axis_bounds = axis_bounds
         self._axis_bound_types = axis_bound_type_var
+        self._data_bounds = data_bounds
+        self._use_data_bounds = data_bound_var
         self._color_map = color_map_var
 
         # legend options
@@ -176,6 +182,11 @@ class PlottingSettingsFrame(CustomFrame):
                 self._color_map,
             ]
         )
+
+        # temporaries
+        self._last_shared_params: list[str] = []
+        self._last_shared_values: list[str] = []
+        self._last_unequal_params: list[str] = []
 
     def __set_vars_trace_method(self, variables: list[tk.Variable]):
         for var in variables:
@@ -218,17 +229,23 @@ class PlottingSettingsFrame(CustomFrame):
 
         # set default values
         if shared_params is None:
-            shared_params = []
+            shared_params = self._last_shared_params
+        else:
+            self._last_shared_params = shared_params.copy()
 
         self._logger.debug(f"Shared parameters: {shared_params}")
 
         if shared_values is None:
-            shared_values = []
+            shared_values = self._last_shared_values
+        else:
+            self._last_shared_values = shared_values.copy()
 
         self._logger.debug(f"Shared values: {shared_values}")
 
         if unequal_params is None:
-            unequal_params = []
+            unequal_params = self._last_unequal_params
+        else:
+            self._last_unequal_params = unequal_params
 
         self._logger.debug(f"Unequal parameters: {unequal_params}")
 
@@ -565,7 +582,14 @@ class PlottingSettingsFrame(CustomFrame):
 
         if self._axis_bound_types.get() == AXIS_BOUND_CUSTOM:
 
-            def set_new_bounds(xmin, xmax, ymin, ymax):
+            def set_new_data_bounds(zmin, zmax):
+                z_old = self._data_bounds[0]
+                self._data_bounds.clear()
+                self._data_bounds.append(
+                    (zmin if zmin is not None else z_old[0], zmax if zmax is not None else z_old[1])
+                )
+
+            def set_new_axis_bounds(xmin, xmax, ymin, ymax):
                 x_old = self._axis_bounds[0]
                 y_old = self._axis_bounds[1]
                 self._axis_bounds.clear()
@@ -662,34 +686,104 @@ class PlottingSettingsFrame(CustomFrame):
             y_min_frame.grid(column=0, row=0)
             y_max_frame.grid(column=1, row=0)
 
+            z_frame = tk.Frame(design_container)
+            z_frame.columnconfigure(0, weight=1)
+            z_frame.columnconfigure(1, weight=1)
+
+            z_min_var = tk.StringVar()
+            z_min_var.set(f"{self._data_bounds[0][0]:.1f}")
+            z_min_frame = tk.Frame(z_frame)
+            z_min_frame.columnconfigure(0, weight=1)
+            z_min_frame.columnconfigure(1, weight=1)
+            z_min_label = tk.Label(z_min_frame, text="z-min", anchor="w")
+            z_min_entry = tk.Entry(
+                z_min_frame,
+                textvariable=z_min_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            z_min_label.grid(column=0, row=0, sticky="we")
+            z_min_entry.grid(column=1, row=0, sticky="ew")
+
+            z_max_var = tk.StringVar()
+            z_max_var.set(f"{self._data_bounds[0][1]:.1f}")
+            z_max_frame = tk.Frame(z_frame)
+            z_max_frame.columnconfigure(0, weight=1)
+            z_max_frame.columnconfigure(1, weight=1)
+            z_max_label = tk.Label(z_max_frame, text="z-max", anchor="w")
+            z_max_entry = tk.Entry(
+                z_max_frame,
+                textvariable=z_max_var,
+                justify="right",
+                validate="key",
+                validatecommand=validate,
+                width=text_width,
+            )
+            z_max_label.grid(column=0, row=0, sticky="we")
+            z_max_entry.grid(column=1, row=0, sticky="ew")
+
+            z_min_frame.grid(column=0, row=0)
+            z_max_frame.grid(column=1, row=0)
+
+            use_z_checkbox = tk.Checkbutton(
+                design_container,
+                text="Constrain z-axis",
+                variable=self._use_data_bounds,
+                onvalue=True,
+                offvalue=False,
+                command=lambda *_: self.__setup__(),
+            )
+
+            update_button = tk.Button(
+                design_container,
+                text="Update Settings",
+                command=lambda *_: self.__notify_settings_changed_callbacks(),
+            )
+
             design_container.add_widget(x_frame, column=0, row=2, sticky="we")
             design_container.add_widget(y_frame, column=1, row=2, sticky="ew")
+            design_container.add_widget(use_z_checkbox, column=0, row=3, sticky="w")
+            button_row = 3
+            if self._use_data_bounds.get():
+                design_container.add_widget(z_frame, column=1, row=3, sticky="ew")
+                button_row += 1
+            design_container.add_widget(update_button, column=1, row=button_row, sticky="we")
             design_container.rowconfigure(2, weight=0)
 
             x_min_var.trace_add(
                 "write",
-                lambda *_: set_new_bounds(float(x_min_var.get()) if x_min_var.get() != "" else None, None, None, None),
+                lambda *_: set_new_axis_bounds(
+                    float(x_min_var.get()) if x_min_var.get() != "" else None, None, None, None
+                ),
             )
             x_max_var.trace_add(
                 "write",
-                lambda *_: set_new_bounds(None, float(x_max_var.get()) if x_min_var.get() != "" else None, None, None),
+                lambda *_: set_new_axis_bounds(
+                    None, float(x_max_var.get()) if x_max_var.get() != "" else None, None, None
+                ),
             )
             y_min_var.trace_add(
                 "write",
-                lambda *_: set_new_bounds(None, None, float(y_min_var.get()) if x_min_var.get() != "" else None, None),
+                lambda *_: set_new_axis_bounds(
+                    None, None, float(y_min_var.get()) if y_min_var.get() != "" else None, None
+                ),
             )
             y_max_var.trace_add(
                 "write",
-                lambda *_: set_new_bounds(None, None, None, float(y_max_var.get()) if x_min_var.get() != "" else None),
+                lambda *_: set_new_axis_bounds(
+                    None, None, None, float(y_max_var.get()) if y_max_var.get() != "" else None
+                ),
             )
-            x_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            x_min_entry.bind("<Return>", lambda *_: self.focus())
-            x_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            x_max_entry.bind("<Return>", lambda *_: self.focus())
-            y_min_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            y_min_entry.bind("<Return>", lambda *_: self.focus())
-            y_max_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
-            y_max_entry.bind("<Return>", lambda *_: self.focus())
+            z_min_var.trace_add(
+                "write",
+                lambda *_: set_new_data_bounds(float(z_min_var.get()) if z_min_var.get() != "" else None, None),
+            )
+            z_max_var.trace_add(
+                "write",
+                lambda *_: set_new_data_bounds(None, float(z_max_var.get()) if z_max_var.get() != "" else None),
+            )
 
         else:
             msg = "Let matplotlib figure out the coordinates."
