@@ -744,11 +744,12 @@ class PlottingSettingsFrame(CustomFrame):
 
             design_container.add_widget(x_frame, column=0, row=2, sticky="we")
             design_container.add_widget(y_frame, column=1, row=2, sticky="ew")
-            design_container.add_widget(use_z_checkbox, column=0, row=3, sticky="w")
             button_row = 3
-            if self._use_data_bounds.get():
-                design_container.add_widget(z_frame, column=1, row=3, sticky="ew")
-                button_row += 1
+            if self._plot_type_var.get() != LINE_PLOT:
+                design_container.add_widget(use_z_checkbox, column=0, row=3, sticky="w")
+                if self._use_data_bounds.get():
+                    design_container.add_widget(z_frame, column=1, row=3, sticky="ew")
+                    button_row += 1
             design_container.add_widget(update_button, column=1, row=button_row, sticky="we")
             design_container.rowconfigure(2, weight=0)
 
