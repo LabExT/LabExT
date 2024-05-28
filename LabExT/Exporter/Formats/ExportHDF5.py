@@ -19,7 +19,7 @@ def write_metadata(group, metadata, path):
             group.attrs[path + k] = str(v)
 
 class ExportHDF5(ExportFormatStep):
-    FORMAT_TITLE = "Hierarchical Data Format (.hdf5)"
+    FORMAT_TITLE = "Hierarchical Data Format (.h5)"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
