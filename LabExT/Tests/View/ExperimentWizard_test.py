@@ -251,7 +251,7 @@ class ExperimentWizardTest(TKinterTestCase):
         exp_wizard._next_button.invoke()
         self.pump_events()
 
-        for sweep in exp_wizard.step_parameter_sweep.frames:
+        for _, sweep in exp_wizard.step_parameter_sweep.frames:
             for i in range(int(len(sweep._ranges))):
                 sweep.on_minus()
 
