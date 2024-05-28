@@ -20,6 +20,10 @@ else:
 
 
 class ExportFormatAPI:
+    """
+    API class for the export format plugins.
+    Loads all classes that inherit ExportFormatStep and provides them to the ExperimentManager.
+    """
     def __init__(self, experiment_manager: ExperimentManager):
         self._experiment_manager = experiment_manager
         self.logger = logging.getLogger()
