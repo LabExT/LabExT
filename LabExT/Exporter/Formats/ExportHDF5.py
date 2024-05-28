@@ -52,5 +52,5 @@ class ExportHDF5(ExportFormatStep):
                 
             file_names.append(oup_name)
 
-        self.wizard.logger.info('Exported %s files as .yaml: %s', len(file_names), file_names)
+        self.wizard.logger.info('Exported %s files as .h5: %s', len(file_names), file_names)
         self.export_success()
