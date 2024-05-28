@@ -176,13 +176,9 @@ def sortby(tree, col, descending):
     descending : bool
         Sort the tree in descending or ascending order.
     """
-    # grab values to sort
-    raw_data = zip(*[(tree.set(child, col), child)
-                for child in tree.get_children('')])
-
     # separate out the column data so we can verify it is all the same type
-    column_values = next(raw_data)
-    column_keys = next(raw_data)
+    column_keys = tree.get_children('')
+    column_values = [tree.set(child, col) for child in column_keys]
 
     # if the all the data to be sorted is numeric change to float
     if all(map(is_float, column_values)):
