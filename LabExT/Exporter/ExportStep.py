@@ -1,6 +1,3 @@
-
-
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -29,6 +26,19 @@ else:
 
 
 class ExportFormatStep(Step):
+    """ 
+    Base class for export format steps. 
+
+    Normally, this class should be subclassed to implement the _export method.
+    The _export method should call export_success when it is done.
+    You can also override the build and build_overview methods to customize the step.
+
+    The build method is used to create the GUI elements to configure the export.
+    The build_overview method is used to show a confirmation of a successful export.
+
+    By default, the build method promps the user for a directory and makes the result available in self.export_path.get().
+    """
+    
     FORMAT_TITLE = "Example Export Format Step (change me)"
 
     def __init__(self, wizard: ExportWizard) -> None:
