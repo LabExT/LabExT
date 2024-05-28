@@ -17,71 +17,71 @@ from LabExT.Measurements.MeasAPI.Measparam import MeasParamInt
 
 from LabExT.View.Controls.SweepParameterFrame import JSONRepresentation
 
+def create_parameter_sweep_todos(experiment, sweep_ranges: JSONRepresentation, measurement: Measurement, device: Device) -> None:
+    """Creates `ToDo`s for all necessary configurations of swept parameters. 
+            
+    Args:
+        experiment: The experiment to add the `ToDo`s to
+        sweep_ranges: The results of the sweep parameter stage
+        measurement: The measurement to perform
+        device: The device the measurement should be performed on
+    """
+    dataframes_per_parameter = [pd.DataFrame(series, columns=[param_name])
+                                    for param_name, (series, _) in sweep_ranges.items()]
+
+    parameters = dataframes_per_parameter[0]
+    for dataframe in dataframes_per_parameter[1:]:
+        parameters = parameters.merge(dataframe, how='cross')
+
+    # used to store summary dict
+    dict_wrap = DictionaryWrapper()
+
+    for index, row in parameters.iterrows():
+        # create new object
+        meas_class_name: str = type(measurement).__name__
+        new_meas = experiment.create_measurement_object(
+            meas_class_name)
+
+        new_meas.instruments = measurement.instruments.copy()
+        new_meas.selected_instruments = measurement.selected_instruments.copy()
+
+        new_meas.parameters = measurement.parameters.copy()
+        for name, value in zip(row.index, row):
+            new_param = measurement.parameters[name].copy()
+            if type(new_param) == MeasParamInt:
+                new_param.value = int(value)
+            else:
+                new_param.value = value
+            new_meas.parameters[name] = new_param
+
+        parameters.loc[index, 'id'] = new_meas.id.hex
+        parameters.loc[index, 'name'] = new_meas.get_name_with_id()
+
+        experiment.to_do_list.append(
+            ToDo(
+                device=device,
+                measurement=new_meas,
+                part_of_sweep=True,
+                sweep_parameters=parameters,
+                dictionary_wrapper=dict_wrap
+            )
+        )
+
+    parameters['finished'] = False
+
+
 #############
 # Controllers
 #############
 
-
 class SaveButtonsController(WizardEntryController):
-
-    def _setup_sweep(self,
-                     sweep_ranges: JSONRepresentation,
-                     measurement: Measurement,
-                     device: Device) -> None:
-        """Creates `ToDo`s for all necessary configurations of swept parameters.
-        
-        Args:
-            sweep_ranges: The results of the sweep parameter stage
-            measurement: The measurement to perform
-            device: The device the measurement should be performed on
-        """
-
-        dataframes_per_parameter = [pd.DataFrame(series, columns=[param_name])
-                                    for param_name, (series, _) in sweep_ranges.items()]
-
-        parameters = dataframes_per_parameter[0]
-        for dataframe in dataframes_per_parameter[1:]:
-            parameters = parameters.merge(dataframe, how='cross')
-
-        # used to store summary dict
-        dict_wrap = DictionaryWrapper()
-
-        for index, row in parameters.iterrows():
-            # create new object
-            meas_class_name: str = type(measurement).__name__
-            new_meas = self._main_controller._experiment.create_measurement_object(
-                meas_class_name)
-
-            new_meas.instruments = measurement.instruments.copy()
-            new_meas.selected_instruments = measurement.selected_instruments.copy()
-
-            new_meas.parameters = measurement.parameters.copy()
-            for name, value in zip(row.index, row):
-                new_param = measurement.parameters[name].copy()
-                if type(new_param) == MeasParamInt:
-                    new_param.value = int(value)
-                else:
-                    new_param.value = value
-                new_meas.parameters[name] = new_param
-
-            parameters.loc[index, 'id'] = new_meas.id.hex
-            parameters.loc[index, 'name'] = new_meas.get_name_with_id()
-
-            self._main_controller._experiment.to_do_list.append(ToDo(device=device,
-                                                                     measurement=new_meas,
-                                                                     part_of_sweep=True,
-                                                                     sweep_parameters=parameters,
-                                                                     dictionary_wrapper=dict_wrap))
-
-        parameters['finished'] = False
-
     def results(self):
         dev: Device = self._main_controller.model.results[0]
         meas: Measurement = self._main_controller.model.results[1]['measurement']
         sweepable: JSONRepresentation = self._main_controller.model.results[self._stage - 1]
 
         if len(sweepable) > 0:
-            self._setup_sweep(sweepable, meas, dev)
+            create_parameter_sweep_todos(self._main_controller._experiment, sweepable, meas, dev)
         else:
             t = ToDo(device=dev, measurement=meas)
             self._main_controller._experiment.to_do_list.append(t)

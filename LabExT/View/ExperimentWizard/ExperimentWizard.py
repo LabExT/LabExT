@@ -22,6 +22,7 @@ from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.SweepParameterFrame import SweepParameterFrame
 from LabExT.View.Controls.Wizard import Wizard, Step
 from LabExT.View.TooltipMenu import CreateToolTip
+from LabExT.View.EditMeasurementWizard.WizardEntry.SaveButtons import create_parameter_sweep_todos
 
 if TYPE_CHECKING:
     from tkinter import Tk
@@ -84,45 +85,12 @@ class ExperimentWizard(Wizard):
         self.step_parameter_selection.write_parameters()
         self.step_parameter_sweep.write_parameters()
         sweep_params = self.step_parameter_sweep.get_sweep_parameters()
+        print(sweep_params)
 
-        for measurement, sweep_params in zip(self.experiment.selected_measurements, sweep_params):
-            for device in self.experiment.device_list:
-                if sweep_params:
-                    dataframes_per_parameter = [pd.DataFrame(series, columns=[param_name])
-                                                for param_name, (series, _) in sweep_params.items()]
-
-                    parameters = dataframes_per_parameter[0]
-                    for dataframe in dataframes_per_parameter[1:]:
-                        parameters = parameters.merge(dataframe, how='cross')
-
-                    # used to store summary dict
-                    dict_wrap = DictionaryWrapper()
-
-                    for index, row in parameters.iterrows():
-                        # create new object
-                        meas_class_name: str = type(measurement).__name__
-                        new_meas = self.experiment.create_measurement_object(
-                            meas_class_name)
-
-                        new_meas.instruments = measurement.instruments.copy()
-                        new_meas.selected_instruments = measurement.selected_instruments.copy()
-
-                        new_meas.parameters = measurement.parameters.copy()
-                        for name, value in zip(row.index, row):
-                            new_param = measurement.parameters[name].copy()
-                            new_param.value = value
-                            new_meas.parameters[name] = new_param
-
-                        parameters.loc[index, 'id'] = new_meas.id.hex
-                        parameters.loc[index, 'name'] = new_meas.get_name_with_id()
-
-                        self.experiment.to_do_list.append(
-                            ToDo(device=device,
-                                measurement=new_meas,
-                                part_of_sweep=True,
-                                sweep_parameters=parameters,
-                                dictionary_wrapper=dict_wrap)
-                        )
+        for device in self.experiment.device_list:
+            for measurement, meas_sweep_params in sweep_params:
+                if meas_sweep_params:
+                    create_parameter_sweep_todos(self.experiment, meas_sweep_params, measurement, device)
                 
                 else:
                     self.experiment.to_do_list.append(ToDo(device=device, measurement=measurement))
@@ -502,13 +470,13 @@ class ParameterSweep(Step):
 
             sweep_frame.pack(padx=5, pady=10, side=TOP, fill='x', expand=False)
 
-            self.frames.append(sweep_frame)
+            self.frames.append((measurement, sweep_frame))
 
     def get_sweep_parameters(self):
-        return [sweep_frame.results() for sweep_frame in self.frames]
+        return [(measurement, sweep_frame.results()) for measurement, sweep_frame in self.frames]
     
     def write_parameters(self) -> None:
-        for measurement, frame in zip(self.exp_manager.exp.selected_measurements, self.frames):
+        for measurement, frame in self.frames:
             
             data = {}
             with open(self.SETTINGS_PATH, 'r') as json_file:
