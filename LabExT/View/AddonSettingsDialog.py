@@ -51,6 +51,9 @@ class AddonSettingsDialog:
         self.wizard_window.title("Addon Settings")
         self.wizard_window.focus_force()
 
+        self.wizard_window.columnconfigure(0, weight=1)
+        self.wizard_window.rowconfigure(3, weight=1)
+
         #
         # top level hint
         #
@@ -64,6 +67,7 @@ class AddonSettingsDialog:
         #
         addon_path_frame = CustomFrame(self.wizard_window)
         addon_path_frame.title = " addon paths "
+        addon_path_frame.columnconfigure(1, weight=1)
         addon_path_frame.grid(row=1, column=0, padx=5, pady=5, sticky='nswe')
 
         # place hint
@@ -88,7 +92,7 @@ class AddonSettingsDialog:
         #
         user_input_path = StringVar(self._root)
         Label(addon_path_frame, text="path:").grid(row=2, column=0, padx=5, sticky='w')
-        Entry(addon_path_frame, width=50, textvariable=user_input_path).grid(row=2, column=1, padx=5, sticky='we')
+        Entry(addon_path_frame, textvariable=user_input_path).grid(row=2, column=1, padx=5, sticky='we')
         Button(addon_path_frame, text='Add Path', command=lambda: self.add_addon_path(user_input_path.get())).grid(row=2, column=2, padx=5, sticky='e')
         Button(addon_path_frame, text='Browse', command=lambda: self.add_addon_path(filedialog.askdirectory())).grid(row=2, column=3, padx=5, sticky='e')
 
@@ -100,10 +104,13 @@ class AddonSettingsDialog:
             "CardFrames": self._exp_mgr.live_viewer_cards,
             "Stages": self._exp_mgr.mover.stage_classes,
             "Chip Sources": self._exp_mgr.chip_source_api.chip_sources,
+            "Export Formats": self._exp_mgr.export_format_api.export_formats,
         }
 
         for title, data in loaded_addons.items():
             frame = CustomFrame(nb)
+            frame.rowconfigure(0, weight=1)
+            frame.columnconfigure(0, weight=1)
             nb.add(frame, text=title)
 
             treeview = Treeview(frame)
@@ -114,9 +121,9 @@ class AddonSettingsDialog:
                 for path in paths.PluginLoader_module_path:
                     treeview.insert(header, END, text=path)
 
-            treeview.pack(side=TOP, fill=X, padx=10, pady=(10, 5))
+            treeview.grid(row=0, column=0, padx=10, pady=(10, 5), sticky='nswe')
 
-        nb.grid(sticky='nswe')
+        nb.grid(row=3, sticky='nswe')
 
         #
         # bottom row buttons

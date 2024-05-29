@@ -242,6 +242,7 @@ class ParameterTable(CustomFrame):
     def serialize_to_dict(self, settings: dict):
         """Serializes data in table to dict. Takes a dict as parameter and first converts all the data
         of this parameter table to json-able format and then writes this to the provided dict with the new key 'data'."""
+        settings['data'] = {}
         if self._parameter_source is None:
             return False
         data = {}

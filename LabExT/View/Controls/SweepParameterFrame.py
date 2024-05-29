@@ -20,7 +20,7 @@ from LabExT.Measurements.MeasAPI.Measparam import MeasParam, MeasParamInt, MeasP
 
 if TYPE_CHECKING:
     CategoryType = Literal[
-        "step_size", "step_count_linear", "step_count_logarithmic", "step_count_repetition", "binary"
+        "step_size", "step_count_linear", "step_count_logarithmic", "step_count_repetition", "binary", "list"
     ]
 
     RangeRepresentation = Tuple[pd.Series, CategoryType]
@@ -262,7 +262,7 @@ class RangeEntry(Frame):
                 )
 
             step_count = int(np.floor((to - from_) / step))
-            return (pd.Series([from_ + i * step for i in range(step_count)]), "step_size")
+            return (pd.Series([from_ + i * step for i in range(step_count + 1)]), "step_size")
 
         elif category == self._selection["step_count_linear"]:
             step_size = (to - from_) / (step - 1)
@@ -320,6 +320,16 @@ class RangeEntry(Frame):
         self.__setup__()
 
 
+class BinaryEntry(Label):
+    pass
+
+
+class ListEntry(Label):
+    def __init__(self, options: List, *args, **kwargs) :
+        super().__init__(*args, **kwargs)
+        self.options = options.copy()
+
+
 class SweepParameterFrame(CustomFrame):
     """A table allowing the user to choose parameters to sweep and set their ranges."""
 
@@ -351,7 +361,7 @@ class SweepParameterFrame(CustomFrame):
 
         self._logger.debug(f"Setting up SweepParameterFrame with parameters: {self._remaining_parameters}")
 
-        self._ranges: List[Tuple[OptionMenu, Union[RangeEntry, Label], StringVar]] = list()
+        self._ranges: List[Tuple[OptionMenu, Union[RangeEntry, BinaryEntry, ListEntry], StringVar]] = list()
 
         self._minus_button = Button(self, text="-", command=self.on_minus)
         self._plus_button = Button(self, text="+", command=self.on_plus)
@@ -456,7 +466,12 @@ class SweepParameterFrame(CustomFrame):
             param_name: the name of the parameter.
         """
         if self._parameters[param_name].sweep_type == "binary":
-            return Label(self, text="Will be True and False")
+            return BinaryEntry(master=self, text="Will be True and False.")
+        elif self._parameters[param_name].sweep_type == "list":
+            return ListEntry(
+                options=self._parameters[param_name].options,
+                master=self,
+                text="Will cycle through all list options.")
         elif self._parameters[param_name].sweep_type == "range":
             param_value_low = self._parameters[param_name].value
             param_value_high = 2 * (abs(param_value_low) + 1)
@@ -473,7 +488,7 @@ class SweepParameterFrame(CustomFrame):
         else:
             raise AssertionError(
                 "SweepParameterFrame should not receive parameters"
-                + "whose sweep type differ from 'binary' and 'range'."
+                + "whose sweep type differ from 'binary' and 'range' and 'list'."
             )
 
     def __setup__(self):
@@ -524,8 +539,12 @@ class SweepParameterFrame(CustomFrame):
         for _, range_entry, text in self._ranges:
             if type(range_entry) == RangeEntry:
                 out_dict[text.get()] = range_entry.results()
-            else:
+            elif type(range_entry) == BinaryEntry:
                 out_dict[text.get()] = (pd.Series([True, False]), "binary")
+            elif type(range_entry) == ListEntry:
+                out_dict[text.get()] = (pd.Series(range_entry.options), "list")
+            else:
+                raise ValueError('Unknown range entry type: ' + str(range_entry))
         return out_dict
 
     def serialize(
