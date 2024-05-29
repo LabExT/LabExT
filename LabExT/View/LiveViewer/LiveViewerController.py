@@ -7,7 +7,6 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 from typing import TYPE_CHECKING
 
-import uuid
 import datetime
 from collections import OrderedDict
 import json
@@ -15,6 +14,7 @@ from json import JSONDecodeError
 from os import makedirs
 from os.path import dirname, join
 from typing import TYPE_CHECKING, Dict, Tuple
+from copy import deepcopy
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.PluginLoader import PluginLoader
@@ -196,7 +196,7 @@ class LiveViewerController:
         cards_props = {}
         inst_props = {}
         for _, card in self.model.cards:
-            param_data = {}
+            param_data = {'data': {}}
             card.ptable.serialize_to_dict(param_data)
             cards_props[card.instance_title] = param_data['data']
 
@@ -235,12 +235,12 @@ class LiveViewerController:
 
         data["device"] = OrderedDict()
         data["device"]["id"] = 0
-        data["device"]["in_position"] = "Not Available"
-        data["device"]["out_position"] = "Not Available"
-        data["device"]["type"] = "Live Viewed Chip"
+        data["device"]["type"] = "Live Viewer Snapshot"
+        data["device"]["in_position"] = [0, 0]
+        data["device"]["out_position"] = [0, 0]
 
-        data["measurement name"] = "Liveviewer Snapshot"
-        data["measurement name and id"] = "Liveviewer Snapshot"
+        data["measurement name"] = "Live Viewer Snapshot"
+        data["measurement name and id"] = "Live Viewer Snapshot"
         data["instruments"] = inst_props
         data["measurement settings"] = cards_props
         data["values"] = OrderedDict()
@@ -250,8 +250,8 @@ class LiveViewerController:
             this_card = trace_key[0]
             trace_name = trace_key[1]
             fqtn = f"{this_card.instance_title:s}: {trace_name:s}"
-            data["values"][f"{fqtn:s}: y-values"] = plot_trace.y_values
-            data["values"][f"{fqtn:s}: timestamps"] = plot_trace.timestamps
+            data["values"][f"{fqtn:s}: y-values"] = deepcopy(plot_trace.y_values)
+            data["values"][f"{fqtn:s}: timestamps"] = deepcopy(plot_trace.timestamps)
 
         data["finished"] = True
 

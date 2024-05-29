@@ -13,7 +13,7 @@ from LabExT.View.EditMeasurementWizard.WizardEntry.FinishedError import WizardFi
 from LabExT.Experiments.ToDo import ToDo, DictionaryWrapper
 from LabExT.Wafer.Device import Device
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
-from LabExT.Measurements.MeasAPI.Measparam import MeasParam
+from LabExT.Measurements.MeasAPI.Measparam import MeasParamInt
 
 from LabExT.View.Controls.SweepParameterFrame import JSONRepresentation
 
@@ -58,7 +58,10 @@ class SaveButtonsController(WizardEntryController):
             new_meas.parameters = measurement.parameters.copy()
             for name, value in zip(row.index, row):
                 new_param = measurement.parameters[name].copy()
-                new_param.value = value
+                if type(new_param) == MeasParamInt:
+                    new_param.value = int(value)
+                else:
+                    new_param.value = value
                 new_meas.parameters[name] = new_param
 
             parameters.loc[index, 'id'] = new_meas.id.hex
