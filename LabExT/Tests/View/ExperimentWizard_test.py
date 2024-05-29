@@ -163,7 +163,7 @@ class ExperimentWizardTest(TKinterTestCase):
 
         with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
             with patch(
-                "LabExT.View.ExperimentWizard.ExperimentWizard.get_visa_address",
+                "LabExT.View.ExperimentWizard.get_visa_address",
                 simulator_only_instruments_descriptions,
             ):
                 exp_wizard._next_button.invoke()
@@ -194,7 +194,7 @@ class ExperimentWizardTest(TKinterTestCase):
 
         with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
             with patch(
-                "LabExT.View.ExperimentWizard.ExperimentWizard.get_visa_address",
+                "LabExT.View.ExperimentWizard.get_visa_address",
                 simulator_only_instruments_descriptions,
             ):
                 with patch("LabExT.Instruments.InstrumentAPI._Instrument.get_visa_lib_string", lambda: "@py"):
