@@ -19,7 +19,7 @@ from LabExT.Utils import get_author_list, try_to_lift_window
 from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 from LabExT.View.MeasurementControlSettings import MeasurementControlSettingsView
-from LabExT.View.ExperimentWizard.ExperimentWizard import ExperimentWizard
+from LabExT.View.ExperimentWizard import ExperimentWizard
 from LabExT.View.Exporter import Exporter
 from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger

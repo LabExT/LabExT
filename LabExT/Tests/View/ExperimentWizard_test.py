@@ -12,7 +12,7 @@ from os.path import join, dirname
 import pytest
 from unittest.mock import Mock, patch, mock_open
 
-from LabExT.View.ExperimentWizard.ExperimentWizard import DeviceSelection, ExperimentWizard
+from LabExT.View.ExperimentWizard import DeviceSelection, ExperimentWizard
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.ChipSources.PhoenixPhotonics import PhoenixPhotonics
 

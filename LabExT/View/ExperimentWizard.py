@@ -4,16 +4,14 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
-import itertools
 import json
 import logging
 import os.path
-import pandas as pd
 
 from typing import TYPE_CHECKING, Union
 from tkinter import Frame, Label, Button, messagebox, TOP
 
-from LabExT.Experiments.ToDo import ToDo, DictionaryWrapper
+from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import get_configuration_file_path, get_visa_address
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Controls.CustomFrame import CustomFrame
@@ -85,7 +83,6 @@ class ExperimentWizard(Wizard):
         self.step_parameter_selection.write_parameters()
         self.step_parameter_sweep.write_parameters()
         sweep_params = self.step_parameter_sweep.get_sweep_parameters()
-        print(sweep_params)
 
         for device in self.experiment.device_list:
             for measurement, meas_sweep_params in sweep_params:
@@ -435,6 +432,7 @@ class ParameterSelection(Step):
 
             table.serialize(file_name=measurement.settings_path)
 
+
 class ParameterSweep(Step):
     SETTINGS_PATH = get_configuration_file_path("sweep_parameters_device_sweep.json")
 
@@ -446,8 +444,6 @@ class ParameterSweep(Step):
     def build(self, frame: Frame):
         frame.title = "Parameter Sweep"
         
-        data = {}
-
         if not os.path.isfile(self.SETTINGS_PATH):
             with open(self.SETTINGS_PATH, 'w') as json_file:
                 json_file.write(json.dumps({}, indent=4)) 
@@ -461,8 +457,8 @@ class ParameterSweep(Step):
                                     and param_name not in measurement.get_non_sweepable_parameters().keys()}
             
             sweep_frame = SweepParameterFrame(parent=frame,
-                                            string_var_master=self.wizard,
-                                            parameters=sweepable_parameters)
+                                              string_var_master=self.wizard,
+                                              parameters=sweepable_parameters)
             
             sweep_frame.title = f"Sweep Parameters {measurement.name}"
 
@@ -478,7 +474,6 @@ class ParameterSweep(Step):
     def write_parameters(self) -> None:
         for measurement, frame in self.frames:
             
-            data = {}
             with open(self.SETTINGS_PATH, 'r') as json_file:
                 data = json.loads(json_file.read())
 
