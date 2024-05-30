@@ -190,7 +190,7 @@ class MainWindowControlPanel(ControlPanel):
         # add checkboxes for execution controls
         self.exctrl_mm_pause = Checkbutton(
             self,
-            text="Pause after every device (Manual Mode)",
+            text="Pause after every measurement (Manual Mode)",
             variable=self.model.var_mm_pause,
         )
         self.add_widget(self.exctrl_mm_pause, column=0, row=1, sticky="we")
