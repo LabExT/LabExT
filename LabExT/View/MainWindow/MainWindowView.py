@@ -278,20 +278,20 @@ class MainWindowButtonsFrame(LabelFrame):
 
         self.new_meas_button = Button(
             self,
-            text="New single measurement (Ctrl+N)",
+            text="New Single-Device Single-Measurement Experiment (Ctrl+N)",
             command=self.controller.new_single_measurement,
         )
         self.new_meas_button.grid(row=0, column=0, sticky="we", padx=5, pady=5)
         self.new_meas_button.focus_set()
         self.new_exp_button = Button(
             self,
-            text="New device sweep experiment",
+            text="New Multi-Device Multi-Measurement Experiment",
             command=self.controller.new_swept_devices_experiment,
         )
         self.new_exp_button.grid(row=1, column=0, sticky="we", padx=5)
         self.repeat_meas_button = Button(
             self,
-            text="Repeat last executed measurements (Ctrl+R)",
+            text="Repeat Last Executed Measurements (Ctrl+R)",
             command=self.controller.repeat_last_exec_measurement,
         )
         self.repeat_meas_button.grid(row=2, column=0, sticky="we", padx=5, pady=5)
