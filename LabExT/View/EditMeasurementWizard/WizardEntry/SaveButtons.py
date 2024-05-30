@@ -71,7 +71,7 @@ def create_parameter_sweep_todos(
             )
         )
 
-        parameters["metadata", "finished"] = False
+    parameters["metadata", "finished"] = False
 
 
 #############

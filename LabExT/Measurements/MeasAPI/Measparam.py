@@ -46,7 +46,7 @@ class MeasParam:
         return d
 
     @property
-    def sweep_type(self) -> Union[None, Literal["binary", "range"]]:
+    def sweep_type(self) -> Union[None, Literal["binary", "range", "list"]]:
         """Returns the type of sweep this parameter supports.
         """
         return None
@@ -70,7 +70,7 @@ class MeasParamInt(MeasParam):
         return self._value
 
     @property
-    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+    def sweep_type(self) -> Union[Literal['binary', 'range', 'list'], None]:
         return "range"
 
     @value.setter
@@ -95,7 +95,7 @@ class MeasParamFloat(MeasParam):
         return self._value
 
     @property
-    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+    def sweep_type(self) -> Union[Literal['binary', 'range', 'list'], None]:
         return "range"
 
     @value.setter
@@ -123,7 +123,7 @@ class MeasParamBool(MeasParam):
     """
 
     @property
-    def sweep_type(self) -> Union[Literal['binary', 'range'], None]:
+    def sweep_type(self) -> Union[Literal['binary', 'range', 'list'], None]:
         return "binary"
 
     def __init__(self, value=None, unit=None, extra_type=None):
@@ -136,6 +136,10 @@ class MeasParamList(MeasParam):
     Aside from the MeasParam arguments, needs the `options` argument, a list of all possible selections. Gets rendered
     as a drop-down menu in LabExT GUI.
     """
+    
+    @property
+    def sweep_type(self) -> Union[Literal['binary', 'range', 'list'], None]:
+        return "list"
 
     def __init__(self, options, value=None, unit=None, extra_type=None):
         """Constructor.
