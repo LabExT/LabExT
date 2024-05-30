@@ -22,7 +22,7 @@ from LabExT.Instruments.InstrumentAPI import InstrumentAPI
 from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
-from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
+from LabExT.Utils import get_configuration_file_path, get_visa_lib_string
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
@@ -183,9 +183,6 @@ class ExperimentManager:
 
         # we're good to go!
         self.logger.info("LabExT started.")
-
-    def set_experiment(self, experiment):
-        raise DeprecatedException("Experiment object must not be recreated!")
 
     def register_chip(self, chip: Chip):
         """ A new chip manifest has been loaded - register it for usage throughout LabExT. """
