@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 
 import logging
 import json
-from typing import List
+from typing import List, Dict
 from LabExT.Utils import get_configuration_file_path
 
 from LabExT.Wafer.Device import Device
@@ -64,7 +64,7 @@ class Chip:
         return self._name
 
     @property
-    def devices(self) -> dict:
+    def devices(self) -> Dict[str, Device]:
         """Return a dictionary of all devices with device ID as keys."""
         return {device.id: device for device in self._devices}
 

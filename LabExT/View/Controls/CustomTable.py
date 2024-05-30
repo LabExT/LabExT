@@ -82,7 +82,7 @@ class CustomTable(object):
         self._root.grid_columnconfigure(0, weight=1)
         self._root.grid_rowconfigure(0, weight=1)
 
-    def get_tree(self):
+    def get_tree(self) -> CustomTreeview:
         """Getter for treeview object
         """
         return self._tree
