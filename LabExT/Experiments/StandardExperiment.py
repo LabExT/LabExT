@@ -245,18 +245,23 @@ class StandardExperiment:
 
             data["sweep_information"] = OrderedDict()
             data["sweep_information"]["part_of_sweep"] = current_todo.part_of_sweep
-            data["sweep_information"]["sweep_association"] = OrderedDict()
+            data["sweep_information"]["sweep_association"] = list()
             if current_todo.part_of_sweep:
                 sweep_params = current_todo.sweep_parameters
-                # we select all columns except 'finished and 'file_path'
-                for _, row in sweep_params.loc[
-                    :, (sweep_params.columns != "finished") & (sweep_params.columns != "file_path")
-                ].iterrows():
+                for _, row in sweep_params.iterrows():
                     # iterate through the rows (i.e. Measurements) belonging to this sweep and store
                     # to metadata
-                    data["sweep_information"]["sweep_association"][row["name"]] = {
-                        name: value for name, value in zip(row.index, row)
+                    temp_dict = dict()
+                    temp_dict["metadata"] = {
+                        name: value
+                        for name, value in zip(row["metadata"].index, row["metadata"])
+                        if name not in ["finished"]
                     }
+                    temp_dict["measurement settings"] = {
+                        name: value
+                        for name, value in zip(row["measurement settings"].index, row["measurement settings"])
+                    }
+                    data["sweep_information"]["sweep_association"].append(temp_dict)
 
             data["finished"] = False
 
@@ -326,11 +331,11 @@ class StandardExperiment:
                 if current_todo.part_of_sweep:
                     sweep_params = current_todo.sweep_parameters
                     # update sweep information
-                    meas_mask = sweep_params["id"] == measurement.id.hex
+                    meas_mask = sweep_params["metadata", "id"] == measurement.id.hex
                     meas_index = sweep_params[meas_mask].index.to_list()[0]
 
-                    sweep_params.loc[meas_index, "finished"] = True
-                    sweep_params.loc[meas_index, "file_path"] = final_path
+                    sweep_params.loc[meas_index, ("metadata", "finished")] = True
+                    sweep_params.loc[meas_index, ("metadata", "file_path")] = final_path
 
                     # make sure all measurements of this sweep share the same summary dictionary
                     if not current_todo.dictionary_wrapper.available:
@@ -340,17 +345,21 @@ class StandardExperiment:
 
                     # this is the dictionary storing the association list of measurements and
                     # parameters in the summary file
-                    sweep_list = OrderedDict()
+                    sweep_list = list()
 
-                    # store the names of the parameters used in sweep
-                    param_names = list(sweep_params.columns)
-                    param_names.remove("name")
-                    param_names.remove("finished")
-                    # go through all measurements and store parameters for each
+                    # go through all measurements and store parameters and metadata for each
                     for _, row in sweep_params.iterrows():
-                        sweep_list[row["name"]] = {
-                            param_name: param_value for param_name, param_value in zip(param_names, row[param_names])
+                        temp_dict = OrderedDict()
+                        temp_dict["metadata"] = {
+                            name: value
+                            for name, value in zip(row["metadata"].index, row["metadata"])
+                            if name not in ["finished"]
                         }
+                        temp_dict["measurement settings"] = {
+                            name: value
+                            for name, value in zip(row["measurement settings"].index, row["measurement settings"])
+                        }
+                        sweep_list.append(temp_dict)
 
                     # store summary data in shared dictionary and write to disk
                     current_todo.dictionary_wrapper.get["sweep_association_list"] = sweep_list
