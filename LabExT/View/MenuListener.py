@@ -20,7 +20,7 @@ from LabExT.View.AddonSettingsDialog import AddonSettingsDialog
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
 from LabExT.View.MeasurementControlSettings import MeasurementControlSettingsView
 from LabExT.View.ExperimentWizard import ExperimentWizard
-from LabExT.View.Exporter import Exporter
+from LabExT.Exporter.ExportWizard import ExportWizard
 from LabExT.View.ExtraPlots import ExtraPlots
 from LabExT.View.InstrumentConnectionDebugger import InstrumentConnectionDebugger
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
@@ -155,13 +155,16 @@ class MListener:
         )
 
     def client_export_data(self):
-        """Called when user wants to export data. Starts the Exporter."""
+        """Called when user wants to export data. Starts the Exporter.
+        """
+        
         if try_to_lift_window(self.exporter_toplevel):
             return
-
-        self.logger.debug("Client wants to export data")
-        exporter = Exporter(self._root, self._experiment_manager)
-        self.exporter_toplevel = exporter._meas_window
+        
+        self.exporter_toplevel = ExportWizard(
+            master=self._root,
+            experiment_manager=self._experiment_manager
+        )
 
     @staticmethod
     def client_quit():
