@@ -58,8 +58,8 @@ def create_parameter_sweep_todos(
                 new_param.value = value
             new_meas.parameters[name] = new_param
 
-        parameters.loc[index, ("metadata", "id")] = new_meas.id.hex
-        parameters.loc[index, ("metadata", "name")] = new_meas.get_name_with_id()
+        parameters.loc[index, ("metadata", "id")] = str(new_meas.id.hex)
+        parameters.loc[index, ("metadata", "name")] = str(new_meas.name)
 
         experiment.to_do_list.append(
             ToDo(
