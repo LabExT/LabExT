@@ -239,7 +239,7 @@ class StandardExperiment:
 
             data["sweep_information"] = OrderedDict()
             data["sweep_information"]["part_of_sweep"] = current_todo.part_of_sweep
-            data["sweep_information"]["sweep_association"] = OrderedDict()
+            data["sweep_information"]["sweep_association"] = list()
             if current_todo.part_of_sweep:
                 sweep_params = current_todo.sweep_parameters
                 for _, row in sweep_params.iterrows():
@@ -249,13 +249,13 @@ class StandardExperiment:
                     temp_dict["metadata"] = {
                         name: value
                         for name, value in zip(row["metadata"].index, row["metadata"])
-                        if name not in ["finished", "name"]
+                        if name not in ["finished"]
                     }
                     temp_dict["measurement settings"] = {
                         name: value
                         for name, value in zip(row["measurement settings"].index, row["measurement settings"])
                     }
-                    data["sweep_information"]["sweep_association"][row["metadata", "name"]] = temp_dict
+                    data["sweep_information"]["sweep_association"].append(temp_dict)
 
             data["finished"] = False
 
@@ -339,7 +339,7 @@ class StandardExperiment:
 
                     # this is the dictionary storing the association list of measurements and
                     # parameters in the summary file
-                    sweep_list = OrderedDict()
+                    sweep_list = list()
 
                     # go through all measurements and store parameters and metadata for each
                     for _, row in sweep_params.iterrows():
@@ -347,13 +347,13 @@ class StandardExperiment:
                         temp_dict["metadata"] = {
                             name: value
                             for name, value in zip(row["metadata"].index, row["metadata"])
-                            if name not in ["name", "finished"]
+                            if name not in ["finished"]
                         }
                         temp_dict["measurement settings"] = {
                             name: value
                             for name, value in zip(row["measurement settings"].index, row["measurement settings"])
                         }
-                        sweep_list[row["metadata", "name"]] = temp_dict
+                        sweep_list.append(temp_dict)
 
                     # store summary data in shared dictionary and write to disk
                     current_todo.dictionary_wrapper.get["sweep_association_list"] = sweep_list
