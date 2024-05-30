@@ -57,6 +57,7 @@ class PlotView:
             axis_z_var=plot_model.axis_z_key_name,
             buckets_count_var=plot_model.contour_bucket_count,
             interpolation_type_var=plot_model.contour_interpolation_type,
+            plot_title_var=plot_model.plot_title,
             axis_bound_type_var=plot_model.axis_bound_types,
             axis_bounds=plot_model.axis_bounds,
             data_bound_var=plot_model.data_bound_set,
@@ -130,6 +131,7 @@ class PlottingSettingsFrame(CustomFrame):
         axis_z_var: tk.StringVar,
         buckets_count_var: tk.IntVar,
         interpolation_type_var: tk.StringVar,
+        plot_title_var: tk.StringVar,
         axis_bounds: list[tuple[float, float]],
         axis_bound_type_var: tk.StringVar,
         data_bound_var: tk.BooleanVar,
@@ -169,7 +171,8 @@ class PlottingSettingsFrame(CustomFrame):
 
         # legend options
         self._legend_options = legend_elements
-        self._legend_changed_callbacks: list[Callable[[None], None]] = []
+        self._legend_changed_callbacks: list[Callable[[], None]] = []
+        self._plot_title_var = plot_title_var
 
         self.__set_vars_trace_method(
             [
@@ -567,18 +570,35 @@ class PlottingSettingsFrame(CustomFrame):
         design_container = CustomFrame(self)
         design_container.title = "Design Settings"
 
+        title_entry = tk.Entry(design_container, textvariable=self._plot_title_var, justify="right")
+        title_label = tk.Label(design_container, anchor="w", text="Plot Title:")
+
+        title_entry.bind("<FocusOut>", lambda *_: self.__notify_settings_changed_callbacks())
+        title_entry.bind("<Return>", lambda *_: self.focus())
+
+        row = 0
+        design_container.add_widget(title_label, column=0, row=row, ipadx=10, ipady=0, sticky="we")
+        design_container.add_widget(title_entry, column=1, row=row, ipadx=10, ipady=0, sticky="ew")
+
+        row += 1
+
         color_label = tk.Label(design_container, anchor="w", text="Colormap for plots:")
         color_menu = tk.OptionMenu(design_container, self._color_map, *COLOR_MAPS)
-        design_container.add_widget(color_label, column=0, row=0, ipadx=10, ipady=0, sticky="we")
-        design_container.add_widget(color_menu, column=1, row=0, ipadx=10, ipady=0, sticky="ew")
+        design_container.add_widget(color_label, column=0, row=row, ipadx=10, ipady=0, sticky="we")
+        design_container.add_widget(color_menu, column=1, row=row, ipadx=10, ipady=0, sticky="ew")
+
+        row += 1
 
         bound_label = tk.Label(design_container, anchor="w", text="Axis bounds type:")
         bound_menu = tk.OptionMenu(design_container, self._axis_bound_types, *AXIS_BOUND_TYPES)
-        design_container.add_widget(bound_label, column=0, row=1, ipadx=10, ipady=0, sticky="we")
-        design_container.add_widget(bound_menu, column=1, row=1, ipadx=10, ipady=0, sticky="ew")
+        design_container.add_widget(bound_label, column=0, row=row, ipadx=10, ipady=0, sticky="we")
+        design_container.add_widget(bound_menu, column=1, row=row, ipadx=10, ipady=0, sticky="ew")
+
+        row += 1
 
         design_container.rowconfigure(0, weight=0)
         design_container.rowconfigure(1, weight=0)
+        design_container.rowconfigure(2, weight=0)
 
         if self._axis_bound_types.get() == AXIS_BOUND_CUSTOM:
 
@@ -742,15 +762,17 @@ class PlottingSettingsFrame(CustomFrame):
                 command=lambda *_: self.__notify_settings_changed_callbacks(),
             )
 
-            design_container.add_widget(x_frame, column=0, row=2, sticky="we")
-            design_container.add_widget(y_frame, column=1, row=2, sticky="ew")
-            button_row = 3
+            design_container.add_widget(x_frame, column=0, row=row, sticky="we")
+            design_container.add_widget(y_frame, column=1, row=row, sticky="ew")
+
+            row += 1
+
             if self._plot_type_var.get() != LINE_PLOT:
-                design_container.add_widget(use_z_checkbox, column=0, row=3, sticky="w")
+                design_container.add_widget(use_z_checkbox, column=0, row=row, sticky="w")
                 if self._use_data_bounds.get():
-                    design_container.add_widget(z_frame, column=1, row=3, sticky="ew")
-                    button_row += 1
-            design_container.add_widget(update_button, column=1, row=button_row, sticky="we")
+                    design_container.add_widget(z_frame, column=1, row=row, sticky="ew")
+                    row += 1
+            design_container.add_widget(update_button, column=1, row=row, sticky="we")
             design_container.rowconfigure(2, weight=0)
 
             x_min_var.trace_add(

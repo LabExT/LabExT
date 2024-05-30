@@ -38,6 +38,8 @@ class PlotModel:
 
         self.legend_elements: list[str] = []
         """Stores the names of the elements selected for the legend."""
+        self.plot_title = tk.StringVar()
+        """Stores the title provided by the user. If empty no title is drawn."""
         self.axis_bounds: list[tuple[float, float]] = [(0, 0), (0, 0)]
         """Stores the lower and upper bounds for the x- and y- axis.
            The format is `[(x_low, x_high), (y_low, y_high)]`"""

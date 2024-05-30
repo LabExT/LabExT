@@ -109,6 +109,9 @@ class PlotController:
         elif self._model.plot_type.get() in [CONTOUR, CONTOUR_F]:
             self.__draw_axes_contour_plot()
 
+        if self._model.plot_title.get() != "":
+            self._model.figure.axes[0].set_title(self._model.plot_title.get())
+
         # redraw canvas
         self._view._plotting_frame.data_changed_callback()
 
@@ -123,7 +126,7 @@ class PlotController:
                 elif name == "Measurement ID":
                     res += meas["measurement id long"][-5:]
                 else:
-                    res += f"{name} = {meas['measurement_params'][name]}"
+                    res += f"{name} = {meas['measurement settings'][name]}"
             return res
 
         # define the colors used by the individual lines
