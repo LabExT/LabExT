@@ -55,7 +55,6 @@ class MainWindowContextMenu(Menu):
         self.add_cascade(label="Settings", menu=self._settings)
         self.add_cascade(label="Help", menu=self._help)
 
-        self._file.add_command(label="New Experiment", command=self._menu_listener.client_new_experiment)
         self._file.add_command(label="Load Data", command=self._menu_listener.client_load_data)
         self._file.add_command(label="Import Chip", command=self._menu_listener.client_import_chip)
         self._file.add_command(label="Export Data", command=self._menu_listener.client_export_data)
