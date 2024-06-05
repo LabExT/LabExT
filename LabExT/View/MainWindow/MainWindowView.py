@@ -277,7 +277,7 @@ class MainWindowButtonsFrame(LabelFrame):
 
         self.new_meas_button = Button(
             self,
-            text="New Single-Device Single-Measurement Experiment (Ctrl+N)",
+            text="New Single Measurement (Ctrl+N)",
             command=self.controller.new_single_measurement,
         )
         self.new_meas_button.grid(row=0, column=0, sticky="we", padx=5, pady=5)
