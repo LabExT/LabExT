@@ -294,9 +294,6 @@ class MListener:
         main_window.extra_plots = ExtraPlots(meas_table, main_window.view.frame)
         self.extra_plots_toplevel = main_window.extra_plots.cur_window
 
-    def client_side_windows(self):
-        raise DeprecationWarning("Open side windows is deprecated. Do not use.")
-
     def client_live_view(self):
         """Called when user wants to start live view.
         Creates a new instance of LiveViewer, which takes care of
