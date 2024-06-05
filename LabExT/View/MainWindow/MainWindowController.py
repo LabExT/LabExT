@@ -451,9 +451,6 @@ class MainWindowController:
         """
         Called on user click on "Side Window"
         """
-        msg = "The side window functionality will be deprecated in a future minor release of LabExT."
-        self.logger.warning(msg)
-        messagebox.showwarning("Side Windows will be deprecated!", msg)
         selected_todo_idx = self.view.frame.to_do_table.get_selected_todo_index()
         if selected_todo_idx is not None and selected_todo_idx < len(self.experiment_manager.exp.to_do_list):
             sel_todo = self.experiment_manager.exp.to_do_list[selected_todo_idx]
