@@ -8,6 +8,7 @@ Released 2024-06-07
 * usability: much nicer Addon loading overview dialog
 * usability: slight change to the schema of the saved measurement sweep summary - measurement settings can in any case be distinguished from metadata now
 * under-the-hood: removing of old, deprecated code
+* under-the-hood: update of dependencies due to safety reasons
 
 ## Version 2.3.0
 Released 2024-03-11
