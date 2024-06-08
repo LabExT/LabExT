@@ -13,7 +13,7 @@ from tkinter import Tk, Toplevel, messagebox
 from tkinter.simpledialog import askinteger
 
 from LabExT.Experiments.ToDo import ToDo
-from LabExT.Utils import DeprecatedException, get_configuration_file_path
+from LabExT.Utils import get_configuration_file_path
 from LabExT.View.EditMeasurementWizard.EditMeasurementWizardController import EditMeasurementWizardController
 from LabExT.View.MainWindow.MainWindowModel import MainWindowModel
 from LabExT.View.MainWindow.MainWindowView import MainWindowView
@@ -83,9 +83,6 @@ class MainWindowController:
         """
         self.serialize_parameter_frame()
         self.on_shutdown()
-
-    def experiment_changed(self, ex):
-        raise DeprecatedException("Experiment object must not be recreated!")
 
     def update_tables(self, plot_new_meas=False):
         """Updates the two tables in the main window."""
@@ -244,10 +241,6 @@ class MainWindowController:
         # save back to file
         with open(settings_path, "w") as fp:
             json.dump(existing_settings, fp)
-
-    def open_settings_window(self):
-        """Opens the settings window."""
-        raise DeprecationWarning("Open Settings window is deprecated. Do not use!")
 
     def open_edit_measurement_wizard(self):
         """
@@ -451,6 +444,9 @@ class MainWindowController:
         """
         Called on user click on "Side Window"
         """
+        msg = "The side window functionality will be deprecated in a future minor release of LabExT."
+        self.logger.warning(msg)
+        messagebox.showwarning("Side Windows will be deprecated!", msg)
         selected_todo_idx = self.view.frame.to_do_table.get_selected_todo_index()
         if selected_todo_idx is not None and selected_todo_idx < len(self.experiment_manager.exp.to_do_list):
             sel_todo = self.experiment_manager.exp.to_do_list[selected_todo_idx]

@@ -19,11 +19,6 @@ from tkinter import TclError, Toplevel, ttk, Label
 
 import unicodedata
 
-
-class DeprecatedException(Exception):
-    pass
-
-
 def get_labext_version() -> tuple[str, str]:
     """
     Finds the release version and the current Git commit the file is on.
