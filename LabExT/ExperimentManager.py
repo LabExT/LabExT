@@ -116,8 +116,7 @@ class ExperimentManager:
             # signal the end of the process
             self.setup_done = False
             # here we set up the progress bar
-            self.pgb = ProgressBar(
-                root, 'Welcome to LabExt\nWe are setting everything up for you!')
+            self.pgb = ProgressBar(root, 'Welcome to LabExT\nWe are setting everything up for you!')
             # this is needed, since tk automatically opens a root window, which we do not want. The withdraw
             # command hides that window
             root.withdraw()

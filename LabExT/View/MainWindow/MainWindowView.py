@@ -55,7 +55,6 @@ class MainWindowContextMenu(Menu):
         self.add_cascade(label="Settings", menu=self._settings)
         self.add_cascade(label="Help", menu=self._help)
 
-        self._file.add_command(label="New Experiment", command=self._menu_listener.client_new_experiment)
         self._file.add_command(label="Load Data", command=self._menu_listener.client_load_data)
         self._file.add_command(label="Import Chip", command=self._menu_listener.client_import_chip)
         self._file.add_command(label="Export Data", command=self._menu_listener.client_export_data)
@@ -191,7 +190,7 @@ class MainWindowControlPanel(ControlPanel):
         # add checkboxes for execution controls
         self.exctrl_mm_pause = Checkbutton(
             self,
-            text="Pause after every device (Manual Mode)",
+            text="Pause after every measurement (Manual Mode)",
             variable=self.model.var_mm_pause,
         )
         self.add_widget(self.exctrl_mm_pause, column=0, row=1, sticky="we")
@@ -278,20 +277,20 @@ class MainWindowButtonsFrame(LabelFrame):
 
         self.new_meas_button = Button(
             self,
-            text="New single measurement (Ctrl+N)",
+            text="New Single Measurement (Ctrl+N)",
             command=self.controller.new_single_measurement,
         )
         self.new_meas_button.grid(row=0, column=0, sticky="we", padx=5, pady=5)
         self.new_meas_button.focus_set()
         self.new_exp_button = Button(
             self,
-            text="New device sweep experiment",
+            text="New Multi-Device Multi-Measurement Experiment",
             command=self.controller.new_swept_devices_experiment,
         )
         self.new_exp_button.grid(row=1, column=0, sticky="we", padx=5)
         self.repeat_meas_button = Button(
             self,
-            text="Repeat last executed measurements (Ctrl+R)",
+            text="Repeat Last Executed Measurements (Ctrl+R)",
             command=self.controller.repeat_last_exec_measurement,
         )
         self.repeat_meas_button.grid(row=2, column=0, sticky="we", padx=5, pady=5)
