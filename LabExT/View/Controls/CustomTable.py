@@ -22,7 +22,8 @@ class CustomTable(object):
                  col_width=20,
                  add_checkboxes=False,
                  selectmode='extended',
-                 showmode='headings'):
+                 showmode='headings',
+                 sortable=True):
         """Constructor.
 
         Parameters
@@ -38,6 +39,8 @@ class CustomTable(object):
         selectmode : str, optional
             Whether the user can select items in the table
             'none' for no selection possible, 'browse' for single row selection, 'extended' for multiple rows selection
+        sortable : bool, optional
+            Sets ability to sort the table when clicking on the column headers
         """
         self._col_width = col_width
         self._root = parent
@@ -48,6 +51,7 @@ class CustomTable(object):
         self._select_mode = selectmode
         self._show_mode = showmode
         self._selection = dict()
+        self._sortable = sortable
 
         self.logger = logging.getLogger()
         self.logger.debug('Initialised CustomTable with parent: %s columns: %s' +
@@ -78,7 +82,7 @@ class CustomTable(object):
         self._root.grid_columnconfigure(0, weight=1)
         self._root.grid_rowconfigure(0, weight=1)
 
-    def get_tree(self):
+    def get_tree(self) -> CustomTreeview:
         """Getter for treeview object
         """
         return self._tree
@@ -107,7 +111,7 @@ class CustomTable(object):
         """
         for col in self._columns:
             self._tree.heading(
-                col, text=col, command=lambda c=col: sortby(self._tree, c, 0))
+                col, text=col, command=lambda c=col: sortby(self._tree, c, 0) if self._sortable else None)
             # adjust the column's width
             self._tree.column(col, width=self._col_width)
 
@@ -172,22 +176,16 @@ def sortby(tree, col, descending):
     descending : bool
         Sort the tree in descending or ascending order.
     """
-    # grab values to sort
-    raw_data = [(tree.set(child, col), child)
-                for child in tree.get_children('')]
+    # separate out the column data so we can verify it is all the same type
+    column_keys = tree.get_children('')
+    column_values = [tree.set(child, col) for child in column_keys]
 
-    data = []
-    # if the data to be sorted is numeric change to float
-    for i, item in enumerate(raw_data):
-        if item[0].isdigit():
-            tup = (int(item[0]), item[1])
-            data.append(tuple(tup))
-        elif item[0] == '':
-            tup = (float('+inf'), item[1])
-            data.append(tuple(tup))
-        else:
-            data.append(item)
+    # if the all the data to be sorted is numeric change to float
+    if all(map(is_float, column_values)):
+        column_values = map(lambda item: float('+inf') if item == '' else float(item), column_values)
 
+    data = zip(column_values, column_keys)
+    
     # sort the data in place
     data = sorted(data, key=lambda x: (x, itemgetter(0)), reverse=descending)
 
@@ -197,3 +195,20 @@ def sortby(tree, col, descending):
     # switch so tree will sort in opposite direction next time it is clicked
     tree.heading(
         col, command=lambda col=col: sortby(tree, col, int(not descending)))
+    
+def is_float(s):
+    """Helper function to check if a string is a float
+    Unfortunately this is the most foolproof method in python
+
+    Parameters
+    ----------
+    s : any
+    """
+    # We convert empty strings to +inf
+    if s == '': return True
+
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False

@@ -11,6 +11,8 @@ from os import remove
 from os.path import join, dirname
 import pytest
 from unittest.mock import Mock, patch, mock_open
+
+from LabExT.View.ExperimentWizard import DeviceSelection, ExperimentWizard
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.ChipSources.PhoenixPhotonics import PhoenixPhotonics
 
@@ -24,11 +26,8 @@ from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.DummyMeas_test import check_DummyMeas_data_output
 from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
 from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
-from LabExT.Tests.View.MainWindow_test import (
-    simulator_only_instruments_descriptions,
-    check_InsertionLossSweep_meas_dict_meta_data,
-)
-from LabExT.View.ExperimentWizard.Components.DeviceWindow import DeviceWindow
+from LabExT.Tests.View.MainWindow_test import check_InsertionLossSweep_meas_dict_meta_data, \
+    simulator_only_instruments_descriptions
 
 
 def check_DummyMeas_meas_dict_meta_data(testinst, meas_record, dev_props=None, meas_props=None):
@@ -97,115 +96,117 @@ class ExperimentWizardTest(TKinterTestCase):
             )
         )
         self.assertIsNotNone(self.expm.chip)
-        self.assertEqual(len(self.expm.chip._devices), 49)
+        self.assertEqual(len(self.expm.chip.devices), 49)
 
         # open new measurement wizard
         with patch("builtins.open", mock_open(read_data="[]")):  # do not load saved settings
             self.mwv.frame.buttons_frame.new_exp_button.invoke()
             self.pump_events()
-        exp_wizard_ctrl = self.mwv.frame.menu_listener._experiment_wizard
+        exp_wizard = self.mwv.frame.menu_listener.swept_exp_wizard_toplevel
+        self.assertIsInstance(exp_wizard, ExperimentWizard)
 
         #
-        # select devices window
+        # select devices step
         #
-        dev_subwindow = exp_wizard_ctrl.view.last_opened_subwindow
-        self.assertTrue(isinstance(dev_subwindow, DeviceWindow))
-        all_rows = dev_subwindow._device_table.get_tree().get_children()
+        device_step = exp_wizard.step_device_selection
+        self.assertIsInstance(device_step, DeviceSelection)
+        all_rows = device_step.device_table.device_table.get_tree().get_children()
         self.assertEqual(len(all_rows), 49)
-        for cdev, tdev in zip(
-            self.expm.chip.devices.values(), (dev_subwindow._device_table.get_tree().item(_id) for _id in all_rows)
-        ):
-            self.assertEqual(cdev.id, str(tdev["values"][1]))
-            self.assertEqual(cdev.in_position[0], float(tdev["values"][2].split(" ")[0]))
-            self.assertEqual(cdev.in_position[1], float(tdev["values"][2].split(" ")[1]))
-            self.assertEqual(cdev.out_position[0], float(tdev["values"][3].split(" ")[0]))
-            self.assertEqual(cdev.out_position[1], float(tdev["values"][3].split(" ")[1]))
-            self.assertEqual(cdev.type, tdev["values"][4])
 
-        sel_these_device_ids = random.sample([k for k in self.expm.chip.devices.keys()], 3)
-        for d in sel_these_device_ids:
-            dev_subwindow._select_unselect_by_devid(d)
+        for chip_dev, table_dev in zip(
+            self.expm.chip.devices.values(),
+            (device_step.device_table.device_table.get_tree().item(row) for row in all_rows),
+        ):
+            self.assertEqual(chip_dev.id, str(table_dev["values"][2]))
+            self.assertEqual(chip_dev.in_position[0], float(table_dev["values"][3].split(" ")[0]))
+            self.assertEqual(chip_dev.in_position[1], float(table_dev["values"][3].split(" ")[1]))
+            self.assertEqual(chip_dev.out_position[0], float(table_dev["values"][4].split(" ")[0]))
+            self.assertEqual(chip_dev.out_position[1], float(table_dev["values"][4].split(" ")[1]))
+            self.assertEqual(chip_dev.type, table_dev["values"][5])
+
+        selected_device_ids = random.sample([k for k in self.expm.chip.devices], 3)
+        device_step.device_table.mark_items_by_ids(ids=selected_device_ids)
         self.pump_events()
 
         # double check that the table updated first column
-        for cdev, tdev in zip(
-            self.expm.chip.devices.values(), (dev_subwindow._device_table.get_tree().item(_id) for _id in all_rows)
+        for chip_dev, table_dev in zip(
+            self.expm.chip.devices.values(),
+            (device_step.device_table.device_table.get_tree().item(row) for row in all_rows),
         ):
-            if cdev.id in sel_these_device_ids:
-                self.assertEqual(tdev["values"][0], "marked")
+            if chip_dev.id in selected_device_ids:
+                self.assertEqual(table_dev["values"][1], "marked")
             else:
-                self.assertEqual(tdev["values"][0], " ")
+                self.assertEqual(table_dev["values"][1], " ")
 
         # continue to next step in wizard
-        with patch("builtins.open", mock_open(read_data="[]")):  # do not load saved settings
-            dev_subwindow._continue_button.invoke()
-            self.pump_events()
+        exp_wizard._next_button.invoke()
+        self.pump_events()
 
         #
         # measurement selection step
         #
-        meas_subwindow = exp_wizard_ctrl.view.last_opened_subwindow
-        tree_children = meas_subwindow._meas_table.get_tree().get_children()
+        meas_step = exp_wizard.step_measurement_selection
+        tree_children = meas_step.meas_table.get_tree().get_children()
         self.assertEqual(len(self.expm.exp.measurements_classes), len(tree_children))
-        for _id in tree_children:
-            meas_info = meas_subwindow._meas_table.get_tree().item(_id)
+        for row_id in tree_children:
+            meas_info = meas_step.meas_table.get_tree().item(row_id)
             self.assertEqual(meas_info["values"][0], 0)
             self.assertIn(meas_info["values"][1], self.expm.exp.measurements_classes)
 
         with patch("builtins.open", mock_open(read_data="[]")):  # do not load saved settings
-            meas_subwindow.select_all()
+            meas_step.select_all()
             self.pump_events()
 
-        for cid, _id in enumerate(tree_children):
-            meas_info = meas_subwindow._meas_table.get_tree().item(_id)
-            self.assertEqual(meas_info["values"][0], cid + 1)
+        for k, row_id in enumerate(tree_children):
+            meas_info = meas_step.meas_table.get_tree().item(row_id)
+            self.assertEqual(meas_info["values"][0], k + 1)
 
         with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
             with patch(
-                "LabExT.View.ExperimentWizard.Components.InstrumentWindow.get_visa_address",
+                "LabExT.View.ExperimentWizard.get_visa_address",
                 simulator_only_instruments_descriptions,
             ):
-                meas_subwindow._continue_button.invoke()
+                exp_wizard._next_button.invoke()
                 self.pump_events()
 
         #
         # instrument selection step
         #
-        instr_subwindow = exp_wizard_ctrl.view.last_opened_subwindow
+        instr_step = exp_wizard.step_instrument_selection
 
         # the dummy measurement does not access any instruments
-        dummy_selector = [k for k in instr_subwindow._all_selectors.keys()][0]
+        dummy_selector = [k for k in instr_step.selectors.keys()][0]
         self.assertEqual(len(dummy_selector.instrument_source), 0)
 
         # the insertion loss measurement should have two roles to select
-        ilm_selector = [k for k in instr_subwindow._all_selectors.keys()][1]
+        ilm_selector = [k for k in instr_step.selectors.keys()][1]
         self.assertEqual(len(ilm_selector.instrument_source), 2)
 
         # set insertion loss measurement instrument roles to SW only simulators
         laser_role = ilm_selector.instrument_source["Laser"]
         opm_role = ilm_selector.instrument_source["Power Meter"]
-        lsim = [l for l in laser_role.choices_human_readable_desc if "LaserSimulator" in l][0]
-        pmsim = [l for l in opm_role.choices_human_readable_desc if "PowerMeterSimulator" in l][0]
-        laser_role.selected_instr.set(lsim)
+        laser_sim = [laser for laser in laser_role.choices_human_readable_desc if "LaserSimulator" in laser][0]
+        pm_sim = [pm for pm in opm_role.choices_human_readable_desc if "PowerMeterSimulator" in pm][0]
+        laser_role.selected_instr.set(laser_sim)
         laser_role.selected_channel.set("0")
-        opm_role.selected_instr.set(pmsim)
+        opm_role.selected_instr.set(pm_sim)
         opm_role.selected_channel.set("1")
 
         with patch("builtins.open", mock_open(read_data="{}")):  # do not load saved settings
             with patch(
-                "LabExT.View.ExperimentWizard.Components.InstrumentWindow.get_visa_address",
+                "LabExT.View.ExperimentWizard.get_visa_address",
                 simulator_only_instruments_descriptions,
             ):
                 with patch("LabExT.Instruments.InstrumentAPI._Instrument.get_visa_lib_string", lambda: "@py"):
-                    instr_subwindow.continue_button.invoke()
+                    exp_wizard._next_button.invoke()
                     self.pump_events()
 
         #
         # measurement properties selection step
         #
-        settings_subwindow = exp_wizard_ctrl.view.last_opened_subwindow
+        parameter_step = exp_wizard.step_parameter_selection
 
-        # randomly set InsertionLossSweep properties
+        # randomly set DummyMeas properties
         random_dummy_props = {
             "number of points": random.randint(50, 500),
             "total measurement time": 0.01 + random.random() * 0.2,
@@ -213,7 +214,7 @@ class ExperimentWizardTest(TKinterTestCase):
             "std. deviation": random.random() * 2.0,
             "simulate measurement error": False,
         }
-        ps = settings_subwindow._meas_param_tables["DummyMeas"]._parameter_source
+        ps = parameter_step.parameter_tables["DummyMeas"].parameter_source
         ps["number of points"].value = random_dummy_props["number of points"]
         ps["total measurement time"].value = random_dummy_props["total measurement time"]
         ps["mean"].value = random_dummy_props["mean"]
@@ -222,9 +223,9 @@ class ExperimentWizardTest(TKinterTestCase):
 
         # randomly set InsertionLossSweep properties
         random_ilm_props = {
-            "wavelength start": random.randint(1460, 1550),
-            "wavelength stop": random.randint(1550, 1640),
-            "wavelength step": random.choice([1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0]),
+            "wavelength start": 1540,
+            "wavelength stop": 1560,
+            "wavelength step": 20,
             "sweep speed": random.randint(40, 100),
             "laser power": random.randint(-20, 10),
             "powermeter range": random.randint(-80, -20),
@@ -232,7 +233,7 @@ class ExperimentWizardTest(TKinterTestCase):
             "discard raw transmission data": False,
             "users comment": "automated testing " + randomword(random.randint(2, 40)),
         }
-        ps = settings_subwindow._meas_param_tables["InsertionLossSweep"]._parameter_source
+        ps = parameter_step.parameter_tables["InsertionLossSweep"].parameter_source
         ps["wavelength start"].value = random_ilm_props["wavelength start"]
         ps["wavelength stop"].value = random_ilm_props["wavelength stop"]
         ps["wavelength step"].value = random_ilm_props["wavelength step"]
@@ -242,17 +243,26 @@ class ExperimentWizardTest(TKinterTestCase):
         ps["file path to reference meas."].value = random_ilm_props["file path to reference meas."]
         ps["discard raw transmission data"].value = random_ilm_props["discard raw transmission data"]
         ps["users comment"].value = random_ilm_props["users comment"]
+        
+        #
+        # continue past the parameter sweep selection step
+        #
+        
+        exp_wizard._next_button.invoke()
+        self.pump_events()
 
-        with patch.object(settings_subwindow._meas_param_tables["DummyMeas"], "serialize"):
-            with patch.object(settings_subwindow._meas_param_tables["InsertionLossSweep"], "serialize"):
-                settings_subwindow._ok_button.invoke()
-                self.pump_events()
+        for _, sweep in exp_wizard.step_parameter_sweep.frames:
+            for i in range(int(len(sweep._ranges))):
+                sweep.on_minus()
 
         #
         # finalize wizard
         #
-        exp_wizard_ctrl.view.main_window.helper_window.continue_button.invoke()
-        self.pump_events()
+
+        with patch.object(parameter_step.parameter_tables["DummyMeas"], "serialize"):
+            with patch.object(parameter_step.parameter_tables["InsertionLossSweep"], "serialize"):
+                exp_wizard._finish_button.invoke()
+                self.pump_events()
 
         self.assertEqual(len(self.expm.exp.to_do_list), 6)
         self.assertEqual(len(self.expm.exp.measurements), 0)
@@ -263,14 +273,14 @@ class ExperimentWizardTest(TKinterTestCase):
 
         # check amount of instantiated correct
         dev_ids = [t.device.id for t in self.expm.exp.to_do_list]
-        for dev_id in sel_these_device_ids:
+        for dev_id in selected_device_ids:
             self.assertEqual(dev_ids.count(dev_id), 2)
         meas_names = [t.measurement.name for t in self.expm.exp.to_do_list]
         self.assertEqual(meas_names.count("DummyMeas"), 3)
         self.assertEqual(meas_names.count("InsertionLossSweep"), 3)
 
         # check that the correct combinations of dev id and measurement names were instantiated
-        all_combs = [p for p in product(sel_these_device_ids, ["DummyMeas", "InsertionLossSweep"])]
+        all_combs = [p for p in product(selected_device_ids, ["DummyMeas", "InsertionLossSweep"])]
         to_dos_copied = self.expm.exp.to_do_list.copy()
         for cid, cmeas in all_combs:
             for t in self.expm.exp.to_do_list:
@@ -282,7 +292,7 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(to_dos_copied), 0)
 
         # check that pointers in the ToDos actually point to the devices loaded as part of chip
-        for dev_id in sel_these_device_ids:
+        for dev_id in selected_device_ids:
             todo_devs_with_this_id = [t.device for t in self.expm.exp.to_do_list if t.device.id == dev_id]
             for tdev in todo_devs_with_this_id:
                 self.assertIs(tdev, self.expm.chip.devices[dev_id])
@@ -339,7 +349,7 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(self.expm.exp.measurements), 6)
 
         # to check with the meta-data checker, we need to extract the device props into a dict
-        dev_props = {did: {"id": did, "type": self.expm.chip.devices[did].type} for did in sel_these_device_ids}
+        dev_props = {did: {"id": did, "type": self.expm.chip.devices[did].type} for did in selected_device_ids}
 
         # check metadata and data of the recorded files
         def check_meas_dict(check_meas_dict):

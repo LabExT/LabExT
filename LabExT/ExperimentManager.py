@@ -22,12 +22,13 @@ from LabExT.Instruments.InstrumentAPI import InstrumentAPI
 from LabExT.Instruments.ReusingResourceManager import ReusingResourceManager
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
-from LabExT.Utils import DeprecatedException, get_configuration_file_path, get_visa_lib_string
+from LabExT.Utils import get_configuration_file_path, get_visa_lib_string
 from LabExT.View.LiveViewer.LiveViewerController import LiveViewerController
 from LabExT.View.MainWindow.MainWindowController import MainWindowController
 from LabExT.View.ProgressBar.ProgressBar import ProgressBar
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.ChipSourceAPI import ChipSourceAPI
+from LabExT.Exporter.ExportAPI import ExportFormatAPI
 
 if TYPE_CHECKING:
     from LabExT.View.LiveViewer.LiveViewerModel import LiveViewerModel
@@ -80,6 +81,7 @@ class ExperimentManager:
         self.live_viewer_model: LiveViewerModel = None
         self.instrument_api = InstrumentAPI(self)
         self.chip_source_api = ChipSourceAPI(self)
+        self.export_format_api = ExportFormatAPI(self)
         self.docu = None
         self.already_shown_docu_path = False
         self.live_viewer_cards = {}
@@ -114,8 +116,7 @@ class ExperimentManager:
             # signal the end of the process
             self.setup_done = False
             # here we set up the progress bar
-            self.pgb = ProgressBar(
-                root, 'Welcome to LabExt\nWe are setting everything up for you!')
+            self.pgb = ProgressBar(root, 'Welcome to LabExT\nWe are setting everything up for you!')
             # this is needed, since tk automatically opens a root window, which we do not want. The withdraw
             # command hides that window
             root.withdraw()
@@ -164,12 +165,15 @@ class ExperimentManager:
             n, path) for path, n in self.mover.plugin_loader_stats.items()])
         chip_sources_addon_stats = '\n'.join(['    imported {:d} chip sources from {:s}'.format(
             n, path) for path, n in self.chip_source_api.plugin_loader_stats.items()])
+        export_format_addon_stats = '\n'.join(['    imported {:d} export formats from {:s}'.format(
+            n, path) for path, n in self.export_format_api.plugin_loader_stats.items()])
         self.logger.info('Plugins loaded:\n' +
                          '  Measurements\n' + meas_addon_stats + '\n' +
                          '  Instruments\n' + instr_addon_stats + '\n' +
                          '  LVCards\n' + lvcards_addon_stats + '\n' +
                          '  Stages\n' + stages_addon_stats + '\n' +
-                         '  Chip Sources\n' + chip_sources_addon_stats)
+                         '  Chip Sources\n' + chip_sources_addon_stats + '\n' +
+                         '  Export Formats\n' + export_format_addon_stats + '\n')
 
         if instruments_are_default:
             self.logger.warning(
@@ -178,9 +182,6 @@ class ExperimentManager:
 
         # we're good to go!
         self.logger.info("LabExT started.")
-
-    def set_experiment(self, experiment):
-        raise DeprecatedException("Experiment object must not be recreated!")
 
     def register_chip(self, chip: Chip):
         """ A new chip manifest has been loaded - register it for usage throughout LabExT. """
@@ -215,6 +216,8 @@ class ExperimentManager:
         self.mover.load_settings()
         # then we load all available chip sources
         self.chip_source_api.load_all_chip_sources()
+        # then we load all available export formats
+        self.export_format_api.load_all_export_formats()
         # finally, we load all cards for the liveviewer
         self.live_viewer_cards, self.lvcards_import_stats = LiveViewerController.load_all_cards(
             experiment_manager=self)

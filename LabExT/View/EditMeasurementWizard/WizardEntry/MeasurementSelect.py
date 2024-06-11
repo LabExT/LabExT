@@ -57,7 +57,7 @@ class MeasurementSelectController(WizardEntryController):
         else:
             msg = 'Measurement name loaded from settings file ({:s}) is not available ' + \
                   'in the current experiment. Not setting a default.'
-            self.logger.info(msg.format(settings['selected_measurement']))
+            self._logger.info(msg.format(settings['selected_measurement']))
 
     def serialize(self, settings: dict) -> None:
         settings['selected_measurement'] = self._view.results()

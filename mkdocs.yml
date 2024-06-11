@@ -17,6 +17,7 @@ nav:
     - code_data_dict.md
     - code_new_instr_example.md
     - code_standalone_meas.md
+    - code_new_export_example.md
   - "How to Extend GUI":
     - gui_wizard_control.md
   - "Code Reference":

@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from tkinter import BooleanVar, StringVar
 
 from LabExT.Model.ExperimentHandler import ExperimentHandler
-from LabExT.Utils import DeprecatedException
 from LabExT.View.Controls.ControlPanel import ControlCommand
 
 if TYPE_CHECKING:
@@ -107,12 +106,6 @@ class MainWindowModel:
             self.chip_parameters = self.experiment_manager.exp.chip_parameters
             self.save_parameters = self.experiment_manager.exp.save_parameters
             self.selec_plot_data = self.experiment.selec_plot_collection
-
-    def experiment_changed(self, ex):
-        raise DeprecatedException("Experiment object must not be recreated!")
-
-    def settings(self):
-        raise DeprecationWarning("Open Settings window is deprecated. Do not use!")
 
     def on_experiment_start(self):
         """
