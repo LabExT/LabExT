@@ -11,6 +11,7 @@ instrument drivers, reported bugs, helped answer newbie questions, and generally
 * David Moor
 * Dillon Elste
 * Dominik Werner
+* Ethan Lowenthal
 * Etienne Corminboeuf
 * Guy Lüthi
 * Hendrik Züllig

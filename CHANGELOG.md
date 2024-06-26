@@ -1,3 +1,15 @@
+## Version 2.3.1
+Released 2024-06-07
+
+* major usability upgrade: the GUI for setting up multi-device/multi-measurements uses now the "wizard" template and offers parameter sweeps, too
+* feature: Data exporter classes can now also be loaded as addons. This is e.g. useful for uploading data to any kind of cloud or data anlysis pipeline.
+* bugfix: Saved LiveViewer snapshot data was overwritten on disk leading to loss of data.
+* bugfix: Measurement sweeps did not calculate the sweep vectors correctly in all cases.
+* usability: much nicer Addon loading overview dialog
+* usability: slight change to the schema of the saved measurement sweep summary - measurement settings can in any case be distinguished from metadata now
+* under-the-hood: removing of old, deprecated code
+* under-the-hood: update of dependencies due to safety reasons
+
 ## Version 2.3.0
 Released 2024-03-11
 
