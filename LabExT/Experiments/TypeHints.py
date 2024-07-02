@@ -5,7 +5,7 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import TypedDict, Literal, Optional
+from typing import TypedDict, Literal, Optional, Union
 
 
 class ChipDict(TypedDict("SpacesInKeys", {"description file path": str}), total=False):
@@ -27,6 +27,9 @@ class SweepInformation(TypedDict):
     part_of_sweep: bool
     sweep_association: Optional[dict]
 
+class ParamDict(TypedDict):
+    value: Union[int, bool, float, str]
+    unit: str
 
 class MeasurementDict(
     TypedDict(
@@ -36,7 +39,7 @@ class MeasurementDict(
             "measurement id long": str,
             "measurement name": str,
             "measurement name and id": str,
-            "measurement settings": dict,
+            "measurement settings": dict[str, ParamDict],
             "search for peak": Optional[dict],
             "timestamp end": str,
             "timestamp start": str,

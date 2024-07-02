@@ -239,7 +239,7 @@ class StandardExperiment:
             data["measurement name and id"] = measurement.get_name_with_id()
             data["measurement id long"] = measurement.id.hex
             data["instruments"] = measurement._get_data_from_all_instruments()
-            data["measurement settings"] = {}
+            data["measurement settings"] = {name: param.as_dict() for name, param in measurement.parameters.items()}
             data["values"] = OrderedDict()
             data["error"] = {}
 
@@ -454,7 +454,7 @@ class StandardExperiment:
         try:
             _ = meas_dict["measurement id long"]
         except KeyError:
-            self.logger.warning(
+            self.logger.debug(
                 f"Measurement '{meas_dict['measurement name and id']}' does not "
                 + "have a new unique id. Creating one..."
             )
@@ -473,6 +473,9 @@ class StandardExperiment:
         meas_hash = calc_measurement_key(meas_dict)
         if meas_hash in self.measurements_hashes:
             raise ValueError("Duplicate measurement found!")
+
+        if "sweep_information" not in meas_dict.keys():
+            meas_dict["sweep_information"] = {"part_of_sweep": False, "sweep_association": dict()}
 
         # add file path to dictionary
         meas_dict["file_path_known"] = file_path

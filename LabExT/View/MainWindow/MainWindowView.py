@@ -27,7 +27,8 @@ from LabExT.Utils import get_labext_version
 from LabExT.View.Controls.ControlPanel import ControlPanel
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.ParameterTable import ParameterTable
-from LabExT.View.Controls.PlotControl import PlotControl
+from LabExT.View.Controls.Plotting.PlotControl import PlotControl
+from LabExT.View.Controls.Plotting.PlotController import PlotController
 from LabExT.View.MeasurementTable import MeasurementTable
 from LabExT.View.MenuListener import MListener
 from LabExT.View.ToDoTable import ToDoTable
@@ -558,7 +559,6 @@ class MainWindowFrame(Frame):
         self.control_panel = None
 
         self.selec_plot = None
-        self.axes_frame = None
 
         self.logging_frame = None
 
@@ -583,8 +583,9 @@ class MainWindowFrame(Frame):
         self.buttons_frame = MainWindowButtonsFrame(self.control_frame, self, self.controller)
         self.control_panel = MainWindowControlPanel(self.control_frame, self.model)
         self.coupling_tools_panel = MainWindowCouplingTools(self.control_frame, self.controller)
-        self.axes_frame = MainWindowAxesFrame(self.control_frame, self.root, self.controller)
 
+        self._plotting_controller = PlotController(master=self)
+        self._plotting_controller.show()
         self.selec_plot = PlotControl(
             self,
             add_toolbar=True,
@@ -595,7 +596,7 @@ class MainWindowFrame(Frame):
         self.selec_plot.title = "Measurement Selection Plot"
         self.selec_plot.show_grid = True
         self.selec_plot.data_source = self.model.selec_plot_data
-        self.selec_plot.grid(row=0, column=1, rowspan=2, columnspan=2, padx=10, pady=10, sticky='nswe')
+        #self.selec_plot.grid(row=0, column=1, rowspan=2, columnspan=2, padx=10, pady=10, sticky='nswe')
         self.selec_plot.rowconfigure(0, weight=1)
         self.selec_plot.columnconfigure(0, weight=1)
 
@@ -614,6 +615,8 @@ class MainWindowFrame(Frame):
         self.to_do_table = MainWindowToDoTable(self, self.controller, self.experiment_manager)
         self.to_do_frame = MainWindowToDoFrame(self, self.controller)
         self.finished_meas_frame = MainWindowFinishedMeasFrame(self, self.controller)
+
+        self.measurement_table.add_selection_changed_callback(self._plotting_controller.selection_changed_listener)
 
 
 class MainWindowView:
