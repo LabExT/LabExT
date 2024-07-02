@@ -13,7 +13,11 @@ from LabExT.View.Controls.Plotting.PlottableDataHandler import PlottableDataHand
 from LabExT.View.Controls.Plotting.PlotConstants import *
 from LabExT.View.MeasurementTable import SelectionChangedEvent
 
+from matplotlib import colormaps
+
 import numpy as np
+
+import logging
 
 if TYPE_CHECKING:
     from tkinter import Widget
@@ -50,6 +54,8 @@ class PlotController:
 
         self._plottable_data: PlottableData = None
         """The data is updated, when the user selection changes. (see `self._plottable_data_changed_callback`)"""
+
+        self._logger = logging.getLogger("Gui")
 
         self._settings_frame.add_settings_changed_callback(self._plot_settings_changed_callback)
         self._data_handler.add_plottable_data_changed_listener(self._plottable_data_changed_callback)
@@ -103,6 +109,9 @@ class PlotController:
         elif self._model.plot_type.get() in [CONTOUR, CONTOUR_F]:
             self.__draw_axes_contour_plot()
 
+        if self._model.plot_title.get() != "":
+            self._model.figure.axes[0].set_title(self._model.plot_title.get())
+
         # redraw canvas
         self._view._plotting_frame.data_changed_callback()
 
@@ -117,15 +126,35 @@ class PlotController:
                 elif name == "Measurement ID":
                     res += meas["measurement id long"][-5:]
                 else:
-                    res += f"{name} = {meas['measurement_params'][name]}"
+                    res += f"{name} = {meas['measurement settings'][name]}"
             return res
 
+        # define the colors used by the individual lines
+        cmap_name = self._model.color_map_name.get()
+        if cmap_name != "default":
+            colors = colormaps[cmap_name](np.linspace(0, 1, len(self._plottable_data)))
+
         plot = self._model.figure.add_subplot(1, 1, 1)
-        for meas_hash in self._plottable_data.keys():
+        for i, meas_hash in enumerate(self._plottable_data.keys()):
             measurement = self._plottable_data[meas_hash]
-            plot.plot(
-                measurement["values"][axis_x_key], measurement["values"][axis_y_key], label=get_label(measurement)
-            )
+            if cmap_name != "default":
+                plot.plot(
+                    measurement["values"][axis_x_key],
+                    measurement["values"][axis_y_key],
+                    label=get_label(measurement),
+                    color=colors[i],
+                )
+            else:
+                plot.plot(
+                    measurement["values"][axis_x_key], measurement["values"][axis_y_key], label=get_label(measurement)
+                )
+
+        if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+            plot.set_xbound(self._model.axis_bounds[0][0], self._model.axis_bounds[0][1])
+            plot.set_ybound(self._model.axis_bounds[1][0], self._model.axis_bounds[1][1])
+        elif self._model.axis_bound_types.get() == AXIS_BOUND_AUTO:
+            self._model.axis_bounds[0] = plot.get_xbound()
+            self._model.axis_bounds[1] = plot.get_ybound()
 
         plot.set_xlabel(axis_x_key)
         plot.set_ylabel(axis_y_key)
@@ -151,10 +180,11 @@ class PlotController:
 
         plot = self._model.figure.add_subplot(1, 1, 1)
 
+        def _print_error(message: str):
+            plot.text(0.5, 0.5, message, color="red", horizontalalignment="center")
+
         def _print_sorted_error(key: str):
-            plot.text(
-                0.5, 0.5, f"The values given by '{key}' are not sorted!", color="red", horizontalalignment="center"
-            )
+            _print_error(f"The values given by '{key}' are not sorted!")
 
         # shorthand so I don't have to type so much
         x_key = self._model.axis_x_key_name.get()
@@ -173,26 +203,104 @@ class PlotController:
                 return
             x_data = PlotController.__merge_union_sorted(x_data, meas["values"][x_key])
 
-        # Here we get the y and z-values corresponding to the x-values (we pad with NaN)
+        # find lower and upper index to not calculate too much
+        x_lower_index = 0
+        x_upper_index = len(x_data)
+        self._logger.debug(f"Creating custom bound: {self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM}")
+        if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+            for i, x_value in enumerate(x_data):
+                if x_value >= self._model.axis_bounds[0][0]:
+                    x_lower_index = i
+                    break
+            x_upper_index = 0
+            for i, x_value in enumerate(reversed(x_data)):
+                if x_value <= self._model.axis_bounds[0][1]:
+                    x_upper_index = len(x_data) - i
+                    break
+
+            self._logger.debug(f"(lower, upper) = ({x_lower_index}, {x_upper_index})\t(0, max) = (0, {len(x_data)})")
+            self._logger.debug(f"bounds = ({self._model.axis_bounds[0][0]}, {self._model.axis_bounds[0][1]})")
+        x_data = x_data[x_lower_index:x_upper_index]
+
+        if len(x_data) <= 1:
+            _print_error(f"Please select more data on the x-axis (currently {len(x_data)} data-points)")
+            return
+
+        # Here we get the y and z-values corresponding to the x-values (we pad with NaN or interpolate)
         y_z_data = list()
         for meas in self._plottable_data.values():
-            y_values = meas["measurement_params"][y_key]
-            z_values = list()
-            z_iterator = iter(meas["values"][z_key])
-            try:
-                for x in x_data:
-                    z_values.append(next(z_iterator) if x in meas["values"][x_key] else np.nan)
-            except StopIteration as s:
-                plot.text(
-                    0.5,
-                    0.5,
-                    f"The values corresponding to '{z_key}' don't\n"
-                    + f"match the number of values corresponding to '{x_key}'.",
-                    color="red",
-                    horizontalalignment="center",
+            y_values = meas["measurement settings"][y_key]["value"]
+
+            if len(meas["values"][z_key]) < 2:
+                self._logger.info(
+                    "Measurement '{}' does not have enough data associated with key '{}' to be plottable.".format(
+                        meas["measurement name and id"], z_key
+                    )
                 )
-                return
+                continue
+
+            # if there are no x-values missing and the user doesn't constrain z-values
+            # we don't have to interpolate anything
+            if len(meas["values"][x_key]) == len(x_data) and not self._model.data_bound_set.get():
+                y_z_data.append((y_values, meas["values"][z_key]))
+                continue
+
+            z_values = list()
+            # find first value large enough
+            original_index = 0
+            if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+                while meas["values"][x_key][original_index] < self._model.axis_bounds[0][0]:
+                    original_index += 1
+            self._logger.debug(f"original index for {meas['name_known']}")
+
+            for i, x in enumerate(x_data):
+                # if the x coordinate is contained in the original data we add the corresponding
+                # z-value if it fits the user-specified bounds or clamp it
+                if x == meas["values"][x_key][original_index]:
+                    cur_z_value = meas["values"][z_key][original_index]
+                    if self._model.data_bound_set.get() and cur_z_value < self._model.data_bounds[0][0]:
+                        z_values.append(self._model.data_bounds[0][0])
+                    elif self._model.data_bound_set.get() and cur_z_value > self._model.data_bounds[0][1]:
+                        z_values.append(self._model.data_bounds[0][1])
+                    else:
+                        z_values.append(cur_z_value)
+                    original_index += 1
+                    continue
+
+                # otherwise we insert NAN if the user chose so
+                if self._model.contour_interpolation_type.get() == INTERPOLATE_NAN:
+                    z_values.append(np.nan)
+                    continue
+
+                # interpolation is different for edges
+                if original_index == 0:
+                    x_prev = meas["values"][x_key][0]
+                    x_next = meas["values"][x_key][1]
+                    z_prev = meas["values"][z_key][0]
+                    z_next = meas["values"][z_key][1]
+                elif original_index == len(meas["values"][z_key]):
+                    x_prev = meas["values"][x_key][-2]
+                    x_next = meas["values"][x_key][-1]
+                    z_prev = meas["values"][z_key][-2]
+                    z_next = meas["values"][z_key][-1]
+                else:
+                    x_prev = meas["values"][x_key][original_index - 1]
+                    x_next = meas["values"][x_key][original_index]
+                    z_prev = meas["values"][z_key][original_index - 1]
+                    z_next = meas["values"][z_key][original_index]
+
+                # interploate
+                alpha = (x - x_prev) / (x_next - x_prev)
+                z_inter = z_prev + alpha * (z_next - z_prev)
+
+                # append interpolated value
+                z_values.append(z_inter)
+
             y_z_data.append((y_values, z_values))
+
+        if len(y_z_data) == 0:
+            _print_error(f"Not enough data associated with key '{z_key}' to plot!")
+            return
 
         # We sort the list of pairs by the swept param (i.e. the y-value)
         y_z_data.sort(key=lambda pair: pair[0])
@@ -207,9 +315,19 @@ class PlotController:
             plot_method = plot.contour
         else:
             plot_method = plot.contourf
-        contour = plot_method(x_data, y_data, z_data, self._model.contour_bucket_count.get())
+        color = self._model.color_map_name.get()
+        if color == "default":
+            color = COLOR_MAPS[1]
+        contour = plot_method(x_data, y_data, z_data, self._model.contour_bucket_count.get(), cmap=color)
 
         self._model.figure.colorbar(contour, label=z_key)
+
+        if self._model.axis_bound_types.get() == AXIS_BOUND_CUSTOM:
+            plot.set_xbound(self._model.axis_bounds[0][0], self._model.axis_bounds[0][1])
+            plot.set_ybound(self._model.axis_bounds[1][0], self._model.axis_bounds[1][1])
+        elif self._model.axis_bound_types.get() == AXIS_BOUND_AUTO:
+            self._model.axis_bounds[0] = plot.get_xbound()
+            self._model.axis_bounds[1] = plot.get_ybound()
 
         plot.set_xlabel(x_key)
         plot.set_ylabel(y_key)
@@ -241,6 +359,7 @@ class PlotController:
             e = _e
         return True
 
+    @staticmethod
     def __merge_union_sorted(a: Iterable[T], b: Iterable[T]) -> list[T]:
         """Calculates the merge of the two sorted iterables a and b without keeping duplicates.
 
