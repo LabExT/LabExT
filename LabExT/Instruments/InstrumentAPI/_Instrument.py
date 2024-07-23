@@ -503,3 +503,20 @@ class Instrument(object):
                                              converter=converter,
                                              separator=separator,
                                              container=container)
+    
+    @assert_instrument_connected
+    def query_binary_values(self, query_str, datatype='h', is_big_endian=True):
+        """
+        Send a query to the instruments and read the answer.
+
+        Send the query_str to the instrument and read data in binary format from the answer.
+
+        Arguments:
+            query_str (str): the string to query the instrument with
+            datatype (str): datatype of the binary data. Default is 'h' (int16).
+            is_big_endian (bool): True if the data is big endian, False otherwise.
+
+        Returns:
+        :return: list of numbers
+        """
+        return self._inst.query_binary_values(query_str, datatype=datatype, is_big_endian=is_big_endian)

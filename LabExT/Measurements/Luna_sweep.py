@@ -20,6 +20,7 @@ class Luna_sweep(Measurement):
             'Plot Measurement Type': MeasParamList(
                 options = ["INSERTION_LOSS", "GROUP_DELAY", 'CHROMATIC_DISPERSION', 'POLARIZATION_DEPENDENT_LOSS', 'POLARIZATION_MODE_DISPERSION', 'LINEAR_PHASE_DEVIATION', 'QUADRATIC_PHASE_DEVIATION', 'JONES_MATRIX_ELEMENT_AMPLITUDES', 'JONES_MATRIX_ELEMENT_PHASES', 'TIME_DOMAIN_AMPLITUDE', 'TIME_DOMAIN_WAVELENGTH', 'MIN_MAX_LOSS', 'SECOND_ORDER_PMD', 'PHASE_RIPPLE_LINEAR', 'PHASE_RIPPLE_QUADRATIC']
             ),
+            'DUT L': MeasParamFloat(value=0.0, unit='m'),
             'save_all_data': MeasParamBool(value=False),
             'filepath': MeasParamString(value='C:\\Users\\Luna\\Documents\\test.txt')
         }
@@ -37,15 +38,20 @@ class Luna_sweep(Measurement):
         plot_data_type = parameters.get('Plot Measurement Type').value
         save_all_data = parameters.get('save_all_data').value
         filepath = parameters.get('filepath').value
+        DUT_L = parameters.get('DUT L').value
 
-        result = self.ova.grab_data(
-            find_dut_L = True,
+        self.logger.debug("Starting Luna sweep measurement")
+
+        result, new_dut_L = self.ova.grab_data(
+            dut_L = DUT_L,
             center_wavelength = center_wavelength,
             wl_range = wl_range,
             plot_data_type = plot_data_type,
             save_all_data = save_all_data,
             filepath = filepath,
         )
+
+        self.logger.debug("Finished Luna sweep measurement")
 
         if save_all_data:
             df = pd.read_csv(filepath, delimiter="\t", skiprows=7, header=0)

@@ -57,7 +57,7 @@ class OpticalVectorAnalyzer(Instrument):
             self.logger.debug("Successfully connected to OVA")
             return 
 
-    def grab_data(self, find_dut_L: bool = True, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt'):
+    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt'):
         """
         Acquire measurement data from the OVA.
 
@@ -68,6 +68,8 @@ class OpticalVectorAnalyzer(Instrument):
         :param save_all_data: bool flag to save all data
         :param filepath: str filepath to temporarily save all data
         """
+
+        print("opening labview")
         
         vi_path = os.path.join(os.path.dirname(__file__), 'LabViewVIs', 'AcquireSingleScan.vi')
         vi = self.labview_app.GetVIReference(vi_path)
@@ -102,7 +104,11 @@ class OpticalVectorAnalyzer(Instrument):
         }
 
         # Set control values if any
-        vi.SetControlValue("Find DUT Length?", find_dut_L)
+        if dut_L > 0.0:
+            vi.SetControlValue("Find DUT Length?", False)
+            vi.SetControlValue("Length of DUT (m)", dut_L)
+        else:
+            vi.SetControlValue("Find DUT Length?", True)
         vi.SetControlValue("New Scan", True)
         vi.SetControlValue("Plot Data", True)
         vi.SetControlValue("Graph Sel", plot_data_dict[plot_data_type])
@@ -113,14 +119,17 @@ class OpticalVectorAnalyzer(Instrument):
         vi.SetControlValue("Graph Data to Output", [True] * 20)
         vi.SetControlValue("Filter?", False)
 
+        self.logger.debug("Running Luna sweep measurement")
+
         vi.Run
 
         # Grab data in graph object
         result = np.array(vi.GetControlValue("Graph"))
+        new_dut_L = vi.GetControlValue("Length of DUT (m)")
 
         # self.save_data()
 
-        return result
+        return result, new_dut_L
 
     def close(self):
         pythoncom.CoUninitialize()
