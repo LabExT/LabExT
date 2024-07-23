@@ -144,6 +144,7 @@ class RangeEntry(Frame):
             "step_size": "Step size:",
             "step_count_linear": "No. of Points (linear):",
             "step_count_logarithmic": "No. of Points (logarithmic):",
+            "octave": "No. of Points (octave):",
             "step_count_repetition": "Repetitions:",
         }
         """A mapping of the possible categories to the displayed name."""
@@ -269,6 +270,8 @@ class RangeEntry(Frame):
             return (pd.Series([from_ + i * step_size for i in range(step)]), "step_count_linear")
         elif category == self._selection["step_count_logarithmic"]:
             return (pd.Series(((np.logspace(0, 1, step) - 1) / 9 * (to - from_) + from_)), "step_count_logarithmic")
+        elif category == self._selection["octave"]:
+            return (pd.Series(np.logspace(from_, to, step, base=2)), "octave")
         else:
             return (pd.Series([self._meas_param.value for _ in range(step)]), "step_count_repetition")
 
