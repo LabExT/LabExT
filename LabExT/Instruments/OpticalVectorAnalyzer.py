@@ -57,7 +57,7 @@ class OpticalVectorAnalyzer(Instrument):
             self.logger.debug("Successfully connected to OVA")
             return 
 
-    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt'):
+    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt', meas_type: str = "Transmission"):
         """
         Acquire measurement data from the OVA.
 
@@ -74,16 +74,28 @@ class OpticalVectorAnalyzer(Instrument):
         vi_path = os.path.join(os.path.dirname(__file__), 'LabViewVIs', 'AcquireSingleScan.vi')
         vi = self.labview_app.GetVIReference(vi_path)
 
-        wl_range_dict = {
-            '0.63': 0,
-            '1.27': 1,
-            '2.54': 2,
-            '5.09': 3,
-            '10.22': 4,
-            '20.58': 5,
-            '41.72': 6,
-            '85.78': 7
-        }
+        if center_wavelength > 1400: # Cband
+            wl_range_dict = {
+                '0.63': 0,
+                '1.27': 1,
+                '2.54': 2,
+                '5.09': 3,
+                '10.22': 4,
+                '20.58': 5,
+                '41.72': 6,
+                '85.78': 7
+            }
+        else: #Oband
+            wl_range_dict = {
+                '0.88': 0,
+                '1.76': 1,
+                '3.53': 2,
+                '7.08': 3,
+                '14.25': 4,
+                '28.82': 5,
+                '58.97': 6
+            }
+
 
         plot_data_dict = {
             'INSERTION_LOSS' : 0,
@@ -118,6 +130,10 @@ class OpticalVectorAnalyzer(Instrument):
         vi.SetControlValue("Output Spreadsheet File Path", filepath)
         vi.SetControlValue("Graph Data to Output", [True] * 20)
         vi.SetControlValue("Filter?", False)
+        if meas_type == "Transmission":
+            vi.SetControlValue("Meas Type", 1) # 0 for reflection, 1 for transmission
+        else:
+            vi.SetControlValue("Meas Type", 0) 
 
         self.logger.debug("Running Luna sweep measurement")
 

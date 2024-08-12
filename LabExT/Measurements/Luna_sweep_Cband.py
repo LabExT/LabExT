@@ -1,7 +1,7 @@
 from LabExT.Measurements.MeasAPI import *
 import pandas as pd
 
-class Luna_sweep(Measurement):
+class LUNA_sweep_Cband(Measurement):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)  # calling parent constructor
 

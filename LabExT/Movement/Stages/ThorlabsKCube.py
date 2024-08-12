@@ -160,17 +160,58 @@ class ThorlabsKCube(Stage):
             mode : MovementType
                 Channel movement type
             """
+            backlash = 10
             self.movement_mode = mode
             if self.movement_mode == MovementType.RELATIVE:
-                self._stage.setup_jog(mode="step", step_size=diff*1e-6, stop_mode="immediate")
-                self._stage.jog(direction="+", kind="builtin")
-                self._stage.wait_for_stop()
+                if np.abs(diff) > backlash:
+                    move_by = round(diff, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                elif np.abs(diff - backlash) > backlash:
+                    move_by = round(backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                    move_by = round(diff-backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                else:
+                    move_by = round(2*backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                    move_by = round(diff-2*backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
             elif self.movement_mode == MovementType.ABSOLUTE:
                 inital_pos = self.position
-                move_by = round(diff - inital_pos, 3) * 1e-6
-                self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
-                self._stage.jog(direction="+", kind="builtin")
-                self._stage.wait_move()
+                if np.abs(diff - inital_pos) > backlash:
+                    move_by = round(diff - inital_pos, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                elif np.abs(diff - inital_pos - backlash) > backlash:
+                    move_by = round(backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                    move_by = round(diff - inital_pos-backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                else:
+                    move_by = round(2*backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+                    move_by = round(diff - inital_pos-2*backlash, 3) * 1e-6
+                    self._stage.setup_jog(mode="step", step_size=move_by, stop_mode="immediate")
+                    self._stage.jog(direction="+", kind="builtin")
+                    self._stage.wait_move()
+
 
         def wait_for_stopping(self) -> None:
             """Waits until the channel stops moving"""
@@ -209,11 +250,13 @@ class ThorlabsKCube(Stage):
         for stage in self.motor_cfg:
             if stage["axis"] == "X":
                 self.axes.append(Axis.X)
+                self.sns.append(stage["sns"])
             elif stage["axis"] == "Y":
                 self.axes.append(Axis.Y)
-            elif stage["axis"] == "Z":
-                self.axes.append(Axis.Z)
-            self.sns.append(stage["sns"])
+                self.sns.append(stage["sns"])
+            elif stage["axis"] == "Z": # Modified so z is empty (we don't want labext to move the z stage)
+                #self.axes.append(Axis.Z)
+                self.sns.append(None)
 
         for sn, axis in zip(self.sns, self.axes):
             try:
@@ -250,7 +293,7 @@ class ThorlabsKCube(Stage):
     @assert_driver_loaded
     # @assert_stage_connected
     def set_speed_z(self, umps: float):
-        self.channels[Axis.Z].speed = umps
+        # self.channels[Axis.Z].speed = umps
         self._speed_z = umps
 
     @assert_driver_loaded
@@ -303,7 +346,7 @@ class ThorlabsKCube(Stage):
         return [
             self.channels[Axis.X].position,
             self.channels[Axis.Y].position,
-            self.channels[Axis.Z].position,
+            0 #self.channels[Axis.Z].position,
         ]
 
     @assert_driver_loaded
@@ -323,7 +366,7 @@ class ThorlabsKCube(Stage):
             z)
         self.channels[Axis.X].move(diff=x, mode=MovementType.RELATIVE)
         self.channels[Axis.Y].move(diff=y, mode=MovementType.RELATIVE)
-        self.channels[Axis.Z].move(diff=z, mode=MovementType.RELATIVE)
+        # self.channels[Axis.Z].move(diff=z, mode=MovementType.RELATIVE)
        
         if wait_for_stopping:
             self._wait_for_stopping(self.channels)
@@ -348,8 +391,8 @@ class ThorlabsKCube(Stage):
             self.channels[Axis.X].move(diff=x, mode=MovementType.ABSOLUTE)
         if y is not None:
             self.channels[Axis.Y].move(diff=y, mode=MovementType.ABSOLUTE)
-        if z is not None:
-            self.channels[Axis.Z].move(diff=z, mode=MovementType.ABSOLUTE)
+        # if z is not None:
+        #     self.channels[Axis.Z].move(diff=z, mode=MovementType.ABSOLUTE)
         
         if wait_for_stopping:
             self._wait_for_stopping(self.channels)
