@@ -211,9 +211,9 @@ class LiveViewerController:
 
         save_file_name = make_filename_compliant("LiveViewerSnapshot_" + ts_iso)
 
-        save_file_path = join(param_output_path, save_file_name)
+        save_file_path = join(param_output_path, save_file_name) + ".json"
 
-        data = AutosaveDict(freq=50, file_path=save_file_path + ".json")
+        data = AutosaveDict(freq=50, file_path=save_file_path)
 
         data["software"] = OrderedDict()
         data["software"]["name"] = "LabExT"
