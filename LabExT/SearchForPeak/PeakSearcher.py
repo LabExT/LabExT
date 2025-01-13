@@ -109,7 +109,10 @@ class PeakSearcher(Measurement):
 
         # chosen instruments for IL measurement
         self.instr_laser = None
-        self.instr_powermeter = None
+        self.instr_powermeter1 = None
+        self.instr_powermeter2 = None
+        self.instr_powermeter3 = None
+        self.instr_powermeter4 = None
         self.initialized = False
 
         self.logger.info(
@@ -218,7 +221,7 @@ class PeakSearcher(Measurement):
 
     @staticmethod
     def get_wanted_instrument():
-        return ['Laser', 'Power Meter']
+        return ['Laser', 'Power Meter 1', 'Power Meter 2', 'Power Meter 3', 'Power Meter 4']
 
     def search_for_peak(self):
         """Main Search For Peak routine
@@ -241,12 +244,21 @@ class PeakSearcher(Measurement):
             self._dimension_names = self.DIMENSION_NAMES_SINGLE_STAGE
 
         # load laser and powermeter
-        self.instr_powermeter = self.get_instrument('Power Meter')
+        self.instr_powermeter1 = self.get_instrument('Power Meter 1')
+        self.instr_powermeter2 = self.get_instrument('Power Meter 2')
+        self.instr_powermeter3 = self.get_instrument('Power Meter 3')
+        self.instr_powermeter4 = self.get_instrument('Power Meter 4')
         self.instr_laser = self.get_instrument('Laser')
 
         # double check if instruments are initialized, otherwise throw error
-        if self.instr_powermeter is None:
-            raise RuntimeError('Search for Peak Power Meter not yet defined!')
+        if self.instr_powermeter1 is None:
+            raise RuntimeError('Search for Peak Power Meter 1 not yet defined!')
+        if self.instr_powermeter2 is None:
+            raise RuntimeError('Search for Peak Power Meter 2 not yet defined!')
+        if self.instr_powermeter3 is None:
+            raise RuntimeError('Search for Peak Power Meter 3 not yet defined!')
+        if self.instr_powermeter4 is None:
+            raise RuntimeError('Search for Peak Power Meter 4 not yet defined!')
         if self.instr_laser is None:
             raise RuntimeError('Search for Peak Laser not yet defined!')
 
@@ -256,7 +268,10 @@ class PeakSearcher(Measurement):
 
         # open connection to instruments
         self.instr_laser.open()
-        self.instr_powermeter.open()
+        self.instr_powermeter1.open()
+        self.instr_powermeter2.open()
+        self.instr_powermeter3.open()
+        self.instr_powermeter4.open()
 
         self.logger.debug('Executing Search for Peak with the following parameters: {:s}'.format(
             "\n".join([str(name) + " = " + str(param.value) + " " + str(param.unit) for name, param in
@@ -279,16 +294,28 @@ class PeakSearcher(Measurement):
         # send user specified parameters to instruments
         self.instr_laser.wavelength = self.parameters['Laser wavelength'].value
         self.instr_laser.power = self.parameters['Laser power'].value
-        self.instr_powermeter.unit = 'dBm'
-        self.instr_powermeter.wavelength = self.parameters['Laser wavelength'].value
-        self.instr_powermeter.range = self.parameters['Power Meter range'].value
+        self.instr_powermeter1.unit = 'dBm'
+        self.instr_powermeter1.wavelength = self.parameters['Laser wavelength'].value
+        self.instr_powermeter1.range = self.parameters['Power Meter range'].value
+        self.instr_powermeter2.unit = 'dBm'
+        self.instr_powermeter2.wavelength = self.parameters['Laser wavelength'].value
+        self.instr_powermeter2.range = self.parameters['Power Meter range'].value
+        self.instr_powermeter3.unit = 'dBm'
+        self.instr_powermeter3.wavelength = self.parameters['Laser wavelength'].value
+        self.instr_powermeter3.range = self.parameters['Power Meter range'].value
+        self.instr_powermeter4.unit = 'dBm'
+        self.instr_powermeter4.wavelength = self.parameters['Laser wavelength'].value
+        self.instr_powermeter4.range = self.parameters['Power Meter range'].value
 
         # get stage speed for later reference
         v0 = self.mover.speed_xy
         acc0 = self.mover.acceleration_xy
 
         # stop all previous logging
-        self.instr_powermeter.logging_stop()
+        self.instr_powermeter1.logging_stop()
+        self.instr_powermeter2.logging_stop()
+        self.instr_powermeter3.logging_stop()
+        self.instr_powermeter4.logging_stop()
 
         # switch on laser
         with self.instr_laser:
@@ -331,7 +358,10 @@ class PeakSearcher(Measurement):
 
                 # get start statistics
                 results['start location'] = start_coordinates.copy()
-                results['start through power'] = self.instr_powermeter.power
+                results['start through power'] = max([self.instr_powermeter1.power,
+                                                      self.instr_powermeter2.power,
+                                                      self.instr_powermeter3.power,
+                                                      self.instr_powermeter4.power])
 
                 # do sweep for every dimension
                 # color cycle strings for matplotlib
@@ -343,21 +373,37 @@ class PeakSearcher(Measurement):
                     # create new plotting dataset for measurement
                     meas_plot = PlotData(ObservableList(), ObservableList(),
                                         'scatter', color=color_strings[dimidx])
+                    meas_plot1 = PlotData(ObservableList(), ObservableList(),
+                                        'scatter', color=color_strings[dimidx])
+                    meas_plot2 = PlotData(ObservableList(), ObservableList(),
+                                        'scatter', color=color_strings[dimidx])
+                    meas_plot3 = PlotData(ObservableList(), ObservableList(),
+                                        'scatter', color=color_strings[dimidx])
+                    meas_plot4 = PlotData(ObservableList(), ObservableList(),
+                                        'scatter', color=color_strings[dimidx])
                     fit_plot = PlotData(ObservableList(), ObservableList(),
                                         color=color_strings[dimidx], label=dimension_name)
                     opt_pos_plot = PlotData(ObservableList(), ObservableList(),
                                             marker='x', markersize=10, color=color_strings[dimidx])
                     if dimidx < len(start_coordinates) / 2:
                         self.plots_left.append(meas_plot)
+                        self.plots_left.append(meas_plot1)
+                        self.plots_left.append(meas_plot2)
+                        self.plots_left.append(meas_plot3)
+                        self.plots_left.append(meas_plot4)
                         self.plots_left.append(fit_plot)
                         self.plots_left.append(opt_pos_plot)
                     else:
                         self.plots_right.append(meas_plot)
+                        self.plots_right.append(meas_plot1)
+                        self.plots_right.append(meas_plot2)
+                        self.plots_right.append(meas_plot3)
+                        self.plots_right.append(meas_plot4)
                         self.plots_right.append(fit_plot)
                         self.plots_right.append(opt_pos_plot)
 
                     # differentiate between the two types of SfP
-                    if sfp_type == 'swept SfP (FA & N7744a PM models only)':
+                    if sfp_type == 'swept SfP (FA & N7744a PM models only)': # NOT UPDATED TO WORK WITH more than 1 power meter
                         allowed_pm_classes = ['PowerMeterN7744A', 'PowerMeterSimulator']
                         # complain if user selects a Power Meter that is not
                         # compatible with new Search for Peak
@@ -414,6 +460,14 @@ class PeakSearcher(Measurement):
                         # plot it
                         meas_plot.x = d_range
                         meas_plot.y = IL_meas
+                        meas_plot1.x = d_range
+                        meas_plot1.y = IL_meas
+                        meas_plot2.x = d_range
+                        meas_plot2.y = IL_meas
+                        meas_plot3.x = d_range
+                        meas_plot3.y = IL_meas
+                        meas_plot4.x = d_range
+                        meas_plot4.y = IL_meas
 
                     elif sfp_type == 'stepped SfP':
                         # create range of N measurement points from x-Delta to
@@ -434,12 +488,23 @@ class PeakSearcher(Measurement):
                             time.sleep(pause_time_ms / 1000)
 
                             # take IL measurement
-                            loss = self.instr_powermeter.power
+                            loss = max([self.instr_powermeter1.power,
+                                        self.instr_powermeter2.power,
+                                        self.instr_powermeter3.power,
+                                        self.instr_powermeter4.power])
 
                             # save data
                             # do not trigger plot update just yet
                             meas_plot.x.extend([d_current])
                             meas_plot.y.append(loss)
+                            meas_plot1.x.extend([d_current])
+                            meas_plot1.y.append(self.instr_powermeter1.power)
+                            meas_plot2.x.extend([d_current])
+                            meas_plot2.y.append(self.instr_powermeter2.power)
+                            meas_plot3.x.extend([d_current])
+                            meas_plot3.y.append(self.instr_powermeter3.power)
+                            meas_plot4.x.extend([d_current])
+                            meas_plot4.y.append(self.instr_powermeter4.power)
 
                             IL_meas[measidx] = loss
 
@@ -531,7 +596,10 @@ class PeakSearcher(Measurement):
 
         # close instruments
         self.instr_laser.close()
-        self.instr_powermeter.close()
+        self.instr_powermeter1.close()
+        self.instr_powermeter2.close()
+        self.instr_powermeter3.close()
+        self.instr_powermeter4.close()
 
         # save final result to log
         loc_str = " x ".join(["{:.3f}um".format(p)

@@ -34,7 +34,7 @@ class LabJack:
         @para triggerName: The name of the channel that will trigger stream to start
         @type triggerName: str
         """
-        self.TRIGGER_NAME = "DIO0"
+        self.TRIGGER_NAME = "DIO1"
         address = ljm.nameToAddress(self.TRIGGER_NAME)[0]
         ljm.eWriteName(self.handle, "STREAM_TRIGGER_INDEX", address)
 

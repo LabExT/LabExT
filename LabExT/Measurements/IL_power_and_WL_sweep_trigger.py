@@ -25,7 +25,7 @@ class IL_power_and_wl_sweep_trigger(Measurement):
 
     @staticmethod
     def get_wanted_instrument():
-        return ['Laser', 'Power Meter 1']
+        return ['Laser', 'Power Meter 1', 'Power Meter 2', 'Power Meter 3', 'Power Meter 4']
     
     def algorithm(self, device, data, instruments, parameters):
         # get the parameters
@@ -40,7 +40,7 @@ class IL_power_and_wl_sweep_trigger(Measurement):
 
         # get instrument pointers
         self.instr_laser = instruments['Laser']
-        self.instr_pms = [instruments[f'Power Meter {1}'] ]
+        self.instr_pms = [instruments[f'Power Meter {1}'], instruments[f'Power Meter {2}'], instruments[f'Power Meter {3}'], instruments[f'Power Meter {4}']]
 
 
         # open connection to Laser & PM
@@ -98,7 +98,10 @@ class IL_power_and_wl_sweep_trigger(Measurement):
 
         power_data = np.arange(start_power, stop_power + step_power, step_power)
         wavelength_data = np.arange(start_lambda,stop_lambda + step_lambda, step_lambda)
-        optical_power_result_list = []
+        optical_power_result_list0 = []
+        optical_power_result_list1 = []
+        optical_power_result_list2 = []
+        optical_power_result_list3 = []
         wavelength_result_list = []
         power_result_list = []
         print(f'Step Delay: {step_delay}')
@@ -110,13 +113,20 @@ class IL_power_and_wl_sweep_trigger(Measurement):
                 time.sleep(step_delay)
                 wavelength_result_list.append(self.instr_laser.wavelength)
                 power_result_list.append(self.instr_laser.power)
-                optical_power_result_list.append(self.instr_pms[0].fetch_power())
+                optical_power_result_list0.append(self.instr_pms[0].fetch_power())
+                optical_power_result_list1.append(self.instr_pms[1].fetch_power())
+                optical_power_result_list2.append(self.instr_pms[2].fetch_power())
+                optical_power_result_list3.append(self.instr_pms[3].fetch_power())
 
 
         # convert numpy float32/float64 to python float
         data['values']['tx_wavelength'] = wavelength_result_list
         data['values']['tx_power'] = power_result_list
-        data['values']['optical_power'] = optical_power_result_list
+        #data['values']['optical_power'] = optical_power_result_list
+        data['values'][f'transmission AIN0 [dBm]'] = optical_power_result_list0
+        data['values'][f'transmission AIN1 [dBm]'] = optical_power_result_list1
+        data['values'][f'transmission AIN2 [dBm]'] = optical_power_result_list2
+        data['values'][f'transmission AIN3 [dBm]'] = optical_power_result_list3
 
 
         self.instr_laser.enable = False

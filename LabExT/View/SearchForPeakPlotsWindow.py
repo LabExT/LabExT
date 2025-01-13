@@ -185,8 +185,14 @@ class InstrumentsChooserWidget(InstrumentSelector):
         # we specifically only want a laser and a powermeter
         io_set = get_visa_address('Laser')
         available_instruments.update({'Laser': InstrumentRole(self.parent.parent.root, io_set)})
-        io_set = get_visa_address('Power Meter')
-        available_instruments.update({'Power Meter': InstrumentRole(self.parent.parent.root, io_set)})
+        io_set = get_visa_address('Power Meter 1')
+        available_instruments.update({'Power Meter 1': InstrumentRole(self.parent.parent.root, io_set)})
+        io_set = get_visa_address('Power Meter 2')
+        available_instruments.update({'Power Meter 2': InstrumentRole(self.parent.parent.root, io_set)})
+        io_set = get_visa_address('Power Meter 3')
+        available_instruments.update({'Power Meter 3': InstrumentRole(self.parent.parent.root, io_set)})
+        io_set = get_visa_address('Power Meter 4')
+        available_instruments.update({'Power Meter 4': InstrumentRole(self.parent.parent.root, io_set)})
 
         self.title = 'Choose instruments'
         self.instrument_source = available_instruments
