@@ -127,25 +127,25 @@ class PlottingFrame(CustomFrame):
 
         self.grid(row=0, column=0)
         self.plot_left = PlotsWidget(self, 'Left Stage', self.model.plots_left)
-        self.plot_left.grid(row=0, column=0, rowspan=2, columnspan=2, padx=5, pady=5)
+        self.plot_left.grid(row=0, column=0, rowspan=3, columnspan=3, padx=0, pady=0)
 
         self.plot_right = PlotsWidget(self, 'Right Stage', self.model.plots_right)
-        self.plot_right.grid(row=0, column=2, rowspan=2, columnspan=2, padx=5, pady=5)
+        self.plot_right.grid(row=0, column=3, rowspan=3, columnspan=3, padx=0, pady=0)
 
         self.instruments_chooser_widget = InstrumentsChooserWidget(self, self.model)
-        self.instruments_chooser_widget.grid(row=4, column=0, rowspan=1, columnspan=3)
-
-        self.set_instruments_button = AcceptButton(self, controller.set_instruments, "1. Allocate Instruments")
-        self.set_instruments_button.grid(row=4, column=3)
+        self.instruments_chooser_widget.grid(row=3, column=0, rowspan=1, columnspan=3)
 
         self.parameter_chooser_widget = ParameterChooserWidget(self, self.model)
-        self.parameter_chooser_widget.grid(row=5, column=0, rowspan=2, columnspan=3)
+        self.parameter_chooser_widget.grid(row=0, column=6, rowspan=5, columnspan=3)
+
+        self.set_instruments_button = AcceptButton(self, controller.set_instruments, "1. Allocate Instruments")
+        self.set_instruments_button.grid(row=3, column=3)
 
         self.save_parameters_button = AcceptButton(self, controller.save_parameters, "Save Parameters")
-        self.save_parameters_button.grid(row=5, column=3)
+        self.save_parameters_button.grid(row=3, column=4)
 
         self.execute_sfp_button = AcceptButton(self, controller.execute_sfp_manually, "2. Execute Search for Peak")
-        self.execute_sfp_button.grid(row=6, column=3)
+        self.execute_sfp_button.grid(row=3, column=5)
 
 
 class PlotsWidget(PlotControl):
@@ -213,6 +213,7 @@ class ParameterChooserWidget(ParameterTable):
 
         self.title = 'Search for Peak Parameters'
         self.parameter_source = self.model.peak_searcher.parameters
+
         if self.deserialize(self.model.settings_path):
             self.logger.debug("Loading SearchForPeak parameters from file.")
 
