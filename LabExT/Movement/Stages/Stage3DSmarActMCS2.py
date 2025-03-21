@@ -29,27 +29,6 @@ class Stage3DSmarActMCS2(Stage):
     """
 
     driver_loaded = MCS_LOADED
-    driver_path_dialog = None
-
-    @classmethod
-    def load_driver(cls, parent) -> bool:
-        """
-        Loads driver for SmarAct by open a dialog to specifiy the driver path. This method will be invoked by the StageWizard.
-        """
-        if try_to_lift_window(cls.driver_path_dialog):
-            parent.wait_window(cls.driver_path_dialog)
-            return cls.driver_path_dialog.path_has_changed
-
-        cls.driver_path_dialog = DriverPathDialog(
-            parent,
-            settings_file_path="mcsc_module_path.txt",
-            title="Stage Driver Settings",
-            label="SmarAct MCSControl driver module path",
-            hint="Specify the directory where the module MCSControl_PythonWrapper is found.\nThis is external software,"
-            "provided by SmarAct GmbH and is available from them. See https://smaract.com.")
-        parent.wait_window(cls.driver_path_dialog)
-
-        return cls.driver_path_dialog.path_has_changed
 
     @classmethod
     @assert_driver_loaded
