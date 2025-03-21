@@ -34,6 +34,8 @@ class Stage6DSmarActMCS2(Stage):
     """
 
     driver_loaded = MCS_LOADED
+    driver_specifiable = False
+    description = "SmarAct Modular Control System for two 3D stages (driver version 2)"
 
     @classmethod
     @assert_driver_loaded

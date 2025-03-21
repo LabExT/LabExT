@@ -26,9 +26,12 @@ class Stage3DSmarActMCS2(Stage):
     ----------
     handle : int
         MCS handle
+        
     """
 
     driver_loaded = MCS_LOADED
+    driver_specifiable = False
+    description = "SmarAct Modular Control System for one 3D stage (driver version 2)"
 
     @classmethod
     @assert_driver_loaded
