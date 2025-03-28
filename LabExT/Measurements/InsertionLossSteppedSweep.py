@@ -129,8 +129,6 @@ class InsertionLossSteppedSweep(Measurement):
         self.instr_pm.range = pm_range
         self.instr_pm.unit = 'dBm'
 
-        time.sleep(1) # allow laser to move to start wavelength
-
         # inform user
         self.logger.info(f"Sweeping over {number_of_points:d} samples "
                          f"at {self.instr_pm.averagetime:e}s sampling period.")
