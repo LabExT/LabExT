@@ -156,7 +156,7 @@ class InsertionLossSweepTest(unittest.TestCase):
 
         self.meas = InsertionLossSweep()
         if rng_seed is not None:
-            np.random.seed(rng_seed)
+            instrs['Power Meter'].set_rng_seed_for_simulation(rng_seed)
         self.meas.algorithm(None,
                             data=data,
                             instruments=instrs,
@@ -176,4 +176,3 @@ class InsertionLossSweepTest(unittest.TestCase):
         check_InsertionLossSweep_data_output_heuristics(test_inst=self, data_dict=data, params_dict=meas_params)
         if rng_seed is not None:
             check_InsertionLossSweep_exact_data_output(test_inst=self, data_dict=data, params_dict=meas_params, rng_seed=rng_seed)
-
