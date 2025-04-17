@@ -26,6 +26,22 @@ class Axis(BaseEnum):
 
     def __str__(self) -> str: return f"{self.name}-Axis"
 
+class Axis_Ch123(BaseEnum):
+    """Enumerate different channels. Each channel represents one axis."""
+    X = 0
+    Y = 1
+    Z = 2
+
+    def __str__(self) -> str: return f"{self.name}-Axis"
+
+class Axis_Ch456(BaseEnum):
+    """Enumerate different channels. Each channel represents one axis."""
+    X = 3
+    Y = 4
+    Z = 5
+
+    def __str__(self) -> str: return f"{self.name}-Axis"
+
 
 class Direction(BaseEnum):
     """Enumerate different axis directions."""
