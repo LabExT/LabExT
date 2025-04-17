@@ -18,7 +18,7 @@ from LabExT.ExperimentManager import ExperimentManager
 from LabExT.Instruments.LaserSimulator import LaserSimulator
 from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
-from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
+from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output_heuristics
 from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
 
 if TYPE_CHECKING:
@@ -277,7 +277,7 @@ class MainWindowTest(TKinterTestCase):
                                                              random_dev_props,
                                                              random_meas_props)
                 # for checking the simulated data, we can re-use the checker function from the measurement's test
-                check_InsertionLossSweep_data_output(test_inst=self, data_dict=executed_measurement, params_dict=random_meas_props)
+                check_InsertionLossSweep_data_output_heuristics(test_inst=self, data_dict=executed_measurement, params_dict=random_meas_props)
 
                 # do the same analysis on the saved file
                 fpath = executed_measurement['file_path_known']
@@ -289,7 +289,7 @@ class MainWindowTest(TKinterTestCase):
                                                              fsaved_meas,
                                                              random_dev_props,
                                                              random_meas_props)
-                check_InsertionLossSweep_data_output(test_inst=self, data_dict=fsaved_meas, params_dict=random_meas_props)
+                check_InsertionLossSweep_data_output_heuristics(test_inst=self, data_dict=fsaved_meas, params_dict=random_meas_props)
 
                 # delete the generated save file
                 remove(fpath)

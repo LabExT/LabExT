@@ -24,7 +24,7 @@ from LabExT.Instruments.PowerMeterSimulator import PowerMeterSimulator
 from LabExT.Measurements.DummyMeas import DummyMeas
 from LabExT.Measurements.InsertionLossSweep import InsertionLossSweep
 from LabExT.Tests.Measurements.DummyMeas_test import check_DummyMeas_data_output
-from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output
+from LabExT.Tests.Measurements.InsertionLossSweep_test import check_InsertionLossSweep_data_output_heuristics
 from LabExT.Tests.Utils import TKinterTestCase, randomword, mark_as_gui_integration_test
 from LabExT.Tests.View.MainWindow_test import check_InsertionLossSweep_meas_dict_meta_data, \
     simulator_only_instruments_descriptions
@@ -369,7 +369,7 @@ class ExperimentWizardTest(TKinterTestCase):
                     dev_props=dev_props[check_meas_dict["device"]["id"]],
                     meas_props=random_ilm_props,
                 )
-                check_InsertionLossSweep_data_output(self, check_meas_dict, random_ilm_props)
+                check_InsertionLossSweep_data_output_heuristics(self, check_meas_dict, random_ilm_props)
             else:
                 raise AssertionError("Unknown measurement name: " + str(check_meas_dict["measurement name"]))
 
