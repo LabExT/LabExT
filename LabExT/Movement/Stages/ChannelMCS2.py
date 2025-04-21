@@ -1,8 +1,10 @@
 try:
     import smaract.ctl as ctl
+    import smaract.ctl.MoveMode as MoveMode
     MCS_LOADED = True
 except (ImportError, OSError):
     ctl = None
+    MoveMode = None
     MCS_LOADED = False
 
 class ChannelMCS2:
@@ -22,7 +24,7 @@ class ChannelMCS2:
         Speed setting of channel in micrometers/seconds
     _acceleration : float
         Acceleration setting of channel in micrometers/seconds^2
-    movement_mode : ctl.MoveMode
+    movement_mode : MoveMode
         Movement type of the channel
 
     Methods
@@ -60,7 +62,7 @@ class ChannelMCS2:
         self._stage = stage
         self._handle = index
         self._status = None
-        self._movement_mode = ctl.MoveMode.CL_RELATIVE
+        self._movement_mode = MoveMode.CL_RELATIVE
         self._position = None
         self._sensor = None
         self._speed = 0
@@ -131,14 +133,14 @@ class ChannelMCS2:
         self._acceleration = umps2
 
     @property
-    def movement_mode(self) -> ctl.MoveMode:
-        """Returns movement mode of channel as ctl.MoveMode enum."""
+    def movement_mode(self) -> MoveMode:
+        """Returns movement mode of channel as MoveMode enum."""
         return self._movement_mode
 
     @movement_mode.setter
-    def movement_mode(self, mode: ctl.MoveMode) -> None:
-        """Sets the movement mode of channel as ctl.MoveMode enum."""
-        if not isinstance(mode, ctl.MoveMode):
+    def movement_mode(self, mode: MoveMode) -> None:
+        """Sets the movement mode of channel as MoveMode enum."""
+        if not isinstance(mode, MoveMode):
             raise ValueError(f'Invalid movement mode {mode}')
         ctl.SetProperty_i32(self._stage.handle, self._handle, ctl.Property.MOVE_MODE, mode)
         self._movement_mode = mode
@@ -151,14 +153,14 @@ class ChannelMCS2:
 
     # Movement
 
-    def move(self, value: float, mode: ctl.MoveMode) -> None:
+    def move(self, value: float, mode: MoveMode) -> None:
         """Moves the channel with the specified movement type by the value 'value'.
         Parameters
         ----------
         value : float
             Channel movement measured in micrometers
-        mode : ctl.MoveMode
-            Channel movement type (e.g. ctl.MoveMode.CL_ABSOLUTE)
+        mode : MoveMode
+            Channel movement type (e.g. MoveMode.CL_ABSOLUTE)
         """
         self.movement_mode = mode
         ctl.Move(self._stage.handle, self._handle, self._to_picometer(value))
