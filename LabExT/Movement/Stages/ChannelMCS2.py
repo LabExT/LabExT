@@ -2,6 +2,7 @@ try:
     import smaract.ctl as ctl
     MCS_LOADED = True
 except (ImportError, OSError):
+    ctl = None
     MCS_LOADED = False
 
 class ChannelMCS2:
