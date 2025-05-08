@@ -281,9 +281,10 @@ class PowerMeterGenericKeysight(Instrument):
         :return: the optical power, measured right now
         """
         # we must adapt the network timeout to at least be larger than the aperture time of the power meter
-        if self._inst.timeout < self._last_set_atime_s * 1.1:
-            self.logger.warning("Resetting connection timeout to allow at least one average-time period to pass.")
-            self._inst.timeout = self._last_set_atime_s * 1.1
+        minimum_instrument_timeout_ms = self._last_set_atime_s * 1.1 * 1000  # 1.1 safety factor, unit conversion s to ms
+        if self._inst.timeout < minimum_instrument_timeout_ms:
+            self.logger.warning(f"Resetting connection timeout to {minimum_instrument_timeout_ms:.1f}ms to allow at least one average-time period to pass.")
+            self._inst.timeout = minimum_instrument_timeout_ms
 
         r = float(self.query_channel(':READ', ':POW?').strip())
         if r > 1e20:
