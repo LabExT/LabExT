@@ -77,7 +77,6 @@ class InsertionLossSteppedSweep(Measurement):
         # get the parameters
         start_lambda = parameters.get('wavelength start').value
         end_lambda = parameters.get('wavelength stop').value
-        center_wavelength = (start_lambda + end_lambda) / 2
         lambda_step = parameters.get('wavelength step').value
         stabilization_time = parameters.get('stabilization time').value # EM
         averaging_time = parameters.get('averaging time').value # EM
@@ -125,7 +124,6 @@ class InsertionLossSteppedSweep(Measurement):
 
         # PM settings
         self.instr_pm.averagetime = averaging_time
-        self.instr_pm.wavelength = center_wavelength
         self.instr_pm.range = pm_range
         self.instr_pm.unit = 'dBm'
 
@@ -142,8 +140,9 @@ class InsertionLossSteppedSweep(Measurement):
         for idx, wavelength in enumerate(wavelengths):
             self.logger.info("Taking a power measurement at {} nm.".format(wavelength))
 
-            # set laser wavelength
+            # set laser and power wavelength
             self.instr_laser.wavelength = wavelength
+            self.instr_pm.wavelength = wavelength
             
             # wait for the laser to stabilize and let one averaging time pass before taking a sample
             time.sleep(stabilization_time + averaging_time)
