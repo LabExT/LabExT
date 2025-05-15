@@ -38,7 +38,7 @@ class PowerMeterSimulator(DummyInstrument):
         self._instrument_property_avgtime = 0.001
 
         # triggering simulation
-        self._trigger = "cont"
+        self._trigger = "on"
         self._last_val = -99.0
 
     def _simulate_opt_power_value(self):
