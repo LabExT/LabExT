@@ -1,0 +1,30 @@
+import time
+import pandas as pd
+
+pm = PowerMeterSimulatorAllRanges()
+pm.wavelength = 1560
+pm.averagetime = 0.01
+pm.external_input_power_dBm = 0  # laser at 0 dBm
+
+# Wait for warm-up
+print("Warming up laser...")
+time.sleep(30)
+
+# Measurement parameters
+duration = 3600  # 1 hour
+interval = 1.0  # seconds
+timestamps = []
+powers = []
+
+print("Starting measurement...")
+start_time = time.time()
+while time.time() - start_time < duration:
+    now = time.time() - start_time
+    p = pm.power
+    timestamps.append(now)
+    powers.append(p)
+    time.sleep(interval)
+
+# Save to CSV
+df = pd.DataFrame({"Time_s": timestamps, "Power_dBm": powers})
+df.to_csv("powermeter_fullrange_measurement.csv", index=False)
