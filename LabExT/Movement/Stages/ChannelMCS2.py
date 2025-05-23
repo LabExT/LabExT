@@ -60,7 +60,10 @@ class ChannelMCS2:
         self._stage = stage
         self._handle = index
         self._status = None
-        self._movement_mode = ctl.MoveMode.CL_RELATIVE
+        if MCS_LOADED:
+            self._movement_mode = ctl.MoveMode.CL_RELATIVE
+        else:
+            self._movement_mode = None
         self._position = None
         self._sensor = None
         self._speed = 0
