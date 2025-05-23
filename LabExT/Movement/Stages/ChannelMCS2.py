@@ -134,7 +134,7 @@ class ChannelMCS2:
         self._acceleration = umps2
 
     @property
-    def movement_mode(self) -> ctl.MoveMode:
+    def movement_mode(self):
         """Returns movement mode of channel as MoveMode enum."""
         return self._movement_mode
 
