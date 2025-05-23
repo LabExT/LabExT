@@ -154,7 +154,7 @@ class ChannelMCS2:
 
     # Movement
 
-    def move(self, value: float, mode: ctl.MoveMode) -> None:
+    def move(self, value: float, mode) -> None:
         """Moves the channel with the specified movement type by the value 'value'.
         Parameters
         ----------
