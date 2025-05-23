@@ -22,7 +22,7 @@ class ChannelMCS2:
         Speed setting of channel in micrometers/seconds
     _acceleration : float
         Acceleration setting of channel in micrometers/seconds^2
-    movement_mode : ctl.MoveMode
+    movement_mode
         Movement type of the channel
 
     Methods
