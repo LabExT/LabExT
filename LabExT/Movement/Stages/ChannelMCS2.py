@@ -139,7 +139,7 @@ class ChannelMCS2:
         return self._movement_mode
 
     @movement_mode.setter
-    def movement_mode(self, mode: ctl.MoveMode) -> None:
+    def movement_mode(self, mode) -> None:
         """Sets the movement mode of channel as MoveMode enum."""
         if not isinstance(mode, ctl.MoveMode):
             raise ValueError(f'Invalid movement mode {mode}')
