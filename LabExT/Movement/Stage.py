@@ -77,7 +77,7 @@ class Stage(ABC):
         try:
             return [cls(address) for address in cls.find_stage_addresses()]
         except StageError as err:
-            cls._logger.info(
+            cls._logger.debug(
                 f"Failed to find available stages for {cls.__name__}: {err}")
             return []
 
