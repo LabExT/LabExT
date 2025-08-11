@@ -113,6 +113,7 @@ class PeakSearcher(Measurement):
         self.instr_powermeter2 = None
         self.instr_powermeter3 = None
         self.instr_powermeter4 = None
+        self.instr_switch = None
         self.initialized = False
 
         self.logger.info(
@@ -218,6 +219,11 @@ class PeakSearcher(Measurement):
     @staticmethod
     def get_default_parameter():
         return {
+            'Switch Flag': MeasParamBool(value=False),
+            'M = 1': MeasParamInt(value=1, unit='N Port'),
+            'M = 2': MeasParamInt(value=2, unit='N Port'),
+            'M = 3': MeasParamInt(value=3, unit='N Port'),
+            'M = 4': MeasParamInt(value=4, unit='N Port'),
             'Laser wavelength': MeasParamInt(value=1550, unit='nm'),
             'Laser power': MeasParamFloat(value=0.0, unit='dBm'),
             'SfP type': MeasParamList(options=['stepped SfP', 'swept SfP (FA & N7744a PM models only)']),
@@ -247,7 +253,7 @@ class PeakSearcher(Measurement):
 
     @staticmethod
     def get_wanted_instrument():
-        return ['Laser', 'Power Meter 1', 'Power Meter 2', 'Power Meter 3', 'Power Meter 4']
+        return ['Laser', 'Power Meter 1', 'Power Meter 2', 'Power Meter 3', 'Power Meter 4', 'Switch']
 
     def search_for_peak(self):
         """Main Search For Peak routine
@@ -275,6 +281,7 @@ class PeakSearcher(Measurement):
         self.instr_powermeter3 = self.get_instrument('Power Meter 3')
         self.instr_powermeter4 = self.get_instrument('Power Meter 4')
         self.instr_laser = self.get_instrument('Laser')
+        self.instr_switch = self.get_instrument('Switch')
 
         # double check if instruments are initialized, otherwise throw error
         if self.instr_powermeter1 is None:
@@ -298,6 +305,12 @@ class PeakSearcher(Measurement):
         self.instr_powermeter2.open()
         self.instr_powermeter3.open()
         self.instr_powermeter4.open()
+        if self.parameters['Switch Flag'].value:
+            self.instr_switch = self.get_instrument('Switch')
+            if self.instr_switch is None:
+                raise RuntimeError('Search for Peak Switch not yet defined!')
+            self.instr_switch.open()
+            self.instr_switch.connect([(1, self.parameters['M = 1'].value), (2, self.parameters['M = 2'].value), (3, self.parameters['M = 3'].value), (4, self.parameters['M = 4'].value)])
 
         self.logger.debug('Executing Search for Peak with the following parameters: {:s}'.format(
             "\n".join([str(name) + " = " + str(param.value) + " " + str(param.unit) for name, param in
@@ -660,6 +673,8 @@ class PeakSearcher(Measurement):
         self.instr_powermeter2.close()
         self.instr_powermeter3.close()
         self.instr_powermeter4.close()
+        if self.parameters['Switch Flag'].value:
+            self.instr_switch.close()
 
         # save final result to log
         loc_str = " x ".join(["{:.3f}um".format(p)

@@ -127,6 +127,7 @@ class OpticalVectorAnalyzer(Instrument):
         vi.SetControlValue("Center WL", center_wavelength)
         vi.SetControlValue("WL Range", wl_range_dict[wl_range])
         vi.SetControlValue("Save Data", save_all_data)
+        vi.SetControlValue("Output Spreadsheet File Path", " ")
         vi.SetControlValue("Output Spreadsheet File Path", filepath)
         vi.SetControlValue("Graph Data to Output", [True] * 20)
         vi.SetControlValue("Filter?", False)
@@ -136,7 +137,7 @@ class OpticalVectorAnalyzer(Instrument):
             vi.SetControlValue("Meas Type", 0) 
 
         self.logger.debug("Running Luna sweep measurement")
-
+        print("Running Luna sweep measurement")
         vi.Run
 
         # Grab data in graph object

@@ -193,6 +193,8 @@ class InstrumentsChooserWidget(InstrumentSelector):
         available_instruments.update({'Power Meter 3': InstrumentRole(self.parent.parent.root, io_set)})
         io_set = get_visa_address('Power Meter 4')
         available_instruments.update({'Power Meter 4': InstrumentRole(self.parent.parent.root, io_set)})
+        io_set = get_visa_address('Switch')
+        available_instruments.update({'Switch': InstrumentRole(self.parent.parent.root, io_set)})
 
         self.title = 'Choose instruments'
         self.instrument_source = available_instruments

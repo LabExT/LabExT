@@ -196,7 +196,7 @@ class Measurement:
         Called from a standard experiment routine from LabExT to save all involved instrument's meta data and settings.
         """
         inst_data = {}
-
+    
         for cat, i in self.instruments.items():
             self.logger.debug("getting params from: " + str(cat) + " actual class: " + str(i.__class__.__name__))
             inst_data[cat[0]] = i.get_instrument_parameter()

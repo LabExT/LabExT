@@ -326,6 +326,7 @@ class InstrumentConnectionDebugger:
                                                                    initialized_instruments=self.manually_opened_instrs)
 
         try:
+            print(f'Opening instrument connection to {instr_type_name} at {instr_visa} using class {instr_cls_name}')
             iinst.open()
         except Exception as e:
             messagebox.showerror('connection error',
