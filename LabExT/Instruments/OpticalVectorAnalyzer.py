@@ -57,7 +57,7 @@ class OpticalVectorAnalyzer(Instrument):
             self.logger.debug("Successfully connected to OVA")
             return 
 
-    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt', meas_type: str = "Transmission"):
+    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt', meas_type: str = "Transmission", group_index: float = 1.5, X_axis_units: int = 0):
         """
         Acquire measurement data from the OVA.
 
@@ -96,7 +96,6 @@ class OpticalVectorAnalyzer(Instrument):
                 '58.97': 6
             }
 
-
         plot_data_dict = {
             'INSERTION_LOSS' : 0,
             'GROUP_DELAY' : 1,
@@ -123,6 +122,8 @@ class OpticalVectorAnalyzer(Instrument):
             vi.SetControlValue("Find DUT Length?", True)
         vi.SetControlValue("New Scan", True)
         vi.SetControlValue("Plot Data", True)
+        vi.SetControlValue("X-axis units", X_axis_units)
+        vi.SetControlValue("Group Index", group_index)
         vi.SetControlValue("Graph Sel", plot_data_dict[plot_data_type])
         vi.SetControlValue("Center WL", center_wavelength)
         vi.SetControlValue("WL Range", wl_range_dict[wl_range])

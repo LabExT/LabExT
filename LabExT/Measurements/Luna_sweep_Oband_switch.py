@@ -95,7 +95,7 @@ class LUNA_sweep_Oband_switch(Measurement):
                 save_all_data = save_all_data,
                 filepath = filepath,
                 meas_type = meas_type
-            )
+            ) 
 
 
 
