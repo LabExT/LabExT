@@ -8,8 +8,8 @@ import json
 import logging
 import os.path
 
-from typing import TYPE_CHECKING, Union
-from tkinter import Frame, Label, Button, messagebox, TOP
+from typing import TYPE_CHECKING, Union, List
+from tkinter import Frame, Label, Button, messagebox
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import get_configuration_file_path, get_visa_address
@@ -144,22 +144,22 @@ class MultiDeviceTable(Frame):
         """Set up the custom table containing all devices from the chip."""
 
         # set up columns so that they contain all parameters
-        def_columns = ["#", "Selection", "ID", "In", "Out", "Type"]
-        columns = set()
+        column_headers = ["#", "Selection", "ID", "In", "Out", "Type"]
+        column_param_headers = set()
         for device in self.chip.devices.values():
-            for param in device.parameters:
-                columns.add(str(param))
+            for param_name in device.parameters:
+                column_param_headers.add(str(param_name))
 
         saved_ids = self.deserialize_to_list()
-        devices = []
+        rows: List[tuple] = []
         for idx, dev in enumerate(self.chip.devices.values()):
             if dev.id in saved_ids:
                 row_values = (idx + 1, self.MARKED, dev.id, dev.in_position, dev.out_position, dev.type)
                 saved_ids.remove(dev.id)
             else:
                 row_values = (idx + 1, self.UNMARKED, dev.id, dev.in_position, dev.out_position, dev.type)
-            row_values = (*row_values, *[dev.parameters.get(param, "") for param in columns])
-            devices.append(row_values)
+            row_values = (*row_values, *[dev.parameters.get(param, "") for param in column_param_headers])
+            rows.append(row_values)
 
         Label(self.parent, text="Highlight one or more rows, then press mark to select these devices").grid(
             column=0, row=0, padx=5, pady=5, sticky="nswe"
@@ -171,7 +171,7 @@ class MultiDeviceTable(Frame):
         self.parent.grid_rowconfigure(1, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
-        self.device_table = CustomTable(self.table_frame, (def_columns + list(columns)), devices)
+        self.device_table = CustomTable(self.table_frame, (column_headers + list(column_param_headers)), rows)
 
         button_frame = Frame(self.parent)
         button_frame.grid(column=0, row=2, sticky="w")
@@ -272,7 +272,7 @@ class MeasurementSelection(Step):
 
         # create table
         rows = [(0, meas) for meas in sorted(list(self._measurement_names))]
-        self.meas_table = CustomTable(frame, columns=["Order", "Name"], rows=rows)
+        self.meas_table = CustomTable(frame, column_headers=["Order", "Name"], rows=rows)
         tree = self.meas_table.get_tree()
         for idx, iid in enumerate(tree.get_children()):
             tree.item(iid, tags=(str(idx)))
@@ -464,7 +464,7 @@ class ParameterSweep(Step):
 
             sweep_frame.deserialize(data.get(measurement.name, {}))
 
-            sweep_frame.pack(padx=5, pady=10, side=TOP, fill='x', expand=False)
+            sweep_frame.pack(padx=5, pady=10, side="top", fill='x', expand=False)
 
             self.frames.append((measurement, sweep_frame))
 

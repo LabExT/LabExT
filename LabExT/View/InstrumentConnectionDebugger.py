@@ -94,7 +94,7 @@ class InstrumentConnectionDebugger:
         avail_instr_frame.rowconfigure(0, weight=1)
 
         self.instr_cfg_table = CustomTable(parent=avail_instr_frame,
-                                           columns=('Instrument type', 'at VISA address', 'used class'),
+                                           column_headers=('Instrument type', 'at VISA address', 'used class'),
                                            rows=self._get_available_instr_cfg(),
                                            selectmode='browse')  # custom table inserts itself into the parent frame
 
