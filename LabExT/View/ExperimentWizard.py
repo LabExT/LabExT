@@ -9,7 +9,8 @@ import logging
 import os.path
 
 from typing import TYPE_CHECKING, Union, List
-from tkinter import Frame, Label, Button, messagebox, StringVar, Entry
+from tkinter import Frame, Label, Button, messagebox, StringVar
+from tkinter.ttk import OptionMenu
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import get_configuration_file_path, get_visa_address
@@ -18,6 +19,7 @@ from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.DataFrameTable import DataFrameTable
 from LabExT.View.Controls.InstrumentSelector import InstrumentSelector, InstrumentRole
 from LabExT.View.Controls.ParameterTable import ParameterTable
+from LabExT.View.Controls.PlaceholderEntry import PlaceholderEntry
 from LabExT.View.Controls.SweepParameterFrame import SweepParameterFrame
 from LabExT.View.Controls.Wizard import Wizard, Step
 from LabExT.View.TooltipMenu import CreateToolTip
@@ -106,11 +108,11 @@ class DeviceSelection(Step):
         super().__init__(wizard=wizard, builder=self.build, title="Device Selection", on_next=self._on_next)
         self.exp_manager = exp_manager
 
-        self.device_table: Union[MultiDeviceTable, None] = None
+        self.device_table: Union[DeviceTableFrame, None] = None
 
     def build(self, frame: Frame):
         frame.title = "Select Devices"
-        self.device_table = MultiDeviceTable(frame, self.exp_manager.chip)
+        self.device_table = DeviceTableFrame(frame, self.exp_manager.chip)
 
     def _on_next(self) -> bool:
         marked_devices = self.device_table.get_marked_devices()
@@ -122,7 +124,7 @@ class DeviceSelection(Step):
         return True
 
 
-class MultiDeviceTable(Frame):
+class DeviceTableFrame(Frame):
     """Shows a table with all devices of the current chip and lets the user select devices."""
 
     SETTINGS_PATH = get_configuration_file_path("device_selection.json")
@@ -139,7 +141,8 @@ class MultiDeviceTable(Frame):
         self._counter_all = 0
         self._counter_selected = 0
 
-        self._contains_string = StringVar(value="")
+        self._search_string = StringVar(value="")
+        self._selected_column = StringVar(value="ID")
 
         self._build_ui()
 
@@ -147,7 +150,7 @@ class MultiDeviceTable(Frame):
         """Set up the custom table containing all devices from the chip."""
 
         # set up columns so that they contain all parameters
-        column_headers = ["#", "Selection", "ID", "In", "Out", "Type"]
+        column_headers = ["Index", "Selection", "ID", "In", "Out", "Type"]
         additional_param_headers = set()
         for device in self.chip.devices.values():
             for param_name in device.parameters:
@@ -193,20 +196,23 @@ class MultiDeviceTable(Frame):
         Button(button_frame, text="(un)mark all", command=self.mark_all).grid(
             row=0, column=2, padx=5, sticky="w"
         )
-        Button(button_frame, text="filter ID (contains)", command=self.filter_ids_contain).grid(
+        OptionMenu(button_frame, self._selected_column, "ID", *column_headers).grid(
             row=0, column=3, padx=5, sticky="w"
         )
-        Entry(button_frame, textvariable=self._contains_string).grid(
-            row=1, column=3, padx=5, sticky="w"
+        PlaceholderEntry(button_frame, textvariable=self._search_string, placeholder="contains").grid(
+            row=0, column=4, padx=5, sticky="w"
+        )
+        Button(button_frame, text="filter", command=self.filter_contains).grid(
+            row=0, column=5, padx=5, sticky="w"
         )
 
         Label(self.parent, text="The selected devices will be sorted by the original index.").grid(
             row=2, column=0, padx=5, pady=5, sticky="e"
         )
 
-    def filter_ids_contain(self) -> None:
+    def filter_contains(self) -> None:
         df = self.device_table.get_full_df()
-        df = df[df["ID"].str.contains(self._contains_string.get())]
+        df = df[df[self._selected_column.get()].str.contains(self._search_string.get())]
         self.device_table.update_df(df)
 
     def mark_items_by_ids(self, ids: list[str]) -> None:
