@@ -9,7 +9,7 @@ import logging
 import os.path
 
 from typing import TYPE_CHECKING, Union, List
-from tkinter import Frame, Label, Button, messagebox, StringVar
+from tkinter import Frame, Label, Button, messagebox, StringVar, Entry
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import get_configuration_file_path, get_visa_address
@@ -193,11 +193,11 @@ class MultiDeviceTable(Frame):
         Button(button_frame, text="(un)mark all", command=self.mark_all).grid(
             row=0, column=2, padx=5, sticky="w"
         )
-        Button(button_frame, text="ID contains", command=self.filter_ids_contain).grid(
+        Button(button_frame, text="filter ID (contains)", command=self.filter_ids_contain).grid(
             row=0, column=3, padx=5, sticky="w"
         )
-        Label(button_frame, textvariable=self._contains_string).grid(
-            row=5, column=4, padx=5, sticky="w"
+        Entry(button_frame, textvariable=self._contains_string).grid(
+            row=1, column=3, padx=5, sticky="w"
         )
 
         Label(self.parent, text="The selected devices will be sorted by the original index.").grid(
@@ -205,7 +205,9 @@ class MultiDeviceTable(Frame):
         )
 
     def filter_ids_contain(self) -> None:
-        ...
+        df = self.device_table.get_full_df()
+        df = df[df["ID"].str.contains(self._contains_string.get())]
+        self.device_table.update_df(df)
 
     def mark_items_by_ids(self, ids: list[str]) -> None:
         if not ids:

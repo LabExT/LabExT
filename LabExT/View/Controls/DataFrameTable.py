@@ -135,6 +135,9 @@ class TableController:
     def get_df(self) -> pd.DataFrame:
         return self.model.df.copy()
 
+    def get_full_df(self) -> pd.DataFrame:
+        return self.model.full_df.copy()
+
     def update_df(self, df: pd.DataFrame) -> None:
         self.model.update_df(df)
         self.refresh()
@@ -162,6 +165,9 @@ class DataFrameTable:
 
     def get_df(self) -> pd.DataFrame:
         return self.controller.get_df()
+
+    def get_full_df(self) -> pd.DataFrame:
+        return self.controller.get_full_df()
 
     def update_df(self, df: pd.DataFrame) -> None:
         self.controller.update_df(df)
