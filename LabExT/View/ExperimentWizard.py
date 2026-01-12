@@ -8,15 +8,18 @@ import json
 import logging
 import os.path
 
-from typing import TYPE_CHECKING, Union
-from tkinter import Frame, Label, Button, messagebox, TOP
+from typing import TYPE_CHECKING, Union, List
+from tkinter import Frame, Label, Button, messagebox, StringVar
+from tkinter.ttk import OptionMenu
 
 from LabExT.Experiments.ToDo import ToDo
 from LabExT.Utils import get_configuration_file_path, get_visa_address
 from LabExT.View.Controls.CustomTable import CustomTable
 from LabExT.View.Controls.CustomFrame import CustomFrame
+from LabExT.View.Controls.DataFrameTable import DataFrameTable
 from LabExT.View.Controls.InstrumentSelector import InstrumentSelector, InstrumentRole
 from LabExT.View.Controls.ParameterTable import ParameterTable
+from LabExT.View.Controls.PlaceholderEntry import PlaceholderEntry
 from LabExT.View.Controls.SweepParameterFrame import SweepParameterFrame
 from LabExT.View.Controls.Wizard import Wizard, Step
 from LabExT.View.TooltipMenu import CreateToolTip
@@ -105,11 +108,11 @@ class DeviceSelection(Step):
         super().__init__(wizard=wizard, builder=self.build, title="Device Selection", on_next=self._on_next)
         self.exp_manager = exp_manager
 
-        self.device_table: Union[MultiDeviceTable, None] = None
+        self.device_table: Union[DeviceTableFrame, None] = None
 
     def build(self, frame: Frame):
         frame.title = "Select Devices"
-        self.device_table = MultiDeviceTable(frame, self.exp_manager.chip)
+        self.device_table = DeviceTableFrame(frame, self.exp_manager.chip)
 
     def _on_next(self) -> bool:
         marked_devices = self.device_table.get_marked_devices()
@@ -121,7 +124,7 @@ class DeviceSelection(Step):
         return True
 
 
-class MultiDeviceTable(Frame):
+class DeviceTableFrame(Frame):
     """Shows a table with all devices of the current chip and lets the user select devices."""
 
     SETTINGS_PATH = get_configuration_file_path("device_selection.json")
@@ -138,28 +141,33 @@ class MultiDeviceTable(Frame):
         self._counter_all = 0
         self._counter_selected = 0
 
-        self.__setup__()
+        self._search_string = StringVar(value="")
+        self._selected_column = StringVar(value="ID")
 
-    def __setup__(self):
+        self._build_ui()
+
+    def _build_ui(self):
         """Set up the custom table containing all devices from the chip."""
 
         # set up columns so that they contain all parameters
-        def_columns = ["#", "Selection", "ID", "In", "Out", "Type"]
-        columns = set()
+        column_headers = ["Index", "Selection", "ID", "In", "Out", "Type"]
+        additional_param_headers = set()
         for device in self.chip.devices.values():
-            for param in device.parameters:
-                columns.add(str(param))
+            for param_name in device.parameters:
+                additional_param_headers.add(str(param_name))
+
+        column_headers = (column_headers + list(additional_param_headers))
 
         saved_ids = self.deserialize_to_list()
-        devices = []
+        rows: List[tuple] = []
         for idx, dev in enumerate(self.chip.devices.values()):
             if dev.id in saved_ids:
                 row_values = (idx + 1, self.MARKED, dev.id, dev.in_position, dev.out_position, dev.type)
                 saved_ids.remove(dev.id)
             else:
                 row_values = (idx + 1, self.UNMARKED, dev.id, dev.in_position, dev.out_position, dev.type)
-            row_values = (*row_values, *[dev.parameters.get(param, "") for param in columns])
-            devices.append(row_values)
+            row_values = (*row_values, *[dev.parameters.get(param, "") for param in additional_param_headers])
+            rows.append(row_values)
 
         Label(self.parent, text="Highlight one or more rows, then press mark to select these devices").grid(
             column=0, row=0, padx=5, pady=5, sticky="nswe"
@@ -171,7 +179,11 @@ class MultiDeviceTable(Frame):
         self.parent.grid_rowconfigure(1, weight=1)
         self.parent.grid_columnconfigure(0, weight=1)
 
-        self.device_table = CustomTable(self.table_frame, (def_columns + list(columns)), devices)
+        self.device_table = DataFrameTable(
+            parent=self.table_frame,
+            column_headers=column_headers,
+            rows=rows
+        )
 
         button_frame = Frame(self.parent)
         button_frame.grid(column=0, row=2, sticky="w")
@@ -184,54 +196,58 @@ class MultiDeviceTable(Frame):
         Button(button_frame, text="(un)mark all", command=self.mark_all).grid(
             row=0, column=2, padx=5, sticky="w"
         )
+        OptionMenu(button_frame, self._selected_column, "ID", *column_headers).grid(
+            row=0, column=3, padx=5, sticky="w"
+        )
+        PlaceholderEntry(button_frame, textvariable=self._search_string, placeholder="contains").grid(
+            row=0, column=4, padx=5, sticky="w"
+        )
+        Button(button_frame, text="filter", command=self.filter_contains).grid(
+            row=0, column=5, padx=5, sticky="w"
+        )
 
         Label(self.parent, text="The selected devices will be sorted by the original index.").grid(
             row=2, column=0, padx=5, pady=5, sticky="e"
         )
 
+    def filter_contains(self) -> None:
+        df = self.device_table.get_full_df()
+        df = df[df[self._selected_column.get()].str.contains(self._search_string.get())]
+        self.device_table.update_df(df)
+
     def mark_items_by_ids(self, ids: list[str]) -> None:
         if not ids:
             return
-        copied_ids = ids[:]
-        tree = self.device_table.get_tree()
-        for iid in tree.get_children():
-            current_id = str(tree.set(iid, column=2))
-            if current_id not in ids:
-                continue
-            if tree.set(iid, column=1) == self.UNMARKED:
-                tree.set(iid, column=1, value=self.MARKED)
-            else:
-                tree.set(iid, column=1, value=self.UNMARKED)
-            copied_ids.remove(current_id)
-            if not copied_ids:
-                break
+        df = self.device_table.get_df()
+        df.loc[df["ID"].isin(ids), "Selection"] = self.MARKED
+        self.device_table.update_df(df)
 
     def mark_selected_items(self) -> None:
-        """Mark the currently selected rows."""
-        tree = self.device_table.get_tree()
-        for iid in tree.selection():
-            tree.set(iid, column=1, value=self.MARKED)
+        row_indices = self.device_table.get_selected_row_indices()
+        df = self.device_table.get_df()
+        df.loc[row_indices, "Selection"] = self.MARKED
+        self.device_table.update_df(df)
 
     def unmark_selected_items(self) -> None:
-        """Unmark the currently selected rows."""
-        tree = self.device_table.get_tree()
-        for iid in tree.selection():
-            tree.set(iid, column=1, value=self.UNMARKED)
-
-    def _mark_selected_items(self) -> None:
-        """Mark or un-mark the currently selected rows."""
-        tree = self.device_table.get_tree()
-        for iid in tree.selection():
-            if tree.set(iid, column=1) == self.UNMARKED:
-                tree.set(iid, column=1, value=self.MARKED)
-            else:
-                tree.set(iid, column=1, value=self.UNMARKED)
+        row_indices = self.device_table.get_selected_row_indices()
+        df = self.device_table.get_df()
+        df.loc[row_indices, "Selection"] = self.UNMARKED
+        self.device_table.update_df(df)
 
     def mark_all(self) -> None:
-        tree = self.device_table.get_tree()
-        value_to_set = self.MARKED if (self._counter_all % 2 == 0) else self.UNMARKED
-        [tree.set(iid, column=1, value=value_to_set) for iid in tree.get_children()]
+        value_to_set = self.MARKED if not self._counter_all % 2 else self.UNMARKED
+        df = self.device_table.get_df()
+        df["Selection"] = value_to_set
+        self.device_table.update_df(df)
         self._counter_all += 1
+
+    def get_marked_device_ids(self) -> list[str]:
+        df = self.device_table.get_df()
+        marked_ids = df[df["Selection"] == self.MARKED]["ID"].tolist()
+        return marked_ids
+
+    def get_marked_devices(self) -> list[Device]:
+        return [self.chip.devices[dev_id] for dev_id in self.get_marked_device_ids()]
 
     def deserialize_to_list(self) -> list[str]:
         if not os.path.exists(self.SETTINGS_PATH):
@@ -243,16 +259,6 @@ class MultiDeviceTable(Frame):
     def serialize(self) -> None:
         with open(self.SETTINGS_PATH, "w") as f:
             json.dump(self.get_marked_device_ids(), f)
-
-    def get_marked_device_ids(self) -> list[str]:
-        """Return a list of ids from the marked devices sorted according to the original index."""
-        tree = self.device_table.get_tree()
-        marked_iid = [iid for iid in tree.get_children() if tree.set(iid, column=1) == self.MARKED]
-        device_ids = [tree.set(iid, column=2) for iid in marked_iid]
-        return [_id for _, _id in sorted(zip(marked_iid, device_ids))]
-
-    def get_marked_devices(self) -> list[Device]:
-        return [self.chip.devices[dev_id] for dev_id in self.get_marked_device_ids()]
 
 
 class MeasurementSelection(Step):
@@ -272,7 +278,7 @@ class MeasurementSelection(Step):
 
         # create table
         rows = [(0, meas) for meas in sorted(list(self._measurement_names))]
-        self.meas_table = CustomTable(frame, columns=["Order", "Name"], rows=rows)
+        self.meas_table = CustomTable(frame, column_headers=["Order", "Name"], rows=rows)
         tree = self.meas_table.get_tree()
         for idx, iid in enumerate(tree.get_children()):
             tree.item(iid, tags=(str(idx)))
@@ -464,7 +470,7 @@ class ParameterSweep(Step):
 
             sweep_frame.deserialize(data.get(measurement.name, {}))
 
-            sweep_frame.pack(padx=5, pady=10, side=TOP, fill='x', expand=False)
+            sweep_frame.pack(padx=5, pady=10, side="top", fill='x', expand=False)
 
             self.frames.append((measurement, sweep_frame))
 

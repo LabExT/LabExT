@@ -445,7 +445,7 @@ class StageAssignmentStep(Step):
         CustomTable(
             parent=available_stages_frame,
             selectmode='none',
-            columns=(
+            column_headers=(
                 'ID', 'Description', 'Stage Class', 'Address', 'Connected'
             ),
             rows=[
@@ -1018,7 +1018,7 @@ class CoordinatePairingStep(Step):
         self._coordinate_pairing_table = CustomTable(
             parent=pairings_table_frame,
             selectmode='extended',
-            columns=(
+            column_headers=(
                 'ID',
                 'Stage',
                 'Stage Cooridnate',

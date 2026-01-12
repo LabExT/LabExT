@@ -109,34 +109,34 @@ class ExperimentWizardTest(TKinterTestCase):
         # select devices step
         #
         device_step = exp_wizard.step_device_selection
+        dataframe_table = device_step.device_table.device_table
         self.assertIsInstance(device_step, DeviceSelection)
-        all_rows = device_step.device_table.device_table.get_tree().get_children()
-        self.assertEqual(len(all_rows), 49)
+        self.assertEqual(len(dataframe_table.get_df()), 49)
 
-        for chip_dev, table_dev in zip(
+        for chip_dev, (_, table_dev) in zip(
             self.expm.chip.devices.values(),
-            (device_step.device_table.device_table.get_tree().item(row) for row in all_rows),
+            dataframe_table.get_df().iterrows()
         ):
-            self.assertEqual(chip_dev.id, str(table_dev["values"][2]))
-            self.assertEqual(chip_dev.in_position[0], float(table_dev["values"][3].split(" ")[0]))
-            self.assertEqual(chip_dev.in_position[1], float(table_dev["values"][3].split(" ")[1]))
-            self.assertEqual(chip_dev.out_position[0], float(table_dev["values"][4].split(" ")[0]))
-            self.assertEqual(chip_dev.out_position[1], float(table_dev["values"][4].split(" ")[1]))
-            self.assertEqual(chip_dev.type, table_dev["values"][5])
+            self.assertEqual(chip_dev.id, str(table_dev["ID"]))
+            self.assertEqual(chip_dev.in_position[0], float(table_dev["In"][0]))
+            self.assertEqual(chip_dev.in_position[1], float(table_dev["In"][1]))
+            self.assertEqual(chip_dev.out_position[0], float(table_dev["Out"][0]))
+            self.assertEqual(chip_dev.out_position[1], float(table_dev["Out"][1]))
+            self.assertEqual(chip_dev.type, table_dev["Type"])
 
         selected_device_ids = random.sample([k for k in self.expm.chip.devices], 3)
         device_step.device_table.mark_items_by_ids(ids=selected_device_ids)
         self.pump_events()
 
         # double check that the table updated first column
-        for chip_dev, table_dev in zip(
+        for chip_dev, (_, table_dev) in zip(
             self.expm.chip.devices.values(),
-            (device_step.device_table.device_table.get_tree().item(row) for row in all_rows),
+            dataframe_table.get_df().iterrows()
         ):
             if chip_dev.id in selected_device_ids:
-                self.assertEqual(table_dev["values"][1], "marked")
+                self.assertEqual(table_dev["Selection"], "marked")
             else:
-                self.assertEqual(table_dev["values"][1], " ")
+                self.assertEqual(table_dev["Selection"], " ")
 
         # continue to next step in wizard
         exp_wizard._next_button.invoke()
