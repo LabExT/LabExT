@@ -6,9 +6,9 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 
 from tkinter import TOP, X, Button, messagebox
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
-import numpy as np
+import pandas as pd
 
 from LabExT.Measurements.MeasAPI.Measparam import MeasParamString
 from LabExT.View.Controls.ParameterTable import ParameterTable
@@ -64,7 +64,7 @@ class PhoenixPhotonics(ChipSourceStep):
         chip_name = user_given_params["chip name"].value
 
         try:
-            devices = self._decode_phoenics_photonics_csv_file(file_path=file_path)
+            devices = self._decode_csv_to_devices(filepath=file_path)
         except Exception as e:
             title = "CSV Reading Error"
             msg = f"Error reading CSV file. Error message:\n{repr(e)}"
@@ -75,42 +75,24 @@ class PhoenixPhotonics(ChipSourceStep):
         self.submit_chip_info(name=chip_name, path=file_path, devices=devices)
 
     @staticmethod
-    def _decode_phoenics_photonics_csv_file(file_path: str):
+    def _decode_csv_to_devices(filepath: str) -> List[Device]:
 
-        txt_encodings = ["utf-8", "cp1252"]
-        txt_encodings_errors = {k: None for k in txt_encodings}
+        df = pd.read_csv(filepath, delimiter=",")
+        device_string, input_x, input_y, output_x, output_y = df.columns[:5]
 
-        for txt_encoding in txt_encodings:
-            try:
-                dev_raw_data = np.genfromtxt(
-                    file_path,
-                    comments="%",
-                    delimiter=",",
-                    # necessary to get strings into ndarray
-                    converters={0: lambda s: s.decode(txt_encoding)},
-                )
-                break
-            except Exception as exc:
-                txt_encodings_errors[txt_encoding] = repr(exc)
-        else:
-            raise ValueError(
-                f"File {file_path:s} was unable to be decoded with any of these encodings {txt_encodings}. Errors: {txt_encodings_errors}."
+        numeric_cols = [input_x, input_y, output_x, output_y]
+        df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric)
+
+        # this separates a string of e.g. "[010101]your-label" to "010101", "your-label"
+        df[["device_id", "device_label"]] = df[device_string].str.extract(r"\[(.*?)\]\s*(.*)")
+
+        def _row_to_device(row: tuple) -> Device:
+            return Device(
+                id=getattr(row, "device_id"),
+                in_position=[getattr(row, input_x), getattr(row, input_y)],
+                out_position=[getattr(row, output_x), getattr(row, output_y)],
+                type=getattr(row, "device_label")
             )
 
-        devices = []
-        for row_tuple in dev_raw_data:
-
-            # extract id number and type string from first element in tuple
-            id_type_strs = row_tuple[0].split("]")
-            dev_id = str(id_type_strs[0].replace("[", "").replace("]", "").strip())
-            dev_type = str(id_type_strs[1].strip())
-
-            # input and output GC coordinates
-            dev_inputs = [row_tuple[1], row_tuple[2]]
-            dev_outputs = [row_tuple[3], row_tuple[4]]
-
-            # create device object and store into dict
-            dev = Device(id=dev_id, in_position=dev_inputs, out_position=dev_outputs, type=dev_type)
-            devices.append(dev)
-
+        devices = [_row_to_device(row) for row in df.itertuples()]
         return devices
