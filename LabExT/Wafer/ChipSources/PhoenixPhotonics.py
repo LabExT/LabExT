@@ -77,21 +77,22 @@ class PhoenixPhotonics(ChipSourceStep):
     @staticmethod
     def _decode_csv_to_devices(filepath: str) -> List[Device]:
 
-        df = pd.read_csv(filepath, delimiter=",")
-        device_string, input_x, input_y, output_x, output_y = df.columns[:5]
+        df = pd.read_csv(filepath, comment="%", header=None)
+        df.columns = [f"col{col}" for col in df.columns]
+        id_label, input_x, input_y, output_x, output_y = df.columns[:5]
 
         numeric_cols = [input_x, input_y, output_x, output_y]
         df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric)
 
         # this separates a string of e.g. "[010101]your-label" to "010101", "your-label"
-        df[["device_id", "device_label"]] = df[device_string].str.extract(r"\[(.*?)\]\s*(.*)")
+        df[["ID", "label"]] = df[id_label].str.extract(r"\[(.*?)\]\s*(.*)").apply(lambda s: s.str.strip())
 
         def _row_to_device(row: tuple) -> Device:
             return Device(
-                id=getattr(row, "device_id"),
+                id=getattr(row, "ID"),
                 in_position=[getattr(row, input_x), getattr(row, input_y)],
                 out_position=[getattr(row, output_x), getattr(row, output_y)],
-                type=getattr(row, "device_label")
+                type=getattr(row, "label")
             )
 
         devices = [_row_to_device(row) for row in df.itertuples()]
