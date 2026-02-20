@@ -64,7 +64,7 @@ class PhoenixPhotonics(ChipSourceStep):
         chip_name = user_given_params["chip name"].value
 
         try:
-            devices = self._decode_csv_to_devices(filepath=file_path)
+            devices = self.decode_csv_to_devices(filepath=file_path)
         except Exception as e:
             title = "CSV Reading Error"
             msg = f"Error reading CSV file. Error message:\n{repr(e)}"
@@ -75,7 +75,7 @@ class PhoenixPhotonics(ChipSourceStep):
         self.submit_chip_info(name=chip_name, path=file_path, devices=devices)
 
     @staticmethod
-    def _decode_csv_to_devices(filepath: str) -> List[Device]:
+    def decode_csv_to_devices(filepath: str) -> List[Device]:
 
         df = pd.read_csv(filepath, comment="%", header=None)
         df.columns = [f"col{col}" for col in df.columns]

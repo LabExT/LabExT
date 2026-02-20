@@ -87,9 +87,9 @@ class ExperimentWizardTest(TKinterTestCase):
         self.assertEqual(len(self.expm.exp.to_do_list), 0)
         self.assertEqual(len(self.expm.exp.measurements), 0)
 
-        # as we want to setup a multi-measurement multi-device run, we need a chip description file
+        # as we want to set up a multi-measurement multi-device run, we need a chip description file
         chip_desc_file_path = join(dirname(dirname(__file__)), "example_chip_description_PhoeniX_style.csv")
-        devices = PhoenixPhotonics._decode_phoenics_photonics_csv_file(file_path=chip_desc_file_path)
+        devices = PhoenixPhotonics.decode_csv_to_devices(filepath=chip_desc_file_path)
         self.expm.register_chip(
             chip=Chip(
                 name="chip_ExperimentWizardTest", devices=devices, path=chip_desc_file_path, _serialize_to_disk=False
