@@ -27,6 +27,8 @@ from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
 if TYPE_CHECKING:
     from LabExT.Experiments.StandardExperiment import StandardExperiment
+else:
+    StandardExperiment = None
 
 
 class PeakSearcher(Measurement):
