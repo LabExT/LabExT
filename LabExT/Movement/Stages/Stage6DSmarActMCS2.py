@@ -10,7 +10,7 @@ from enum import Enum
 from tkinter import TclError
 from typing import List
 
-from LabExT.Movement.config import Axis_Ch123, Axis_Ch456
+from LabExT.Movement.config import AxisCh123, AxisCh456
 from LabExT.Movement.Stage import Stage, assert_driver_loaded, StageError, assert_stage_connected
 from LabExT.Movement.Stages.ChannelMCS2 import ChannelMCS2
 from LabExT.View.Controls.DriverPathDialog import DriverPathDialog
@@ -71,10 +71,10 @@ class Stage6DSmarActMCS2(Stage):
         self.handle = None
         self.channels = {}
         if "Ch1-3" in address:
-            self.Axis = Axis_Ch123
+            self.Axis = AxisCh123
             self.open_new_connection = True
         elif "Ch4-6" in address:
-            self.Axis = Axis_Ch456
+            self.Axis = AxisCh456
             self.open_new_connection = False
         else:
             raise StageError('Stage address does not contain channel suffix.')

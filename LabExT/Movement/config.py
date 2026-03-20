@@ -8,10 +8,11 @@ for details see LICENSE file.
 
 from enum import Enum, auto
 from functools import total_ordering
+from typing import List, Any
 
 
 class BaseEnum(Enum):
-    def _generate_next_value_(name, start, count, last_values):
+    def _generate_next_value_(name: str, start: int, count: int, last_values: List[Any]):
         return name
 
     def __str__(self) -> str:
@@ -24,23 +25,26 @@ class Axis(BaseEnum):
     Y = 1
     Z = 2
 
-    def __str__(self) -> str: return f"{self.name}-Axis"
+    def __str__(self) -> str:
+        return f"{self.name}-Axis"
 
-class Axis_Ch123(BaseEnum):
+class AxisCh123(BaseEnum):
     """Enumerate different channels. Each channel represents one axis."""
     X = 0
     Y = 1
     Z = 2
 
-    def __str__(self) -> str: return f"{self.name}-Axis"
+    def __str__(self) -> str:
+        return f"{self.name}-Axis"
 
-class Axis_Ch456(BaseEnum):
+class AxisCh456(BaseEnum):
     """Enumerate different channels. Each channel represents one axis."""
     X = 3
     Y = 4
     Z = 5
 
-    def __str__(self) -> str: return f"{self.name}-Axis"
+    def __str__(self) -> str:
+        return f"{self.name}-Axis"
 
 
 class Direction(BaseEnum):
@@ -61,7 +65,8 @@ CLOCKWISE_ORDERING = [
     Orientation.TOP,
     Orientation.RIGHT,
     Orientation.BOTTOM,
-    Orientation.LEFT]
+    Orientation.LEFT
+]
 
 
 class DevicePort(BaseEnum):
@@ -89,22 +94,22 @@ class State(BaseEnum):
     SINGLE_POINT_FIXED = 3
     FULLY_CALIBRATED = 4
 
-    def __str__(self) -> str: return self.name.replace('_', ' ').capitalize()
+    def __str__(self) -> str:
+        return self.name.replace('_', ' ').capitalize()
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         """
         Compare two states for equality.
         """
-        if self.__class__ is other.__class__:
+        if isinstance(other, State):
             return self.value == other.value
-
         return NotImplemented
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         """
         Compare two states on "less than".
         """
-        if self.__class__ is other.__class__:
+        if isinstance(other, State):
             return self.value < other.value
-
         return NotImplemented
+

@@ -275,8 +275,7 @@ class CoordinatePairingsWindow(Toplevel):
 
         run_with_wait_window(
             self, description="Move to device {}".format(
-                self._device.id), function=lambda: self.mover.move_to_device(
-                self.chip, self._device))
+                self._device.id), function=lambda: self.mover.move_to_device(self._device))
     #
     #   Helpers
     #
