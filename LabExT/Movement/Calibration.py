@@ -244,6 +244,18 @@ class Calibration:
         """
         return self._is_lifted
 
+    @property
+    def single_point_offset(self) -> SinglePointOffset:
+        return self._single_point_offset
+
+    @property
+    def axes_rotation(self) -> AxesRotation:
+        return self._axes_rotation
+
+    @property
+    def kabsch_rotation(self) -> KabschRotation:
+        return self._kabsch_rotation
+
     #
     #   Coordinate System Control
     #

@@ -6,8 +6,8 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 """
 import logging
 
-from tkinter import Frame, Label, OptionMenu, StringVar, Toplevel, Button, messagebox, RIGHT, TOP, X, BOTH, FLAT, Y, LEFT
-from typing import Type
+from tkinter import Frame, Label, OptionMenu, StringVar, Toplevel, Button, messagebox, RIGHT, TOP, X, BOTH, FLAT, Y, \
+    LEFT, Tk
 
 from LabExT.Utils import run_with_wait_window
 from LabExT.Movement.MoverNew import MoverNew
@@ -19,19 +19,13 @@ class LoadStoredCalibrationWindow(Toplevel):
     """
 
     ASSIGNMENT_MENU_PLACEHOLDER = "-- unused --"
-
     MENU_OPTION_TEMPLATE = "Stage-ID: {id} - Port: {port}"
 
-    def __init__(
-        self,
-        master,
-        mover: Type[MoverNew],
-        calibration_settings: dict
-    ) -> None:
+    def __init__(self, parent: Tk, mover: MoverNew, calibration_settings: dict) -> None:
         """
         Parameters
         ----------
-        master : Tk
+        parent : Tk
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
@@ -43,14 +37,13 @@ class LoadStoredCalibrationWindow(Toplevel):
         RuntimeError
             If calibrations could not be restored.
         """
-        super(LoadStoredCalibrationWindow, self).__init__(master)
+        super().__init__(parent)
 
         self.logger = logging.getLogger()
 
-        self.mover: Type[MoverNew] = mover
+        self.mover = mover
         self.calibration_settings = calibration_settings
-        self.stored_calibrations = self.calibration_settings.get(
-            "calibrations", {})
+        self.stored_calibrations = self.calibration_settings.get("calibrations", {})
 
         self.calibrations_vars = {}
         self.menu_options = [
@@ -65,18 +58,14 @@ class LoadStoredCalibrationWindow(Toplevel):
 
         self.__setup__()
 
-    def __setup__(self):
+    def __setup__(self) -> None:
         """
         Builds window to restore calibrations.
         """
         main_frame = Frame(self, borderwidth=0, relief=FLAT)
         main_frame.pack(side=TOP, fill=BOTH, expand=True, padx=10)
 
-        buttons_frame = Frame(
-            self,
-            borderwidth=0,
-            highlightthickness=0,
-            takefocus=0)
+        buttons_frame = Frame(self, borderwidth=0, highlightthickness=0, takefocus=0)
         buttons_frame.pack(side=TOP, fill=X, expand=0, padx=10, pady=10)
 
         stage_assignment_frame = CustomFrame(main_frame)
@@ -87,29 +76,22 @@ class LoadStoredCalibrationWindow(Toplevel):
             available_stage_frame = Frame(stage_assignment_frame)
             available_stage_frame.pack(side=TOP, fill=X, pady=2)
 
-            Label(
-                available_stage_frame, text=str(avail_stage), anchor="w"
-            ).pack(side=LEFT, fill=X, padx=(0, 10))
+            Label(available_stage_frame, text=str(avail_stage), anchor="w").pack(side=LEFT, fill=X, padx=(0, 10))
 
             stored_stage = next(
                 (c for c in self.stored_calibrations if c["stage_identifier"] == avail_stage.identifier),
-                None)
+                None
+            )
             calibration_var = StringVar(
                 main_frame,
-                self.MENU_OPTION_TEMPLATE.format(
-                    id=stored_stage["stage_identifier"], port=stored_stage["device_port"]
-                ) if stored_stage else self.ASSIGNMENT_MENU_PLACEHOLDER)
+                self.MENU_OPTION_TEMPLATE.format(id=stored_stage["stage_identifier"], port=stored_stage["device_port"])
+                if stored_stage else self.ASSIGNMENT_MENU_PLACEHOLDER
+            )
 
-            OptionMenu(
-                available_stage_frame,
-                calibration_var,
-                *self.menu_options
-            ).pack(side=RIGHT, padx=5)
+            OptionMenu(available_stage_frame, calibration_var, *self.menu_options).pack(side=RIGHT, padx=5)
             self.calibrations_vars[avail_stage] = calibration_var
 
-            Label(
-                available_stage_frame, text="Calibrations:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+            Label(available_stage_frame, text="Calibrations:").pack(side=RIGHT, fill=X, padx=5)
 
         Button(
             buttons_frame,
@@ -118,19 +100,18 @@ class LoadStoredCalibrationWindow(Toplevel):
             command=self.apply_calibrations
         ).pack(side=RIGHT, fill=Y, expand=0)
 
-    def apply_calibrations(self):
+    def apply_calibrations(self) -> None:
         """
         Callback, when user wants to apply the calibrations
         """
         assignment = self._resolve_calibrations()
-        if any(
-                c["stage_identifier"] != s.identifier for s,
-                c in assignment.items()):
+        if any(c["stage_identifier"] != s.identifier for s, c in assignment.items()):
             if not messagebox.askyesno(
                 "Caution: Different stage identifiers",
-                "CONFIRMATION REQUIRED: Some calibrations were assigned to a stage with a different identifier than the one used to create the calibration. "
-                "Incorrectly assigned calibrations cannot be guaranteed to work. Are you sure you want to apply these assignments?",
-                    parent=self):
+                "CONFIRMATION REQUIRED: Some calibrations were assigned to a stage with a different identifier than "
+                "the one used to create the calibration. Incorrectly assigned calibrations cannot be guaranteed to work. "
+                "Are you sure you want to apply these assignments?",
+                parent=self):
                 return
 
         # Reset calibrations
@@ -139,28 +120,18 @@ class LoadStoredCalibrationWindow(Toplevel):
         # Apply calibrations
         for stage, stored_calibration in assignment.items():
             try:
-                calibration = self.mover.restore_stage_calibration(
-                    stage, stored_calibration)
+                calibration = self.mover.restore_stage_calibration(stage, stored_calibration)
             except Exception as err:
-                messagebox.showerror(
-                    "Error",
-                    f"Failed to restored calibration: {err}",
-                    parent=self)
+                messagebox.showerror("Error", f"Failed to restored calibration: {err}", parent=self)
                 self.mover.reset_calibrations()
                 return
 
-            run_with_wait_window(
-                self,
-                f"Connecting to stage {stage}",
-                lambda: calibration.connect_to_stage())
+            run_with_wait_window(self, f"Connecting to stage {stage}", lambda: calibration.connect_to_stage())
 
         # Store calibrations to disk
         self.mover.dump_calibrations()
 
-        messagebox.showinfo(
-            "Success",
-            f"Successfully restored {len(assignment)} calibration(s)",
-            parent=self)
+        messagebox.showinfo("Success", f"Successfully restored {len(assignment)} calibration(s)", parent=self)
         self.destroy()
 
     def _resolve_calibrations(self) -> dict:

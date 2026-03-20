@@ -8,9 +8,11 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from logging import getLogger
 from functools import partial
 from itertools import product
-from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
-from typing import Type, List
+from tkinter import (W, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar,
+                     Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X, Tk)
+from typing import List, Optional, TYPE_CHECKING, TypeVar, Callable
 from bidict import bidict
+
 from LabExT.Movement.Polygons import SingleModeFiber, StagePolygon
 
 from LabExT.Utils import run_with_wait_window, try_to_lift_window
@@ -23,11 +25,19 @@ from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.Measurements.MeasAPI.Measparam import MeasParamAuto
 
 from LabExT.Movement.config import Orientation, DevicePort, Axis, Direction
-from LabExT.Movement.Stage import Stage, StageError
-from LabExT.Movement.MoverNew import MoverError, MoverNew, Stage
+from LabExT.Movement.Stage import StageError, Stage
+from LabExT.Movement.MoverNew import MoverError, MoverNew
 from LabExT.Movement.Transformations import CoordinatePairing
 from LabExT.Movement.Calibration import Calibration
 from LabExT.Wafer.Chip import Chip
+
+if TYPE_CHECKING:
+    from LabExT.ExperimentManager import ExperimentManager
+else:
+    ExperimentManager = None
+
+
+T = TypeVar("T")
 
 
 class StageWizard(Wizard):
@@ -35,13 +45,13 @@ class StageWizard(Wizard):
     Wizard to load stage drivers and connect to stages.
     """
 
-    def __init__(self, master, mover, experiment_manager=None):
+    def __init__(self, parent: Tk, mover: MoverNew, experiment_manager: Optional[ExperimentManager] = None) -> None:
         """
         Constructor for new Stage Wizard.
 
         Parameters
         ----------
-        master : Tk
+        parent : Tk
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
@@ -49,7 +59,7 @@ class StageWizard(Wizard):
             Optional instance of the current experiment manager
         """
         super().__init__(
-            master,
+            parent,
             width=1100,
             height=800,
             on_finish=self.finish,
@@ -59,7 +69,7 @@ class StageWizard(Wizard):
             finish_button_label="Finish Setup",
         )
         self.title("Configure Mover")
-        self.mover: Type[MoverNew] = mover
+        self.mover = mover
 
         self.experiment_manager = experiment_manager
 
@@ -79,7 +89,8 @@ class StageWizard(Wizard):
             if messagebox.askokcancel(
                 "Proceed?",
                 "You have already created stages. If you continue, they will be reset, including the calibrations. Proceed?",
-                    parent=self):
+                parent=self
+            ):
                 self.mover.reset_calibrations()
             else:
                 return False
@@ -88,11 +99,12 @@ class StageWizard(Wizard):
         for stage, assignment in self.stage_assignment_step.assignment.items():
             orientation, port = assignment
 
-            polygon_cls, polygon_cls_cfg = self.stage_assignment_step.polygon_cfg.get(stage, (
-                self.stage_assignment_step.DEFAULT_POLYGON,
-                self.stage_assignment_step.DEFAULT_POLYGON.get_default_parameters()))
-            stage_polygon = polygon_cls(
-                orientation, parameters=polygon_cls_cfg)
+            polygon_cls, polygon_cls_cfg = self.stage_assignment_step.polygon_cfg.get(
+                stage,
+                (self.stage_assignment_step.DEFAULT_POLYGON,
+                 self.stage_assignment_step.DEFAULT_POLYGON.get_default_parameters())
+            )
+            stage_polygon = polygon_cls(orientation, parameters=polygon_cls_cfg)
 
             try:
                 run_with_wait_window(
@@ -102,26 +114,26 @@ class StageWizard(Wizard):
                         stage=stage,
                         orientation=orientation,
                         port=port,
-                        stage_polygon=stage_polygon))
+                        stage_polygon=stage_polygon)
+                )
             except (ValueError, MoverError, StageError) as e:
                 self.mover.reset_calibrations()
-                messagebox.showerror(
-                    "Error",
-                    f"Connecting to stages failed: {e}",
-                    parent=self)
+                messagebox.showerror("Error", f"Connecting to stages failed: {e}", parent=self)
                 return False
 
         if not self.experiment_manager:
             messagebox.showinfo(
                 "Stage Setup completed.",
                 f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s).",
-                parent=self)
+                parent=self
+            )
         else:
             if messagebox.askyesnocancel(
                 "Stage Setup completed.",
                 f"Successfully connected to {len(self.stage_assignment_step.assignment)} stage(s)."
                 "Do you want to calibrate the stages now?",
-                    parent=self):
+                parent=self
+            ):
                 self.destroy()
 
                 self.experiment_manager.main_window.open_stage_calibration()
@@ -134,24 +146,24 @@ class MoverWizard(Wizard):
     Wizard to configure the mover
     """
 
-    def __init__(self, master, mover):
+    def __init__(self, parent: Tk, mover: MoverNew) -> None:
         """
         Constructor for new Mover Wizard.
 
         Parameters
         ----------
-        master : Tk
+        parent : Tk
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
         """
-        self.mover: Type[MoverNew] = mover
+        self.mover = mover
 
         if not self.mover.has_connected_stages:
             raise RuntimeError("No connected stages. Cannot configure mover.")
 
         super().__init__(
-            master,
+            parent,
             width=1100,
             height=800,
             on_finish=self.finish,
@@ -166,26 +178,29 @@ class MoverWizard(Wizard):
         self.configure_mover_step = ConfigureMoverStep(self, self.mover)
         self.current_step = self.configure_mover_step
 
-    def finish(self):
+    def finish(self) -> bool:
         speed_xy = self._get_safe_value(
             self.configure_mover_step.xy_speed_var,
             float,
-            self.mover.DEFAULT_SPEED_XY)
+            self.mover.DEFAULT_SPEED_XY
+        )
         speed_z = self._get_safe_value(
             self.configure_mover_step.z_speed_var,
             float,
-            self.mover.DEFAULT_SPEED_Z)
+            self.mover.DEFAULT_SPEED_Z
+        )
         acceleration_xy = self._get_safe_value(
             self.configure_mover_step.xy_acceleration_var,
             float,
-            self.mover.DEFAULT_ACCELERATION_XY)
+            self.mover.DEFAULT_ACCELERATION_XY
+        )
         z_lift = self._get_safe_value(
             self.configure_mover_step.z_lift_var,
             float,
-            self.mover.DEFAULT_Z_LIFT)
+            self.mover.DEFAULT_Z_LIFT
+        )
 
-        if self._warn_user_about_zero_speed(
-                speed_xy) and self._warn_user_about_zero_speed(speed_z):
+        if self._warn_user_about_zero_speed(speed_xy) and self._warn_user_about_zero_speed(speed_z):
             try:
                 self.mover.speed_xy = speed_xy
                 self.mover.speed_z = speed_z
@@ -193,21 +208,16 @@ class MoverWizard(Wizard):
                 self.mover.z_lift = z_lift
 
                 self.mover.dump_settings()
-
-                messagebox.showinfo(
-                    "Mover Setup completed.",
-                    f"Successfully configured mover.",
-                    parent=self)
-
+                messagebox.showinfo("Mover Setup completed.", "Successfully configured mover.", parent=self)
                 return True
+
             except Exception as e:
-                messagebox.showerror(
-                    message=f"Could not setup stages. Reason: {e}",
-                    parent=self)
+                messagebox.showerror(message=f"Could not setup stages. Reason: {e}", parent=self)
 
         return False
 
-    def _warn_user_about_zero_speed(self, speed) -> bool:
+    @staticmethod
+    def _warn_user_about_zero_speed(speed: float) -> bool:
         """
         Warns user when settings speed to zero.
         Returns True if speed is not zero or user wants to set speed to zero.
@@ -220,11 +230,8 @@ class MoverWizard(Wizard):
 
         return True
 
-    def _get_safe_value(
-            self,
-            var: Type[DoubleVar],
-            to_type: type,
-            default=None):
+    @staticmethod
+    def _get_safe_value(var: DoubleVar, to_type: Callable[..., T], default: Optional[T] = None) -> T:
         """
         Returns the value of a tkinter entry and cast it to a specified type.
         If casting or retrieving fails, it returns a default value.
@@ -242,17 +249,17 @@ class CalibrationWizard(Wizard):
 
     def __init__(
         self,
-        master,
-        mover,
-        chip=None,
-        experiment_manager=None
+        parent: Tk,
+        mover: MoverNew,
+        chip: Optional[Chip] = None,
+        experiment_manager: Optional[ExperimentManager] = None
     ) -> None:
         """
         Constructor for new Mover Wizard.
 
         Parameters
         ----------
-        master : Tk
+        parent : Tk
             Tk instance of the master toplevel
         mover : Mover
             Instance of the current mover.
@@ -262,16 +269,15 @@ class CalibrationWizard(Wizard):
         experiment_manager : ExperimentManager = None
             Optional instance of the current experiment manager
         """
-        self.mover: Type[MoverNew] = mover
-        self.chip: Type[Chip] = chip
+        self.mover = mover
+        self.chip = chip
         self.experiment_manager = experiment_manager
 
         if len(self.mover.calibrations) == 0:
-            raise RuntimeError(
-                "Calibration not possible without connected stages.")
+            raise RuntimeError("Calibration not possible without connected stages.")
 
         super().__init__(
-            master,
+            parent,
             width=1100,
             height=800,
             on_finish=self.finish,
@@ -283,25 +289,21 @@ class CalibrationWizard(Wizard):
         self.title("Configure Mover")
 
         self.calibrate_axes_step = AxesCalibrationStep(self, self.mover)
-        self.coordinate_pairing_step = CoordinatePairingStep(
-            self, self.mover, self.chip)
+        self.coordinate_pairing_step = CoordinatePairingStep(self, self.mover, self.chip)
 
         self.calibrate_axes_step.next_step = self.coordinate_pairing_step
         self.coordinate_pairing_step.previous_step = self.calibrate_axes_step
 
         self.current_step = self.calibrate_axes_step
 
-    def finish(self):
+    def finish(self) -> bool:
         """
         Callback when user wants to finish the calibration.
         """
         try:
             self.mover.dump_calibrations()
         except Exception as err:
-            messagebox.showerror(
-                "Error",
-                f"Could not store calibration settings to disk: {err}",
-                parent=self)
+            messagebox.showerror("Error", f"Could not store calibration settings to disk: {err}", parent=self)
             return False
 
         return True
@@ -312,24 +314,21 @@ class StageDriverStep(Step):
     Wizard Step to load stage drivers.
     """
 
-    def __init__(self, wizard, mover) -> None:
+    def __init__(self, wizard: StageWizard, mover: MoverNew) -> None:
         """
         Constructor for new Wizard step for loading drivers.
 
         Parameters
         ----------
-        master : Tk
-            Tk instance of the master toplevel
+        wizard : Tk
+            Tk instance of the wizard toplevel
         mover : Mover
             Instance of the current mover.
         """
-        super().__init__(
-            wizard,
-            self.build,
-            title="Driver Settings")
-        self.mover: Type[MoverNew] = mover
+        super().__init__(wizard, self.build, title="Driver Settings")
+        self.mover = mover
 
-    def build(self, frame: Type[CustomFrame]) -> None:
+    def build(self, frame: CustomFrame) -> None:
         """
         Builds step to load stage drivers.
 
@@ -340,35 +339,29 @@ class StageDriverStep(Step):
         """
         frame.title = "Load Stage Drivers"
 
+        # noinspection PyTypeChecker
         Label(
             frame,
-            text="Below you can see all Stage classes available in LabExT.\nSo that all stages can be found correctly in the following step, make sure that the drivers for each class are loaded."
+            text="Below you can see all Stage classes available in LabExT.\n"
+                 "So that all stages can be found correctly in the following step, "
+                 "make sure that the drivers for each class are loaded."
         ).pack(side=TOP, fill=X)
 
         if not self.mover.stage_classes:
-            Label(
-                frame,
-                text="No stage classes found!",
-                foreground="#FF3333").pack(
-                side=TOP,
-                fill=X)
+            Label(frame, text="No stage classes found!", foreground="#FF3333").pack(side=TOP, fill=X)
 
         for stage_name, stage_cls in self.mover.stage_classes.items():
             stage_driver_frame = Frame(frame)
             stage_driver_frame.pack(side=TOP, fill=X, pady=2)
 
-            Label(
-                stage_driver_frame,
-                text=f"[{stage_cls.__name__}] {stage_cls.description}"
-            ).pack(side=LEFT, fill=X)
+            Label(stage_driver_frame, text=f"[{stage_cls.__name__}] {stage_cls.description}").pack(side=LEFT, fill=X)
 
             stage_driver_load = Button(
                 stage_driver_frame,
                 text="Load Driver",
                 state=NORMAL if stage_cls.driver_specifiable else DISABLED,
-                command=partial(
-                    stage_cls.load_driver,
-                    parent=self.wizard))
+                command=partial(stage_cls.load_driver, parent=self.wizard)
+            )
             stage_driver_load.pack(side=RIGHT)
 
             stage_driver_status = Label(
@@ -384,45 +377,37 @@ class StageAssignmentStep(Step):
     Wizard Step to assign and connect stages.
     """
 
-    POLYGON_OPTIONS = {
-        pg.__name__: pg for pg in StagePolygon.find_polygon_classes()}
+    POLYGON_OPTIONS = {pg.__name__: pg for pg in StagePolygon.find_polygon_classes()}
 
     ASSIGNMENT_MENU_PLACEHOLDER = "-- unused --"
 
     DEFAULT_POLYGON = SingleModeFiber
-    DEFAULT_ASSIGNMENT = (
-        ASSIGNMENT_MENU_PLACEHOLDER,
-        DevicePort.INPUT)
+    DEFAULT_ASSIGNMENT = (ASSIGNMENT_MENU_PLACEHOLDER, DevicePort.INPUT)
 
-    def __init__(self, wizard, mover) -> None:
+    def __init__(self, wizard: StageWizard, mover: MoverNew) -> None:
         """
         Constructor for new Wizard step for assigning stages.
 
         Parameters
         ----------
-        master : Tk
-            Tk instance of the master toplevel
-        mover : Mover
+        wizard : Tk
+            Tk instance of the Wizard toplevel
+        mover : MoverNew
             Instance of the current mover.
         """
-        super().__init__(
-            wizard,
-            self.build,
-            on_reload=self.on_reload,
-            title="Stage Connection")
-        self.mover: Type[MoverNew] = mover
+        super().__init__(wizard, self.build, on_reload=self.on_reload, title="Stage Connection")
+        self.mover = mover
 
-        self.assignment = {
-            c.stage: (o, p)
-            for (o, p), c in self.mover.calibrations.items()}
+        self.assignment = {c.stage: (o, p) for (o, p), c in self.mover.calibrations.items()}
         self.polygon_cfg = {
             c.stage: (c.stage_polygon.__class__, c.stage_polygon.parameters)
-            for c in self.mover.calibrations.values()}
+            for c in self.mover.calibrations.values()
+        }
 
         self.orientation_vars, self.port_vars, self.polygon_vars = self._build_assignment_variables()
         self._stage_polygon_parameter_tables = {}
 
-    def build(self, frame: Type[CustomFrame]) -> None:
+    def build(self, frame: CustomFrame) -> None:
         """
         Builds step to assign stages.
 
@@ -435,7 +420,8 @@ class StageAssignmentStep(Step):
 
         Label(
             frame,
-            text="Below you can see all the stages found by LabExT.\nIf stages are missing, go back one step and check if all drivers are loaded."
+            text="Below you can see all the stages found by LabExT.\n"
+                 "If stages are missing, go back one step and check if all drivers are loaded."
         ).pack(side=TOP, fill=X)
 
         available_stages_frame = CustomFrame(frame)
@@ -445,16 +431,12 @@ class StageAssignmentStep(Step):
         CustomTable(
             parent=available_stages_frame,
             selectmode='none',
-            column_headers=(
-                'ID', 'Description', 'Stage Class', 'Address', 'Connected'
-            ),
+            column_headers=( 'ID', 'Description', 'Stage Class', 'Address', 'Connected'),
             rows=[
-                (idx,
-                 s.__class__.description,
-                 s.__class__.__name__,
-                 s.address_string,
-                 s.connected)
-                for idx, s in enumerate(self.mover.available_stages)])
+                (idx, s.__class__.description, s.__class__.__name__, s.address_string, s.connected)
+                for idx, s in enumerate(self.mover.available_stages)
+            ]
+        )
 
         stage_assignment_frame = CustomFrame(frame)
         stage_assignment_frame.title = "Assign Stages"
@@ -464,9 +446,7 @@ class StageAssignmentStep(Step):
             available_stage_frame = Frame(stage_assignment_frame)
             available_stage_frame.pack(side=TOP, fill=X, pady=2)
 
-            Label(
-                available_stage_frame, text=str(avail_stage), anchor="w"
-            ).pack(side=LEFT, fill=X, padx=(0, 10))
+            Label(available_stage_frame, text=str(avail_stage), anchor="w").pack(side=LEFT, fill=X, padx=(0, 10))
 
             polygon_menu = OptionMenu(
                 available_stage_frame,
@@ -475,12 +455,12 @@ class StageAssignmentStep(Step):
             )
             polygon_menu.pack(side=RIGHT, padx=5)
 
-            polygon_menu.config(state=DISABLED if self.orientation_vars[avail_stage].get(
-            ) == self.ASSIGNMENT_MENU_PLACEHOLDER else NORMAL)
+            polygon_menu.config(
+                state=DISABLED if self.orientation_vars[avail_stage].get() == self.ASSIGNMENT_MENU_PLACEHOLDER
+                else NORMAL
+            )
 
-            Label(
-                available_stage_frame, text="Stage type:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+            Label(available_stage_frame, text="Stage type:").pack(side=RIGHT, fill=X, padx=5)
 
             port_menu = OptionMenu(
                 available_stage_frame,
@@ -489,12 +469,12 @@ class StageAssignmentStep(Step):
             )
             port_menu.pack(side=RIGHT, padx=5)
 
-            port_menu.config(state=DISABLED if self.orientation_vars[avail_stage].get(
-            ) == self.ASSIGNMENT_MENU_PLACEHOLDER else NORMAL)
+            port_menu.config(
+                state=DISABLED if self.orientation_vars[avail_stage].get() == self.ASSIGNMENT_MENU_PLACEHOLDER
+                else NORMAL
+            )
 
-            Label(
-                available_stage_frame, text="Device Port:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+            Label(available_stage_frame, text="Device Port:").pack(side=RIGHT, fill=X, padx=5)
 
             OptionMenu(
                 available_stage_frame,
@@ -502,28 +482,23 @@ class StageAssignmentStep(Step):
                 *([self.ASSIGNMENT_MENU_PLACEHOLDER] + list(Orientation))
             ).pack(side=RIGHT, padx=5)
 
-            Label(
-                available_stage_frame, text="Stage Orientation:"
-            ).pack(side=RIGHT, fill=X, padx=5)
+            Label(available_stage_frame, text="Stage Orientation:").pack(side=RIGHT, fill=X, padx=5)
 
             # Enable configuration if orientation is selected
-            if self.orientation_vars[avail_stage].get(
-            ) != self.ASSIGNMENT_MENU_PLACEHOLDER:
+            if self.orientation_vars[avail_stage].get() != self.ASSIGNMENT_MENU_PLACEHOLDER:
                 polygon_cfg_frame = Frame(stage_assignment_frame)
                 polygon_cfg_frame.pack(side=TOP, fill=X)
 
                 polygon_cls, polygon_cls_cfg = self.polygon_cfg.get(
-                    avail_stage, (self.DEFAULT_POLYGON, self.DEFAULT_POLYGON.get_default_parameters()))
-                polygon_params = {
-                    l: MeasParamAuto(
-                        value=v) for l,
-                    v in polygon_cls_cfg.items()}
+                    avail_stage,
+                    (self.DEFAULT_POLYGON, self.DEFAULT_POLYGON.get_default_parameters())
+                )
+                polygon_params = {l: MeasParamAuto(value=v) for l, v in polygon_cls_cfg.items()}
 
                 polygon_cfg_table = ParameterTable(polygon_cfg_frame)
                 polygon_cfg_table.title = f"Configure Polygon: {polygon_cls.__name__}"
                 polygon_cfg_table.parameter_source = polygon_params
-                polygon_cfg_table.pack(
-                    side=TOP, fill=X, expand=0, padx=2, pady=2)
+                polygon_cfg_table.pack(side=TOP, fill=X, expand=0, padx=2, pady=2)
 
                 self._stage_polygon_parameter_tables[avail_stage] = polygon_cfg_table
 
@@ -543,8 +518,7 @@ class StageAssignmentStep(Step):
         ports_orientations = len(ports) != len(set(ports))
         if double_orientations or ports_orientations:
             self.finish_step_enabled = False
-            self.wizard.set_error(
-                "Please do not assign a orientation or device port twice.")
+            self.wizard.set_error("Please do not assign a orientation or device port twice.")
             return
 
         self.finish_step_enabled = True
@@ -573,9 +547,7 @@ class StageAssignmentStep(Step):
             polygon_cls_cfg = polygon_cls.get_default_parameters()
 
         self.polygon_cfg[stage] = (polygon_cls, polygon_cls_cfg)
-        self.assignment[stage] = (
-            Orientation[orientation.upper()],
-            DevicePort[port.upper()])
+        self.assignment[stage] = (Orientation[orientation.upper()], DevicePort[port.upper()])
 
         self.wizard.__reload__()
 
@@ -593,60 +565,43 @@ class StageAssignmentStep(Step):
 
     def _build_assignment_variables(self) -> tuple:
         """
-        Builds and returns Tkinter variables for orrientation and port selection.
+        Builds and returns Tkinter variables for orientation and port selection.
         """
         orientation_vars = {}
         port_vars = {}
         polygon_vars = {}
 
-        for stage in self.mover.available_stages:
-            orientation, port = self.assignment.get(
-                stage, self.DEFAULT_ASSIGNMENT)
-            polygon_cls, _ = self.polygon_cfg.get(
-                stage, (self.DEFAULT_POLYGON, {}))
+        for _stage in self.mover.available_stages:
+            orientation, port = self.assignment.get(_stage, self.DEFAULT_ASSIGNMENT)
+            polygon_cls, _ = self.polygon_cfg.get(_stage, (self.DEFAULT_POLYGON, {}))
 
             port_var = StringVar(self.wizard, port)
-            port_var.trace(
-                W, lambda *_, stage=stage: self.change_assignment(stage))
+            port_var.trace(W, lambda *_, stage=_stage: self.change_assignment(stage))
 
             orientation_var = StringVar(self.wizard, orientation)
-            orientation_var.trace(
-                W, lambda *_, stage=stage: self.change_assignment(stage))
+            orientation_var.trace(W, lambda *_, stage=_stage: self.change_assignment(stage))
 
             polygon_var = StringVar(self.wizard, polygon_cls.__name__)
-            polygon_var.trace(
-                W, lambda *_, stage=stage: self.change_assignment(stage))
+            polygon_var.trace(W, lambda *_, stage=_stage: self.change_assignment(stage))
 
-            orientation_vars[stage] = orientation_var
-            port_vars[stage] = port_var
-            polygon_vars[stage] = polygon_var
+            orientation_vars[_stage] = orientation_var
+            port_vars[_stage] = port_var
+            polygon_vars[_stage] = polygon_var
 
         return orientation_vars, port_vars, polygon_vars
 
 
 class ConfigureMoverStep(Step):
-    def __init__(self, wizard, mover) -> None:
-        super().__init__(
-            wizard,
-            self.build,
-            finish_step_enabled=True,
-            title="Stage Configuration")
-        self.mover: Type[MoverNew] = mover
+    def __init__(self, wizard: MoverWizard, mover: MoverNew) -> None:
+        super().__init__(wizard, self.build, finish_step_enabled=True, title="Stage Configuration")
+        self.mover = mover
 
-        self.xy_speed_var = DoubleVar(
-            self.wizard,
-            self.mover.speed_xy if self.mover._speed_xy else self.mover.DEFAULT_SPEED_XY)
-        self.z_speed_var = DoubleVar(
-            self.wizard,
-            self.mover.speed_z if self.mover._speed_z else self.mover.DEFAULT_SPEED_Z)
-        self.xy_acceleration_var = DoubleVar(
-            self.wizard,
-            self.mover.acceleration_xy if self.mover._acceleration_xy else self.mover.DEFAULT_ACCELERATION_XY)
-        self.z_lift_var = DoubleVar(
-            self.wizard,
-            self.mover.z_lift if self.mover._z_lift else self.mover.DEFAULT_Z_LIFT)
+        self.xy_speed_var = DoubleVar(self.wizard, self.mover.speed_xy)
+        self.z_speed_var = DoubleVar(self.wizard, self.mover.speed_z)
+        self.xy_acceleration_var = DoubleVar(self.wizard, self.mover.acceleration_xy)
+        self.z_lift_var = DoubleVar(self.wizard, self.mover.z_lift)
 
-    def build(self, frame: Type[CustomFrame]):
+    def build(self, frame: CustomFrame) -> None:
         """
         Builds step to configure stages.
         """
@@ -664,7 +619,8 @@ class ConfigureMoverStep(Step):
         Label(
             stage_properties_frame,
             anchor="w",
-            text="Speed Hint: A value of 0 (default) deactivates the speed control feature. The stage will move as fast as possible!"
+            text="Speed Hint: A value of 0 (default) deactivates the speed control feature. "
+                 "The stage will move as fast as possible!"
         ).pack(side=TOP, fill=X)
         Label(
             stage_properties_frame,
@@ -675,41 +631,40 @@ class ConfigureMoverStep(Step):
         self._build_entry_with_label(
             stage_properties_frame,
             self.xy_speed_var,
-            label="Movement speed xy direction (valid range: {}...{:.0e}um/s):".format(
-                self.mover.SPEED_LOWER_BOUND,
-                self.mover.SPEED_UPPER_BOUND),
-            unit="[um/s]")
-
+            label=f"Movement speed xy direction (valid range: {self.mover.SPEED_LOWER_BOUND}..."
+                  f"{self.mover.SPEED_UPPER_BOUND:.0e} um/s):",
+            unit="[um/s]"
+        )
         self._build_entry_with_label(
             stage_properties_frame,
             self.z_speed_var,
-            label="Movement speed z direction (valid range: {}...{:.0e}um/s):".format(
-                self.mover.SPEED_LOWER_BOUND,
-                self.mover.SPEED_UPPER_BOUND),
-            unit="[um/s]")
-
+            label=f"Movement speed z direction (valid range: {self.mover.SPEED_LOWER_BOUND}..."
+                  f"{self.mover.SPEED_UPPER_BOUND:.0e} um/s):",
+            unit="[um/s]"
+        )
         self._build_entry_with_label(
             stage_properties_frame,
             self.xy_acceleration_var,
-            label="Movement acceleration xy direction (valid range: {}...{:.0e}um/s^2):".format(
-                self.mover.ACCELERATION_LOWER_BOUND,
-                self.mover.ACCELERATION_UPPER_BOUND),
-            unit="[um/s^2]")
-
+            label=f"Movement acceleration xy direction (valid range: {self.mover.ACCELERATION_LOWER_BOUND}..."
+                  f"{self.mover.ACCELERATION_UPPER_BOUND:.0e} um/s^2):",
+            unit="[um/s^2]"
+        )
         self._build_entry_with_label(
             stage_properties_frame,
             self.z_lift_var,
             label="Z channel up-movement during xy movement:",
-            unit="[um]")
+            unit="[um]"
+        )
 
+    @staticmethod
     def _build_entry_with_label(
-            self,
-            parent,
-            var: Type[DoubleVar],
+            parent: CustomFrame,
+            var: DoubleVar,
             label: str = None,
-            unit: str = None) -> None:
+            unit: str = None
+    ) -> None:
         """
-        Builds an tkinter entry with label and unit.
+        Builds a tkinter entry with label and unit.
         """
         entry_frame = Frame(parent)
         entry_frame.pack(side=TOP, fill=X, pady=2)
@@ -725,17 +680,16 @@ class AxesCalibrationStep(Step):
     Wizard Step to calibrate stage axes.
     """
 
-    STAGE_AXIS_OPTIONS = bidict({o: " ".join(map(str, o))
-                                for o in product(Direction, Axis)})
+    STAGE_AXIS_OPTIONS = bidict({o: " ".join(map(str, o)) for o in product(Direction, Axis)})
 
-    def __init__(self, wizard, mover) -> None:
+    def __init__(self, wizard: CalibrationWizard, mover: MoverNew) -> None:
         """
         Constructor for new Wizard step for calibrating stage axes.
 
         Parameters
         ----------
-        master : Tk
-            Tk instance of the master toplevel
+        wizard : Tk
+            Tk instance of the Wizard toplevel
         mover : Mover
             Instance of the current mover.
         """
@@ -745,38 +699,32 @@ class AxesCalibrationStep(Step):
             on_reload=self.on_reload,
             on_next=self.on_next,
             title="Stage Axes Calibration")
-        self.mover: Type[MoverNew] = mover
+        self.mover = mover
         self.logger = getLogger()
 
         self.axes_mapping_vars = self._build_axes_mapping_vars()
 
-    def _build_axes_mapping_vars(self):
+    def _build_axes_mapping_vars(self) -> dict:
         """
         Builds and returns Tkinter variables for axes calibration.
         """
-        vars = {}
-        for calibration in self.mover.calibrations.values():
+        values = {}
+        for _calibration in self.mover.calibrations.values():
             # Get current mapping
             _current_mapping = {}
-            if calibration._axes_rotation and calibration._axes_rotation.is_valid:
-                _current_mapping = calibration._axes_rotation.mapping
+            if _calibration.axes_rotation and _calibration.axes_rotation.is_valid:
+                _current_mapping = _calibration.axes_rotation.mapping
 
-            for chip_axis in Axis:
-                _current_value = _current_mapping.get(
-                    chip_axis, (Direction.POSITIVE, chip_axis))
+            for _chip_axis in Axis:
+                _current_value = _current_mapping.get(_chip_axis, (Direction.POSITIVE, _chip_axis))
                 str_var = StringVar(self.wizard, _current_value)
-                str_var.trace(
-                    W,
-                    lambda *_,
-                    calibration=calibration,
-                    chip_axis=chip_axis: self.calibrate_axis(
-                        calibration,
-                        chip_axis))
-                vars.setdefault(calibration, {})[chip_axis] = str_var
+                str_var.trace(W, lambda *_, calibration=_calibration,
+                                        chip_axis=_chip_axis: self.calibrate_axis(calibration, chip_axis))
+                values.setdefault(_calibration, {})[_chip_axis] = str_var
 
-        return vars
+        return values
 
-    def build(self, frame: Type[CustomFrame]):
+    def build(self, frame: CustomFrame) -> None:
         """
         Builds step to calibrate axes.
 
@@ -789,26 +737,25 @@ class AxesCalibrationStep(Step):
 
         Label(
             frame,
-            text="In order for each stage to move relative to the chip coordinates, the direction of each axis of each stage must be defined. \n Postive Y-Axis: North of chip, Positive X-Axis: East of chip, Positive Z-Axis: Lift stage"
+            text="In order for each stage to move relative to the chip coordinates, "
+                 "the direction of each axis of each stage must be defined.\n"
+                 "Positive Y-Axis: North of chip, Positive X-Axis: East of chip, Positive Z-Axis: Lift stage"
         ).pack(side=TOP, fill=X)
 
-        for calibration in self.mover.calibrations.values():
+        for cal in self.mover.calibrations.values():
             stage_calibration_frame = CustomFrame(frame)
-            stage_calibration_frame.title = str(calibration)
+            stage_calibration_frame.title = str(cal)
             stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
 
             for chip_axis in Axis:
                 chip_axis_frame = Frame(stage_calibration_frame)
                 chip_axis_frame.pack(side=TOP, fill=X)
 
-                Label(
-                    chip_axis_frame,
-                    text="Positive {}-Chip-axis points to ".format(chip_axis.name)
-                ).pack(side=LEFT)
+                Label(chip_axis_frame, text=f"Positive {chip_axis.name}-Chip-axis points to ").pack(side=LEFT)
 
                 OptionMenu(
                     chip_axis_frame,
-                    self.axes_mapping_vars[calibration][chip_axis],
+                    self.axes_mapping_vars[cal][chip_axis],
                     *self.STAGE_AXIS_OPTIONS.values(),
                 ).pack(side=LEFT)
 
@@ -816,13 +763,11 @@ class AxesCalibrationStep(Step):
 
                 wiggle_button = Button(
                     chip_axis_frame,
-                    text="Wiggle {}-Axis".format(
-                        chip_axis.name),
+                    text="Wiggle {}-Axis".format(chip_axis.name),
                     command=lambda axis=chip_axis,
-                    calibration=calibration: self.wiggle_axis(
-                        calibration,
-                        axis),
-                    state=NORMAL if calibration._axes_rotation.is_valid else DISABLED)
+                    calibration=cal: self.wiggle_axis(calibration, axis),
+                    state=NORMAL if cal.axes_rotation.is_valid else DISABLED
+                )
                 wiggle_button.pack(side=RIGHT)
 
     def on_reload(self) -> None:
@@ -830,7 +775,7 @@ class AxesCalibrationStep(Step):
         Callback, when coordinate system fixation step gets reloaded.
         Checks, if the current assignment is valid.
         """
-        if all(c._axes_rotation.is_valid for c in self.mover.calibrations.values()):
+        if all(cal.axes_rotation.is_valid for cal in self.mover.calibrations.values()):
             self.next_step_enabled = True
             self.wizard.set_error("")
         else:
@@ -844,16 +789,13 @@ class AxesCalibrationStep(Step):
         """
         try:
             self.mover.dump_axes_rotations()
-        except Exception as err:
-            messagebox.showerror(
-                "Error",
-                f"Failed to store axes rotation to file: {err}",
-                parent=self.wizard)
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to store axes rotation to file: {e}", parent=self.wizard)
             return False
 
         return True
 
-    def calibrate_axis(self, calibration: Type[Calibration], chip_axis: Axis):
+    def calibrate_axis(self, calibration: Calibration, chip_axis: Axis) -> None:
         """
         Callback, when user wants to change the axis rotation of a calibration.
         """
@@ -863,7 +805,7 @@ class AxesCalibrationStep(Step):
         calibration.update_axes_rotation(chip_axis, direction, stage_axis)
         self.wizard.__reload__()
 
-    def wiggle_axis(self, calibration: Type[Calibration], chip_axis: Axis):
+    def wiggle_axis(self, calibration: Calibration, chip_axis: Axis) -> None:
         """
         Callback, when user wants to wiggle an axis.
 
@@ -881,17 +823,15 @@ class AxesCalibrationStep(Step):
             run_with_wait_window(
                 self.wizard,
                 f"Wiggle {chip_axis} of {calibration}",
-                lambda: calibration.wiggle_axis(chip_axis))
+                lambda: calibration.wiggle_axis(chip_axis)
+            )
         except RuntimeError as e:
             self.logger.log(f"Wiggling {chip_axis} failed: {e}")
-            messagebox.showerror(
-                "Error"
-                f"Wiggling {chip_axis} failed: {e}",
-                parent=self.wizard)
+            messagebox.showerror("Error", f"Wiggling {chip_axis} failed: {e}", parent=self.wizard)
 
-    def _confirm_wiggle(self, axis) -> bool:
+    def _confirm_wiggle(self, axis: Axis) -> bool:
         """
-        Confirms with user if wiggeling is allowed.
+        Confirms with user if wiggling is allowed.
         """
         message = 'By proceeding this button will move the stage along the {} direction. \n\n'.format(axis) \
                   + 'Please make sure it has enough travel range(+-5mm) to avoid collision. \n\n' \
@@ -908,15 +848,15 @@ class CoordinatePairingStep(Step):
     Wizard Step to fully calibrate stages.
     """
 
-    def __init__(self, wizard, mover, chip) -> None:
+    def __init__(self, wizard: CalibrationWizard, mover: MoverNew, chip: Chip) -> None:
         """
         Constructor for new Wizard step for fully calibrate stages.
 
         Parameters
         ----------
-        master : Tk
-            Tk instance of the master toplevel
-        mover : Mover
+        wizard : Tk
+            Wizard instance of the wizard toplevel
+        mover : MoverNew
             Instance of the current mover.
         chip : Chip
             Instance of the current chip.
@@ -926,14 +866,14 @@ class CoordinatePairingStep(Step):
             self.build,
             finish_step_enabled=True,
             on_reload=self.on_reload,
-            title="Stage Configuration")
-        self.mover: Type[MoverNew] = mover
-        self.chip: Type[Chip] = chip
+            title="Stage Configuration"
+        )
+        self.mover = mover
+        self.chip = chip
+        self.experiment_manager = wizard.experiment_manager
 
-        self._use_input_stage_var = BooleanVar(
-            self.wizard, self.mover.has_input_calibration)
-        self._use_output_stage_var = BooleanVar(
-            self.wizard, self.mover.has_output_calibration)
+        self._use_input_stage_var = BooleanVar(self.wizard, self.mover.has_input_calibration)
+        self._use_output_stage_var = BooleanVar(self.wizard, self.mover.has_output_calibration)
         self._full_calibration_new_pairing_button = None
 
         self._coordinate_pairing_table = None
@@ -946,19 +886,17 @@ class CoordinatePairingStep(Step):
         Returns a list of current pairings.
         """
         pairings = []
-        for calibration in self.mover.calibrations.values():
-            _kabsch_rotation = calibration._kabsch_rotation
-            if _kabsch_rotation and _kabsch_rotation.is_valid:
-                pairings += _kabsch_rotation.pairings
+        for cal in self.mover.calibrations.values():
+            if cal.kabsch_rotation and cal.kabsch_rotation.is_valid:
+                pairings += cal.kabsch_rotation.pairings
 
-            _single_point_offset = calibration._single_point_offset
-            if _single_point_offset and _single_point_offset.is_valid:
-                if _single_point_offset.pairing not in pairings:
-                    pairings.append(_single_point_offset.pairing)
+            if cal.single_point_offset and cal.single_point_offset.is_valid:
+                if cal.single_point_offset.pairing not in pairings:
+                    pairings.append(cal.single_point_offset.pairing)
 
         return pairings
 
-    def build(self, frame: Type[CustomFrame]):
+    def build(self, frame: CustomFrame) -> None:
         """
         Builds step to fully calibrate axes.
 
@@ -971,10 +909,10 @@ class CoordinatePairingStep(Step):
 
         Label(
             frame,
-            text="To move the stages absolutely in chip coordinates, define at least 3 stage-chip-coordinate pairings to calculate the rotation. \n" +
-            "Note: After the first coordinate pairing, the stages can be moved approximatively absolute in chip coordinates.").pack(
-            side=TOP,
-            fill=X)
+            text="To move the stages absolutely in chip coordinates, define at least 3 stage-chip-coordinate pairings "
+                 "to calculate the rotation. \nNote: After the first coordinate pairing, "
+                 "the stages can be moved approximatively absolute in chip coordinates."
+        ).pack(side=TOP, fill=X)
 
         # Render frame to for current chip
         chip_frame = CustomFrame(frame)
@@ -983,10 +921,9 @@ class CoordinatePairingStep(Step):
 
         Label(
             chip_frame,
-            text="The calibration is calculated using several coordinate pairs consisting of chip and stage coordinates. \n"
-            "The following chip is used for calibration:").pack(
-            side=TOP,
-            fill=X)
+            text="The calibration is calculated using several coordinate pairs consisting of chip "
+                 "and stage coordinates. \nThe following chip is used for calibration:"
+        ).pack(side=TOP, fill=X)
 
         if self.chip:
             Label(
@@ -995,17 +932,8 @@ class CoordinatePairingStep(Step):
                 foreground='#4BB543'
             ).pack(side=LEFT, fill=X)
         else:
-            Label(
-                chip_frame,
-                text="No Chip imported!",
-                foreground='#FF3333'
-            ).pack(side=LEFT, fill=X)
-
-            Button(
-                chip_frame,
-                text="Import Chip",
-                command=self._on_chip_import
-            ).pack(side=RIGHT)
+            Label(chip_frame, text="No Chip imported!", foreground='#FF3333').pack(side=LEFT, fill=X)
+            Button(chip_frame, text="Import Chip", command=self._on_chip_import).pack(side=RIGHT)
 
         # Render table with all defined pairings
         pairings_frame = CustomFrame(frame)
@@ -1018,19 +946,15 @@ class CoordinatePairingStep(Step):
         self._coordinate_pairing_table = CustomTable(
             parent=pairings_table_frame,
             selectmode='extended',
-            column_headers=(
-                'ID',
-                'Stage',
-                'Stage Cooridnate',
-                'Device',
-                'Chip Coordinate'),
+            column_headers=['ID', 'Stage', 'Stage Coordinate', 'Device', 'Chip Coordinate'],
             rows=[(
                 str(idx),
                 str(p.calibration),
                 str(p.stage_coordinate),
                 str(p.device.short_str),
                 str(p.chip_coordinate)
-            ) for idx, p in enumerate(self.pairings)])
+            ) for idx, p in enumerate(self.pairings)]
+        )
 
         Button(
             pairings_frame,
@@ -1056,43 +980,26 @@ class CoordinatePairingStep(Step):
             stage_calibration_frame.pack(side=TOP, fill=X, pady=2)
 
             # SINGLE POINT STATE
+            Label(stage_calibration_frame, text="Single Point Fixation:").grid(row=0, column=0, padx=2, pady=2, sticky=W)
             Label(
                 stage_calibration_frame,
-                text="Single Point Fixation:"
-            ).grid(row=0, column=0, padx=2, pady=2, sticky=W)
-            Label(
-                stage_calibration_frame,
-                text=calibration._single_point_offset,
-                foreground='#4BB543' if calibration._single_point_offset.is_valid else "#FF3333",
-            ).grid(
-                row=0,
-                column=1,
-                padx=2,
-                pady=2,
-                sticky=W)
+                text=str(calibration.single_point_offset),
+                foreground='#4BB543' if calibration.single_point_offset.is_valid else "#FF3333",
+            ).grid(row=0, column=1, padx=2, pady=2, sticky=W)
 
             # GLOBAL STATE
+            Label(stage_calibration_frame, text="Global Transformation:").grid(row=1, column=0, padx=2, pady=2, sticky=W)
             Label(
                 stage_calibration_frame,
-                text="Global Transformation:"
-            ).grid(row=1, column=0, padx=2, pady=2, sticky=W)
-            Label(
-                stage_calibration_frame,
-                text=calibration._kabsch_rotation,
-                foreground='#4BB543' if calibration._kabsch_rotation.is_valid else "#FF3333",
-            ).grid(
-                row=1,
-                column=1,
-                padx=2,
-                pady=2,
-                sticky=W)
+                text=str(calibration.kabsch_rotation),
+                foreground='#4BB543' if calibration.kabsch_rotation.is_valid else "#FF3333",
+            ).grid( row=1, column=1, padx=2, pady=2, sticky=W)
 
-            if calibration._kabsch_rotation.is_valid:
-                rad, deg, per = calibration._kabsch_rotation.get_z_plane_angles()
+            if calibration.kabsch_rotation.is_valid:
+                rad, deg, per = calibration.kabsch_rotation.get_z_plane_angles()
                 Label(
                     stage_calibration_frame,
-                    text="Angle between XY Plane: "
-                    "{:.2f} rad - {:.2f}° - {:.2f}%".format(rad, deg, per)
+                    text=f"Angle between XY Plane: {rad:.2f} rad - {deg:.2f}° - {per:.2f}%"
                 ).grid(row=2, column=1, padx=2, pady=2, sticky=W)
 
         # FRAME FOR NEW PAIRING
@@ -1122,10 +1029,9 @@ class CoordinatePairingStep(Step):
             command=self._new_coordinate_pairing)
         self._full_calibration_new_pairing_button.pack(side=RIGHT)
 
-    def on_reload(self):
+    def on_reload(self) -> None:
         """
-        Callback, when wizard step gets reloaded.
-        Checks, if the all transformations are vald.
+        Callback, when wizard step gets reloaded. Checks, if all the transformations are valid.
         """
         if not self.chip:
             self.next_step_enabled = False
@@ -1133,26 +1039,23 @@ class CoordinatePairingStep(Step):
             self.wizard.set_error("Please import a chip to calibrate stages.")
             return
 
-        if not all(
-                c._single_point_offset.is_valid for c in self.mover.calibrations.values()):
+        if not all(c.single_point_offset.is_valid for c in self.mover.calibrations.values()):
             self.next_step_enabled = False
             self.finish_step_enabled = False
             self.wizard.set_error("Please fix for each stage a single point.")
             return
 
-        if not all(
-                c._kabsch_rotation.is_valid for c in self.mover.calibrations.values()):
+        if not all(c.kabsch_rotation.is_valid for c in self.mover.calibrations.values()):
             self.next_step_enabled = False
             self.finish_step_enabled = True
-            self.wizard.set_error(
-                "Please define for each stage at least three points to calibrate the stages globally.")
+            self.wizard.set_error("Please define for each stage at least three points to calibrate the stages globally.")
             return
 
         self.finish_step_enabled = True
         self.next_step_enabled = True
         self.wizard.set_error("")
 
-    def _reset_all_pairings(self):
+    def _reset_all_pairings(self) -> None:
         """
         Resets all pairings if the user confirms before.
         """
@@ -1163,7 +1066,8 @@ class CoordinatePairingStep(Step):
             "Reset all pairings",
             f"Are you sure to delete all {len(self.pairings)} coordinate pairs? "
             "This step cannot be undone.",
-                parent=self.wizard):
+            parent=self.wizard
+        ):
             return
 
         for calibration in self.mover.calibrations.values():
@@ -1171,10 +1075,9 @@ class CoordinatePairingStep(Step):
             calibration.reset_kabsch_rotation()
 
         self.pairings = []
-
         self.wizard.__reload__()
 
-    def _remove_pairings(self):
+    def _remove_pairings(self) -> None:
         """
         Removes all selected pairings.
         """
@@ -1186,11 +1089,11 @@ class CoordinatePairingStep(Step):
             messagebox.showerror(
                 "No pairings selected",
                 "No pairings were selected for deletion.",
-                parent=self.wizard)
+                parent=self.wizard
+            )
             return
 
-        whitelisted_pairings = [
-            p for p in self.pairings if p not in blacklisted_pairings]
+        whitelisted_pairings = [p for p in self.pairings if p not in blacklisted_pairings]
 
         # Reset all
         for calibration in self.mover.calibrations.values():
@@ -1215,8 +1118,7 @@ class CoordinatePairingStep(Step):
         for iid in checked_iids:
             pairing_idx = self._coordinate_pairing_table._tree.set(iid, 0)
             try:
-                selected_pairings.append(
-                    self.pairings[int(pairing_idx)])
+                selected_pairings.append(self.pairings[int(pairing_idx)])
             except (IndexError, ValueError):
                 continue
 
@@ -1226,7 +1128,7 @@ class CoordinatePairingStep(Step):
         """
         Creates a window to create a coordinate pairing.
         """
-        if self._check_for_exisiting_coordinate_window():
+        if self._check_for_existing_coordinate_window():
             return
 
         with_input_stage = self._use_input_stage_var.get()
@@ -1237,7 +1139,8 @@ class CoordinatePairingStep(Step):
                 "No Stages selected",
                 "No stages have been selected with which to create a coordinate pairing. "
                 "At least one stage must be selected.",
-                parent=self.wizard)
+                parent=self.wizard
+            )
             return
 
         try:
@@ -1245,22 +1148,19 @@ class CoordinatePairingStep(Step):
                 self.wizard,
                 self.mover,
                 self.chip,
-                experiment_manager=self.wizard.experiment_manager,
+                experiment_manager=self.experiment_manager,
                 on_finish=self._save_coordinate_pairing,
                 with_input_stage=with_input_stage,
                 with_output_stage=with_output_stage)
         except Exception as e:
-            messagebox.showerror(
-                "Error",
-                "Could not initiate a new coordinate pairing: {}".format(e),
-                parent=self.wizard)
+            messagebox.showerror("Error", f"Could not initiate a new coordinate pairing: {e}", parent=self.wizard)
 
     def _save_coordinate_pairing(self, pairings: List[CoordinatePairing]):
         """
         Delegates the list of pairings to the responsible calibrations.
         """
         for p in pairings:
-            if not p.calibration._single_point_offset.is_valid:
+            if not p.calibration.single_point_offset.is_valid:
                 p.calibration.update_single_point_offset(p)
 
             p.calibration.update_kabsch_rotation(p)
@@ -1268,19 +1168,20 @@ class CoordinatePairingStep(Step):
 
         self.wizard.__reload__()
 
-    def _check_for_exisiting_coordinate_window(self) -> bool:
+    def _check_for_existing_coordinate_window(self) -> bool:
         """
         Ensures that only one window exists to create a new coordinate pair.
-        Returns True if there is a exsiting window.
+        Returns True if there is an existing window.
         """
-        if self._coordinate_pairing_window is None or not try_to_lift_window(
-                self._coordinate_pairing_window):
+        if self._coordinate_pairing_window is None or not try_to_lift_window(self._coordinate_pairing_window):
             return False
 
         if not messagebox.askyesno(
             "New Coordinate-Pairing",
-            "You have an incomplete creation of a coordinate pair. Click Yes if you want to continue it or No if you want to create the new one.",
-                parent=self._coordinate_pairing_window):
+            "You have an incomplete creation of a coordinate pair. "
+            "Click Yes if you want to continue it or No if you want to create the new one.",
+            parent=self._coordinate_pairing_window
+        ):
             self._coordinate_pairing_window.cancel()
             self._coordinate_pairing_window = None
             return False
@@ -1291,10 +1192,10 @@ class CoordinatePairingStep(Step):
         """
         Callback, when user wants to import a chip
         """
-        if not self.wizard.experiment_manager:
+        if not self.experiment_manager:
             return
 
-        self.wizard.experiment_manager.main_window.open_import_chip()
-        self.chip = self.wizard.experiment_manager.chip
+        self.experiment_manager.main_window.open_import_chip()
+        self.chip = self.experiment_manager.chip
 
         self.wizard.__reload__()

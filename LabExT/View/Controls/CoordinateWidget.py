@@ -5,8 +5,7 @@ LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import Type
-from tkinter import LEFT, SUNKEN, Frame, Label
+from tkinter import LEFT, SUNKEN, Frame, Label, Tk
 
 from LabExT.Movement.config import Axis, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
@@ -18,10 +17,9 @@ class CoordinateWidget(Frame):
     Simple Widget to display a coordinate
     """
 
-    def __init__(self, master, coordinate: Type[Coordinate]):
-        super(CoordinateWidget, self).__init__(master)
+    def __init__(self, parent: Tk, coordinate: Coordinate) -> None:
+        super().__init__(parent)
         self._coordinate = coordinate
-
         self.__setup__()
 
     def __setup__(self):
@@ -36,13 +34,13 @@ class CoordinateWidget(Frame):
             ).pack(side=LEFT, ipadx=5, padx=(0, 5))
 
     @property
-    def coordinate(self):
-        self._coordinate
+    def coordinate(self) -> Coordinate:
+        return self._coordinate
 
     @coordinate.setter
-    def coordinate(self, coordinate):
+    def coordinate(self, coordinate: Coordinate) -> None:
         """
-        Rerenders the the frame to display
+        Rerenders the frame to display
         """
         self._coordinate = coordinate
 
@@ -60,16 +58,15 @@ class StagePositionWidget(CoordinateWidget):
 
     REFRESHING_RATE = 1000  # [ms]
 
-    def __init__(self, parent, calibration: Type[Calibration]):
+    def __init__(self, parent: Tk, calibration: Calibration) -> None:
         self.calibration = calibration
 
         with self.calibration.perform_in_system(CoordinateSystem.STAGE):
             super().__init__(parent, self.calibration.get_position())
 
-        self._update_pos_job = self.after(
-            self.REFRESHING_RATE, self._refresh_position)
+        self._update_pos_job = self.after(self.REFRESHING_RATE, self._refresh_position)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """
         Deconstructor.
 
@@ -78,7 +75,7 @@ class StagePositionWidget(CoordinateWidget):
         if self._update_pos_job:
             self.after_cancel(self._update_pos_job)
 
-    def _refresh_position(self):
+    def _refresh_position(self) -> None:
         """
         Refreshes Stage Position.
         Kills update job, if an error occurred.
@@ -90,5 +87,4 @@ class StagePositionWidget(CoordinateWidget):
             self.after_cancel(self._update_pos_job)
             raise RuntimeError(exc)
 
-        self._update_pos_job = self.after(
-            self.REFRESHING_RATE, self._refresh_position)
+        self._update_pos_job = self.after(self.REFRESHING_RATE, self._refresh_position)
