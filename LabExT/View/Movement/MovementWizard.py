@@ -11,7 +11,7 @@ from itertools import product
 from tkinter import W, Label, Button, messagebox, StringVar, OptionMenu, Frame, Button, Label, DoubleVar, Entry, BooleanVar, Checkbutton, DISABLED, NORMAL, LEFT, RIGHT, TOP, X
 from typing import Type, List
 from bidict import bidict
-from LabExT.Movement.PathPlanning import SingleModeFiber, StagePolygon
+from LabExT.Movement.Polygons import SingleModeFiber, StagePolygon
 
 from LabExT.Utils import run_with_wait_window, try_to_lift_window
 from LabExT.View.Movement.CoordinatePairingsWindow import CoordinatePairingsWindow

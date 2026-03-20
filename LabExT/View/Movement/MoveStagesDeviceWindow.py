@@ -104,7 +104,7 @@ class MoveStagesDeviceWindow(Toplevel):
             run_with_wait_window(
                 self,
                 f"Moving to Device {selected_device.id}",
-                lambda: self.mover.move_to_device(self.chip, selected_device))
+                lambda: self.mover.move_to_device(selected_device))
 
     def _confirm_movement(self, device: Type[Device]) -> bool:
         """

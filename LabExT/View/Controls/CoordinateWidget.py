@@ -10,7 +10,7 @@ from tkinter import LEFT, SUNKEN, Frame, Label
 
 from LabExT.Movement.config import Axis, CoordinateSystem
 from LabExT.Movement.Calibration import Calibration
-from LabExT.Movement.Transformations import Coordinate
+from LabExT.Movement.Coordinate import Coordinate
 
 
 class CoordinateWidget(Frame):
