@@ -7,7 +7,7 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from __future__ import annotations
 import logging
 
-from typing import TYPE_CHECKING, Type, Union, Optional, Protocol
+from typing import TYPE_CHECKING, Type, Union, Optional, Callable
 from functools import wraps
 from contextlib import contextmanager
 from time import sleep
@@ -23,11 +23,6 @@ from LabExT.Movement.Polygons import StagePolygon, SingleModeFiber
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
     from LabExT.Wafer.Chip import Chip
-
-
-class MoverProtocol(Protocol):
-    def update_main_model(self) -> None:
-        ...
 
 
 class CalibrationError(RuntimeError):
@@ -85,25 +80,25 @@ class Calibration:
 
     @classmethod
     def load(
-        cls: Type[Calibration],
-        mover: MoverProtocol,
-        stage: Stage,
-        calibration_data: dict,
-        chip: Optional[Chip] = None
+            cls: Type[Calibration],
+            stage: Stage,
+            calibration_data: dict,
+            chip: Optional[Chip] = None,
+            on_update: Optional[Callable] = None
     ) -> Calibration:
         """
         Creates a new calibration based on calibration data.
 
         Parameters
         ----------
-        mover : Mover
-            Instance of mover associated with this calibration.
         stage : Stage
             Instance of a stage
         calibration_data : dict
             Dumped calibration data
         chip : Chip
             Instance of Chip
+        on_update : Callable
+
 
         Returns
         -------
@@ -141,27 +136,27 @@ class Calibration:
             stage_polygon = StagePolygon.load(calibration_data["stage_polygon"])
 
         return cls(
-            mover,
             stage,
             orientation=orientation,
             device_port=device_port,
             stage_polygon=stage_polygon,
             axes_rotation=axes_rotation,
             single_point_offset=single_point_offset,
-            kabsch_rotation=kabsch_rotation)
+            kabsch_rotation=kabsch_rotation,
+            on_update=on_update
+        )
 
     def __init__(
-        self,
-        mover: MoverProtocol,
-        stage: Stage,
-        orientation: Orientation,
-        device_port: DevicePort,
-        stage_polygon: Optional[StagePolygon] = None,
-        axes_rotation: Optional[AxesRotation] = None,
-        single_point_offset: Optional[SinglePointOffset] = None,
-        kabsch_rotation: Optional[KabschRotation] = None
+            self,
+            stage: Stage,
+            orientation: Orientation,
+            device_port: DevicePort,
+            stage_polygon: Optional[StagePolygon] = None,
+            axes_rotation: Optional[AxesRotation] = None,
+            single_point_offset: Optional[SinglePointOffset] = None,
+            kabsch_rotation: Optional[KabschRotation] = None,
+            on_update: Optional[Callable] = None
     ) -> None:
-        self.mover = mover
         self.stage = stage
 
         self._orientation = orientation
@@ -176,6 +171,8 @@ class Calibration:
         self._single_point_offset = SinglePointOffset(self._axes_rotation) if single_point_offset is None else single_point_offset
         self._kabsch_rotation = KabschRotation(self._axes_rotation) if kabsch_rotation is None else kabsch_rotation
 
+        self._on_update = on_update
+
         assert self._single_point_offset.axes_rotation == self._axes_rotation, \
             "Axes rotation for single point offset must be the same than for the calibration."
         assert self._kabsch_rotation.axes_rotation == self._axes_rotation, \
@@ -183,7 +180,12 @@ class Calibration:
 
         self._state = State.UNINITIALIZED
         self.determine_state(skip_connection=False)
-        self.mover.update_main_model()
+
+        self.update()
+
+    def update(self) -> None:
+        if self._on_update is not None:
+            self._on_update()
 
     #
     #   Representation
@@ -308,7 +310,7 @@ class Calibration:
             self.stage.connect()
         finally:
             self.determine_state(skip_connection=False)
-            self.mover.update_main_model()
+            self.update()
 
     def disconnect_to_stage(self) -> None:
         """
@@ -318,7 +320,7 @@ class Calibration:
             self.stage.disconnect()
         finally:
             self.determine_state(skip_connection=False)
-            self.mover.update_main_model()
+            self.update()
 
     def update_axes_rotation(self, chip_axis: Axis, direction: Direction, stage_axis: Axis) -> None:
         """
@@ -340,7 +342,7 @@ class Calibration:
             self._axes_rotation.update(chip_axis, direction, stage_axis)
         finally:
             self.determine_state(skip_connection=True)
-            self.mover.update_main_model()
+            self.update()
 
     def update_single_point_offset(self, pairing: CoordinatePairing) -> None:
         """
@@ -356,7 +358,7 @@ class Calibration:
             self._single_point_offset.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
-            self.mover.update_main_model()
+            self.update()
 
     def update_kabsch_rotation(self, pairing: CoordinatePairing) -> None:
         """
@@ -372,7 +374,7 @@ class Calibration:
             self._kabsch_rotation.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
-            self.mover.update_main_model()
+            self.update()
 
     def reset_single_point_offset(self) -> None:
         """
@@ -380,7 +382,7 @@ class Calibration:
         """
         self._single_point_offset.initialize()
         self.determine_state(skip_connection=True)
-        self.mover.update_main_model()
+        self.update()
 
     def reset_kabsch_rotation(self) -> None:
         """
@@ -388,7 +390,7 @@ class Calibration:
         """
         self._kabsch_rotation.initialize()
         self.determine_state(skip_connection=True)
-        self.mover.update_main_model()
+        self.update()
 
     def determine_state(self, skip_connection: bool = False) -> None:
         """

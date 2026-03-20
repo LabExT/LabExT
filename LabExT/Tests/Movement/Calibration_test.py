@@ -10,6 +10,7 @@ import numpy as np
 from unittest.mock import Mock, patch, call
 from parameterized import parameterized
 
+from LabExT.Movement.Calibration import Calibration, CalibrationError, assert_minimum_state_for_coordinate_system
 from LabExT.Tests.Utils import get_calibrations_from_file
 from LabExT.Movement.Coordinate import StageCoordinate, ChipCoordinate
 from LabExT.Movement.Polygons import SingleModeFiber
@@ -86,11 +87,9 @@ VALID_AXES_MAPPING = [
 
 class CalibrationTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        from LabExT.Movement.Calibration import Calibration
         self.stage = DummyStage('usb:123456789')
         self.mover = MoverNew(None)
-        self.Calibration = Calibration
-        self.calibration = Calibration(self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT)
+        self.calibration = Calibration(self.stage, Orientation.LEFT, DevicePort.INPUT)
 
     def set_valid_axes_rotation(self):
         for chip_axis, direction, stage_axis in VALID_AXES_MAPPING:
@@ -120,14 +119,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
     def setUp(self) -> None:
-        from LabExT.Movement.Calibration import (
-            Calibration,
-            CalibrationError,
-            assert_minimum_state_for_coordinate_system
-        )
 
-        self.Calibration = Calibration
-        self.CalibrationError = CalibrationError
         self.assert_min_state = assert_minimum_state_for_coordinate_system
 
         self.calibration = Mock(spec=Calibration)
@@ -137,7 +129,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
     def test_raises_error_if_coordinate_system_is_not_fixed(self):
         self.calibration.coordinate_system = CoordinateSystem.UNKNOWN
 
-        with self.assertRaises(self.CalibrationError):
+        with self.assertRaises(CalibrationError):
             self.assert_min_state()(self.func)(self.calibration)
 
         self.func.assert_not_called()
@@ -149,7 +141,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
 
         for required_state in required_states:
             self.func.reset_mock()
-            with self.assertRaises(self.CalibrationError):
+            with self.assertRaises(CalibrationError):
                 self.assert_min_state(chip_coordinate_system=required_state)(self.func)(self.calibration)
 
             self.func.assert_not_called()
@@ -161,7 +153,7 @@ class AssertMinimumStateForCoordinateSystemTest(unittest.TestCase):
 
         for required_state in required_states:
             self.func.reset_mock()
-            with self.assertRaises(self.CalibrationError):
+            with self.assertRaises(CalibrationError):
                 self.assert_min_state(stage_coordinate_system=required_state)(self.func)(self.calibration)
 
             self.func.assert_not_called()
@@ -348,7 +340,6 @@ class DetermineStateTest(CalibrationTestCase):
 class CalibrationTest(CalibrationTestCase):
 
     def test_position_in_stage_coordinate_raises_error_if_unconnected(self):
-        from LabExT.Movement.Calibration import CalibrationError
         self.calibration.disconnect_to_stage()
         self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
@@ -357,7 +348,6 @@ class CalibrationTest(CalibrationTestCase):
                 self.calibration.get_position()
 
     def test_position_in_chip_coordinate_raises_error_if_not_single_point_fixed(self):
-        from LabExT.Movement.Calibration import CalibrationError
         self.calibration.connect_to_stage()
         self.set_valid_axes_rotation()
         self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
@@ -418,7 +408,6 @@ class CalibrationTest(CalibrationTestCase):
         get_position_mock.assert_called_once()
 
     def test_move_relative_in_stage_coordinate_raises_error_if_unconnected(self):
-        from LabExT.Movement.Calibration import CalibrationError
         self.calibration.disconnect_to_stage()
         self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
@@ -427,7 +416,6 @@ class CalibrationTest(CalibrationTestCase):
                 self.calibration.move_relative(StageCoordinate(1, 2, 3))
 
     def test_move_relative_in_chip_coordinate_raises_error_if_axes_rotation_invalid(self):
-        from LabExT.Movement.Calibration import CalibrationError
         self.calibration.connect_to_stage()
         self.set_invalid_axes_rotation()
         self.assertEqual(self.calibration.state, State.CONNECTED)
@@ -473,7 +461,6 @@ class CalibrationTest(CalibrationTestCase):
         )
 
     def test_move_absolute_in_stage_coordinate_raises_error_if_unconnected(self):
-        from LabExT.Movement.Calibration import CalibrationError
         self.calibration.disconnect_to_stage()
         self.assertEqual(self.calibration.state, State.UNINITIALIZED)
 
@@ -482,7 +469,6 @@ class CalibrationTest(CalibrationTestCase):
                 self.calibration.move_absolute(StageCoordinate(1, 2, 3))
 
     def test_move_absolute_in_chip_coordinate_raises_error_if_not_single_point_fixed(self):
-        from LabExT.Movement.Calibration import CalibrationError
         self.calibration.connect_to_stage()
         self.set_valid_axes_rotation()
         self.assertEqual(self.calibration.state, State.COORDINATE_SYSTEM_FIXED)
@@ -605,8 +591,7 @@ class CalibrationTest(CalibrationTestCase):
         set_speed_xy_mock.assert_has_calls([call(5000), call(current_speed_xy)])
 
     def test_dump_includes_orientation_and_port(self):
-        from LabExT.Movement.Calibration import Calibration
-        calibration = Calibration(self.mover, self.stage, Orientation.BOTTOM, DevicePort.INPUT)
+        calibration = Calibration(self.stage, Orientation.BOTTOM, DevicePort.INPUT)
         calibration_dump = calibration.dump()
 
         self.assertEqual(calibration_dump["orientation"], "BOTTOM")
@@ -674,7 +659,6 @@ class CalibrationTest(CalibrationTestCase):
 
         
     def test_dump_with_stage_polygon(self):
-        from LabExT.Movement.Calibration import Calibration
         polygon = SingleModeFiber(
             Orientation.LEFT,
             parameters={
@@ -683,7 +667,7 @@ class CalibrationTest(CalibrationTestCase):
                 "Fiber Length": 10e4
             }
         )
-        calibration = Calibration(self.mover, self.stage, Orientation.LEFT, DevicePort.INPUT, stage_polygon=polygon)
+        calibration = Calibration(self.stage, Orientation.LEFT, DevicePort.INPUT, stage_polygon=polygon)
 
         self.assertDictEqual(
             calibration.dump()["stage_polygon"],
@@ -700,7 +684,6 @@ class CalibrationTest(CalibrationTestCase):
 
 
     def test_load_with_axes_rotation(self):
-        from LabExT.Movement.Calibration import Calibration
         self.stage.connect()
         calibration_data = {
             "orientation": "LEFT",
@@ -712,11 +695,10 @@ class CalibrationTest(CalibrationTestCase):
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data)
+        restored_calibration = Calibration.load(self.stage, calibration_data)
         self.assertEqual(restored_calibration.state, State.COORDINATE_SYSTEM_FIXED)
 
     def test_load_with_single_point_offset(self):
-        from LabExT.Movement.Calibration import Calibration
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
@@ -740,11 +722,10 @@ class CalibrationTest(CalibrationTestCase):
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip=chip)
+        restored_calibration = Calibration.load(self.stage, calibration_data, chip=chip)
         self.assertEqual(restored_calibration.state, State.SINGLE_POINT_FIXED)
 
     def test_load_with_kabsch_rotation(self):
-        from LabExT.Movement.Calibration import Calibration
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
@@ -795,11 +776,10 @@ class CalibrationTest(CalibrationTestCase):
             ]
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
+        restored_calibration = Calibration.load(self.stage, calibration_data, chip)
         self.assertEqual(restored_calibration.state, State.FULLY_CALIBRATED)
 
     def test_load_with_stage_polygon(self):
-        from LabExT.Movement.Calibration import Calibration
         self.stage.connect()
         chip = Chip(
             name="Dummy Chip",
@@ -827,7 +807,7 @@ class CalibrationTest(CalibrationTestCase):
             }
         }
 
-        restored_calibration = Calibration.load(self.mover, self.stage, calibration_data, chip)
+        restored_calibration = Calibration.load(self.stage, calibration_data, chip)
         
         self.assertIsInstance(restored_calibration.stage_polygon, SingleModeFiber)
         self.assertDictEqual(

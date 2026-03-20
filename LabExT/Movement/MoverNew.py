@@ -22,6 +22,7 @@ from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, Devic
 from LabExT.Movement.Stage import Stage
 from LabExT.Movement.Transformations import AxesRotation
 from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning
+from LabExT.Movement.Calibration import Calibration
 from LabExT.Movement.Polygons import StagePolygon
 
 from LabExT.Utils import get_configuration_file_path
@@ -31,7 +32,6 @@ from LabExT.Wafer.Device import Device
 
 if TYPE_CHECKING:
     from LabExT.ExperimentManager import ExperimentManager
-    from LabExT.Movement.Calibration import Calibration
 
 
 def assert_connected_stages(func):
@@ -347,8 +347,6 @@ class MoverNew:
 
         Returns new calibration instance.
         """
-        # lazy import to avoid circular import
-        from LabExT.Movement.Calibration import Calibration
 
         if not isinstance(port, DevicePort):
             raise ValueError("{} is an invalid port".format(port))
@@ -365,12 +363,12 @@ class MoverNew:
             raise MoverError(f"A stage has already been assigned for {orientation}.")
 
         calibration = Calibration(
-            mover=self,
             stage=stage,
             orientation=orientation,
             device_port=port,
             stage_polygon=stage_polygon,
-            axes_rotation=self.load_stored_axes_rotation_for_stage(stage=stage)
+            axes_rotation=self.load_stored_axes_rotation_for_stage(stage=stage),
+            on_update=self.update_main_model()
         )
 
         if stage in self.active_stages:
@@ -392,13 +390,11 @@ class MoverNew:
         """
         Restores a calibration for given stage and calibration data.
         """
-        # lazy import to avoid circular import
-        from LabExT.Movement.Calibration import Calibration
 
         if stage in self.active_stages:
             raise MoverError(f"Stage {stage} has already an assignment.")
 
-        calibration = Calibration.load(self, stage, calibration_data, self._chip)
+        calibration = Calibration.load(stage, calibration_data, self._chip, on_update=self.update_main_model())
         self._port_by_orientation.put(calibration.orientation, calibration.device_port, OnDup(key=RAISE))
         self._calibrations.put((calibration.orientation, calibration.device_port), calibration, OnDup(key=RAISE))
 
