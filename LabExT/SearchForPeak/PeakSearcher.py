@@ -9,12 +9,14 @@ import json
 import logging
 import os
 import time
-from typing import Optional
+from typing import Optional, TYPE_CHECKING, Tuple, List, Dict, Any
 
 import numpy as np
+from numpy.typing import NDArray
 from scipy.optimize import curve_fit
 
 from LabExT.Measurements.MeasAPI import Measurement, MeasParamInt, MeasParamFloat, MeasParamList
+from LabExT.Measurements.MeasAPI.Measparam import MeasParam
 from LabExT.Movement.MotorProfiles import trapezoidal_velocity_profile_by_integration
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.config import CoordinateSystem
@@ -22,6 +24,9 @@ from LabExT.Movement.Transformations import StageCoordinate
 from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
+
+if TYPE_CHECKING:
+    from LabExT.Experiments.StandardExperiment import StandardExperiment
 
 
 class PeakSearcher(Measurement):
@@ -80,7 +85,7 @@ class PeakSearcher(Measurement):
     DIMENSION_NAMES_TWO_STAGES = ['Left X', 'Left Y', 'Right X', 'Right Y']
     DIMENSION_NAMES_SINGLE_STAGE = ['X', 'Y']
 
-    def __init__(self, *args, mover: Optional[MoverNew] = None, parent=None, **kwargs) -> None:
+    def __init__(self, *args, mover: Optional[MoverNew] = None, **kwargs) -> None:
         """Constructor
 
         Parameters
@@ -106,25 +111,24 @@ class PeakSearcher(Measurement):
         self.instr_powermeter = None
         self.initialized = False
 
-        self.logger.info(
-            'Initialized Search for Peak with method: ' + str(self.name))
+        self.logger.info('Initialized Search for Peak with method: ' + str(self.name))
 
     @property
-    def settings_path_full(self):
+    def settings_path_full(self) -> str:
         return get_configuration_file_path(self.settings_filename)
 
-    def set_experiment(self, experiment):
+    def set_experiment(self, experiment: StandardExperiment) -> None:
         """Helper function to keep all initializations in the right order
         This line cannot be included in __init__
         """
         self._experiment = experiment
 
     @staticmethod
-    def _gaussian(xdata, a, mu, sigma, offset):
+    def _gaussian(xdata: NDArray[np.float64], a: float, mu: float, sigma: float , offset: float) -> NDArray[np.float64]:
         return a * np.exp(-(xdata - mu) ** 2 / (2 * sigma ** 2)) + offset
 
     @staticmethod
-    def _gaussian_param_initial_guess(x_data, y_data):
+    def _gaussian_param_initial_guess(x_data: NDArray[np.float64], y_data: NDArray[np.float64]) -> List[float]:
         """
         Crudely estimates initial parameters for a gaussian fitting on 2-dimensional data.
         """
@@ -139,7 +143,10 @@ class PeakSearcher(Measurement):
         return [a_init, mu_init, sigma_init, offset_init]
 
     @staticmethod
-    def fit_gaussian(x_data, y_data):
+    def fit_gaussian(
+            x_data: NDArray[np.float64],
+            y_data: NDArray[np.float64]
+    ) -> Tuple[NDArray[np.float64], NDArray[np.float64]]:
         """Fits a gaussian function of four parameters to the given x and y data.
 
         Parameters
@@ -194,7 +201,7 @@ class PeakSearcher(Measurement):
         return popt, perr_std_dev
 
     @staticmethod
-    def get_default_parameter():
+    def get_default_parameter() -> Dict[str, MeasParam]:
         return {
             'Laser wavelength': MeasParamInt(value=1550, unit='nm'),
             'Laser power': MeasParamFloat(value=0.0, unit='dBm'),
@@ -208,10 +215,10 @@ class PeakSearcher(Measurement):
         }
 
     @staticmethod
-    def get_wanted_instrument():
+    def get_wanted_instrument() -> List[str]:
         return ['Laser', 'Power Meter']
 
-    def search_for_peak(self):
+    def search_for_peak(self) -> Dict[str, Any]:
         """Main Search For Peak routine
         Uses a 2D gaussian fit for all four dimensions.
 
