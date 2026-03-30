@@ -368,7 +368,7 @@ class MoverNew:
             device_port=port,
             stage_polygon=stage_polygon,
             axes_rotation=self.load_stored_axes_rotation_for_stage(stage=stage),
-            on_update=self.update_main_model()
+            on_update=self.update_main_model
         )
 
         if stage in self.active_stages:
@@ -394,7 +394,7 @@ class MoverNew:
         if stage in self.active_stages:
             raise MoverError(f"Stage {stage} has already an assignment.")
 
-        calibration = Calibration.load(stage, calibration_data, self._chip, on_update=self.update_main_model())
+        calibration = Calibration.load(stage, calibration_data, self._chip, on_update=self.update_main_model)
         self._port_by_orientation.put(calibration.orientation, calibration.device_port, OnDup(key=RAISE))
         self._calibrations.put((calibration.orientation, calibration.device_port), calibration, OnDup(key=RAISE))
 
