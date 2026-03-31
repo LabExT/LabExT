@@ -18,7 +18,7 @@ from os import rename, makedirs
 from os.path import dirname, join
 from pathlib import Path
 from tkinter import Tk, messagebox
-from typing import TYPE_CHECKING, Type, List, Tuple, Union
+from typing import TYPE_CHECKING, Type, List, Tuple, Union, Optional
 
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
@@ -57,7 +57,7 @@ class StandardExperiment:
     output data dictionary."""
 
     def __init__(
-        self, experiment_manager: ExperimentManager, parent: Tk, chip: Chip, mover: Union[Type[MoverNew], None] = None
+        self, experiment_manager: ExperimentManager, parent: Tk, chip: Chip, mover: Optional[MoverNew] = None
     ):
         self.logger = logging.getLogger()
 
@@ -66,7 +66,7 @@ class StandardExperiment:
         self._parent = parent
 
         # stage mover class, used to move to device in automated sweeps
-        self._mover: Type[MoverNew] = mover
+        self._mover = mover
         # peak server, used to SfP in automated sweeps
         self._peak_searcher = experiment_manager.peak_searcher
 
@@ -267,7 +267,7 @@ class StandardExperiment:
 
             # only move if automatic movement is enabled
             if self.exctrl_auto_move_stages:
-                self._mover.move_to_device(self._chip, device)
+                self._mover.move_to_device(device)
                 self.logger.info("Automatically moved to device:" + str(device))
 
             # execute automatic search for peak

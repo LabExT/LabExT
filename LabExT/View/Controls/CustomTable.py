@@ -5,9 +5,10 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from tkinter import Tk
+from tkinter import Tk, Frame
 from typing import List, Literal, Any, Union
 
+from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.CustomTtkWidgets import CustomTreeview, CustomScrollbar
 
 
@@ -16,7 +17,7 @@ class CustomTable:
     """
 
     def __init__(self,
-                 parent: Tk,
+                 parent: Union[Tk, Frame, CustomFrame],
                  column_headers: List[str],
                  rows: List[tuple],
                  col_width: int = 20,

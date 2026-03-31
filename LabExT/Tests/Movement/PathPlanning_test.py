@@ -12,7 +12,7 @@ from parameterized import parameterized
 
 from LabExT.Movement.config import Orientation
 from LabExT.Movement.Transformations import ChipCoordinate
-from LabExT.Movement.PathPlanning import SingleModeFiber, StagePolygon
+from LabExT.Movement.Polygons import SingleModeFiber, StagePolygon
 
 
 class SingleModeFiberTest(TestCase):

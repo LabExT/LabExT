@@ -4,7 +4,7 @@
 LabExT  Copyright (C) 2022  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
-
+from __future__ import annotations
 import json
 import os
 import logging
@@ -12,21 +12,26 @@ import logging
 from time import sleep, time
 from os.path import dirname, join
 from bidict import bidict, ValueDuplicationError, KeyDuplicationError, OnDup, RAISE
-from typing import Dict, Tuple, Type, List
+from typing import Dict, Tuple, List, Optional, TYPE_CHECKING
 from functools import wraps
 from datetime import datetime
 from contextlib import contextmanager
 
+from LabExT.Movement.Coordinate import ChipCoordinate
 from LabExT.Movement.config import CLOCKWISE_ORDERING, State, Orientation, DevicePort, CoordinateSystem
+from LabExT.Movement.Stage import Stage
+from LabExT.Movement.Transformations import AxesRotation
+from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning
 from LabExT.Movement.Calibration import Calibration
-from LabExT.Movement.Stage import Stage, StageError
-from LabExT.Movement.Transformations import ChipCoordinate, AxesRotation
-from LabExT.Movement.PathPlanning import PathPlanning, CollisionAvoidancePlanning, SingleStagePlanning, StagePolygon
+from LabExT.Movement.Polygons import StagePolygon
 
 from LabExT.Utils import get_configuration_file_path
 from LabExT.PluginLoader import PluginLoader
 from LabExT.Wafer.Chip import Chip
 from LabExT.Wafer.Device import Device
+
+if TYPE_CHECKING:
+    from LabExT.ExperimentManager import ExperimentManager
 
 
 def assert_connected_stages(func):
@@ -38,9 +43,8 @@ def assert_connected_stages(func):
     @wraps(func)
     def wrapper(mover, *args, **kwargs):
         if not mover.has_connected_stages:
-            raise MoverError(
-                "Function {} needs at least one connected stage. Please use the connection functions beforehand".format(
-                    func.__name__))
+            raise MoverError(f"Function {func.__name__} needs at least one connected stage. "
+                             f"Please use the connection functions beforehand")
 
         return func(mover, *args, **kwargs)
     return wrapper
@@ -56,7 +60,7 @@ class MoverNew:
     """
 
     # For range constants: See SmarAct Control Guide for more details.
-    # Both ranges are inclusive, e.g speed in [SPEED_LOWER_BOUND,
+    # Both ranges are inclusive, e.g. speed in [SPEED_LOWER_BOUND,
     # SPEED_UPPER_BOUND]
     SPEED_LOWER_BOUND = 0
     SPEED_UPPER_BOUND = 1e5
@@ -78,11 +82,7 @@ class MoverNew:
     CALIBRATIONS_SETTINGS_FILE = get_configuration_file_path(
         config_file_path_in_settings_dir="mover_calibrations.json")
 
-    def __init__(
-        self,
-        experiment_manager=None,
-        chip=None
-    ) -> None:
+    def __init__(self, experiment_manager: Optional[ExperimentManager] = None, chip: Optional[Chip] = None) -> None:
         """Constructor.
 
         Parameters
@@ -95,14 +95,14 @@ class MoverNew:
         self.logger = logging.getLogger()
 
         self.experiment_manager = experiment_manager
-        self._chip: Type[Chip] = chip
+        self._chip = chip
 
         # Stage classes plugin
         self._stage_classes: Dict[str, Stage] = {}
         self._plugin_loader = PluginLoader()
         self._plugin_loader_stats: Dict[str, int] = {}
         # Available Stages
-        self._available_stages: List[Type[Stage]] = []
+        self._available_stages: List[Stage] = []
 
         # Mover calibrations
         self._calibrations = bidict()
@@ -139,9 +139,9 @@ class MoverNew:
     #   Set chip
     #
 
-    def set_chip(self, chip: Type[Chip]) -> None:
+    def set_chip(self, chip: Chip) -> None:
         """
-        Sets the the current chip.
+        Sets the current chip.
         This method will reset single point offset and kabsch rotation.
         """
         if self._chip == chip:
@@ -169,10 +169,8 @@ class MoverNew:
         if not _main_window:
             return
 
-        _main_window.model.status_mover_connected_stages.set(
-            self.has_connected_stages)
-        _main_window.model.status_mover_can_move_to_device.set(
-            self.can_move_absolutely)
+        _main_window.model.status_mover_connected_stages.set(self.has_connected_stages)
+        _main_window.model.status_mover_can_move_to_device.set(self.can_move_absolutely)
 
         _main_window.refresh_context_menu()
 
@@ -190,11 +188,8 @@ class MoverNew:
             search_paths += self.experiment_manager.addon_settings['addon_search_directories']
 
         for path in search_paths:
-            imported_stage_classes = self._plugin_loader.load_plugins(
-                path, plugin_base_class=Stage, recursive=True)
-            unique_stage_classes = {
-                k: v for k,
-                v in imported_stage_classes.items() if k not in self._stage_classes}
+            imported_stage_classes = self._plugin_loader.load_plugins(path, plugin_base_class=Stage, recursive=True)
+            unique_stage_classes = {k: v for k, v in imported_stage_classes.items() if k not in self._stage_classes}
 
             self._plugin_loader_stats[path] = len(unique_stage_classes)
             self._stage_classes.update(unique_stage_classes)
@@ -202,12 +197,8 @@ class MoverNew:
             for stage_cls in unique_stage_classes.values():
                 self._available_stages += stage_cls.find_available_stages()
 
-        self.logger.debug(
-            'Available stage classes loaded. Found: %s', [
-                k for k in self._stage_classes.keys()])
-        self.logger.debug(
-            'Discovered stages. Found: %s',
-            list(map(str, self._available_stages)))
+        self.logger.debug(f'Available stage classes loaded. Found: {self._stage_classes.keys()}')
+        self.logger.debug(f'Discovered stages. Found: {list(map(str, self._available_stages))}')
 
     #
     #   Properties
@@ -229,7 +220,7 @@ class MoverNew:
         return self._stage_classes
 
     @property
-    def available_stages(self) -> List[Type[Stage]]:
+    def available_stages(self) -> List[Stage]:
         """
         Returns a list of stages available to the computer (all possible connection types)
         For example: For SmarAct Stages, this function returns all USB-connected stages.
@@ -238,18 +229,15 @@ class MoverNew:
         return self._available_stages
 
     @property
-    def calibrations(
-        self
-    ) -> Dict[Tuple[Orientation, DevicePort], Type[Calibration]]:
+    def calibrations(self) -> Dict[Tuple[Orientation, DevicePort], Calibration]:
         """
         Returns a mapping: Calibration -> (orientation, device_port) instance
         Read-only. Use add_stage_calibration to register a new stage.
         """
-
         return self._calibrations
 
     @property
-    def active_stages(self) -> List[Type[Stage]]:
+    def active_stages(self) -> List[Stage]:
         """
         Returns a list of all active stages. A stage is called active if it has been assigned
         to an orientation and device port
@@ -257,7 +245,7 @@ class MoverNew:
         return [c.stage for c in self._calibrations.values()]
 
     @property
-    def connected_stages(self) -> List[Type[Stage]]:
+    def connected_stages(self) -> List[Stage]:
         """
         Returns a list of all connected stages.
         """
@@ -288,8 +276,8 @@ class MoverNew:
         if not self.calibrations:
             return False
 
-        return all(c.state == State.SINGLE_POINT_FIXED or c.state ==
-                   State.FULLY_CALIBRATED for c in self.calibrations.values())
+        return all(c.state == State.SINGLE_POINT_FIXED or
+                   c.state == State.FULLY_CALIBRATED for c in self.calibrations.values())
 
     @property
     def can_move_relatively(self) -> bool:
@@ -299,32 +287,31 @@ class MoverNew:
         if not self.calibrations:
             return False
 
-        return all(
-            c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
+        return all(c.state >= State.COORDINATE_SYSTEM_FIXED for c in self.calibrations.values())
 
     @property
-    def left_calibration(self) -> Type[Calibration]: return self._get_calibration(
-        orientation=Orientation.LEFT)
+    def left_calibration(self) -> Calibration:
+        return self._get_calibration(orientation=Orientation.LEFT)
 
     @property
-    def right_calibration(self) -> Type[Calibration]: return self._get_calibration(
-        orientation=Orientation.RIGHT)
+    def right_calibration(self) -> Calibration:
+        return self._get_calibration(orientation=Orientation.RIGHT)
 
     @property
-    def top_calibration(self) -> Type[Calibration]: return self._get_calibration(
-        orientation=Orientation.TOP)
+    def top_calibration(self) -> Calibration:
+        return self._get_calibration(orientation=Orientation.TOP)
 
     @property
-    def bottom_calibration(self) -> Type[Calibration]: return self._get_calibration(
-        orientation=Orientation.BOTTOM)
+    def bottom_calibration(self) -> Calibration:
+        return self._get_calibration(orientation=Orientation.BOTTOM)
 
     @property
-    def input_calibration(self) -> Type[Calibration]: return self._get_calibration(
-        port=DevicePort.INPUT)
+    def input_calibration(self) -> Calibration:
+        return self._get_calibration(port=DevicePort.INPUT)
 
     @property
-    def output_calibration(self) -> Type[Calibration]: return self._get_calibration(
-        port=DevicePort.OUTPUT)
+    def output_calibration(self) -> Calibration:
+        return self._get_calibration(port=DevicePort.OUTPUT)
 
     @property
     def has_input_calibration(self) -> bool:
@@ -346,11 +333,11 @@ class MoverNew:
 
     def add_stage_calibration(
         self,
-        stage: Type[Stage],
+        stage: Stage,
         orientation: Orientation,
         port: DevicePort,
-        stage_polygon: Type[StagePolygon] = None
-    ) -> Type[Calibration]:
+        stage_polygon: Optional[StagePolygon] = None
+    ) -> Calibration:
         """
         Creates a new Calibration instance for a stage.
         Adds this instance to the list of connected stages.
@@ -360,6 +347,7 @@ class MoverNew:
 
         Returns new calibration instance.
         """
+
         if not isinstance(port, DevicePort):
             raise ValueError("{} is an invalid port".format(port))
 
@@ -368,32 +356,26 @@ class MoverNew:
                 "{} is an invalid orientation".format(orientation))
 
         try:
-            self._port_by_orientation.put(
-                orientation, port, OnDup(key=RAISE))
+            self._port_by_orientation.put(orientation, port, OnDup(key=RAISE))
         except ValueDuplicationError:
-            raise MoverError(
-                "A stage has already been assigned for the {} port.".format(port))
+            raise MoverError(f"A stage has already been assigned for the {port} port.")
         except KeyDuplicationError:
-            raise MoverError(
-                "A stage has already been assigned for {}.".format(orientation))
+            raise MoverError(f"A stage has already been assigned for {orientation}.")
 
         calibration = Calibration(
-            mover=self,
             stage=stage,
             orientation=orientation,
             device_port=port,
             stage_polygon=stage_polygon,
-            axes_rotation=self.load_stored_axes_rotation_for_stage(
-                stage=stage))
+            axes_rotation=self.load_stored_axes_rotation_for_stage(stage=stage),
+            on_update=self.update_main_model
+        )
 
         if stage in self.active_stages:
             del self._port_by_orientation[orientation]
-            raise MoverError(
-                "Stage {} has already an assignment.".format(stage))
+            raise MoverError(f"Stage {stage} has already an assignment.")
 
-        self._calibrations.put(
-            (orientation, port), calibration, OnDup(
-                key=RAISE))
+        self._calibrations.put((orientation, port), calibration, OnDup(key=RAISE))
 
         # Stage successfully as stage registered
         calibration.connect_to_stage()
@@ -404,33 +386,17 @@ class MoverNew:
 
         return calibration
 
-    def restore_stage_calibration(
-        self,
-        stage: Type[Stage],
-        calibration_data: dict
-    ) -> Type[Calibration]:
+    def restore_stage_calibration(self, stage: Stage, calibration_data: dict) -> Calibration:
         """
         Restores a calibration for given stage and calibration data.
         """
+
         if stage in self.active_stages:
-            raise MoverError(
-                "Stage {} has already an assignment.".format(stage))
+            raise MoverError(f"Stage {stage} has already an assignment.")
 
-        calibration = Calibration.load(
-            self, stage, calibration_data, self._chip)
-
-        self._port_by_orientation.put(
-            calibration._orientation,
-            calibration._device_port,
-            OnDup(
-                key=RAISE))
-
-        self._calibrations.put(
-            (calibration._orientation,
-             calibration._device_port),
-            calibration,
-            OnDup(
-                key=RAISE))
+        calibration = Calibration.load(stage, calibration_data, self._chip, on_update=self.update_main_model)
+        self._port_by_orientation.put(calibration.orientation, calibration.device_port, OnDup(key=RAISE))
+        self._calibrations.put((calibration.orientation, calibration.device_port), calibration, OnDup(key=RAISE))
 
         return calibration
 
@@ -443,8 +409,7 @@ class MoverNew:
         """
         Sets the coordinate system of all connected stages to the requested one.
         """
-        prior_coordinate_systems = {
-            c: c.coordinate_system for c in self.calibrations.values()}
+        prior_coordinate_systems = {c: c.coordinate_system for c in self.calibrations.values()}
 
         for calibration in self.calibrations.values():
             calibration.set_coordinate_system(system)
@@ -484,8 +449,8 @@ class MoverNew:
         try:
             for stage in self.connected_stages:
                 stage.set_speed_xy(umps)
-        except RuntimeError as exec:
-            raise MoverError("Setting xy speed failed: {}".format(exec))
+        except RuntimeError as e:
+            raise MoverError(f"Setting xy speed failed: {e}")
 
         self._speed_xy = umps
 
@@ -514,8 +479,8 @@ class MoverNew:
         try:
             for stage in self.connected_stages:
                 stage.set_speed_z(umps)
-        except RuntimeError as exec:
-            raise MoverError("Setting z speed failed: {}".format(exec))
+        except RuntimeError as e:
+            raise MoverError(f"Setting z speed failed: {e}")
 
         self._speed_z = umps
 
@@ -545,8 +510,8 @@ class MoverNew:
         try:
             for stage in self.connected_stages:
                 stage.set_acceleration_xy(umps2)
-        except RuntimeError as exec:
-            raise MoverError("Acceleration xy speed failed: {}".format(exec))
+        except RuntimeError as e:
+            raise MoverError(f"Acceleration xy speed failed: {e}")
 
         self._acceleration_xy = umps2
 
@@ -582,24 +547,19 @@ class MoverNew:
     #   Movement Methods
     #
 
-    def get_path_planning_strategy(self) -> Type[PathPlanning]:
+    def get_path_planning_strategy(self) -> PathPlanning:
         """
         Returns a PathPlanning based on number of stages
         """
         if len(self.connected_stages) == 1:
-            return SingleStagePlanning(
-                max_lift_correction=100,
-                correction_tolerance=10)
+            return SingleStagePlanning(max_lift_correction=100, correction_tolerance=10)
         else:
-            return CollisionAvoidancePlanning(
-                chip=self._chip,
-                abort_local_minimum=3)
+            return CollisionAvoidancePlanning(chip=self._chip, abort_local_minimum=3)
 
     @assert_connected_stages
     def move_absolute(
         self,
-        movement_commands: Dict[Orientation, Type[ChipCoordinate]],
-        chip: Type[Chip],
+        movement_commands: Dict[Orientation, ChipCoordinate],
         with_lifted_stages: bool = False,
         wait_for_stopping: bool = True,
         wait_timeout: float = 2.0
@@ -613,11 +573,14 @@ class MoverNew:
         ----------
         movement_commands : Dict[Orientation, Type[ChipCoordinate]]
             A mapping between orientation and target chip coordinate.
-            For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved to the chip co-ordinate x=1, y=2, z=3
-        wait_for_stopping: bool = True
-            Whether each stage should have completed its movement before the next one moves.
+            For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists,
+            the left stage is moved to the chip coordinate x=1, y=2, z=3
         with_lifted_stages: bool = False
             Indicates whether the stages should be lifted before movement.
+        wait_for_stopping: bool = True
+            Whether each stage should have completed its movement before the next one moves.
+        wait_timeout: float = 2.0
+            Only relevant if wait_for_stopping is False. Through an error if timeout is reached.
 
         Raises
         ------
@@ -635,13 +598,12 @@ class MoverNew:
 
             # Resolves movement commands
             # Checks if for each orientation a calibration exits
-            # Set ups Path Planning
+            # Sets up Path Planning
             resolved_calibrations = {}
             for orientation, target in movement_commands.items():
                 calibration = self._get_calibration(orientation=orientation)
                 if calibration is None:
-                    raise MoverError(
-                        f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
+                    raise MoverError(f"No {orientation} stage configured, but target coordinate for {orientation} passed.")
 
                 if with_lifted_stages:
                     calibration.lift_stage(self.z_lift)
@@ -655,8 +617,9 @@ class MoverNew:
             for calibration_waypoints in path_planning.trajectory():
                 for calibration, waypoint in calibration_waypoints.items():
                     calibration.move_absolute(
-                        coordinate=waypoint.coordinate, wait_for_stopping=(
-                            wait_for_stopping or waypoint.wait_for_stopping))
+                        coordinate=waypoint.coordinate,
+                        wait_for_stopping=(wait_for_stopping or waypoint.wait_for_stopping)
+                    )
 
                 # Wait for all stages to stop if stages move simultaneously.
                 if not wait_for_stopping:
@@ -665,11 +628,9 @@ class MoverNew:
                         sleep(0.05)
 
                         if time() - busy_spinning_start >= wait_timeout:
-                            raise RuntimeError(
-                                f"Stages did not stop after {wait_timeout} seconds. Abort.")
+                            raise RuntimeError(f"Stages did not stop after {wait_timeout} seconds. Abort.")
 
-                        if all(c.stage.is_stopped
-                               for c in calibration_waypoints.keys()):
+                        if all(c.stage.is_stopped for c in calibration_waypoints.keys()):
                             break
 
             # Movement complete and lower stages (if requested)
@@ -681,8 +642,8 @@ class MoverNew:
     @assert_connected_stages
     def move_relative(
         self,
-        movement_commands: Dict[Orientation, Type[ChipCoordinate]],
-        ordering: List[Orientation] = CLOCKWISE_ORDERING,
+        movement_commands: Dict[Orientation, ChipCoordinate],
+        ordering: Optional[List[Orientation]] = None,
         wait_for_stopping: bool = True
     ) -> None:
         """
@@ -695,6 +656,7 @@ class MoverNew:
             A mapping between orientation and requested offset in chip coordinates.
             For example, if the mapping `Orientation.LEFT: ChipCoordinate(1,2,3)` exists, the left stage is moved relatively
             with an offset of x=1, y=2, z=3.
+        ordering: List[Orientation]
         wait_for_stopping: bool = True
             Whether each stage should have completed its movement before the next one moves.
         Raises
@@ -705,19 +667,22 @@ class MoverNew:
         """
         if not self.can_move_relatively:
             raise MoverError(
-                f"Cannot perform relative movement, not all active stages are calibrated correctly."
-                "Note for each stage the coordinate system must be fixed.")
+                "Cannot perform relative movement, not all active stages are calibrated correctly."
+                "Note for each stage the coordinate system must be fixed."
+            )
 
         if not movement_commands:
             return
+
+        if ordering is None:
+            ordering = CLOCKWISE_ORDERING
 
         # Makes sure that a calibration exists for each movement command.
         resolved_calibrations = {}
         for orientation in movement_commands:
             calibration = self._get_calibration(orientation=orientation)
             if calibration is None:
-                raise MoverError(
-                    f"No {orientation} stage configured, but offset for {orientation} passed.")
+                raise MoverError(f"No {orientation} stage configured, but offset for {orientation} passed.")
 
             resolved_calibrations[orientation] = calibration
 
@@ -733,7 +698,7 @@ class MoverNew:
                 calibration.move_relative(requested_target, wait_for_stopping)
 
     @assert_connected_stages
-    def move_to_device(self, chip: Type[Chip], device: Type[Device]):
+    def move_to_device(self, device: Device) -> None:
         """
         Moves stages to device.
 
@@ -741,17 +706,13 @@ class MoverNew:
 
         Parameters
         ----------
-        chip: Chip
-            Instance of a imported chip.
         device: Device
             Device to which the stages should move.
         """
         movement_commands = {}
 
-        input_orientation = self._port_by_orientation.inverse.get(
-            DevicePort.INPUT)
-        output_orientation = self._port_by_orientation.inverse.get(
-            DevicePort.OUTPUT)
+        input_orientation = self._port_by_orientation.inverse.get(DevicePort.INPUT)
+        output_orientation = self._port_by_orientation.inverse.get(DevicePort.OUTPUT)
 
         if input_orientation:
             movement_commands[input_orientation] = device.input_coordinate
@@ -759,10 +720,7 @@ class MoverNew:
         if output_orientation:
             movement_commands[output_orientation] = device.output_coordinate
 
-        self.move_absolute(
-            movement_commands,
-            chip=chip,
-            with_lifted_stages=True)
+        self.move_absolute(movement_commands, with_lifted_stages=True)
 
     #
     #   Load and store mover settings
@@ -780,8 +738,7 @@ class MoverNew:
             json.dump({
                 "chip_name": _chip_name,
                 "last_updated_at": datetime.now().isoformat(),
-                "calibrations": [
-                    c.dump() for c in self.calibrations.values()]
+                "calibrations": [c.dump() for c in self.calibrations.values()]
             }, fp, indent=2)
 
     def dump_axes_rotations(self) -> None:
@@ -821,59 +778,47 @@ class MoverNew:
             with open(self.MOVER_SETTINGS_FILE) as fp:
                 mover_settings = json.load(fp)
         except (OSError, json.decoder.JSONDecodeError) as err:
-            self.logger.error(
-                f"Failed to load/decode settings file {self.MOVER_SETTINGS_FILE}: {err}")
+            self.logger.error(f"Failed to load/decode settings file {self.MOVER_SETTINGS_FILE}: {err}")
             return
 
         self._speed_xy = mover_settings.get("speed_xy", self.DEFAULT_SPEED_XY)
         self._speed_z = mover_settings.get("speed_z", self.DEFAULT_SPEED_Z)
-        self._acceleration_xy = mover_settings.get(
-            "acceleration_xy", self.DEFAULT_ACCELERATION_XY)
+        self._acceleration_xy = mover_settings.get("acceleration_xy", self.DEFAULT_ACCELERATION_XY)
         self._z_lift = mover_settings.get("z_lift", self.DEFAULT_SPEED_Z)
 
         self.logger.debug(
             f"Restored mover settings: xy-speed = {self._speed_xy}; z-speed = {self._speed_z}; "
-            f"xy-acceleration = {self._acceleration_xy}; z-lift = {self.z_lift}")
+            f"xy-acceleration = {self._acceleration_xy}; z-lift = {self.z_lift}"
+        )
 
-    def load_stored_axes_rotation_for_stage(
-        self,
-        stage: Type[Stage]
-    ) -> Type[AxesRotation]:
+    def load_stored_axes_rotation_for_stage(self, stage: Stage) -> AxesRotation:
         """
         Returns a restored AxesRotation from file if available.
-
         If not available, returns a default identity rotation.
         """
         try:
             with open(self.AXES_ROTATIONS_FILE, "r") as fp:
                 saved_axes_rotations = json.load(fp)
         except (OSError, json.decoder.JSONDecodeError) as err:
-            self.logger.error(
-                f"Failed to load/decode axes rotation file {self.AXES_ROTATIONS_FILE}: {err}")
+            self.logger.error(f"Failed to load/decode axes rotation file {self.AXES_ROTATIONS_FILE}: {err}")
             return AxesRotation()
 
         if stage.identifier not in saved_axes_rotations:
             return AxesRotation()
 
         self.logger.debug(
-            f"Found saved axes rotation for {stage.identifier} in {self.AXES_ROTATIONS_FILE}. "
-            "Restoring it.")
+            f"Found saved axes rotation for {stage.identifier} in {self.AXES_ROTATIONS_FILE}. Restoring it.")
 
         try:
-            return AxesRotation.load(
-                mapping=saved_axes_rotations[stage.identifier]["axes_rotation"])
+            return AxesRotation.load(mapping=saved_axes_rotations[stage.identifier]["axes_rotation"])
         except Exception as err:
             self.logger.error(
                 f"Failed to restore axes rotation for {stage.identifier} from {self.AXES_ROTATIONS_FILE}: {err}")
             return AxesRotation()
 
-    def load_stored_calibrations_for_chip(
-        self,
-        chip: Type[Chip]
-    ) -> dict:
+    def load_stored_calibrations_for_chip(self, chip: Chip) -> dict:
         """
         Returns restored calibrations from file if available.
-
         If not available, returns an empty dict.
         """
         if chip is None or chip.name is None:
@@ -882,15 +827,14 @@ class MoverNew:
         try:
             with open(self.CALIBRATIONS_SETTINGS_FILE, "r") as fp:
                 calibration_settings = json.load(fp)
-                chip_name = calibration_settings.get("chip_name")
-                calibrations = calibration_settings.get("calibrations", [])
-                if chip_name == chip.name and len(calibrations) > 0:
-                    return calibration_settings
-                else:
-                    return {}
+            chip_name = calibration_settings.get("chip_name")
+            calibrations = calibration_settings.get("calibrations", [])
+            if chip_name == chip.name and len(calibrations) > 0:
+                return calibration_settings
+            else:
+                return {}
         except (OSError, json.decoder.JSONDecodeError) as err:
-            self.logger.error(
-                f"Failed to load/decode calibration file {self.AXES_ROTATIONS_FILE}: {err}")
+            self.logger.error(f"Failed to load/decode calibration file {self.AXES_ROTATIONS_FILE}: {err}")
             return {}
 
     @property
@@ -906,9 +850,10 @@ class MoverNew:
 
     def _get_calibration(
             self,
-            port=None,
-            orientation=None,
-            default=None) -> Type[Calibration]:
+            port: Optional[DevicePort] = None,
+            orientation: Optional[Orientation] = None,
+            default = None
+    ) -> Calibration:
         """
         Get safely calibration by port and orientation.
         """

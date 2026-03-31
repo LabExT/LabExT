@@ -7,21 +7,21 @@ This program is free software and comes with ABSOLUTELY NO WARRANTY; for details
 from __future__ import annotations
 import logging
 
-from typing import TYPE_CHECKING, Type, Union
+from typing import TYPE_CHECKING, Type, Union, Optional, Callable
 from functools import wraps
 from contextlib import contextmanager
 from time import sleep
 
 import numpy as np
 
+from LabExT.Movement.Coordinate import ChipCoordinate, StageCoordinate
 from LabExT.Movement.config import DevicePort, Orientation, State, Axis, Direction, CoordinateSystem
-from LabExT.Movement.Transformations import StageCoordinate, ChipCoordinate, CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
+from LabExT.Movement.Transformations import CoordinatePairing, SinglePointOffset, AxesRotation, KabschRotation
 from LabExT.Movement.Stage import StageError
-from LabExT.Movement.PathPlanning import StagePolygon, SingleModeFiber
+from LabExT.Movement.Polygons import StagePolygon, SingleModeFiber
 
 if TYPE_CHECKING:
     from LabExT.Movement.Stage import Stage
-    from LabExT.Movement.MoverNew import MoverNew
     from LabExT.Wafer.Chip import Chip
 
 
@@ -45,33 +45,26 @@ def assert_minimum_state_for_coordinate_system(
     """
     def assert_state(func):
         @wraps(func)
-        def wrap(calibration: Type["Calibration"], *args, **kwargs):
+        def wrap(calibration: Type[Calibration], *args, **kwargs):
             if calibration.coordinate_system == CoordinateSystem.UNKNOWN:
-                raise CalibrationError(
-                    "Function {} needs a cooridnate system to operate in. Please use the context to set the system.".format(
-                        func.__name__))
+                raise CalibrationError(f"Function {func.__name__} needs a coordinate system to operate in. "
+                                       f"Please use the context to set the system.")
 
             if calibration.coordinate_system == CoordinateSystem.CHIP:
                 if chip_coordinate_system is None:
-                    raise CalibrationError(
-                        "Function {} does not support the chip coordinate system.".format(
-                            func.__name__))
+                    raise CalibrationError(f"Function {func.__name__} does not support the chip coordinate system.")
 
                 if calibration.state < chip_coordinate_system:
-                    raise CalibrationError(
-                        "Function {} needs at least a calibration state of {} to operate in chip coordinate system".format(
-                            func.__name__, chip_coordinate_system))
+                    raise CalibrationError(f"Function {func.__name__} needs at least a calibration state of "
+                                           f"{chip_coordinate_system} to operate in chip coordinate system")
 
             if calibration.coordinate_system == CoordinateSystem.STAGE:
                 if stage_coordinate_system is None:
-                    raise CalibrationError(
-                        "Function {} does not support the stage coordinate system.".format(
-                            func.__name__))
+                    raise CalibrationError(f"Function {func.__name__} does not support the stage coordinate system.")
 
                 if calibration.state < stage_coordinate_system:
-                    raise CalibrationError(
-                        "Function {} needs at least a calibration state of {} to operate in stage coordinate system".format(
-                            func.__name__, stage_coordinate_system))
+                    raise CalibrationError(f"Function {func.__name__} needs at least a calibration state of "
+                                           f"{stage_coordinate_system} to operate in stage coordinate system")
 
             return func(calibration, *args, **kwargs)
         return wrap
@@ -87,23 +80,25 @@ class Calibration:
 
     @classmethod
     def load(
-        cls,
-        mover: Type[MoverNew],
-        stage: Type[Stage],
-        calibration_data: dict,
-        chip: Type[Chip] = None
-    ) -> Type[Calibration]:
+            cls: Type[Calibration],
+            stage: Stage,
+            calibration_data: dict,
+            chip: Optional[Chip] = None,
+            on_update: Optional[Callable] = None
+    ) -> Calibration:
         """
         Creates a new calibration based on calibration data.
 
         Parameters
         ----------
-        mover : Mover
-            Instance of mover associated with this calibration.
         stage : Stage
             Instance of a stage
         calibration_data : dict
             Dumped calibration data
+        chip : Chip
+            Instance of Chip
+        on_update : Callable
+
 
         Returns
         -------
@@ -113,62 +108,56 @@ class Calibration:
         try:
             orientation = Orientation[calibration_data["orientation"]]
             device_port = DevicePort[calibration_data["device_port"]]
-        except KeyError as err:
-            raise CalibrationError(
-                f"The parameter is not defined: {err}. "
-                "Make sure to pass a valid orientation and device port.")
+        except KeyError as e:
+            raise CalibrationError(f"Parameter not defined: {e}. Make sure to pass a valid orientation and device port.")
 
-        axes_rotation = None
+        axes_rotation: Optional[AxesRotation] = None
         if "axes_rotation" in calibration_data:
-            axes_rotation = AxesRotation.load(
-                calibration_data["axes_rotation"])
+            axes_rotation = AxesRotation.load(calibration_data["axes_rotation"])
 
-        single_point_offset = None
+        single_point_offset: Optional[SinglePointOffset] = None
         if "single_point_offset" in calibration_data:
             if axes_rotation is not None and chip is not None:
                 single_point_offset = SinglePointOffset.load(
                     calibration_data["single_point_offset"], chip=chip, axes_rotation=axes_rotation)
             else:
-                cls._logger.debug(
-                    "Cannot set single point offset when axes rotation or chip is not defined")
+                cls._logger.debug("Cannot set single point offset when axes rotation or chip is not defined")
 
-        kabsch_rotation = None
+        kabsch_rotation: Optional[KabschRotation] = None
         if "kabsch_rotation" in calibration_data:
             if axes_rotation is not None and chip is not None:
                 kabsch_rotation = KabschRotation.load(
                     calibration_data["kabsch_rotation"], chip=chip, axes_rotation=axes_rotation)
             else:
-                cls._logger.debug(
-                    "Cannot set kabsch rotation when axes rotation or chip is not defined")
+                cls._logger.debug("Cannot set kabsch rotation when axes rotation or chip is not defined")
 
         stage_polygon = None
         if "stage_polygon" in calibration_data:
-            stage_polygon = StagePolygon.load(
-                calibration_data["stage_polygon"])
+            stage_polygon = StagePolygon.load(calibration_data["stage_polygon"])
 
         return cls(
-            mover,
             stage,
             orientation=orientation,
             device_port=device_port,
             stage_polygon=stage_polygon,
             axes_rotation=axes_rotation,
             single_point_offset=single_point_offset,
-            kabsch_rotation=kabsch_rotation)
+            kabsch_rotation=kabsch_rotation,
+            on_update=on_update
+        )
 
     def __init__(
-        self,
-        mover: Type[MoverNew],
-        stage: Type[Stage],
-        orientation: Orientation,
-        device_port: DevicePort,
-        stage_polygon: Type[StagePolygon] = None,
-        axes_rotation: Type[AxesRotation] = None,
-        single_point_offset: Type[SinglePointOffset] = None,
-        kabsch_rotation: Type[KabschRotation] = None
+            self,
+            stage: Stage,
+            orientation: Orientation,
+            device_port: DevicePort,
+            stage_polygon: Optional[StagePolygon] = None,
+            axes_rotation: Optional[AxesRotation] = None,
+            single_point_offset: Optional[SinglePointOffset] = None,
+            kabsch_rotation: Optional[KabschRotation] = None,
+            on_update: Optional[Callable] = None
     ) -> None:
-        self.mover = mover
-        self.stage: Type[Stage] = stage
+        self.stage = stage
 
         self._orientation = orientation
         self._device_port = device_port
@@ -177,40 +166,37 @@ class Calibration:
 
         self._is_lifted = False
 
-        self.stage_polygon = stage_polygon
-        if stage_polygon is None:
-            self.stage_polygon = SingleModeFiber(orientation)
+        self.stage_polygon = SingleModeFiber(orientation) if stage_polygon is None else stage_polygon
+        self._axes_rotation = AxesRotation() if axes_rotation is None else axes_rotation
+        self._single_point_offset = SinglePointOffset(self._axes_rotation) if single_point_offset is None else single_point_offset
+        self._kabsch_rotation = KabschRotation(self._axes_rotation) if kabsch_rotation is None else kabsch_rotation
 
-        self._axes_rotation = axes_rotation
-        if axes_rotation is None:
-            self._axes_rotation = AxesRotation()
+        self._on_update = on_update
 
-        self._single_point_offset = single_point_offset
-        if single_point_offset is None:
-            self._single_point_offset = SinglePointOffset(self._axes_rotation)
-
-        self._kabsch_rotation = kabsch_rotation
-        if kabsch_rotation is None:
-            self._kabsch_rotation = KabschRotation(self._axes_rotation)
-
-        assert self._single_point_offset.axes_rotation == self._axes_rotation, "Axes rotation for single point offset must be the same than for the calibration."
-        assert self._kabsch_rotation.axes_rotation == self._axes_rotation, "Axes rotation for kabsch rotation must be the same than for the calibration"
+        assert self._single_point_offset.axes_rotation == self._axes_rotation, \
+            "Axes rotation for single point offset must be the same than for the calibration."
+        assert self._kabsch_rotation.axes_rotation == self._axes_rotation, \
+            "Axes rotation for kabsch rotation must be the same than for the calibration"
 
         self._state = State.UNINITIALIZED
         self.determine_state(skip_connection=False)
-        self.mover.update_main_model()
+
+        self.update()
+
+    def update(self) -> None:
+        if self._on_update is not None:
+            self._on_update()
 
     #
     #   Representation
     #
 
     def __str__(self) -> str:
-        return "{} Stage ({})".format(str(self.orientation), str(self.stage))
+        return f"{str(self.orientation)} Stage ({str(self.stage)})"
 
     @property
     def short_str(self) -> str:
-        return "{} Stage ({})".format(
-            str(self.orientation), str(self._device_port))
+        return f"{str(self.orientation)} Stage ({str(self._device_port)})"
 
     #
     #   Properties
@@ -231,14 +217,21 @@ class Calibration:
         return self._orientation
 
     @property
-    def is_input_stage(self):
+    def device_port(self) -> DevicePort:
+        """
+        Returns the device port: Input or Output
+        """
+        return self._device_port
+
+    @property
+    def is_input_stage(self) -> bool:
         """
         Returns True if the stage will move to the input of a device.
         """
         return self._device_port == DevicePort.INPUT
 
     @property
-    def is_output_stage(self):
+    def is_output_stage(self) -> bool:
         """
         Returns True if the stage will move to the output of a device.
         """
@@ -250,6 +243,18 @@ class Calibration:
         Returns True if stage is lifted.
         """
         return self._is_lifted
+
+    @property
+    def single_point_offset(self) -> SinglePointOffset:
+        return self._single_point_offset
+
+    @property
+    def axes_rotation(self) -> AxesRotation:
+        return self._axes_rotation
+
+    @property
+    def kabsch_rotation(self) -> KabschRotation:
+        return self._kabsch_rotation
 
     #
     #   Coordinate System Control
@@ -276,10 +281,7 @@ class Calibration:
         """
         return self.coordinate_system == CoordinateSystem.STAGE
 
-    def set_coordinate_system(
-        self,
-        system: CoordinateSystem
-    ) -> None:
+    def set_coordinate_system(self, system: CoordinateSystem) -> None:
         """
         Sets the current coordinate system
 
@@ -289,19 +291,15 @@ class Calibration:
             If the requested system is not supported.
         """
         if not isinstance(system, CoordinateSystem):
-            raise ValueError(
-                f"Requested coordinate system {system} for {self} is invalid.")
-
-        self._logger.debug(
-            f"Set coordinate system for {self} to {system}")
+            raise ValueError(f"Requested coordinate system {system} for {self} is invalid.")
 
         self._coordinate_system = system
+        self._logger.debug(f"Set coordinate system for {self} to {system}")
 
     @contextmanager
     def perform_in_system(self, system: CoordinateSystem):
         """
         Context manager to execute a block of instructions in requested coordinates.
-
         Resets the system at the end.
         """
         prior_coordinate_system = self.coordinate_system
@@ -324,7 +322,7 @@ class Calibration:
             self.stage.connect()
         finally:
             self.determine_state(skip_connection=False)
-            self.mover.update_main_model()
+            self.update()
 
     def disconnect_to_stage(self) -> None:
         """
@@ -334,13 +332,9 @@ class Calibration:
             self.stage.disconnect()
         finally:
             self.determine_state(skip_connection=False)
-            self.mover.update_main_model()
+            self.update()
 
-    def update_axes_rotation(
-            self,
-            chip_axis: Axis,
-            direction: Direction,
-            stage_axis: Axis) -> None:
+    def update_axes_rotation(self, chip_axis: Axis, direction: Direction, stage_axis: Axis) -> None:
         """
         Updates the axis rotation of the calibration.
         After the update, the state of the calibration is recalculated.
@@ -360,10 +354,9 @@ class Calibration:
             self._axes_rotation.update(chip_axis, direction, stage_axis)
         finally:
             self.determine_state(skip_connection=True)
-            self.mover.update_main_model()
+            self.update()
 
-    def update_single_point_offset(
-            self, pairing: Type[CoordinatePairing]) -> None:
+    def update_single_point_offset(self, pairing: CoordinatePairing) -> None:
         """
         Updates the single point offset transformation of the calibration.
         After the update, the state of the calibration is recalculated.
@@ -377,9 +370,9 @@ class Calibration:
             self._single_point_offset.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
-            self.mover.update_main_model()
+            self.update()
 
-    def update_kabsch_rotation(self, pairing: Type[CoordinatePairing]) -> None:
+    def update_kabsch_rotation(self, pairing: CoordinatePairing) -> None:
         """
         Updates the kabsch transformation of the calibration.
         After the update, the state of the calibration is recalculated.
@@ -393,7 +386,7 @@ class Calibration:
             self._kabsch_rotation.update(pairing)
         finally:
             self.determine_state(skip_connection=True)
-            self.mover.update_main_model()
+            self.update()
 
     def reset_single_point_offset(self) -> None:
         """
@@ -401,7 +394,7 @@ class Calibration:
         """
         self._single_point_offset.initialize()
         self.determine_state(skip_connection=True)
-        self.mover.update_main_model()
+        self.update()
 
     def reset_kabsch_rotation(self) -> None:
         """
@@ -409,9 +402,9 @@ class Calibration:
         """
         self._kabsch_rotation.initialize()
         self.determine_state(skip_connection=True)
-        self.mover.update_main_model()
+        self.update()
 
-    def determine_state(self, skip_connection=False) -> None:
+    def determine_state(self, skip_connection: bool = False) -> None:
         """
         Determines the status of the calibration independently of the status variables of the instance.
         1. Checks whether the stage responds. If yes, status is at least CONNECTED.
@@ -456,63 +449,29 @@ class Calibration:
     #   Coordinate translation
     #
 
-    def transform_chip_to_stage_coordinate(
-        self,
-        chip_coordinate: Type[ChipCoordinate]
-    ) -> Type[StageCoordinate]:
+    def transform_chip_to_stage_coordinate(self, chip_coordinate: ChipCoordinate) -> StageCoordinate:
         """
         Translates a chip coordinate into a stage coordinate.
         The single-point transformation or the Kabsch transformation is used based on the calibration state.
-        Parameters
-        ----------
-        chip_coordinate : ChipCoordinate
-            Coordinate in the chip system to be translated.
-        Returns
-        -------
-        stage_coordinate : StageCoordinate
-            Translated coordinate in the stage system.
-        Raises
-        ------
-        CalibrationError
-            If state is insufficient to translate the coordinate.
         """
         if self.state == State.FULLY_CALIBRATED:
-            return self._kabsch_rotation.chip_to_stage(
-                chip_coordinate)
+            return self._kabsch_rotation.chip_to_stage(chip_coordinate)
         elif self.state == State.SINGLE_POINT_FIXED:
-            return self._single_point_offset.chip_to_stage(
-                chip_coordinate)
+            return self._single_point_offset.chip_to_stage(chip_coordinate)
         else:
-            raise CalibrationError(
-                "Insufficient calibration state to transform coordinate in stage coordinates.")
+            raise CalibrationError("Insufficient calibration state to transform coordinate in stage coordinates.")
 
-    def transform_stage_to_chip_coordinate(
-        self,
-        stage_coordinate: Type[StageCoordinate]
-    ) -> Type[ChipCoordinate]:
+    def transform_stage_to_chip_coordinate(self, stage_coordinate: StageCoordinate) -> ChipCoordinate:
         """
         Translates a stage coordinate into a chip coordinate.
         The single-point transformation or the Kabsch transformation is used based on the calibration state.
-        Parameters
-        ----------
-        stage_coordinate : StageCoordinate
-            Coordinate in the stage system to be translated.
-        Returns
-        -------
-        chip_coordinate : ChipCoordinate
-            Translated coordinate in the chip system.
-        Raises
-        ------
-        CalibrationError
-            If state is insufficient to translate the coordinate.
         """
         if self.state == State.FULLY_CALIBRATED:
             return self._kabsch_rotation.stage_to_chip(stage_coordinate)
         elif self.state == State.SINGLE_POINT_FIXED:
             return self._single_point_offset.stage_to_chip(stage_coordinate)
         else:
-            raise CalibrationError(
-                "Insufficient calibration state to transform coordinate in chip coordinates.")
+            raise CalibrationError("Insufficient calibration state to transform coordinate in chip coordinates.")
 
     #
     #   Position method
@@ -521,8 +480,7 @@ class Calibration:
     @assert_minimum_state_for_coordinate_system(
         stage_coordinate_system=State.CONNECTED,
         chip_coordinate_system=State.SINGLE_POINT_FIXED)
-    def get_position(
-            self) -> Union[Type[StageCoordinate], Type[ChipCoordinate]]:
+    def get_position(self) -> Union[StageCoordinate, ChipCoordinate]:
         """
         Method to read out the current position of the stage.
         This method can display the position in stage and chip coordinates,
@@ -540,16 +498,15 @@ class Calibration:
         RuntimeError
             If coordinate system is unsupported.
         """
+
         stage_position = StageCoordinate.from_list(self.stage.get_position())
 
         if self.is_stage_coordinate_system_set:
             return stage_position
         elif self.is_chip_coordinate_system_set:
-            return self.transform_stage_to_chip_coordinate(
-                stage_coordinate=stage_position)
+            return self.transform_stage_to_chip_coordinate(stage_coordinate=stage_position)
         else:
-            RuntimeError(
-                f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
+            raise RuntimeError(f"Unsupported coordinate system {self.coordinate_system} to return the stage position")
 
     #
     #   Movement methods
@@ -558,10 +515,7 @@ class Calibration:
     @assert_minimum_state_for_coordinate_system(
         stage_coordinate_system=State.CONNECTED,
         chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
-    def move_relative(self,
-                      offset: Union[Type[StageCoordinate],
-                                    Type[ChipCoordinate]],
-                      wait_for_stopping: bool = True) -> None:
+    def move_relative(self, offset: Union[StageCoordinate, ChipCoordinate], wait_for_stopping: bool = True) -> None:
         """
         Moves the stage relative in its coordinate system.
         The offset can be passed a stage or chip coordinate,
@@ -571,6 +525,8 @@ class Calibration:
         ----------
         offset: StageCoordinate | ChipCoordinate
             Relative offset in stage or chip coordinates.
+        wait_for_stopping : bool
+            When set to true, execution will stop until all movement has come to a halt.
 
         Raises
         ------
@@ -584,8 +540,7 @@ class Calibration:
         elif self.is_chip_coordinate_system_set:
             stage_offset = self._axes_rotation.chip_to_stage(offset)
         else:
-            RuntimeError(
-                f"Unsupported coordinate system {self.coordinate_system} to move the stage relatively.")
+            raise RuntimeError(f"Unsupported coordinate system {self.coordinate_system} to move the stage relatively.")
 
         self.stage.move_relative(
             x=stage_offset.x,
@@ -596,10 +551,7 @@ class Calibration:
     @assert_minimum_state_for_coordinate_system(
         stage_coordinate_system=State.CONNECTED,
         chip_coordinate_system=State.SINGLE_POINT_FIXED)
-    def move_absolute(self,
-                      coordinate: Union[Type[StageCoordinate],
-                                        Type[ChipCoordinate]],
-                      wait_for_stopping: bool = True) -> None:
+    def move_absolute(self, coordinate: Union[StageCoordinate, ChipCoordinate], wait_for_stopping: bool = True) -> None:
         """
         Moves the stage absolute to the given coordinate.
         The coordinate can be passed in stage or chip coordinates,
@@ -609,6 +561,8 @@ class Calibration:
         ----------
         coordinate: StageCoordinate | ChipCoordinate
             Coordinate offset in stage or chip coordinates.
+        wait_for_stopping : bool
+            When set to true, execution will stop until all movement has come to a halt.
 
         Raises
         ------
@@ -620,11 +574,9 @@ class Calibration:
         if self.is_stage_coordinate_system_set:
             stage_coordinate = coordinate
         elif self.is_chip_coordinate_system_set:
-            stage_coordinate = self.transform_chip_to_stage_coordinate(
-                chip_coordinate=coordinate)
+            stage_coordinate = self.transform_chip_to_stage_coordinate(chip_coordinate=coordinate)
         else:
-            RuntimeError(
-                f"Unsupported coordinate system {self.coordinate_system} to move the stage absolutely.")
+            raise RuntimeError(f"Unsupported coordinate system {self.coordinate_system} to move the stage absolutely.")
 
         self.stage.move_absolute(
             x=stage_coordinate.x,
@@ -636,7 +588,7 @@ class Calibration:
         """
         Lifts the stage absolutely or relatively.
         Lifts stage absolutely if calibration is fully calibrated.
-        Lifts stage relatively if calibration is single point fixex or coordinate system fixed.
+        Lifts stage relatively if calibration is single point fixed or coordinate system fixed.
         Parameters
         ----------
         z_lift: float
@@ -644,15 +596,14 @@ class Calibration:
         Raises
         ------
         CalibrationError
-            If stage cannot lifted in the current state.
+            If stage cannot be lifted in the current state.
         """
         if self.state == State.FULLY_CALIBRATED:
             self.lift_stage_absolute(z_lift)
         elif self.state == State.SINGLE_POINT_FIXED or self.state == State.COORDINATE_SYSTEM_FIXED:
             self.lift_stage_relative(z_lift)
         else:
-            raise CalibrationError(
-                f"Cannot lift stage {self}: Calibration must be at least in coordinate fixed state.")
+            raise CalibrationError(f"Cannot lift stage {self}: Calibration must be at least in coordinate fixed state.")
 
     def lower_stage(self, z_lift: float) -> None:
         """
@@ -666,18 +617,16 @@ class Calibration:
         Raises
         ------
         CalibrationError
-            If stage cannot lowered in the current state.
+            If stage cannot be lowered in the current state.
         """
         if self.state == State.FULLY_CALIBRATED:
             self.lower_stage_absolute()
         elif self.state == State.SINGLE_POINT_FIXED or self.state == State.COORDINATE_SYSTEM_FIXED:
             self.lower_stage_relative(z_lift)
         else:
-            raise CalibrationError(
-                f"Cannot lower stage {self}: Calibration must be at least in coordinate fixed state.")
+            raise CalibrationError(f"Cannot lower stage {self}: Calibration must be at least in coordinate fixed state.")
 
-    @assert_minimum_state_for_coordinate_system(
-        chip_coordinate_system=State.FULLY_CALIBRATED)
+    @assert_minimum_state_for_coordinate_system(chip_coordinate_system=State.FULLY_CALIBRATED)
     def lift_stage_absolute(self, z_lift: float) -> None:
         """
         Lifts the stage absolutely.
@@ -695,29 +644,24 @@ class Calibration:
             Amount in um to move the stage up.
         """
         if self.is_lifted:
-            self._logger.warn(
-                f"Stage {self} is already lifted. Skipping lift.")
+            self._logger.warning(f"Stage {self} is already lifted. Skipping lift.")
             return
 
-        self._logger.debug(
-            f"Lifting {self} to {z_lift} z-plane (um)")
+        self._logger.debug(f"Lifting {self} to {z_lift} z-plane (um)")
 
         with self.perform_in_system(CoordinateSystem.CHIP):
             current_chip_position = self.get_position()
             target_lift_coordinate = ChipCoordinate(
                 x=current_chip_position.x, y=current_chip_position.y, z=z_lift)
             try:
-                self.move_absolute(
-                    target_lift_coordinate,
-                    wait_for_stopping=True)
+                self.move_absolute(target_lift_coordinate, wait_for_stopping=True)
             except BaseException:
                 self._is_lifted = False
                 raise
 
             self._is_lifted = True
 
-    @assert_minimum_state_for_coordinate_system(
-        chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
+    @assert_minimum_state_for_coordinate_system(chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
     def lift_stage_relative(self, z_lift: float) -> None:
         """
         Lifts the stage relatively.
@@ -731,12 +675,10 @@ class Calibration:
             Amount in um to move the stage up.
         """
         if self.is_lifted:
-            self._logger.warn(
-                f"Stage {self} is already lifted. Skipping lift.")
+            self._logger.warning(f"Stage {self} is already lifted. Skipping lift.")
             return
 
-        self._logger.debug(
-            f"Lifting {self} relative up {z_lift} um")
+        self._logger.debug(f"Lifting {self} relative up {z_lift} um")
 
         with self.perform_in_system(CoordinateSystem.CHIP):
             target_offset = ChipCoordinate(x=0, y=0, z=z_lift)
@@ -748,8 +690,7 @@ class Calibration:
 
             self._is_lifted = True
 
-    @assert_minimum_state_for_coordinate_system(
-        chip_coordinate_system=State.FULLY_CALIBRATED)
+    @assert_minimum_state_for_coordinate_system(chip_coordinate_system=State.FULLY_CALIBRATED)
     def lower_stage_absolute(self) -> None:
         """
         Lowers the stage absolutely.
@@ -761,29 +702,23 @@ class Calibration:
         Does not lower the stage if the stage is in a lifted state.
         """
         if not self.is_lifted:
-            self._logger.warn(
-                f"Stage {self} is not lifted. Skipping lowering.")
+            self._logger.warning(f"Stage {self} is not lifted. Skipping lowering.")
             return
 
-        self._logger.debug(
-            f"Lowering {self} to zero z-plane.")
+        self._logger.debug(f"Lowering {self} to zero z-plane.")
 
         with self.perform_in_system(CoordinateSystem.CHIP):
             current_chip_position = self.get_position()
-            target_lower_coordinate = ChipCoordinate(
-                x=current_chip_position.x, y=current_chip_position.y, z=0)
+            target_lower_coordinate = ChipCoordinate(x=current_chip_position.x, y=current_chip_position.y, z=0)
             try:
-                self.move_absolute(
-                    target_lower_coordinate,
-                    wait_for_stopping=True)
+                self.move_absolute(target_lower_coordinate, wait_for_stopping=True)
             except BaseException:
                 self._is_lifted = True
                 raise
 
             self._is_lifted = False
 
-    @assert_minimum_state_for_coordinate_system(
-        chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
+    @assert_minimum_state_for_coordinate_system(chip_coordinate_system=State.COORDINATE_SYSTEM_FIXED)
     def lower_stage_relative(self, z_lift: float) -> None:
         """
         Lowers the stage relatively.
@@ -797,12 +732,10 @@ class Calibration:
             Amount in um to move the stage down.
         """
         if not self.is_lifted:
-            self._logger.warn(
-                f"Stage {self} is already lowered. Skipping lowering.")
+            self._logger.warning(f"Stage {self} is already lowered. Skipping lowering.")
             return
 
-        self._logger.debug(
-            f"Lowering {self} relative by {z_lift} um")
+        self._logger.debug(f"Lowering {self} relative by {z_lift} um")
 
         with self.perform_in_system(CoordinateSystem.CHIP):
             target_offset = ChipCoordinate(x=0, y=0, z=-z_lift)
@@ -819,7 +752,8 @@ class Calibration:
             wiggle_axis: Axis,
             wiggle_distance: float = 1e3,
             wiggle_speed: float = 1e3,
-            wait_time: float = 2) -> None:
+            wait_time: float = 2
+    ) -> None:
         """
         Wiggles an axis of the stage.
         Moves the axis first in a positive direction then in a negative direction.
@@ -843,8 +777,7 @@ class Calibration:
         self.stage.set_speed_xy(wiggle_speed)
         self.stage.set_speed_z(wiggle_speed)
 
-        wiggle_difference = np.array(
-            [wiggle_distance if wiggle_axis == axis else 0 for axis in Axis])
+        wiggle_difference = np.array([wiggle_distance if wiggle_axis == axis else 0 for axis in Axis])
 
         with self.perform_in_system(CoordinateSystem.CHIP):
             self.move_relative(ChipCoordinate.from_numpy(wiggle_difference))
@@ -867,20 +800,19 @@ class Calibration:
         calibration_dump = {
             "stage_identifier": self.stage.identifier,
             "orientation": self.orientation.value,
-            "device_port": self._device_port.value}
+            "device_port": self._device_port.value
+        }
 
         if axes_rotation and self._axes_rotation.is_valid:
             calibration_dump["axes_rotation"] = self._axes_rotation.dump()
 
         if single_point_offset and self._single_point_offset.is_valid:
-            calibration_dump["single_point_offset"] = self._single_point_offset.dump(
-            )
+            calibration_dump["single_point_offset"] = self._single_point_offset.dump()
 
         if kabsch_rotation and self._kabsch_rotation.is_valid:
             calibration_dump["kabsch_rotation"] = self._kabsch_rotation.dump()
 
         if stage_polygon and self.stage_polygon is not None:
-            calibration_dump["stage_polygon"] = self.stage_polygon.dump(
-                stringify=True)
+            calibration_dump["stage_polygon"] = self.stage_polygon.dump(stringify=True)
 
         return calibration_dump
