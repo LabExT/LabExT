@@ -29,6 +29,7 @@ class PowerMeterSimulator(DummyInstrument):
 
         # logging simulation
         self._n_measurement_points = 0
+        self._rng_seed = None
 
         # properties
         self._instrument_property_wavelength = 1550
@@ -42,6 +43,9 @@ class PowerMeterSimulator(DummyInstrument):
         self._last_val = -99.0
 
     def _simulate_opt_power_value(self):
+        if self._rng_seed is not None:
+            np.random.seed(self._rng_seed)
+            self._rng_seed = None
         return 2 * np.random.standard_normal() + self._instrument_property_range - 5
 
     def idn(self):
@@ -51,6 +55,12 @@ class PowerMeterSimulator(DummyInstrument):
     # logging functions
     #
 
+    def set_rng_seed_for_simulation(self, rng_seed=None):
+        """ use this method to generate deterministic output for unit tests 
+        setting the seed with this method will seed the rng only once and you must
+        repeat the call to get the same data again"""
+        self._rng_seed = rng_seed
+
     def logging_setup(self, n_measurement_points=10000, **kwargs):
         self._n_measurement_points = n_measurement_points
 
@@ -58,6 +68,9 @@ class PowerMeterSimulator(DummyInstrument):
         return False
 
     def logging_get_data(self, **kwargs):
+        if self._rng_seed is not None:
+            np.random.seed(self._rng_seed)
+            self._rng_seed = None
         pwr_data = 2 * np.random.standard_normal(self._n_measurement_points) + self._instrument_property_range - 5
         return pwr_data
 
