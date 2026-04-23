@@ -5,7 +5,12 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
-from typing import Literal, Union, Optional
+from typing import TYPE_CHECKING, Literal, Union, Optional
+
+if TYPE_CHECKING:
+    from LabExT.Experiments.TypeHints import ParamDict
+else:
+    ParamDict = None
 
 class MeasParam:
     """Implementation of a single measurement parameter.
@@ -37,7 +42,7 @@ class MeasParam:
         new = type(self)(self.value, self.unit, self.extra_type)
         return new
 
-    def as_dict(self):
+    def as_dict(self) -> ParamDict:
         """Returns the stored value as part of a dict.
         """
         d = {'value': self.value}

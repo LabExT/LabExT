@@ -12,7 +12,7 @@ from LabExT.Utils import get_visa_address
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
 from LabExT.View.Controls.ParameterTable import ParameterTable
-from LabExT.View.Controls.PlotControl import PlotControl
+from LabExT.View.Controls.Plotting.PlotControl import PlotControl
 
 
 class SearchForPeakPlotsWindowModel:
