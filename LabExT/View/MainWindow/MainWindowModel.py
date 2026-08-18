@@ -83,6 +83,9 @@ class MainWindowModel:
         self.var_sfp_ena = BooleanVar(self.root)
         self.var_sfp_ena.trace("w", self.exctrl_vars_changed)
         self.var_sfp_ena_reason = StringVar(self.root)
+        self.var_refine_calib = BooleanVar(self.root)
+        self.var_refine_calib.trace("w", self.exctrl_vars_changed)
+        self.var_refine_calib_reason = StringVar(self.root)
         self.var_imeas_wait_time_str = StringVar(self.root, "0.0")
         self.var_imeas_wait_time_str.trace("w", self.exctrl_vars_changed)
 
@@ -152,12 +155,24 @@ class MainWindowModel:
         self.logger.debug('State of manual mode is: %s', self.var_mm_pause.get())
         self.logger.debug('State of auto move is: %s', self.var_auto_move.get())
         self.logger.debug('State of SFP enable is: %s', self.var_sfp_ena.get())
+        self.logger.debug('State of calibration refinement is: %s', self.var_refine_calib.get())
         self.logger.debug('Inter-measurement wait time is: %s', self.var_imeas_wait_time_str.get())
 
         # propagate change to experiment
         self.experiment_manager.exp.exctrl_pause_after_device = self.var_mm_pause.get()
         self.experiment_manager.exp.exctrl_auto_move_stages = self.var_auto_move.get()
         self.experiment_manager.exp.exctrl_enable_sfp = self.var_sfp_ena.get()
+        self.experiment_manager.exp.exctrl_refine_calibration_with_sfp = self.var_refine_calib.get()
+
+        # refining the calibration only makes sense if a search for peak actually runs
+        if not self.var_sfp_ena.get():
+            if self.var_refine_calib.get():
+                self.var_refine_calib.set(False)
+            self.var_refine_calib_reason.set("Requires Search-for-Peak enabled")
+            self.view.frame.control_panel.exctrl_refine_calib.config(state='disabled')
+        else:
+            self.var_refine_calib_reason.set("")
+            self.view.frame.control_panel.exctrl_refine_calib.config(state='normal')
 
         # allow wait time changes only if manual mode is not activated
         if self.var_mm_pause.get():
@@ -207,6 +222,9 @@ class MainWindowModel:
             self.var_sfp_ena.set(False)
             self.var_sfp_ena_reason.set(reason)
             self.view.frame.control_panel.exctrl_sfp_ena.config(state='disabled')
+            self.var_refine_calib.set(False)
+            self.var_refine_calib_reason.set(reason)
+            self.view.frame.control_panel.exctrl_refine_calib.config(state='disabled')
         else:
             if not can_move_to_device:
                 self.var_mm_pause.set(True)
@@ -226,6 +244,9 @@ class MainWindowModel:
                 self.var_sfp_ena.set(False)
                 self.var_sfp_ena_reason.set("Search-for-peak not initialized")
                 self.view.frame.control_panel.exctrl_sfp_ena.config(state='disabled')
+                self.var_refine_calib.set(False)
+                self.var_refine_calib_reason.set("Search-for-peak not initialized")
+                self.view.frame.control_panel.exctrl_refine_calib.config(state='disabled')
             else:
                 # self.var_sfp_ena.set(X)  # no change
                 self.var_sfp_ena_reason.set("")

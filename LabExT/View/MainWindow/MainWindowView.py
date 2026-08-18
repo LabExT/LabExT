@@ -226,11 +226,22 @@ class MainWindowControlPanel(ControlPanel):
         self.exctrl_sfp_ena_reason.config(state="disabled")
         self.add_widget(self.exctrl_sfp_ena_reason, column=1, row=4, sticky="we")
 
+        self.exctrl_refine_calib = Checkbutton(
+            self,
+            text="Refine stage calibration from Search-for-Peak results",
+            variable=self.model.var_refine_calib,
+        )
+        self.add_widget(self.exctrl_refine_calib, column=0, row=5, sticky="we")
+        self.exctrl_refine_calib_reason = Label(self, textvariable=self.model.var_refine_calib_reason)
+        self.exctrl_refine_calib_reason.config(state="disabled")
+        self.add_widget(self.exctrl_refine_calib_reason, column=1, row=5, sticky="we")
+
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=1)
         self.rowconfigure(3, weight=1)
         self.rowconfigure(4, weight=1)
+        self.rowconfigure(5, weight=1)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
 

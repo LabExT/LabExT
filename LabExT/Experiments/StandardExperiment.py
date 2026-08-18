@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Type, List, Tuple, Union
 from LabExT.Experiments.AutosaveDict import AutosaveDict
 from LabExT.Measurements.MeasAPI.Measurement import Measurement
 from LabExT.Movement.MoverNew import MoverNew
+from LabExT.Movement.config import CoordinateSystem
+from LabExT.Movement.Transformations import CoordinatePairing
 from LabExT.PluginLoader import PluginLoader
 from LabExT.Utils import make_filename_compliant, get_labext_version
 from LabExT.View.Controls.ParameterTable import ConfigParameter
@@ -109,6 +111,7 @@ class StandardExperiment:
         self.exctrl_pause_after_device = False
         self.exctrl_auto_move_stages = False
         self.exctrl_enable_sfp = False
+        self.exctrl_refine_calibration_with_sfp = False
         self.exctrl_inter_measurement_wait_time = 0.0
 
         # data structures for FINISHED measurements
@@ -275,6 +278,12 @@ class StandardExperiment:
                 self._peak_searcher.update_params_from_savefile()
                 data["search for peak"] = self._peak_searcher.search_for_peak()
                 self.logger.info("Search for peak done.")
+
+                # feed the fine-aligned position back into the stage calibration
+                if self.exctrl_refine_calibration_with_sfp:
+                    data["calibration refinement"] = self._refine_calibration_from_sfp(
+                        device, data["search for peak"]
+                    )
             else:
                 data["search for peak"] = None
                 self.logger.debug("Search for peak not enabled. Not executing automatic search for peak.")
@@ -391,6 +400,99 @@ class StandardExperiment:
                 self.logger.info(f"Waiting {self.exctrl_inter_measurement_wait_time:.0f}s before continuing...")
                 time.sleep(self.exctrl_inter_measurement_wait_time)
 
+    def _refine_calibration_from_sfp(self, device: Device, sfp_results: dict) -> dict:
+        """Feeds a completed search-for-peak result back into the stage calibration.
+
+        After a search for peak, the stages sit on the device's *actual* optical
+        position. Pairing that measured stage position with the device's designed
+        chip coordinate gives a new calibration reference point, so the chip-to-stage
+        mapping improves as a sweep progresses instead of staying frozen at whatever
+        the user manually calibrated at the start of the session.
+
+        The refinement takes effect immediately: the very next `move_to_device` in
+        this sweep is targeted using the improved fit. Because a bad pairing would
+        therefore degrade targeting for every subsequent device, results that failed
+        the search's own quality checks are rejected rather than fed in.
+
+        Args:
+            device: The device that was just searched for peak.
+            sfp_results: The dict returned by `PeakSearcher.search_for_peak()`.
+
+        Returns:
+            A dict summarising what was refined, for storage in the measurement record.
+        """
+        summary = OrderedDict()
+        summary["applied"] = False
+
+        if self._mover is None or not self._mover.calibrations:
+            summary["reasons"] = ["no mover/calibrations available"]
+            self.logger.warning("Not refining calibration: no mover or calibrations available.")
+            return summary
+
+        # acceptance policy: only trust a search that found a real peak on every
+        # dimension, did not land against the edge of its scan window, and verified
+        # its final position with a fresh power reading
+        if not sfp_results or not sfp_results.get("search successful"):
+            reasons = list(sfp_results.get("calibration rejection reasons", [])) if sfp_results else [
+                "search for peak returned no results"
+            ]
+            summary["reasons"] = reasons
+            self.logger.warning(
+                "Not refining calibration from device %s: %s", device.id, "; ".join(reasons) or "unknown reason"
+            )
+            return summary
+
+        summary["reasons"] = []
+        summary["stages"] = OrderedDict()
+
+        for calibration in self._mover.calibrations.values():
+            chip_coordinate = device.input_coordinate if calibration.is_input_stage else device.output_coordinate
+
+            with calibration.perform_in_system(CoordinateSystem.STAGE):
+                stage_coordinate = calibration.get_position()
+
+            try:
+                # replace_existing: re-measuring a known device updates its reference
+                # point to the current position, so the fit follows real drift
+                calibration.update_kabsch_rotation(
+                    CoordinatePairing(
+                        calibration=calibration,
+                        stage_coordinate=stage_coordinate,
+                        device=device,
+                        chip_coordinate=chip_coordinate,
+                    ),
+                    replace_existing=True,
+                )
+            except Exception as exc:
+                summary["reasons"].append(f"{calibration.short_str}: {exc!r}")
+                self.logger.warning(
+                    "Could not refine calibration %s from device %s: %s", calibration.short_str, device.id, repr(exc)
+                )
+                continue
+
+            num_pairings = len(calibration._kabsch_rotation.pairings)
+            residual_um = calibration.get_kabsch_rotation_residual_um()
+
+            summary["stages"][calibration.short_str] = OrderedDict(
+                [
+                    ("stage coordinate", stage_coordinate.to_list()),
+                    ("chip coordinate", chip_coordinate.to_list()),
+                    ("number of pairings", num_pairings),
+                    ("fit residual um", residual_um),
+                ]
+            )
+            summary["applied"] = True
+
+            self.logger.info(
+                "Calibration refined from device %s: %s now has %d pairings, fit residual %s.",
+                device.id,
+                calibration.short_str,
+                num_pairings,
+                "{:.2f} um".format(residual_um) if residual_um is not None else "n/a (needs more points)",
+            )
+
+        return summary
+
     def _write_metadata(self, target: dict = None, file_path: str = "tmp.json") -> dict:
         """Writes the metadata of a measurement to the given dictionary.
         If no dictionary is provided, a new one will be created.
@@ -416,6 +518,9 @@ class StandardExperiment:
         target["experiment settings"]["pause after each device"] = self.exctrl_pause_after_device
         target["experiment settings"]["auto move stages to device"] = self.exctrl_auto_move_stages
         target["experiment settings"]["execute search for peak"] = self.exctrl_enable_sfp
+        target["experiment settings"]["refine calibration from search for peak"] = (
+            self.exctrl_refine_calibration_with_sfp
+        )
 
         target["chip"] = OrderedDict()
         target["chip"]["name"] = self.param_chip_name

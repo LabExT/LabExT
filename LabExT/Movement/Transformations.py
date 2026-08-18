@@ -746,7 +746,47 @@ class KabschRotation(Transformation):
         """
         return len(self.pairings) >= self.MIN_POINTS
 
-    def update(self, pairing: Type[CoordinatePairing]) -> None:
+    def remove_pairing_for_device(self, device: Type[Device]) -> bool:
+        """
+        Removes the stored pairing for the given device, if one exists, and
+        re-solves the transformation over the remaining pairings.
+
+        Parameters
+        ----------
+        device: Device
+            Device whose pairing should be removed.
+
+        Returns
+        -------
+        bool
+            True if a pairing was found and removed, False otherwise.
+        """
+        idx = next((i for i, p in enumerate(self.pairings)
+                    if p.device == device), None)
+        if idx is None:
+            return False
+
+        del self.pairings[idx]
+        self.chip_coordinates = np.delete(self.chip_coordinates, idx, axis=1)
+        self.stage_coordinates = np.delete(self.stage_coordinates, idx, axis=1)
+
+        if self.is_valid:
+            self.rotation_to_stage, self.translation_to_stage, self.rotation_to_chip, self.translation_to_chip = rigid_transform_with_orientation_preservation(
+                S=self.chip_coordinates, T=self.stage_coordinates, axes_rotation=self.axes_rotation.matrix)
+        else:
+            # Dropped below MIN_POINTS: discard the now-unsupported transformation
+            # rather than leaving a stale rotation behind an is_valid=False gate.
+            self.rotation_to_stage = None
+            self.translation_to_stage = None
+            self.rotation_to_chip = None
+            self.translation_to_chip = None
+
+        return True
+
+    def update(
+            self,
+            pairing: Type[CoordinatePairing],
+            replace_existing: bool = False) -> None:
         """
         Updates the transformation by adding a new pairing.
         Add the stage coordinate and chip coordinates to a matrix and recalculates the rotation.
@@ -755,11 +795,17 @@ class KabschRotation(Transformation):
         ----------
         pairing: CoordinatePairing
             A coordinate pairing between a stage and chip coordinate
+        replace_existing: bool = False
+            If True and a pairing for this device already exists, the stored
+            pairing is replaced by the given one instead of raising. Used when
+            re-measuring a known device should update the calibration to the
+            device's current position (e.g. to follow thermal/mechanical drift).
 
         Raises
         ------
         ValueError
-           If the pairing is not well defined or a pairing for the chip has already been set.
+           If the pairing is not well defined, or a pairing for the device has
+           already been set and replace_existing is False.
         """
         if not isinstance(pairing, CoordinatePairing) or (
                 pairing.device is None or pairing.chip_coordinate is None or pairing.stage_coordinate is None):
@@ -767,8 +813,11 @@ class KabschRotation(Transformation):
                 "Use a complete CoordinatePairing object to update the rotation. ")
 
         if any(p.device == pairing.device for p in self.pairings):
-            raise ValueError(
-                "A pairing with this device has already been saved.")
+            if not replace_existing:
+                raise ValueError(
+                    "A pairing with this device has already been saved.")
+
+            self.remove_pairing_for_device(pairing.device)
 
         self.pairings.append(pairing)
 
@@ -820,6 +869,93 @@ class KabschRotation(Transformation):
         angle_per = np.tan(angle_rad) * 100
 
         return angle_rad, angle_deg, angle_per
+
+    def get_fit_residual_um(self) -> float:
+        """
+        Computes the aggregate fit residual (RMSD) between the Kabsch-predicted
+        stage position and the actually recorded stage position, across all
+        current pairings.
+
+        Returns
+        -------
+        float or None
+            RMSD in stage-coordinate units (um), or None if the transformation
+            is not yet valid (fewer than MIN_POINTS pairings defined).
+        """
+        if not self.is_valid:
+            return None
+
+        predicted_stage_coordinates = self.rotation_to_stage @ self.chip_coordinates + self.translation_to_stage
+        diff = predicted_stage_coordinates - self.stage_coordinates
+        squared_errors = np.sum(diff ** 2, axis=0)
+
+        return float(np.sqrt(np.mean(squared_errors)))
+
+    def get_pairing_residuals_um(self) -> list:
+        """
+        Computes the per-pairing residual between the Kabsch-predicted stage
+        position and each pairing's actually recorded stage position. Lets a
+        single bad pairing (mis-clicked device, wrong-lobe peak search) be
+        identified instead of only showing up as a worse aggregate residual.
+
+        Returns
+        -------
+        list of (CoordinatePairing, float)
+            One entry per current pairing, in the same order as self.pairings.
+            Residual is in stage-coordinate units (um). Empty if the
+            transformation is not yet valid.
+        """
+        if not self.is_valid:
+            return []
+
+        predicted_stage_coordinates = self.rotation_to_stage @ self.chip_coordinates + self.translation_to_stage
+        diffs = predicted_stage_coordinates - self.stage_coordinates
+        residuals = np.linalg.norm(diffs, axis=0)
+
+        return list(zip(self.pairings, residuals.tolist()))
+
+    def get_leave_one_out_errors_um(self) -> list:
+        """
+        Cross-validates the current calibration by leave-one-out: for each
+        pairing, refits the Kabsch rotation on all *other* pairings and
+        measures how far off that refit predicts the held-out pairing's
+        actual stage position. Surfaces whether a single device is dragging
+        down calibration accuracy, rather than only an aggregate residual.
+
+        Needs at least MIN_POINTS + 1 pairings (one to hold out, MIN_POINTS
+        left to still fit); returns an empty list otherwise.
+
+        Returns
+        -------
+        list of (CoordinatePairing, float)
+            One entry per held-out pairing, in the same order as
+            self.pairings. Error is the Euclidean distance in
+            stage-coordinate units (um) between the refit's prediction and
+            the held-out pairing's actual stage coordinate.
+        """
+        if len(self.pairings) < self.MIN_POINTS + 1:
+            return []
+
+        errors = []
+        for idx, held_out in enumerate(self.pairings):
+            remaining_chip_coordinates = np.delete(
+                self.chip_coordinates, idx, axis=1)
+            remaining_stage_coordinates = np.delete(
+                self.stage_coordinates, idx, axis=1)
+
+            rotation_to_stage, translation_to_stage, _, _ = rigid_transform_with_orientation_preservation(
+                S=remaining_chip_coordinates,
+                T=remaining_stage_coordinates,
+                axes_rotation=self.axes_rotation.matrix)
+
+            predicted_stage_coordinate = rotation_to_stage @ held_out.chip_coordinate.to_numpy(
+            ) + translation_to_stage.flatten()
+            error_um = float(np.linalg.norm(
+                predicted_stage_coordinate - held_out.stage_coordinate.to_numpy()))
+
+            errors.append((held_out, error_um))
+
+        return errors
 
     @assert_valid_transformation
     def chip_to_stage(

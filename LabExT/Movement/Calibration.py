@@ -379,7 +379,10 @@ class Calibration:
             self.determine_state(skip_connection=True)
             self.mover.update_main_model()
 
-    def update_kabsch_rotation(self, pairing: Type[CoordinatePairing]) -> None:
+    def update_kabsch_rotation(
+            self,
+            pairing: Type[CoordinatePairing],
+            replace_existing: bool = False) -> None:
         """
         Updates the kabsch transformation of the calibration.
         After the update, the state of the calibration is recalculated.
@@ -388,12 +391,52 @@ class Calibration:
         ----------
         pairing: CoordinatePairing
             A coordinate pairing between a stage and chip coordinate
+        replace_existing: bool = False
+            If True, an existing pairing for the same device is replaced by the
+            given one instead of raising.
         """
         try:
-            self._kabsch_rotation.update(pairing)
+            self._kabsch_rotation.update(
+                pairing, replace_existing=replace_existing)
         finally:
             self.determine_state(skip_connection=True)
             self.mover.update_main_model()
+
+    def get_kabsch_rotation_residual_um(self) -> float:
+        """
+        Returns the aggregate Kabsch fit residual (RMSD, in stage-coordinate
+        units, um) across all currently defined pairings.
+
+        Returns
+        -------
+        float or None
+            RMSD in um, or None if the Kabsch rotation is not yet valid.
+        """
+        return self._kabsch_rotation.get_fit_residual_um()
+
+    def get_kabsch_rotation_pairing_residuals_um(self) -> list:
+        """
+        Returns the per-pairing residual (um) between the current Kabsch fit
+        and each defined pairing's actual stage coordinate.
+
+        Returns
+        -------
+        list of (CoordinatePairing, float)
+            Empty if the Kabsch rotation is not yet valid.
+        """
+        return self._kabsch_rotation.get_pairing_residuals_um()
+
+    def get_kabsch_rotation_leave_one_out_errors_um(self) -> list:
+        """
+        Cross-validates the current Kabsch fit via leave-one-out and returns
+        the per-pairing prediction error (um).
+
+        Returns
+        -------
+        list of (CoordinatePairing, float)
+            Empty if fewer than MIN_POINTS + 1 pairings are defined.
+        """
+        return self._kabsch_rotation.get_leave_one_out_errors_um()
 
     def reset_single_point_offset(self) -> None:
         """

@@ -26,6 +26,8 @@ class LUNA_sweep_Cband_switch(Measurement):
                 options = ["INSERTION_LOSS", "GROUP_DELAY", 'CHROMATIC_DISPERSION', 'POLARIZATION_DEPENDENT_LOSS', 'POLARIZATION_MODE_DISPERSION', 'LINEAR_PHASE_DEVIATION', 'QUADRATIC_PHASE_DEVIATION', 'JONES_MATRIX_ELEMENT_AMPLITUDES', 'JONES_MATRIX_ELEMENT_PHASES', 'TIME_DOMAIN_AMPLITUDE', 'TIME_DOMAIN_WAVELENGTH', 'MIN_MAX_LOSS', 'SECOND_ORDER_PMD', 'PHASE_RIPPLE_LINEAR', 'PHASE_RIPPLE_QUADRATIC']
             ),
             'DUT L': MeasParamFloat(value=0.0, unit='m'),
+            'enable averaging': MeasParamBool(value=False),
+            'number of averages': MeasParamInt(value=1, unit='scans'),
             'save_all_data': MeasParamBool(value=False),
             'filepath': MeasParamString(value='C:\\Users\\Luna\\Documents\\test.txt'),
             'Measurement Type': MeasParamList(
@@ -60,6 +62,8 @@ class LUNA_sweep_Cband_switch(Measurement):
         filepath = parameters.get('filepath').value
         DUT_L = parameters.get('DUT L').value
         meas_type = parameters.get('Measurement Type').value
+        enable_averaging = parameters.get('enable averaging').value
+        num_averages = max(1, int(parameters.get('number of averages').value))
 
         os.remove(filepath)  # Remove the file after reading if not needed anymore
 
@@ -82,7 +86,9 @@ class LUNA_sweep_Cband_switch(Measurement):
                     plot_data_type = plot_data_type,
                     save_all_data = save_all_data,
                     filepath = filepath,
-                    meas_type = meas_type
+                    meas_type = meas_type,
+                    enable_averaging = enable_averaging,
+                    num_averages = num_averages
                 )
                 filesize = os.path.getsize(filepath) if os.path.exists(filepath) else 0
         else:
@@ -93,7 +99,9 @@ class LUNA_sweep_Cband_switch(Measurement):
                 plot_data_type = plot_data_type,
                 save_all_data = save_all_data,
                 filepath = filepath,
-                meas_type = meas_type
+                meas_type = meas_type,
+                enable_averaging = enable_averaging,
+                num_averages = num_averages
             )
 
         self.logger.debug("Finished Luna sweep measurement")

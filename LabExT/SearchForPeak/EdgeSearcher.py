@@ -140,6 +140,7 @@ class EdgeSearcher(Measurement):
             'Motor X increment': MeasParamFloat(value=0.0, unit="um"),
             'Motor Y increment': MeasParamFloat(value=0.0, unit="um"),
             'Motor Z increment': MeasParamFloat(value=0.0, unit="um"),
+            'Max motor increment': MeasParamFloat(value=50.0, unit="um"),
         }
 
     @staticmethod
@@ -218,6 +219,7 @@ class EdgeSearcher(Measurement):
         self.instr_laser.enable = True
 
         self.estimated_through_power = -99
+        self.current_coordinates = []
 
         return
 
@@ -242,8 +244,18 @@ class EdgeSearcher(Measurement):
                 move__motor_x = self.parameters.get('Motor X increment').value
                 move__motor_y = self.parameters.get('Motor Y increment').value
                 move__motor_z = self.parameters.get('Motor Z increment').value
+                max_motor_increment = self.parameters.get('Max motor increment').value
 
-                # ADD SAFETY CHECKS for movement
+                for axis_name, increment in (('X', move__motor_x), ('Y', move__motor_y), ('Z', move__motor_z)):
+                    if not np.isfinite(increment):
+                        raise ValueError(
+                            f"Motor {axis_name} increment is {increment!r}, not a finite number. Refusing to move stages."
+                        )
+                    if abs(increment) > max_motor_increment:
+                        raise ValueError(
+                            f"Motor {axis_name} increment of {increment}um exceeds the configured "
+                            f"'Max motor increment' safety limit of {max_motor_increment}um. Refusing to move stages."
+                        )
 
                 # find the current positions of the stages as starting point for
                 # SFP
@@ -254,7 +266,6 @@ class EdgeSearcher(Measurement):
                 if self.mover.right_calibration:
                     _right_start_coordinates = self.mover.right_calibration.get_position().to_list()
                 start_coordinates = _left_start_coordinates + _right_start_coordinates
-                self.current_coordinates = start_coordinates.copy()
 
                 self.logger.debug(f"Start Position: {start_coordinates}")
 
@@ -266,14 +277,20 @@ class EdgeSearcher(Measurement):
                 self._move_stages_relative([move__motor_x, move__motor_y, move__motor_z])
                 self.logger.info(f"Move by: {[move__motor_x, move__motor_y, move__motor_z]}.")
 
-                # Save location
+                # Save location (post-move, i.e. the actual current position)
+                self.current_coordinates = []
                 if self.mover.left_calibration:
-                    self.results['measured location'].append(self.mover.left_calibration.get_position().to_list())
+                    left_position = self.mover.left_calibration.get_position().to_list()
+                    self.results['measured location'].append(left_position)
+                    self.current_coordinates += left_position
                 if self.mover.right_calibration:
-                    self.results['measured location'].append(self.mover.right_calibration.get_position().to_list())
+                    right_position = self.mover.right_calibration.get_position().to_list()
+                    self.results['measured location'].append(right_position)
+                    self.current_coordinates += right_position
 
                 # Save power
                 self.results['measured power'].append(self.instr_powermeter.fetch_power())
+                self.estimated_through_power = max(self.results['measured power'])
 
                 # Save picture
                 # self.results['captured image'].append(self.camera.snap_photo())

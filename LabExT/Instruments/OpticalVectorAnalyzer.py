@@ -11,6 +11,24 @@ import win32com.client
 import os
 import numpy as np
 import pythoncom
+import threading
+
+# Front panel control name on AcquireSingleScan.vi wired to acquireMeasurement.vi's
+# "numScans" input, which drives the OVA's built-in scan averaging (numScans=1 means no
+# averaging). This control is not on AcquireSingleScan.vi's front panel by default and
+# must be exposed in LabVIEW under this exact name. Adjust this constant if it is named
+# differently on your copy of the VI.
+AVERAGING_COUNT_CTRL = "Num Averages"
+
+# When averaging is enabled, acquireMeasurement.vi pops up AveragingSummary.vi's front
+# panel and blocks until its "OK Button" control (captioned "Continue" on screen, but
+# "OK Button" is its actual control name) is set True. This dialog has no way to suppress
+# it, so a background thread polls for its front panel opening and auto-dismisses it -
+# otherwise unattended measurement runs would hang forever waiting for a human click.
+AVERAGING_SUMMARY_VI_FILENAME = "AveragingSummary.vi"
+AVERAGING_SUMMARY_CONTINUE_CTRL = "OK Button"
+AVERAGING_SUMMARY_POLL_INTERVAL_S = 0.3
+
 
 class OpticalVectorAnalyzer(Instrument):
     """
@@ -57,7 +75,7 @@ class OpticalVectorAnalyzer(Instrument):
             self.logger.debug("Successfully connected to OVA")
             return 
 
-    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt', meas_type: str = "Transmission", group_index: float = 1.5, X_axis_units: int = 0):
+    def grab_data(self, dut_L: float = None, plot_data_type: str = "INSERTION_LOSS", center_wavelength: float = 1550.00, wl_range: float = 2.54, save_all_data: bool = False, filepath: str = 'C:\\Users\\Luna\\Documents\\test.txt', meas_type: str = "Transmission", group_index: float = 1.5, X_axis_units: int = 0, enable_averaging: bool = False, num_averages: int = 1):
         """
         Acquire measurement data from the OVA.
 
@@ -67,6 +85,8 @@ class OpticalVectorAnalyzer(Instrument):
         :param wl_range: float Wavelength Range
         :param save_all_data: bool flag to save all data
         :param filepath: str filepath to temporarily save all data
+        :param enable_averaging: bool enable the OVA's built-in scan averaging
+        :param num_averages: int number of scans to average when enable_averaging is set
         """
 
         print("opening labview")
@@ -135,11 +155,38 @@ class OpticalVectorAnalyzer(Instrument):
         if meas_type == "Transmission":
             vi.SetControlValue("Meas Type", 1) # 0 for reflection, 1 for transmission
         else:
-            vi.SetControlValue("Meas Type", 0) 
+            vi.SetControlValue("Meas Type", 0)
+        if enable_averaging:
+            try:
+                vi.SetControlValue(AVERAGING_COUNT_CTRL, int(num_averages))
+            except Exception as e:
+                raise InstrumentException(
+                    f"OVA averaging was requested but AcquireSingleScan.vi has no control named "
+                    f"'{AVERAGING_COUNT_CTRL}' ({e}). Expose acquireMeasurement.vi's 'numScans' input "
+                    "on the AcquireSingleScan.vi front panel in LabVIEW, or disable averaging."
+                )
+            self.logger.debug(f"OVA averaging enabled, {int(num_averages)} scans")
 
         self.logger.debug("Running Luna sweep measurement")
         print("Running Luna sweep measurement")
-        vi.Run
+
+        watcher_stop = None
+        watcher_thread = None
+        if enable_averaging:
+            watcher_stop = threading.Event()
+            watcher_thread = threading.Thread(
+                target=self._dismiss_averaging_summary_dialog,
+                args=(watcher_stop,),
+                daemon=True,
+            )
+            watcher_thread.start()
+
+        try:
+            vi.Run
+        finally:
+            if watcher_thread is not None:
+                watcher_stop.set()
+                watcher_thread.join(timeout=5.0)
 
         # Grab data in graph object
         result = np.array(vi.GetControlValue("Graph"))
@@ -148,6 +195,29 @@ class OpticalVectorAnalyzer(Instrument):
         # self.save_data()
 
         return result, new_dut_L
+
+    def _dismiss_averaging_summary_dialog(self, stop_event):
+        """
+        Background-thread target: polls AveragingSummary.vi's front panel and clicks its
+        "OK Button" as soon as it opens, so the OVA's blocking averaging-summary dialog
+        doesn't hang an unattended measurement run. Uses its own LabVIEW.Application proxy
+        and COM apartment, since the one on self.labview_app is not thread-safe to share.
+        """
+        pythoncom.CoInitialize()
+        try:
+            app = win32com.client.Dispatch("LabVIEW.Application")
+            vi_path = os.path.join(os.path.dirname(__file__), 'LabViewVIs', AVERAGING_SUMMARY_VI_FILENAME)
+            avg_vi = app.GetVIReference(vi_path)
+            while not stop_event.is_set():
+                try:
+                    if avg_vi.FPWinOpen:
+                        avg_vi.SetControlValue(AVERAGING_SUMMARY_CONTINUE_CTRL, True)
+                        self.logger.debug("Auto-dismissed OVA averaging summary dialog")
+                except Exception:
+                    pass
+                stop_event.wait(AVERAGING_SUMMARY_POLL_INTERVAL_S)
+        finally:
+            pythoncom.CoUninitialize()
 
     def close(self):
         pythoncom.CoUninitialize()

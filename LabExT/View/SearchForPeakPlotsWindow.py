@@ -5,14 +5,37 @@ LabExT  Copyright (C) 2021  ETH Zurich and Polariton Technologies AG
 This program is free software and comes with ABSOLUTELY NO WARRANTY; for details see LICENSE file.
 """
 
+import json
 import logging
-from tkinter import Tk, Toplevel, Button, messagebox
+from tkinter import Tk, Toplevel, Button, Label, Entry, Checkbutton, OptionMenu, messagebox
 
-from LabExT.Utils import get_visa_address
+from LabExT.SearchForPeak.PeakSearcher import PeakSearcher
+from LabExT.Utils import get_configuration_file_path, get_visa_address
 from LabExT.View.Controls.CustomFrame import CustomFrame
 from LabExT.View.Controls.InstrumentSelector import InstrumentRole, InstrumentSelector
 from LabExT.View.Controls.ParameterTable import ParameterTable
 from LabExT.View.Controls.PlotControl import PlotControl
+
+BACKLASH_TEST_PARAM_PREFIX = 'Backlash Test: '
+
+
+def serialize_combined(file_name, *widgets):
+    """
+    Merges the value dicts of multiple ParameterTable-derived widgets and writes
+    them as a single settings file. Needed because ParameterTable.serialize()
+    overwrites the whole file with only its own widget's data - calling it on two
+    widgets pointed at the same file would let the second call erase the first's
+    contribution.
+    """
+    combined_data = {}
+    for widget in widgets:
+        widget_settings = {}
+        widget.serialize_to_dict(widget_settings)
+        combined_data.update(widget_settings.get('data', {}))
+    file_path = get_configuration_file_path(file_name)
+    with open(file_path, 'w') as json_file:
+        json_file.write(json.dumps({'data': combined_data}))
+    return True
 
 
 class SearchForPeakPlotsWindowModel:
@@ -135,8 +158,13 @@ class PlottingFrame(CustomFrame):
         self.instruments_chooser_widget = InstrumentsChooserWidget(self, self.model)
         self.instruments_chooser_widget.grid(row=3, column=0, rowspan=1, columnspan=3)
 
-        self.parameter_chooser_widget = ParameterChooserWidget(self, self.model)
-        self.parameter_chooser_widget.grid(row=0, column=6, rowspan=5, columnspan=3)
+        # Both parameter tables live in their own sub-frame with an independent grid,
+        # so they stack tightly against each other regardless of the outer grid's row
+        # heights (which are dominated by the much taller plots in rows 0-2).
+        self.parameters_frame = ParametersFrame(self, self.model)
+        self.parameters_frame.grid(row=0, column=6, rowspan=5, columnspan=3, sticky='n')
+        self.parameter_chooser_widget = self.parameters_frame.parameter_chooser_widget
+        self.backlash_parameter_chooser_widget = self.parameters_frame.backlash_parameter_chooser_widget
 
         self.set_instruments_button = AcceptButton(self, controller.set_instruments, "1. Allocate Instruments")
         self.set_instruments_button.grid(row=3, column=3)
@@ -146,6 +174,9 @@ class PlottingFrame(CustomFrame):
 
         self.execute_sfp_button = AcceptButton(self, controller.execute_sfp_manually, "2. Execute Search for Peak")
         self.execute_sfp_button.grid(row=3, column=5)
+
+        self.test_backlash_button = AcceptButton(self, controller.test_backlash, "Test Backlash (X/Y)")
+        self.test_backlash_button.grid(row=4, column=5)
 
 
 class PlotsWidget(PlotControl):
@@ -203,9 +234,141 @@ class InstrumentsChooserWidget(InstrumentSelector):
             self.logger.debug("Loading SearchForPeak instruments selection from file.")
 
 
-class ParameterChooserWidget(ParameterTable):
+class GroupedPassParameterTable(ParameterTable):
     """
-    This widget contains the parameter selection table.
+    A ParameterTable variant that condenses PeakSearcher's repeated
+    'First/Second/Third Peak Search: <X>' parameters into a single row per <X>,
+    with three side-by-side value widgets (one per pass) instead of one full row
+    per parameter per pass. All other (non-repeated) parameters still render as
+    one row each, exactly like the base ParameterTable.
+
+    Serialization/deserialization/to_meas_param are inherited unchanged from
+    ParameterTable, since they operate on the underlying flat parameter dict, not
+    on this class's visual layout - so nothing else in this window needs to change.
+    """
+    PASS_HEADERS = tuple(PeakSearcher.PASS_NAMES)
+    PASS_PREFIXES = tuple(f'{name} Peak Search: ' for name in PeakSearcher.PASS_NAMES)
+    GROUPED_ENTRY_WIDTH = 10
+
+    def _make_value_widget(self, parameter, width=None):
+        """Builds just the value-editing widget for one ConfigParameter."""
+        if parameter.parameter_type == 'bool':
+            return Checkbutton(self, variable=parameter.variable,
+                              state='normal' if parameter.allow_user_changes else 'disabled')
+        elif parameter.parameter_type == 'dropdown':
+            if not isinstance(parameter.options, (list, tuple)):
+                raise ValueError(
+                    "Dropdown options has to be a list or tuple, got {} instead.".format(type(parameter.options)))
+            return OptionMenu(self, parameter.variable, *parameter.options)
+        else:
+            return Entry(self, textvariable=parameter.variable,
+                        width=width if width is not None else self._customwidth,
+                        state='normal' if parameter.allow_user_changes else 'disabled')
+
+    def __setup__(self):
+        self.clear()
+        if self.parameter_source is None:
+            return
+
+        # group parameter names that share a common 'Peak Search: <suffix>' suffix
+        # across the First/Second/Third prefixes; everything else stays ungrouped
+        grouped = {}
+        ungrouped = []
+        for parameter_name in self.parameter_source:
+            for pass_idx, prefix in enumerate(self.PASS_PREFIXES):
+                if parameter_name.startswith(prefix):
+                    suffix = parameter_name[len(prefix):]
+                    grouped.setdefault(suffix, [None] * len(self.PASS_PREFIXES))[pass_idx] = parameter_name
+                    break
+            else:
+                ungrouped.append(parameter_name)
+
+        r = 0
+
+        # ungrouped parameters: same one-row-per-parameter layout as the base class
+        for parameter_name in ungrouped:
+            parameter = self.parameter_source[parameter_name]
+            self.add_widget(Label(self, text='{}:'.format(parameter_name)),
+                            row=r, column=0, padx=5, sticky='w')
+            self.rowconfigure(r, weight=1)
+            self.columnconfigure(0, weight=1)
+
+            self.add_widget(self._make_value_widget(parameter), row=r, column=1, padx=5, sticky='we')
+            if parameter.parameter_type not in ('bool', 'dropdown'):
+                self.columnconfigure(1, weight=2)
+
+            if parameter.unit is not None:
+                self.add_widget(Label(self, text='[{}]'.format(parameter.unit)),
+                                row=r, column=2, padx=5, sticky='we')
+
+            if parameter.parameter_type == 'folder':
+                self.add_widget(Button(self, text='browse...', command=parameter.browse_folders),
+                                row=r, column=2, padx=5, sticky='we')
+            if parameter.parameter_type == 'file':
+                self.add_widget(Button(self, text='browse...', command=parameter.browse_files),
+                                row=r, column=2, padx=5, sticky='we')
+            if parameter.parameter_type == 'openfile':
+                self.add_widget(Button(self, text='browse...', command=parameter.browse_files_open),
+                                row=r, column=2, padx=5, sticky='we')
+            r += 1
+
+        # grouped parameters: one row per suffix, three value columns (one per pass)
+        if grouped:
+            for col, header in enumerate(self.PASS_HEADERS, start=1):
+                self.add_widget(Label(self, text=header, font=('TkDefaultFont', 9, 'bold')),
+                                row=r, column=col, padx=5, sticky='w')
+            r += 1
+
+            for suffix, keys in grouped.items():
+                self.add_widget(Label(self, text='{}:'.format(suffix)),
+                                row=r, column=0, padx=5, sticky='w')
+                self.rowconfigure(r, weight=1)
+
+                unit_shown = False
+                unit = None
+                for col, key in enumerate(keys, start=1):
+                    if key is None:
+                        continue
+                    parameter = self.parameter_source[key]
+                    self.add_widget(self._make_value_widget(parameter, width=self.GROUPED_ENTRY_WIDTH),
+                                    row=r, column=col, padx=5, sticky='we')
+                    unit = parameter.unit
+                if unit is not None and not unit_shown:
+                    self.add_widget(Label(self, text='[{}]'.format(unit)),
+                                    row=r, column=len(self.PASS_HEADERS) + 1, padx=5, sticky='w')
+                    unit_shown = True
+                r += 1
+
+
+class ParameterChooserWidget(GroupedPassParameterTable):
+    """
+    This widget contains the parameter selection table for everything except the
+    backlash test parameters, which get their own separate widget/table below this
+    one (see BacklashTestParameterWidget).
+    """
+    def __init__(self, parent, model):
+        GroupedPassParameterTable.__init__(self, parent)
+        self.model = model
+
+        self.logger = logging.getLogger()
+
+        self.title = 'Search for Peak Parameters'
+        self.parameter_source = {
+            name: param for name, param in self.model.peak_searcher.parameters.items()
+            if not name.startswith(BACKLASH_TEST_PARAM_PREFIX)
+        }
+
+        if self.deserialize(self.model.settings_path):
+            self.logger.debug("Loading SearchForPeak parameters from file.")
+
+        self.__setup__()
+
+
+class BacklashTestParameterWidget(ParameterTable):
+    """
+    Separate parameter table shown below the main Search for Peak parameters,
+    containing only the 'Backlash Test: <X>' parameters used by
+    PeakSearcher.test_backlash().
     """
     def __init__(self, parent, model):
         ParameterTable.__init__(self, parent)
@@ -213,13 +376,33 @@ class ParameterChooserWidget(ParameterTable):
 
         self.logger = logging.getLogger()
 
-        self.title = 'Search for Peak Parameters'
-        self.parameter_source = self.model.peak_searcher.parameters
+        self.title = 'Backlash Test Parameters'
+        self.parameter_source = {
+            name: param for name, param in self.model.peak_searcher.parameters.items()
+            if name.startswith(BACKLASH_TEST_PARAM_PREFIX)
+        }
 
         if self.deserialize(self.model.settings_path):
-            self.logger.debug("Loading SearchForPeak parameters from file.")
+            self.logger.debug("Loading Backlash Test parameters from file.")
 
         self.__setup__()
+
+
+class ParametersFrame(CustomFrame):
+    """
+    Wraps the main Search for Peak parameter table and the Backlash Test parameter
+    table in a single sub-frame with its own independent grid, so they stack tightly
+    against each other regardless of the outer window's row heights (which are
+    dominated by the much taller plots).
+    """
+    def __init__(self, parent, model):
+        CustomFrame.__init__(self, parent)
+
+        self.parameter_chooser_widget = ParameterChooserWidget(self, model)
+        self.parameter_chooser_widget.grid(row=0, column=0, sticky='new')
+
+        self.backlash_parameter_chooser_widget = BacklashTestParameterWidget(self, model)
+        self.backlash_parameter_chooser_widget.grid(row=1, column=0, sticky='new', pady=(10, 0))
 
 
 class SearchForPeakPlotsWindowView:
@@ -287,7 +470,9 @@ class SearchForPeakPlotsWindowController:
 
         # save configurations to file
         # save SFP parameters to file
-        if self.view.main_window.plotting_frame.parameter_chooser_widget.serialize(self.model.settings_path):
+        if serialize_combined(self.model.settings_path,
+                              self.view.main_window.plotting_frame.parameter_chooser_widget,
+                              self.view.main_window.plotting_frame.backlash_parameter_chooser_widget):
             self.logger.debug("Saving SearchForPeak parameters to file.")
         if self.view.main_window.plotting_frame.instruments_chooser_widget.serialize(self.model.instr_settings_path):
             self.logger.debug("Saving SearchForPeak instruments definitions to file.")
@@ -302,6 +487,7 @@ class SearchForPeakPlotsWindowController:
         self.view.main_window.plotting_frame.set_instruments_button.config(state="disabled")
         self.view.main_window.plotting_frame.save_parameters_button.config(state="disabled")
         self.view.main_window.plotting_frame.execute_sfp_button.config(state="disabled")
+        self.view.main_window.plotting_frame.test_backlash_button.config(state="disabled")
 
     def enable_buttons(self):
         """
@@ -310,6 +496,7 @@ class SearchForPeakPlotsWindowController:
         self.view.main_window.plotting_frame.set_instruments_button.config(state="normal")
         self.view.main_window.plotting_frame.save_parameters_button.config(state="normal")
         self.view.main_window.plotting_frame.execute_sfp_button.config(state="normal")
+        self.view.main_window.plotting_frame.test_backlash_button.config(state="normal")
 
     def set_instruments(self):
         """If user selected instruments, initialise them and continue.
@@ -343,10 +530,14 @@ class SearchForPeakPlotsWindowController:
 
     def save_parameters(self) -> None:
         """ Save current parameters to measurement and savefile. """
-        self.model.peak_searcher.parameters = \
-            self.view.main_window.plotting_frame.parameter_chooser_widget.to_meas_param()
-        # save sfp parameters to file
-        if self.view.main_window.plotting_frame.parameter_chooser_widget.serialize(self.model.settings_path):
+        self.model.peak_searcher.parameters = {
+            **self.view.main_window.plotting_frame.parameter_chooser_widget.to_meas_param(),
+            **self.view.main_window.plotting_frame.backlash_parameter_chooser_widget.to_meas_param(),
+        }
+        # save sfp parameters (both tables) to file
+        if serialize_combined(self.model.settings_path,
+                              self.view.main_window.plotting_frame.parameter_chooser_widget,
+                              self.view.main_window.plotting_frame.backlash_parameter_chooser_widget):
             self.logger.debug("Saving SearchForPeak parameters to file.")
 
     def execute_sfp_manually(self):
@@ -378,6 +569,36 @@ class SearchForPeakPlotsWindowController:
         self.view.main_window.plotting_frame.plot_right.set_axes('deviation from start [um]', 'power [dBm]')
         self.view.main_window.plotting_frame.plot_right.title = 'Right Stage'
         self.view.main_window.plotting_frame.plot_right.__update_canvas__()
+
+        self.enable_buttons()
+
+    def test_backlash(self):
+        """Function to manually run the stage backlash/direction self-test (X/Y only,
+        Z is never moved). Only requires stages to be configured, not the Laser/Power
+        Meter/Switch instruments.
+        """
+
+        self.disable_buttons()
+        self.save_parameters()
+
+        try:
+            results = self.model.peak_searcher.test_backlash()
+        except Exception as err:
+            messagebox.showerror("Backlash test error!", "The backlash test failed. Reason: " + repr(err),
+                                 parent=self.view.main_window)
+            self.logger.exception("The backlash test failed.")
+        else:
+            summary = "\n".join(
+                f"{name}: {'PASS' if r['passed'] else 'FAIL'} (max error {r['max_error_um']:.3f}um)"
+                for name, r in results.items()
+            )
+            if all(r['passed'] for r in results.values()):
+                messagebox.showinfo("Backlash Test", f"Backlash test PASSED.\n\n{summary}",
+                                    parent=self.view.main_window)
+            else:
+                messagebox.showwarning("Backlash Test", f"Backlash test FAILED for one or more axes.\n\n{summary}",
+                                       parent=self.view.main_window)
+            self.logger.debug(f"Backlash test done: {results}")
 
         self.enable_buttons()
 

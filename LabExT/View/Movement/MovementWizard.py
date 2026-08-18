@@ -1015,6 +1015,11 @@ class CoordinatePairingStep(Step):
         pairings_table_frame = Frame(pairings_frame)
         pairings_table_frame.pack(side=TOP, fill=X, expand=False)
 
+        residual_lookup = {}
+        for calibration in self.mover.calibrations.values():
+            for p, residual_um in calibration.get_kabsch_rotation_pairing_residuals_um():
+                residual_lookup[id(p)] = residual_um
+
         self._coordinate_pairing_table = CustomTable(
             parent=pairings_table_frame,
             selectmode='extended',
@@ -1023,13 +1028,15 @@ class CoordinatePairingStep(Step):
                 'Stage',
                 'Stage Cooridnate',
                 'Device',
-                'Chip Coordinate'),
+                'Chip Coordinate',
+                'Residual (um)'),
             rows=[(
                 str(idx),
                 str(p.calibration),
                 str(p.stage_coordinate),
                 str(p.device.short_str),
-                str(p.chip_coordinate)
+                str(p.chip_coordinate),
+                "{:.2f}".format(residual_lookup[id(p)]) if id(p) in residual_lookup else "N/A"
             ) for idx, p in enumerate(self.pairings)])
 
         Button(
@@ -1094,6 +1101,18 @@ class CoordinatePairingStep(Step):
                     text="Angle between XY Plane: "
                     "{:.2f} rad - {:.2f}° - {:.2f}%".format(rad, deg, per)
                 ).grid(row=2, column=1, padx=2, pady=2, sticky=W)
+
+                residual_um = calibration.get_kabsch_rotation_residual_um()
+                Label(
+                    stage_calibration_frame,
+                    text="Calibration Fit Residual (RMSD): {:.2f} um".format(residual_um)
+                ).grid(row=3, column=1, padx=2, pady=2, sticky=W)
+
+                Button(
+                    stage_calibration_frame,
+                    text="Run Calibration Health Check...",
+                    command=partial(self._run_calibration_health_check, calibration)
+                ).grid(row=4, column=1, padx=2, pady=2, sticky=W)
 
         # FRAME FOR NEW PAIRING
         new_pairing_frame = CustomFrame(frame)
@@ -1221,6 +1240,40 @@ class CoordinatePairingStep(Step):
                 continue
 
         return selected_pairings
+
+    def _run_calibration_health_check(self, calibration: Type[Calibration]):
+        """
+        Runs a leave-one-out cross-validation over the given calibration's
+        Kabsch pairings: refits on all-but-one point and checks how well the
+        refit predicts the held-out point. Surfaces which single device (if
+        any) is dragging down calibration accuracy, instead of only seeing
+        an aggregate residual get worse.
+        """
+        errors = calibration.get_kabsch_rotation_leave_one_out_errors_um()
+        if not errors:
+            min_points = calibration._kabsch_rotation.MIN_POINTS + 1
+            messagebox.showinfo(
+                "Calibration Health Check",
+                f"{calibration.short_str}: need at least {min_points} defined points to "
+                "run a leave-one-out check "
+                f"({len(calibration._kabsch_rotation.pairings)} defined).",
+                parent=self.wizard)
+            return
+
+        ranked = sorted(errors, key=lambda item: item[1], reverse=True)
+        lines = [
+            f"{pairing.device.id}: {error_um:.2f} um" for pairing,
+            error_um in ranked]
+        worst_pairing, worst_error = ranked[0]
+
+        messagebox.showinfo(
+            "Calibration Health Check",
+            f"{calibration.short_str}: leave-one-out prediction error per device "
+            f"(worst first, {len(errors)} points checked):\n\n" +
+            "\n".join(lines) +
+            f"\n\nWorst-predicted device: {worst_pairing.device.id} ({worst_error:.2f} um). "
+            "Consider re-measuring or removing this pairing if it stands out from the others.",
+            parent=self.wizard)
 
     def _new_coordinate_pairing(self):
         """

@@ -718,6 +718,159 @@ class KabschRotationTest(unittest.TestCase):
         assert_array_equal(current_rotation_to_stage, restored_rotation.rotation_to_stage)
         assert_array_equal(current_translation_to_stage, restored_rotation.translation_to_stage)
 
+    def test_update_with_double_device_replaces_when_requested(self):
+        device = Mock()
+        pairing = CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=StageCoordinate(1, 2, 3),
+            device=device,
+            chip_coordinate=ChipCoordinate(4, 5, 6))
+
+        self.transformation.update(pairing)
+
+        replacement = CoordinatePairing(
+            calibration=self.calibration,
+            stage_coordinate=StageCoordinate(7, 8, 9),
+            device=device,
+            chip_coordinate=ChipCoordinate(8, 7, 6))
+
+        self.transformation.update(replacement, replace_existing=True)
+
+        self.assertNotIn(pairing, self.transformation.pairings)
+        self.assertIn(replacement, self.transformation.pairings)
+        self.assertEqual(len(self.transformation.pairings), 1)
+        assert_array_equal(
+            self.transformation.stage_coordinates,
+            np.array([[7], [8], [9]]))
+        assert_array_equal(
+            self.transformation.chip_coordinates,
+            np.array([[8], [7], [6]]))
+
+    def test_remove_pairing_for_unknown_device_returns_false(self):
+        self.assertFalse(self.transformation.remove_pairing_for_device(Mock()))
+
+    def test_remove_pairing_invalidates_and_clears_transformation(self):
+        devices = [Mock() for _ in range(len(VACHERIN_STAGE_COORDS))]
+        for device, stage_coord, chip_coord in zip(
+                devices, VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=device,
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        self.assertTrue(self.transformation.is_valid)
+
+        # 4 -> 3 points: still valid, transformation re-solved
+        self.assertTrue(self.transformation.remove_pairing_for_device(devices[0]))
+        self.assertTrue(self.transformation.is_valid)
+        self.assertIsNotNone(self.transformation.rotation_to_stage)
+
+        # 3 -> 2 points: below MIN_POINTS, stale transformation discarded
+        self.assertTrue(self.transformation.remove_pairing_for_device(devices[1]))
+        self.assertFalse(self.transformation.is_valid)
+        self.assertIsNone(self.transformation.rotation_to_stage)
+        self.assertIsNone(self.transformation.translation_to_stage)
+        self.assertIsNone(self.transformation.rotation_to_chip)
+        self.assertIsNone(self.transformation.translation_to_chip)
+
+    def test_replacing_a_pairing_moves_the_fit_toward_the_new_position(self):
+        devices = [Mock() for _ in range(len(VACHERIN_STAGE_COORDS))]
+        for device, stage_coord, chip_coord in zip(
+                devices, VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=device,
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        chip_coordinate = ChipCoordinate.from_numpy(VACHERIN_CHIP_COORDS[0])
+        before = self.transformation.chip_to_stage(chip_coordinate).to_numpy()
+
+        # same device re-measured 50um away, as a drifting stage would report
+        drifted = VACHERIN_STAGE_COORDS[0] + np.array([50.0, 50.0, 0.0])
+        self.transformation.update(
+            CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(drifted),
+                device=devices[0],
+                chip_coordinate=chip_coordinate),
+            replace_existing=True)
+
+        after = self.transformation.chip_to_stage(chip_coordinate).to_numpy()
+
+        self.assertEqual(len(self.transformation.pairings), len(VACHERIN_STAGE_COORDS))
+        self.assertLess(
+            np.linalg.norm(after - drifted),
+            np.linalg.norm(before - drifted),
+            "Replacing a pairing should pull the fit toward the newly measured position.")
+
+    def test_get_fit_residual_um_returns_none_when_invalid(self):
+        self.assertIsNone(self.transformation.get_fit_residual_um())
+
+    def test_get_pairing_residuals_um_returns_empty_when_invalid(self):
+        self.assertEqual(self.transformation.get_pairing_residuals_um(), [])
+
+    def test_get_leave_one_out_errors_um_returns_empty_when_invalid(self):
+        self.assertEqual(self.transformation.get_leave_one_out_errors_um(), [])
+
+    def test_get_fit_residual_um_is_near_zero_for_exact_rigid_data(self):
+        R = Rotation.random().as_matrix()
+        t = np.random.rand(3, 1)
+        chip_points = np.random.rand(3, 5)
+        stage_points = (R @ chip_points) + t
+
+        for i in range(5):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_points[:, i]),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_points[:, i])))
+
+        self.assertTrue(self.transformation.is_valid)
+        self.assertLess(self.transformation.get_fit_residual_um(), 1e-5)
+
+        for _, residual_um in self.transformation.get_pairing_residuals_um():
+            self.assertLess(residual_um, 1e-5)
+
+    def test_get_pairing_residuals_um_matches_pairings_order_and_count(self):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        residuals = self.transformation.get_pairing_residuals_um()
+
+        self.assertEqual([pairing for pairing, _ in residuals],
+                         self.transformation.pairings)
+        self.assertEqual(len(residuals), len(VACHERIN_STAGE_COORDS))
+
+    def test_get_leave_one_out_errors_um_needs_four_points(self):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS[:3], VACHERIN_CHIP_COORDS[:3]):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        self.assertTrue(self.transformation.is_valid)
+        self.assertEqual(self.transformation.get_leave_one_out_errors_um(), [])
+
+    def test_get_leave_one_out_errors_um_matches_fourth_variable_tolerance(self):
+        for stage_coord, chip_coord in zip(VACHERIN_STAGE_COORDS, VACHERIN_CHIP_COORDS):
+            self.transformation.update(CoordinatePairing(
+                calibration=Mock(),
+                stage_coordinate=StageCoordinate.from_numpy(stage_coord),
+                device=Mock(),
+                chip_coordinate=ChipCoordinate.from_numpy(chip_coord)))
+
+        errors = self.transformation.get_leave_one_out_errors_um()
+
+        self.assertEqual(len(errors), len(VACHERIN_STAGE_COORDS))
+        for _, error_um in errors:
+            self.assertLess(error_um, 20)
 
 
 class KabschOrientationPerservationTest(unittest.TestCase):

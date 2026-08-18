@@ -15,7 +15,6 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 from LabExT.Measurements.MeasAPI import *
-from LabExT.Movement.MotorProfiles import trapezoidal_velocity_profile_by_integration
 from LabExT.Movement.MoverNew import MoverNew
 from LabExT.Movement.config import CoordinateSystem
 from LabExT.Movement.Transformations import StageCoordinate
@@ -23,31 +22,50 @@ from LabExT.Utils import get_configuration_file_path
 from LabExT.View.Controls.PlotControl import PlotData
 from LabExT.ViewModel.Utilities.ObservableList import ObservableList
 
+# If the measured dynamic range across a scan is below this, the scan is treated as
+# having found no real peak (flat/noise-dominated response), and the stage is left at
+# its start position rather than trusting the Gaussian fit's suggested location.
+NO_PEAK_FOUND_DYNAMIC_RANGE_DB = 3.0
+
+# A Gaussian fit whose optimum lands beyond this fraction of the search radius is
+# treated as potentially clipped - the true peak may lie outside the scanned window,
+# so the fitted centre is not trustworthy as an absolute reference. The move itself
+# still happens (it is still an improvement); the result is only flagged as unfit for
+# use as a chip-to-stage calibration reference point.
+NEAR_EDGE_REJECT_FRACTION = 0.9
+
 
 class PeakSearcher(Measurement):
     """
     ## Search for Peak
 
     Executes a Search for Peak for a standard IL measurement with one or two stages (left and right) and only x and y coordinates.
-    This Measurement is NOT a 'normal' measurement and should NOT be used in an experiment routine.
+    This class does not implement the standard `Measurement.algorithm()` interface (it raises `NotImplementedError`), so it
+    cannot be selected as a regular sweep-able measurement in the measurement wizard. It is instead used directly via
+    `search_for_peak()` - either manually from the Search-for-Peak window, or automatically as a pre-measurement alignment
+    step in `StandardExperiment` when "auto move stages" and "execute search for peak" are both enabled in the main window.
 
     #### Details
-    An optical signal generated at an optical source passes through the DUT and into a power meter. The optical fibers carrying said signal are mounted onto
-    remotely controllable stages (in our case SmarAct Piezo Stages). In this routine, these stages mechanically sweep over a given range, the insertion loss is measured in regular intervals.
-    The sweep is conducted in x and y direction separately.
+    An optical signal generated at an optical source passes through the DUT and into up to four power meters (the merit
+    value at each measured point is the maximum reading across whichever power meters are configured). The optical fibers
+    carrying said signal are mounted onto remotely controllable stages (in our case SmarAct Piezo Stages, or Thorlabs
+    K-Cube stages). In this routine, these stages mechanically sweep over a given range, the insertion loss is measured in
+    regular intervals. The sweep is conducted for each stage axis separately (Left X, Left Y, Right X, Right Y, or just X, Y
+    for a single-stage setup).
 
     The Search for Peak measurement routine relies on the assumption that around the transmission maximum of a grating coupler, the transmission forms a 2D gaussian (w.r.t x and y position).
     Thus after having collected data for each axis, a 1D gaussian is fitted to the data and the stages are moved to the maximum of the gaussian.
 
-    There are two types of Search for Peak available:
-    - **stepped SfP**: suitable for all types of fibers/fiber arrays and all power meter models. The given range is mechanically stepped over, the measurement
-    stops at each point given by the `search step size` parameter, waits the time given by the `search fiber stabilization time` parameter to let fiber vibrations
-    dissipate and then records a data point. This type is universally applicable but also very slow.
-    - **fast SfP**: suitable only for fiber arrays and the Keysight N7744a power meter models. The given range is mechanically continuously sweeped over, the power meter
-    collects regular data points (amount is given by `Number of points`). Those data points are then related to a physical position taking into account the acceleration
-    of the stages. This type of Search for Peak is significantly faster than the stepped SfP and provides the user with a massively increased amount of data.
-    At the moment, this type only works with the Keysight N7744a power meter. Usage with single mode fibers is possible, but untested.
+    The given range is mechanically stepped over: the measurement stops at each point given by the `search step size`
+    parameter, waits the time given by the `search fiber stabilization time` parameter to let fiber vibrations dissipate,
+    and then records a data point. This is suitable for all types of fibers/fiber arrays and all power meter models.
 
+    Up to three independently-configured passes ("First/Second/Third Peak Search") can be enabled, each re-running the
+    full sweep over every axis using the position left by the previous pass as its new starting point - typically used to
+    do a coarse pass with a larger radius/step size followed by one or two finer passes with a smaller radius/step size.
+
+    An optional optical switch can be enabled ("Switch Flag") to route logical ports 1-4 (`M = 1`..`M = 4`) to power
+    meters 1-4 before the search starts; it is connected once and is not reconfigured during the search itself.
 
     #### Example Setup
 
@@ -66,19 +84,30 @@ class PeakSearcher(Measurement):
     #### Power Meter Parameters
     - **Power Meter range**: range of the power in [dBm].
 
-    #### Stage Parameters
-    - **Search radius**: Radius arond the current position the algorithm sweeps over in [um].
-    - **SfP type**: Type of Search for Peak to use. Options are `stepped SfP` and `swept SfP`, see above for more detail.
-    - **(stepped SfP only) Search step size**: Distance between every data point in [um].
-    - **(stepped SfP only) Search fiber stabilization time**: Idle time between the stage having reached the target position and the measurement start. Meant to allow fiber oscillations to dissipate.
-    - **(swept SfP only) Search time**: Time the mechanical movement across the set measurement range should take in [s].
-    - **(swept SfP only) Number of points**: Number of points to collect at the power meter for each separate sweep.
+    #### Switch Parameters
+    - **Switch Flag**: whether to connect and use the optical switch before searching.
+    - **M = 1** / **M = 2** / **M = 3** / **M = 4**: logical switch port routed to Power Meter 1/2/3/4 respectively (only used if `Switch Flag` is enabled).
 
-    All parameters labelled `stepped SfP only` are ignored when choosing the swept SfP, all parameters labelled `swept SfP only` are ignored when choosing the stepped SfP.
+    #### Stage Parameters (per pass - First/Second/Third Peak Search)
+    - **Enable/Disable**: whether this pass runs at all.
+    - **Search Radius**: Radius arond the current position the algorithm sweeps over in [um].
+    - **Search step size**: Distance between every data point in [um].
+    - **Search fiber stabilization time**: Idle time between the stage having reached the target position and the measurement start. Meant to allow fiber oscillations to dissipate.
+    - **Power averaging time**: Duration in [s] to repeatedly sample and average each power meter at every scan point, to reduce point-to-point noise. 0 takes a single instantaneous reading (no averaging).
+
+    #### Backlash Test Parameters
+    Used by `test_backlash()` (also runnable from the "Test Backlash (X/Y)" button in the Search for Peak window) - a
+    diagnostic that moves each stage's X and Y axis by a small amount and reverses direction repeatedly, checking that
+    the actual position always lands within tolerance of the commanded target. Z is never moved. Always restores the
+    exact starting position, including on error - safe to run on an already-aligned setup.
+    - **Amplitude**: size of each test move in [um].
+    - **Number of reversals**: number of forward/backward direction-reversal pairs to test per axis.
+    - **Tolerance**: maximum acceptable position error (commanded vs. actual) for a pass, in [um].
     """
 
     DIMENSION_NAMES_TWO_STAGES = ['Left X', 'Left Y', 'Right X', 'Right Y']
     DIMENSION_NAMES_SINGLE_STAGE = ['X', 'Y']
+    PASS_NAMES = ['First', 'Second', 'Third']
 
     def __init__(
         self,
@@ -148,7 +177,7 @@ class PeakSearcher(Measurement):
 
         return [a_init, mu_init, sigma_init, offset_init]
 
-    def fit_gaussian(self, x_data, y_data,power_check_flag):
+    def fit_gaussian(self, x_data, y_data):
         """Fits a gaussian function of four parameters to the given x and y data.
 
         Parameters
@@ -157,8 +186,6 @@ class PeakSearcher(Measurement):
             the set of independent data points
         y_data : np.ndarray
             the set of dependent data points
-        power_check_flag : bool
-            if True, only points within 10 dB of the peak power are used for fitting
 
         Returns
         -------
@@ -175,14 +202,6 @@ class PeakSearcher(Measurement):
         # make sure the input data is in numpy arrays
         x_data = np.array(x_data)
         y_data = np.array(y_data)
-
-        # get rid of data in noise floor
-        
-        if power_check_flag:
-            power_range = 10
-            mask = y_data > (max(y_data)-power_range)
-            x_data = x_data[mask]
-            y_data = y_data[mask]
 
         # we cannot fit on empty vectors
         assert len(x_data) > 0
@@ -216,9 +235,37 @@ class PeakSearcher(Measurement):
 
         return popt, perr_std_dev
 
+    def _read_averaged_power(self, averaging_time_s: float) -> list:
+        """
+        Reads all four power meters repeatedly for averaging_time_s seconds and returns
+        their time-averaged readings, to reduce point-to-point noise in the scan trace.
+        averaging_time_s=0 takes exactly one sample per meter (no averaging).
+
+        Each sample triggers all four meters first, then fetches all four, instead of
+        doing 4 sequential blocking trigger+read cycles (.power). On instruments where
+        trigger() is a fire-and-forget "start acquisition" command (e.g. the Keysight
+        SCPI power meters, via INIT:IMM) this lets their averaging windows overlap
+        instead of stacking sequentially - fetch_power() then just reads back the
+        already-triggered value instead of triggering (and waiting for) a new one. On
+        instruments with no real acquisition delay to hide (e.g. PowerMeterKoheronPD10R,
+        whose trigger() is a no-op and fetch_power() reads the same instantaneous value
+        as .power) this is equivalent to the old behaviour - no regression either way.
+        """
+        meters = [self.instr_powermeter1, self.instr_powermeter2, self.instr_powermeter3, self.instr_powermeter4]
+        samples = [[] for _ in meters]
+        t_end = time.perf_counter() + averaging_time_s
+        while True:
+            for meter in meters:
+                meter.trigger()
+            for sample_list, meter in zip(samples, meters):
+                sample_list.append(meter.fetch_power())
+            if time.perf_counter() >= t_end:
+                break
+        return [float(np.mean(sample_list)) for sample_list in samples]
+
     @staticmethod
     def get_default_parameter():
-        return {
+        params = {
             'Switch Flag': MeasParamBool(value=False),
             'M = 1': MeasParamInt(value=1, unit='N Port'),
             'M = 2': MeasParamInt(value=2, unit='N Port'),
@@ -226,30 +273,22 @@ class PeakSearcher(Measurement):
             'M = 4': MeasParamInt(value=4, unit='N Port'),
             'Laser wavelength': MeasParamInt(value=1550, unit='nm'),
             'Laser power': MeasParamFloat(value=0.0, unit='dBm'),
-            'SfP type': MeasParamList(options=['stepped SfP', 'swept SfP (FA & N7744a PM models only)']),
             'Power Meter range': MeasParamFloat(value=0.0, unit='dBm'),
-            'First Peak Search: Enable/Disable': MeasParamBool(value=False),
-            'First Peak Search: Only High Power Points': MeasParamBool(value=True),
-            'First Peak Search: Search Radius': MeasParamFloat(value=5.0, unit='um'),
-            'First Peak Search: (stepped SfP only) Search step size': MeasParamFloat(value=0.5, unit='um'),
-            'First Peak Search: (stepped SfP only) Search fiber stabilization time': MeasParamInt(value=200, unit='ms'),
-            'First Peak Search: (swept SfP only) Search time': MeasParamFloat(value=2.0, unit='s'),
-            'First Peak Search: (swept SfP only) Number of points': MeasParamInt(value=500),
-            'Second Peak Search: Enable/Disable': MeasParamBool(value=False),
-            'Second Peak Search: Only High Power Points': MeasParamBool(value=True),
-            'Second Peak Search: Search Radius': MeasParamFloat(value=5.0, unit='um'),
-            'Second Peak Search: (stepped SfP only) Search step size': MeasParamFloat(value=0.5, unit='um'),
-            'Second Peak Search: (stepped SfP only) Search fiber stabilization time': MeasParamInt(value=200, unit='ms'),
-            'Second Peak Search: (swept SfP only) Search time': MeasParamFloat(value=2.0, unit='s'),
-            'Second Peak Search: (swept SfP only) Number of points': MeasParamInt(value=500),
-            'Third Peak Search: Enable/Disable': MeasParamBool(value=False),
-            'Third Peak Search: Only High Power Points': MeasParamBool(value=True),
-            'Third Peak Search: Search Radius': MeasParamFloat(value=5.0, unit='um'),
-            'Third Peak Search: (stepped SfP only) Search step size': MeasParamFloat(value=0.5, unit='um'),
-            'Third Peak Search: (stepped SfP only) Search fiber stabilization time': MeasParamInt(value=200, unit='ms'),
-            'Third Peak Search: (swept SfP only) Search time': MeasParamFloat(value=2.0, unit='s'),
-            'Third Peak Search: (swept SfP only) Number of points': MeasParamInt(value=500)
         }
+        for pass_name in PeakSearcher.PASS_NAMES:
+            params.update({
+                f'{pass_name} Peak Search: Enable/Disable': MeasParamBool(value=False),
+                f'{pass_name} Peak Search: Search Radius': MeasParamFloat(value=5.0, unit='um'),
+                f'{pass_name} Peak Search: Search step size': MeasParamFloat(value=0.5, unit='um'),
+                f'{pass_name} Peak Search: Search fiber stabilization time': MeasParamInt(value=200, unit='ms'),
+                f'{pass_name} Peak Search: Power averaging time': MeasParamFloat(value=0.25, unit='s'),
+            })
+        params.update({
+            'Backlash Test: Amplitude': MeasParamFloat(value=3.0, unit='um'),
+            'Backlash Test: Number of reversals': MeasParamInt(value=3, unit=''),
+            'Backlash Test: Tolerance': MeasParamFloat(value=1.0, unit='um'),
+        })
+        return params
 
     @staticmethod
     def get_wanted_instrument():
@@ -357,60 +396,19 @@ class PeakSearcher(Measurement):
         self.instr_powermeter4.logging_stop()
 
         # switch on laser
-        num_peak_searches = []
-        if self.parameters.get('First Peak Search: Enable/Disable').value:
-            num_peak_searches.append(0)
-        if self.parameters.get('Second Peak Search: Enable/Disable').value:
-            num_peak_searches.append(1)
-        if self.parameters.get('Third Peak Search: Enable/Disable').value:
-            num_peak_searches.append(2)
+        num_peak_searches = [
+            ps for ps, pass_name in enumerate(self.PASS_NAMES)
+            if self.parameters.get(f'{pass_name} Peak Search: Enable/Disable').value
+        ]
         for ps in num_peak_searches:
             with self.instr_laser:
                 with self.mover.set_stages_coordinate_system(CoordinateSystem.STAGE):
-                    sfp_type = self.parameters.get('SfP type').value
-                    if ps == 0:
-                        # read parameters for SFP
-                        radius_us = self.parameters.get('First Peak Search: Search Radius').value
-                        power_check_flag = self.parameters.get('First Peak Search: Only High Power Points').value
-
-                        # parameters specifically for stepped sfp
-                        stepsize_us = self.parameters['First Peak Search: (stepped SfP only) Search step size'].value
-                        pause_time_ms = self.parameters['First Peak Search: (stepped SfP only) Search fiber stabilization time'].value
-
-                        # parameters specifically for swept SfP
-                        t_sweep = self.parameters.get('First Peak Search: (swept SfP only) Search time').value
-                        no_points = int(self.parameters.get('First Peak Search: (swept SfP only) Number of points').value)
-                    elif ps == 1:
-                        # read parameters for SFP
-                        radius_us = self.parameters.get('Second Peak Search: Search Radius').value
-                        power_check_flag = self.parameters.get('Second Peak Search: Only High Power Points').value
-
-                        # parameters specifically for stepped sfp
-                        stepsize_us = self.parameters['Second Peak Search: (stepped SfP only) Search step size'].value
-                        pause_time_ms = self.parameters['Second Peak Search: (stepped SfP only) Search fiber stabilization time'].value
-
-                        # parameters specifically for swept SfP
-                        t_sweep = self.parameters.get('Second Peak Search: (swept SfP only) Search time').value
-                        no_points = int(self.parameters.get('Second Peak Search: (swept SfP only) Number of points').value)
-                    elif ps == 2:
-                        # read parameters for SFP
-                        radius_us = self.parameters.get('Third Peak Search: Search Radius').value
-                        power_check_flag = self.parameters.get('Third Peak Search: Only High Power Points').value
-
-                        # parameters specifically for stepped sfp
-                        stepsize_us = self.parameters['Third Peak Search: (stepped SfP only) Search step size'].value
-                        pause_time_ms = self.parameters['Third Peak Search: (stepped SfP only) Search fiber stabilization time'].value
-
-                        # parameters specifically for swept SfP
-                        t_sweep = self.parameters.get('Third Peak Search: (swept SfP only) Search time').value
-                        no_points = int(self.parameters.get('Third Peak Search: (swept SfP only) Number of points').value)
-
-                    # define parameters
-                    # the sweep velocity is the distance passed (twice the search
-                    # radius) divided by the sweep time
-                    v_sweep_ums = 2 * radius_us / t_sweep
-                    avg_time = t_sweep / float(no_points)
-                    unit = 'dBm'
+                    # read parameters for SFP
+                    pass_name = self.PASS_NAMES[ps]
+                    radius_us = self.parameters.get(f'{pass_name} Peak Search: Search Radius').value
+                    stepsize_us = self.parameters[f'{pass_name} Peak Search: Search step size'].value
+                    pause_time_ms = self.parameters[f'{pass_name} Peak Search: Search fiber stabilization time'].value
+                    power_averaging_time_s = self.parameters[f'{pass_name} Peak Search: Power averaging time'].value
 
                     # find the current positions of the stages as starting point for
                     # SFP
@@ -431,10 +429,7 @@ class PeakSearcher(Measurement):
 
                     # get start statistics
                     results['start location'] = start_coordinates.copy()
-                    results['start through power'] = max([self.instr_powermeter1.power,
-                                                        self.instr_powermeter2.power,
-                                                        self.instr_powermeter3.power,
-                                                        self.instr_powermeter4.power])
+                    results['start through power'] = max(self._read_averaged_power(power_averaging_time_s))
 
                     # do sweep for every dimension
                     # color cycle strings for matplotlib
@@ -475,115 +470,42 @@ class PeakSearcher(Measurement):
                             self.plots_right.append(fit_plot)
                             self.plots_right.append(opt_pos_plot)
 
-                        # differentiate between the two types of SfP
-                        if sfp_type == 'swept SfP (FA & N7744a PM models only)': # NOT UPDATED TO WORK WITH more than 1 power meter
-                            allowed_pm_classes = ['PowerMeterN7744A', 'PowerMeterSimulator']
-                            # complain if user selects a Power Meter that is not
-                            # compatible with new Search for Peak
-                            if self.instr_powermeter.__class__.__name__ not in allowed_pm_classes:
-                                raise RuntimeError(
-                                    'swept SfP is only compatible with Keysight N7744A PM models, not {}'.format(
-                                    self.instr_powermeter.__class__.__name__))
-                            # move stage to initial position and setup
-                            current_coordinates[dimidx] = p_start - radius_us
+                        # create range of N measurement points from x-Delta to
+                        # x+Delta
+                        d_range = np.arange(-radius_us, radius_us +
+                                            stepsize_us, stepsize_us)
+
+                        # go through all measurement points for this coordinate and
+                        # record IL
+                        IL_meas = np.empty(len(d_range))
+
+                        for measidx, d_current in enumerate(d_range):
+                            # move stages to currently probed coordinate
+                            current_coordinates[dimidx] = d_current + p_start
                             self._move_stages_absolute(current_coordinates)
 
-                            # setup power meter logging feature
-                            # autogain attribute exists only for N7744A, no effect on
-                            # other
-                            self.instr_powermeter.autogain = False
-                            self.instr_powermeter.range = self.parameters['Power Meter range'].value
-                            self.instr_powermeter.unit = unit
-                            self.instr_powermeter.averagetime = avg_time
-                            self.instr_powermeter.logging_setup(
-                                n_measurement_points=no_points,
-                                triggered=True,
-                                trigger_each_meas_separately=False)
-                            self.instr_powermeter.logging_start()
+                            # take a break to let fiber-vibration die off
+                            time.sleep(pause_time_ms / 1000)
 
-                            # take a tiny break
-                            time.sleep(0.1)
+                            # take IL measurement, averaged over power_averaging_time_s
+                            # to reduce point-to-point noise in the scan trace
+                            p1, p2, p3, p4 = self._read_averaged_power(power_averaging_time_s)
+                            loss = max(p1, p2, p3, p4)
 
-                            current_coordinates[dimidx] = p_start + radius_us
-                            # empirically determined acceleration
-                            acc_umps2 = 50
-                            self.mover.speed_xy = v_sweep_ums
-                            self.mover.acceleration_xy = acc_umps2
-                            # start logging at powermeter
-                            self.instr_powermeter.trigger()
-                            # mover_time_lower = time.time()
-                            self._move_stages_absolute(current_coordinates)
-                            # mover_time_upper = time.time()
+                            # save data
+                            # do not trigger plot update just yet
+                            meas_plot.x.extend([d_current])
+                            meas_plot.y.append(loss)
+                            meas_plot1.x.extend([d_current])
+                            meas_plot1.y.append(p1)
+                            meas_plot2.x.extend([d_current])
+                            meas_plot2.y.append(p2)
+                            meas_plot3.x.extend([d_current])
+                            meas_plot3.y.append(p3)
+                            meas_plot4.x.extend([d_current])
+                            meas_plot4.y.append(p4)
 
-                            while self.instr_powermeter.logging_busy():
-                                time.sleep(0.1)
-                            pm_data = self.instr_powermeter.logging_get_data()
-
-                            # pay attention to unit here
-                            IL_meas = pm_data
-
-                            # calculate the estimated movement profile, given constant
-                            # acceleration of the stages
-                            _, d_range, _, _ = trapezoidal_velocity_profile_by_integration(start_position_m=-radius_us,
-                                                                                        stop_position_m=radius_us,
-                                                                                        max_speed_mps=v_sweep_ums,
-                                                                                        const_acceleration_mps2=acc_umps2,
-                                                                                        n_output_points=len(IL_meas))
-
-                            # plot it
-                            meas_plot.x = d_range
-                            meas_plot.y = IL_meas
-                            meas_plot1.x = d_range
-                            meas_plot1.y = IL_meas
-                            meas_plot2.x = d_range
-                            meas_plot2.y = IL_meas
-                            meas_plot3.x = d_range
-                            meas_plot3.y = IL_meas
-                            meas_plot4.x = d_range
-                            meas_plot4.y = IL_meas
-
-                        elif sfp_type == 'stepped SfP':
-                            # create range of N measurement points from x-Delta to
-                            # x+Delta
-                            d_range = np.arange(-radius_us, radius_us +
-                                                stepsize_us, stepsize_us)
-
-                            # go through all measurement points for this coordinate and
-                            # record IL
-                            IL_meas = np.empty(len(d_range))
-
-                            for measidx, d_current in enumerate(d_range):
-                                # move stages to currently probed coordinate
-                                current_coordinates[dimidx] = d_current + p_start
-                                self._move_stages_absolute(current_coordinates)
-
-                                # take a break to let fiber-vibration die off
-                                time.sleep(pause_time_ms / 1000)
-
-                                # take IL measurement
-                                loss = max([self.instr_powermeter1.power,
-                                            self.instr_powermeter2.power,
-                                            self.instr_powermeter3.power,
-                                            self.instr_powermeter4.power])
-
-                                # save data
-                                # do not trigger plot update just yet
-                                meas_plot.x.extend([d_current])
-                                meas_plot.y.append(loss)
-                                meas_plot1.x.extend([d_current])
-                                meas_plot1.y.append(self.instr_powermeter1.power)
-                                meas_plot2.x.extend([d_current])
-                                meas_plot2.y.append(self.instr_powermeter2.power)
-                                meas_plot3.x.extend([d_current])
-                                meas_plot3.y.append(self.instr_powermeter3.power)
-                                meas_plot4.x.extend([d_current])
-                                meas_plot4.y.append(self.instr_powermeter4.power)
-
-                                IL_meas[measidx] = loss
-
-                        else:
-                            raise ValueError(
-                                'invalid SfP type given! Options are `stepped SfP` or `swept SfP`.')
+                            IL_meas[measidx] = loss
 
                         self.logger.debug('SFP results:')
                         self.logger.debug('coordinates:' + str(d_range))
@@ -595,6 +517,10 @@ class PeakSearcher(Measurement):
                         perr_std_dev = None
                         fit_msg = None
                         sfp_msg = None
+                        # True only if a real peak was located and moved to. Used to
+                        # decide whether this position is trustworthy enough to reuse
+                        # as a chip-to-stage calibration reference point.
+                        peak_found = False
 
                         # 1st decision: did the power meter always return useful data?
                         if ~np.all(np.isfinite(IL_meas)):
@@ -605,7 +531,7 @@ class PeakSearcher(Measurement):
                             # 2nd decision: fit the gauss and see if it works
                             try:
                                 popt, perr_std_dev = self.fit_gaussian(
-                                    d_range, IL_meas,power_check_flag)
+                                    d_range, IL_meas)
                                 fit_msg = "Gauss fitting successful."
                             except RuntimeError:  # thrown from scipy optimizer if algorithm did not converge
                                 # if convergence fails, we estimate the parameters crudly, i.e. just get the point with
@@ -620,8 +546,17 @@ class PeakSearcher(Measurement):
                             if abs(d_best) > 1.5 * radius_us:
                                 sfp_msg = 'Movement would be more than 1.5x search radius. Moving back to start point.'
                                 self.logger.warning(sfp_msg)
+                            elif (np.max(IL_meas) - np.min(IL_meas)) < NO_PEAK_FOUND_DYNAMIC_RANGE_DB:
+                                optimized_target = 0
+                                sfp_msg = (
+                                    f'Dynamic range of {np.max(IL_meas) - np.min(IL_meas):.2f}dB is below the '
+                                    f'{NO_PEAK_FOUND_DYNAMIC_RANGE_DB}dB no-peak-found threshold. '
+                                    'No clear peak detected; staying at start point.'
+                                )
+                                self.logger.warning(sfp_msg)
                             else:
                                 optimized_target = d_best
+                                peak_found = True
                                 sfp_msg = f'Moving to optimized fiber location.'
 
                             # plot the gaussian, if gaussian was successfully fitted
@@ -653,11 +588,27 @@ class PeakSearcher(Measurement):
                             f"Moving to location: {optimized_target:.3f}um with estimated through power"
                             f" of {estimated_through_power:.1f}dBm.")
 
+                        # A fit whose optimum sits at the very edge of the scanned window
+                        # may be clipped (true peak possibly outside the window), so the
+                        # move still happens but the position is not trusted as an
+                        # absolute calibration reference.
+                        near_edge = bool(
+                            peak_found and abs(optimized_target) > NEAR_EDGE_REJECT_FRACTION * radius_us)
+                        if near_edge:
+                            self.logger.warning(
+                                f"Search for peak on dimension {dimension_name}: optimum at "
+                                f"{optimized_target:.3f}um is beyond {NEAR_EDGE_REJECT_FRACTION:.0%} of the "
+                                f"{radius_us:.3f}um search radius; the peak may be clipped by the scan window. "
+                                "Still moving there, but not using this position as a calibration reference."
+                            )
+
                         results['fitting information'][dimension_name] = {
                             'optimized parameters': list(popt) if popt is not None else None,
                             'parameter estimation error std dev': list(perr_std_dev) if perr_std_dev is not None else None,
                             'fitter message': str(fit_msg),
-                            'sfp decision': str(sfp_msg)}
+                            'sfp decision': str(sfp_msg),
+                            'peak found': bool(peak_found),
+                            'near search radius edge': near_edge}
 
                         # reset speed and acceleration to original
                         self.mover.speed_xy = v0
@@ -666,6 +617,27 @@ class PeakSearcher(Measurement):
                         # final move of fiber in this dimensions final decision
                         current_coordinates[dimidx] = optimized_target + p_start
                         self._move_stages_absolute(current_coordinates)
+
+                        # verify the move with a real measurement rather than trusting
+                        # the fit's prediction, and flag a net-negative outcome
+                        verified_through_power = max(self._read_averaged_power(power_averaging_time_s))
+                        results['fitting information'][dimension_name]['verified through power'] = verified_through_power
+                        results['fitting information'][dimension_name]['verification passed'] = bool(
+                            verified_through_power >= results['start through power'])
+                        if verified_through_power < results['start through power']:
+                            self.logger.warning(
+                                f"Search for peak on dimension {dimension_name}: verified power "
+                                f"{verified_through_power:.2f}dBm after the final move is WORSE than the "
+                                f"pass start power {results['start through power']:.2f}dBm "
+                                f"(fit estimated {estimated_through_power:.2f}dBm)."
+                            )
+                        else:
+                            self.logger.debug(
+                                f"Search for peak on dimension {dimension_name}: verified power "
+                                f"{verified_through_power:.2f}dBm after the final move "
+                                f"(fit estimated {estimated_through_power:.2f}dBm, "
+                                f"pass start was {results['start through power']:.2f}dBm)."
+                            )
 
         # close instruments
         self.instr_laser.close()
@@ -686,6 +658,28 @@ class PeakSearcher(Measurement):
         # save end result and return
         results['optimized location'] = current_coordinates.copy()
         results['optimized through power'] = estimated_through_power
+
+        # Summarise whether this search's end position is trustworthy enough to be
+        # reused as a chip-to-stage calibration reference point. Note 'fitting
+        # information' is keyed per dimension and overwritten by each enabled pass,
+        # so this reflects the state after the final pass on every dimension.
+        rejection_reasons = []
+        if not results['fitting information']:
+            rejection_reasons.append(
+                'no search pass ran (all passes disabled)')
+        for dimension_name, info in results['fitting information'].items():
+            if not info.get('peak found'):
+                rejection_reasons.append(
+                    f"{dimension_name}: no peak found ({info.get('sfp decision')})")
+            if info.get('near search radius edge'):
+                rejection_reasons.append(
+                    f"{dimension_name}: optimum at edge of search radius, fit may be clipped")
+            if not info.get('verification passed'):
+                rejection_reasons.append(
+                    f"{dimension_name}: verified power after the final move was worse than the pass start power")
+
+        results['search successful'] = not rejection_reasons
+        results['calibration rejection reasons'] = rejection_reasons
 
         return results
 
@@ -711,6 +705,96 @@ class PeakSearcher(Measurement):
                     StageCoordinate.from_list(coordinates + [rightz]))
             else:
                 raise RuntimeError()
+
+    def _get_current_coordinates(self) -> list:
+        """
+        Returns the current [Left X, Left Y, Right X, Right Y] (or [X, Y] for a
+        single-stage setup) stage coordinates, in the same ordering/slicing used
+        throughout search_for_peak().
+        """
+        _left = self.mover.left_calibration.get_position().to_list()[:2] if self.mover.left_calibration else []
+        _right = self.mover.right_calibration.get_position().to_list()[:2] if self.mover.right_calibration else []
+        return _left + _right
+
+    def test_backlash(self) -> dict:
+        """
+        Backlash / direction self-test for the X and Y stage axes (Z is never moved -
+        _move_stages_absolute always holds Z fixed at its current value).
+
+        For each axis, moves by 'Backlash Test: Amplitude' and back to the start
+        position 'Backlash Test: Number of reversals' times, reading back the actual
+        position after every move and comparing it to the commanded target. If the
+        stage driver's backlash compensation (or direction handling) is broken, this
+        shows up as a position error of roughly the mechanical backlash distance right
+        after a direction reversal. Always restores the exact starting position,
+        including if an error occurs partway through - safe to run on an
+        already-aligned setup.
+
+        Returns
+        -------
+        dict
+            Per-axis-name -> {'max_error_um': float, 'passed': bool}
+        """
+        if self.mover.left_calibration is None and self.mover.right_calibration is None:
+            raise RuntimeError("Backlash test requires at least one left or right stage configured.")
+
+        amplitude_um = self.parameters.get('Backlash Test: Amplitude').value
+        num_reversals = int(self.parameters.get('Backlash Test: Number of reversals').value)
+        tolerance_um = self.parameters.get('Backlash Test: Tolerance').value
+
+        dimension_names = (
+            self.DIMENSION_NAMES_TWO_STAGES
+            if self.mover.left_calibration and self.mover.right_calibration
+            else self.DIMENSION_NAMES_SINGLE_STAGE
+        )
+
+        test_results = {}
+
+        with self.mover.set_stages_coordinate_system(CoordinateSystem.STAGE):
+            start_coordinates = self._get_current_coordinates()
+            current_coordinates = start_coordinates.copy()
+            self.logger.info(f"Backlash test: starting at {start_coordinates}")
+
+            try:
+                for dimidx, p_start in enumerate(start_coordinates):
+                    dimension_name = dimension_names[dimidx]
+                    max_error = 0.0
+                    direction = 1
+                    for rev in range(num_reversals * 2):
+                        target = p_start + (amplitude_um if direction == 1 else 0.0)
+                        current_coordinates[dimidx] = target
+                        self._move_stages_absolute(current_coordinates)
+                        actual = self._get_current_coordinates()[dimidx]
+                        error = actual - target
+                        max_error = max(max_error, abs(error))
+                        self.logger.info(
+                            f"Backlash test [{dimension_name}] reversal {rev + 1}/{num_reversals * 2}: "
+                            f"target={target:.4f}um actual={actual:.4f}um error={error:+.4f}um"
+                        )
+                        direction *= -1
+
+                    # return this axis to its exact start before testing the next axis
+                    current_coordinates[dimidx] = p_start
+                    self._move_stages_absolute(current_coordinates)
+                    actual = self._get_current_coordinates()[dimidx]
+                    error = actual - p_start
+                    max_error = max(max_error, abs(error))
+
+                    passed = max_error <= tolerance_um
+                    test_results[dimension_name] = {'max_error_um': max_error, 'passed': passed}
+                    self.logger.info(
+                        f"Backlash test [{dimension_name}] finished: max error {max_error:.4f}um "
+                        f"(tolerance {tolerance_um}um) -> {'PASS' if passed else 'FAIL'}"
+                    )
+            finally:
+                # safety net: always try to restore the exact original position, even on error
+                self._move_stages_absolute(start_coordinates.copy())
+                final_coordinates = self._get_current_coordinates()
+                self.logger.info(
+                    f"Backlash test: restored position to {final_coordinates} (target was {start_coordinates})"
+                )
+
+        return test_results
 
     def update_params_from_savefile(self):
         if not os.path.isfile(self.settings_path_full):
