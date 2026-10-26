@@ -1,3 +1,9 @@
+## Unreleased
+
+* governance: LabExT is unmaintained and no versions are supported. Security patches, dependency updates, bug fixes, and compatibility updates are no longer provided.
+* documentation: added a prominent README warning and a security policy describing support and vulnerability reporting limitations. Existing source code, releases, and documentation remain available.
+* packaging: changed the package development status to inactive and prefixed its description with "UNMAINTAINED" for the next PyPI release.
+
 ## Version 2.3.1
 Released 2024-06-07
 
