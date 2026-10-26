@@ -1,5 +1,19 @@
 # LabExT - Laboratory Experiment Tool
 
+> **Project status: unmaintained**
+>
+> LabExT no longer has active maintainers. Security patches, dependency updates, bug fixes,
+> and compatibility updates are no longer provided. No version is currently supported.
+>
+> The source code, existing releases, and documentation remain available for existing users
+> and community forks. Issues and pull requests may receive no response.
+>
+> New deployments are discouraged. Organizations continuing to use LabExT should assess its
+> dependencies, security, and suitability for their laboratory environment, and arrange
+> their own maintenance. Community-maintained forks are welcome under the existing license.
+>
+> See the [security policy](SECURITY.md) for support and vulnerability reporting limitations.
+
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Documentation Status](https://readthedocs.org/projects/labext/badge/?version=latest)](https://labext.readthedocs.io/en/latest/?badge=latest)
 [![PyPI version](https://badge.fury.io/py/LabExT-pkg.svg)](https://pypi.org/project/LabExT-pkg/)
